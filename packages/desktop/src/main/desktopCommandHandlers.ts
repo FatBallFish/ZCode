@@ -23,6 +23,7 @@ import {
 import { readZCodeStdioTapDevState, setZCodeStdioTapDevEnabled } from "@zcode/services/node";
 import { showAboutDialog } from "./about.js";
 import { checkForUpdateMenuClick } from "./autoUpdater.js";
+import { DESKTOP_RELEASES_DOWNLOAD_URL } from "./desktopExternalLinks.js";
 import { exportLogs } from "./exportLogs.js";
 import { openResourceManager } from "./resourceManagerWindow.js";
 import { resolveCuaOsSupport } from "./cuaOsSupport.js";
@@ -360,7 +361,7 @@ function showZCodeEndpointPromptWindow(options: {
       resizable: false,
       minimizable: false,
       maximizable: false,
-      title: "ZCode Endpoint",
+      title: "Mikiko Endpoint",
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
@@ -451,8 +452,10 @@ function resolveChangelogUrl(
 ): string {
   // 帮助菜单里的外链以前只有固定英文地址，切到中文界面后仍会落到英文 changelog。
   // 这里统一收口到主进程按当前应用语言分流，避免菜单模板里手写分支后续再出现多处不一致。
-  const origin = buildZCodeEndpointUrls(endpointOrigin).origin;
-  return locale === "zh-CN" ? `${origin}/cn/changelog` : `${origin}/en/changelog`;
+  // Mikiko 阶段发布页/changelog/下载统一指向 GitHub Releases，与架构不匹配弹窗共用同一常量。
+  void locale;
+  void endpointOrigin;
+  return DESKTOP_RELEASES_DOWNLOAD_URL;
 }
 
 export async function openChangelog(
@@ -657,7 +660,7 @@ export async function executeDesktopCommand(options: {
       } catch (error) {
         await showMessageBoxWithOptionalParent(targetWindow, {
           type: "error",
-          title: "ZCode Endpoint",
+          title: "Mikiko Endpoint",
           message: "Endpoint 无效",
           detail: error instanceof Error ? error.message : String(error),
         });
