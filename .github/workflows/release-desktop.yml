@@ -106,6 +106,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # 重打 tag 重发时先清掉旧 Release 与资产（tag 保留，指向本次触发提交），保证发布内容幂等。
+          if gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "删除已存在的 Release ${GITHUB_REF_NAME}，重新发布"
+            gh release delete "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --yes
+          fi
           gh release create "${GITHUB_REF_NAME}" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "${GITHUB_REF_NAME#v}" \
