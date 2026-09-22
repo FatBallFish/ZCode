@@ -27,8 +27,8 @@ export const THEME_MODES: Array<{
   icon: typeof Sun;
 }> = [
   { mode: "system", icon: Monitor },
-  { mode: "zai-dark", icon: Moon },
-  { mode: "zai-light", icon: Sun },
+  { mode: "mikiko-dark", icon: Moon },
+  { mode: "mikiko-light", icon: Sun },
 ];
 
 type SettingsSectionGroupId = "basics" | "agentCapabilities" | "dataAndStats";
@@ -71,6 +71,12 @@ const BASE_SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     id: "modelProvider",
     icon: Package,
     titleId: "settings.modelProviderTitle",
+    groupId: "basics",
+  },
+  {
+    id: "sub2api",
+    icon: Globe2,
+    titleId: "settings.sub2api.title",
     groupId: "basics",
   },
   {

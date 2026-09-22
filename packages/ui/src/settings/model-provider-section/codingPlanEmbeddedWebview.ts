@@ -37,7 +37,7 @@ interface CodingPlanEmbeddedReportContext {
   app_version?: string;
 }
 
-export type CodingPlanEmbeddedTheme = "zai-light" | "zai-dark";
+export type CodingPlanEmbeddedTheme = "mikiko-light" | "mikiko-dark";
 
 /**
  * App locale（zh-CN / en-US）→ 官网 URL lang 段（cn / en）。
@@ -204,10 +204,10 @@ export function createCodingPlanAuthInjectionScript({
   return `(() => {
   ${storageUpdates}
   const zcodeTheme = ${JSON.stringify(theme)};
-  document.documentElement.classList.toggle("dark", zcodeTheme === "zai-dark");
-  document.documentElement.classList.toggle("theme-zai-light", zcodeTheme === "zai-light");
-  document.documentElement.classList.toggle("theme-zai-dark", zcodeTheme === "zai-dark");
-  localStorage.setItem("zcode-theme", zcodeTheme);
+  document.documentElement.classList.toggle("dark", zcodeTheme === "mikiko-dark");
+  document.documentElement.classList.toggle("theme-mikiko-light", zcodeTheme === "mikiko-light");
+  document.documentElement.classList.toggle("theme-mikiko-dark", zcodeTheme === "mikiko-dark");
+  localStorage.setItem("mikiko-theme", zcodeTheme);
   localStorage.setItem("zcode:coding-plan:embedded", "app");
   // 写入当前 App locale，供官网 zcodeBridge.getLang() 读取。
   // 注意：这是注入 webview 执行的原始 JS，不能用 TS 语法（如 as any）。
