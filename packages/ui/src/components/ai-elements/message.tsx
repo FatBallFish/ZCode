@@ -849,7 +849,7 @@ function resolveMessageCodeTheme(
       : codePreviewSettings.lightTheme;
   }
 
-  return theme === "dark" || theme === "zai-dark"
+  return theme === "dark" || theme === "mikiko-dark"
     ? codePreviewSettings.darkTheme
     : codePreviewSettings.lightTheme;
 }

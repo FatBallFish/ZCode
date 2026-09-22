@@ -1,0 +1,23 @@
+<svg width="436" height="360" viewBox="0 0 436 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g opacity="0.15" filter="url(#filter0_f_mikiko_m)">
+<path d="M96 288V72L218 202L340 72V288" stroke="url(#paint0_linear_mikiko_m)" stroke-width="72" stroke-linecap="square" stroke-linejoin="miter"/>
+</g>
+<path d="M96 288V72L218 202L340 72V288" stroke="url(#paint1_linear_mikiko_m)" stroke-width="72" stroke-linecap="square" stroke-linejoin="miter"/>
+<defs>
+<filter id="filter0_f_mikiko_m" x="52.6" y="28.6" width="330.8" height="302.8" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="1.2" result="effect1_foregroundBlur_mikiko_m"/>
+</filter>
+<linearGradient id="paint0_linear_mikiko_m" x1="217.97" y1="20.5" x2="217.97" y2="340.5" gradientUnits="userSpaceOnUse">
+<stop stop-color="#444444" stop-opacity="0.6"/>
+<stop offset="0.5" stop-color="#2A2A2A" stop-opacity="0.3"/>
+<stop offset="1" stop-color="#1A1A1A" stop-opacity="0.1"/>
+</linearGradient>
+<linearGradient id="paint1_linear_mikiko_m" x1="217.97" y1="20.5" x2="217.97" y2="340.5" gradientUnits="userSpaceOnUse">
+<stop stop-color="#444444" stop-opacity="0.6"/>
+<stop offset="0.5" stop-color="#2A2A2A" stop-opacity="0.3"/>
+<stop offset="1" stop-color="#1A1A1A" stop-opacity="0.1"/>
+</linearGradient>
+</defs>
+</svg>

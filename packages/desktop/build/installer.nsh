@@ -2,10 +2,10 @@
 !include FileFunc.nsh
 
 !ifndef ZCODE_INSTALLER_DEFAULT_LOG_PATH
-  !define ZCODE_INSTALLER_DEFAULT_LOG_PATH "$TEMP\ZCode-installer.log"
+  !define ZCODE_INSTALLER_DEFAULT_LOG_PATH "$TEMP\Mikiko-installer.log"
 !endif
 !ifndef ZCODE_INSTALLER_ELEVATED_LOG_PATH
-  !define ZCODE_INSTALLER_ELEVATED_LOG_PATH "$WINDIR\Logs\ZCode-installer.log"
+  !define ZCODE_INSTALLER_ELEVATED_LOG_PATH "$WINDIR\Logs\Mikiko-installer.log"
 !endif
 !ifndef ZCODE_INSTALLER_IS_ELEVATED_INNER
   ; 来源只在测试夹具模拟内层，正式默认恒假会让提权进程继续使用调用方 /LOG。
@@ -15,33 +15,33 @@
 !endif
 
 !ifndef ZCODE_INSTALL_MANIFEST_NAME
-  !define ZCODE_INSTALL_MANIFEST_NAME ".zcode-install-manifest"
+  !define ZCODE_INSTALL_MANIFEST_NAME ".mikiko-install-manifest"
 !endif
 
 !ifndef ZCODE_UNINSTALLER_LOG_PATH
-  !define ZCODE_UNINSTALLER_LOG_PATH "$TEMP\ZCode-uninstaller.log"
+  !define ZCODE_UNINSTALLER_LOG_PATH "$TEMP\Mikiko-uninstaller.log"
 !endif
 !ifndef ZCODE_UNINSTALLER_FUNCTION_PREFIX
   !define ZCODE_UNINSTALLER_FUNCTION_PREFIX "un."
 !endif
 
 !ifdef BUILD_UNINSTALLER
-  Var ZCodeUninstallerLogUnavailable
+  Var MikikoUninstallerLogUnavailable
 
   ; 卸载器只在更新时删除旧文件；单独记录清理阶段，避免外层把权限/空间错误误报成应用仍在运行。
-  !macro ZCodeReportUninstallerStage MESSAGE
-    DetailPrint "ZCode: ${MESSAGE}"
+  !macro MikikoReportUninstallerStage MESSAGE
+    DetailPrint "Mikiko: ${MESSAGE}"
     Push "${MESSAGE}"
-    Call ${ZCODE_UNINSTALLER_FUNCTION_PREFIX}ZCodeWriteUninstallerLog
+    Call ${ZCODE_UNINSTALLER_FUNCTION_PREFIX}MikikoWriteUninstallerLog
   !macroend
 
-  Function ${ZCODE_UNINSTALLER_FUNCTION_PREFIX}ZCodeWriteUninstallerLog
+  Function ${ZCODE_UNINSTALLER_FUNCTION_PREFIX}MikikoWriteUninstallerLog
     Exch $R9
     Push $R0
     Push $R1
     Push $R2
 
-    StrCmp $ZCodeUninstallerLogUnavailable "1" zcodeUninstallerLogDone
+    StrCmp $MikikoUninstallerLogUnavailable "1" zcodeUninstallerLogDone
     ClearErrors
     FileOpen $R1 "${ZCODE_UNINSTALLER_LOG_PATH}" a
     IfErrors zcodeUninstallerLogFailed zcodeUninstallerLogWrite
@@ -53,7 +53,7 @@
       Goto zcodeUninstallerLogDone
     zcodeUninstallerLogFailed:
       ; 日志不可写不应改变卸载结果，保留原始清理错误供外层处理。
-      StrCpy $ZCodeUninstallerLogUnavailable "1"
+      StrCpy $MikikoUninstallerLogUnavailable "1"
       ClearErrors
     zcodeUninstallerLogDone:
       Pop $R2
@@ -63,11 +63,11 @@
   FunctionEnd
 
   !macro customRemoveFilesDiagnosticsStart
-    !insertmacro ZCodeReportUninstallerStage "cleanup-started"
+    !insertmacro MikikoReportUninstallerStage "cleanup-started"
   !macroend
 
   !macro customRemoveFilesDiagnosticsComplete
-    !insertmacro ZCodeReportUninstallerStage "cleanup-completed"
+    !insertmacro MikikoReportUninstallerStage "cleanup-completed"
   !macroend
 !endif
 
@@ -102,7 +102,7 @@
 
       ; 当前版本卸载器与外层安装器是两个进程；逐项记录到卸载器日志，便于核对真正尝试删除的文件。
       !ifdef BUILD_UNINSTALLER
-        !insertmacro ZCodeReportUninstallerStage "cleanup-file path=$R1"
+        !insertmacro MikikoReportUninstallerStage "cleanup-file path=$R1"
       !endif
       ClearErrors
       Delete "$INSTDIR\$R1"
@@ -112,7 +112,7 @@
     zcodeManifestDeleteFailed:
       FileClose $R0
       !ifdef BUILD_UNINSTALLER
-        !insertmacro ZCodeReportUninstallerStage "cleanup-failed reason=permission-or-disk-space"
+        !insertmacro MikikoReportUninstallerStage "cleanup-failed reason=permission-or-disk-space"
       !endif
       Abort "无法删除旧版本文件：$INSTDIR\$R1"
 
@@ -123,7 +123,7 @@
     zcodeManifestMissing:
       ; 首次从旧版本升级时没有清单，不能猜测所有权并删除用户文件。
       !ifdef BUILD_UNINSTALLER
-        !insertmacro ZCodeReportUninstallerStage "cleanup-skipped reason=manifest-missing action=preserve"
+        !insertmacro MikikoReportUninstallerStage "cleanup-skipped reason=manifest-missing action=preserve"
       !endif
       ClearErrors
 
@@ -139,32 +139,32 @@
 !macroend
 
 !ifndef BUILD_UNINSTALLER
-  Var ZCodeInstallerLogPath
-  Var ZCodeInstallerLogUnavailable
-  Var ZCodeInstallerProcessRole
-  Var ZCodeUninstallerDetailsUnavailable
-  Var ZCodePreviousUninstallerSupportsManifest
+  Var MikikoInstallerLogPath
+  Var MikikoInstallerLogUnavailable
+  Var MikikoInstallerProcessRole
+  Var MikikoUninstallerDetailsUnavailable
+  Var MikikoPreviousUninstallerSupportsManifest
 
   ; 详情面板和文件日志共用同一条阶段事件，避免静默安装丢失关键上下文。
-  !macro ZCodeReportInstallerStage MESSAGE
+  !macro MikikoReportInstallerStage MESSAGE
     SetDetailsPrint listonly
-    DetailPrint "ZCode: ${MESSAGE}"
+    DetailPrint "Mikiko: ${MESSAGE}"
     Push "${MESSAGE}"
-    Call ZCodeWriteInstallerLog
+    Call MikikoWriteInstallerLog
   !macroend
 
-  Function ZCodeWriteInstallerLog
+  Function MikikoWriteInstallerLog
     Exch $R9
     Push $R0
     Push $R1
     Push $R2
 
-    StrCmp $ZCodeInstallerLogPath "" zcodeInstallerLogDone
-    StrCmp $ZCodeInstallerLogUnavailable "1" zcodeInstallerLogDone
+    StrCmp $MikikoInstallerLogPath "" zcodeInstallerLogDone
+    StrCmp $MikikoInstallerLogUnavailable "1" zcodeInstallerLogDone
     StrCpy $R2 0
     zcodeInstallerLogOpen:
       ClearErrors
-      FileOpen $R1 $ZCodeInstallerLogPath a
+      FileOpen $R1 $MikikoInstallerLogPath a
       IfErrors zcodeInstallerLogRetry zcodeInstallerLogWrite
     zcodeInstallerLogRetry:
       IntOp $R2 $R2 + 1
@@ -179,7 +179,7 @@
       FileClose $R1
       Goto zcodeInstallerLogDone
     zcodeInstallerLogFailed:
-      StrCpy $ZCodeInstallerLogUnavailable "1"
+      StrCpy $MikikoInstallerLogUnavailable "1"
       ClearErrors
     zcodeInstallerLogDone:
       Pop $R2
@@ -188,8 +188,8 @@
       Pop $R9
   FunctionEnd
 
-  Function ZCodeResetUninstallerLog
-    StrCpy $ZCodeUninstallerDetailsUnavailable ""
+  Function MikikoResetUninstallerLog
+    StrCpy $MikikoUninstallerDetailsUnavailable ""
     ClearErrors
     FileOpen $R0 "${ZCODE_UNINSTALLER_LOG_PATH}" w
     IfErrors zcodeUninstallerDetailsResetFailed zcodeUninstallerDetailsResetSucceeded
@@ -198,17 +198,17 @@
       Goto zcodeUninstallerDetailsResetDone
     zcodeUninstallerDetailsResetFailed:
       ; 外层详情不能读取旧卸载器日志时仍继续安装，文件日志和退出码仍是最终依据。
-      StrCpy $ZCodeUninstallerDetailsUnavailable "1"
+      StrCpy $MikikoUninstallerDetailsUnavailable "1"
       ClearErrors
     zcodeUninstallerDetailsResetDone:
   FunctionEnd
 
-  Function ZCodeShowUninstallerCleanupDetails
+  Function MikikoShowUninstallerCleanupDetails
     Push $R0
     Push $R1
     Push $R2
 
-    StrCmp $ZCodeUninstallerDetailsUnavailable "1" zcodeShowUninstallerDetailsDone
+    StrCmp $MikikoUninstallerDetailsUnavailable "1" zcodeShowUninstallerDetailsDone
     ClearErrors
     FileOpen $R0 "${ZCODE_UNINSTALLER_LOG_PATH}" r
     IfErrors zcodeShowUninstallerDetailsDone
@@ -218,7 +218,7 @@
       IfErrors zcodeShowUninstallerDetailsClose
       StrCmp $R1 "" zcodeShowUninstallerDetailsRead
       SetDetailsPrint listonly
-      DetailPrint "ZCode: cleanup-log $R1"
+      DetailPrint "Mikiko: cleanup-log $R1"
       Goto zcodeShowUninstallerDetailsRead
     zcodeShowUninstallerDetailsClose:
       FileClose $R0
@@ -229,62 +229,62 @@
   FunctionEnd
 
   !macro preInit
-    Call ZCodeInitializeInstallerLog
+    Call MikikoInitializeInstallerLog
   !macroend
 
   !macro customInit
     IfSilent zcodeInstallerInitSilent zcodeInstallerInitInteractive
     zcodeInstallerInitSilent:
-      !insertmacro ZCodeReportInstallerStage "installer-initialized mode=silent"
+      !insertmacro MikikoReportInstallerStage "installer-initialized mode=silent"
       Goto zcodeInstallerInitDone
     zcodeInstallerInitInteractive:
-      !insertmacro ZCodeReportInstallerStage "installer-initialized mode=interactive"
+      !insertmacro MikikoReportInstallerStage "installer-initialized mode=interactive"
     zcodeInstallerInitDone:
   !macroend
 
   ; 这些宏由打包时的 electron-builder installSection.nsh 补丁按安装顺序调用。
   ; 只有阶段 marker 写入详情和日志，解压文件明细由 NSIS 的 File 命令在 listonly 模式输出。
   !macro customInstallSectionStarted
-    !insertmacro ZCodeReportInstallerStage "install-started"
+    !insertmacro MikikoReportInstallerStage "install-started"
   !macroend
 
   !macro customInstallCleanupStarted
-    Call ZCodeResetUninstallerLog
-    !insertmacro ZCodeReportInstallerStage "cleanup-started"
+    Call MikikoResetUninstallerLog
+    !insertmacro MikikoReportInstallerStage "cleanup-started"
   !macroend
 
   !macro customInstallCleanupCompleted
-    !insertmacro ZCodeReportInstallerStage "cleanup-completed"
-    Call ZCodeShowUninstallerCleanupDetails
+    !insertmacro MikikoReportInstallerStage "cleanup-completed"
+    Call MikikoShowUninstallerCleanupDetails
   !macroend
 
   !macro customInstallExtractStarted
-    !insertmacro ZCodeReportInstallerStage "extract-started"
+    !insertmacro MikikoReportInstallerStage "extract-started"
   !macroend
 
   !macro customInstallExtractCompleted
-    !insertmacro ZCodeReportInstallerStage "extract-completed"
+    !insertmacro MikikoReportInstallerStage "extract-completed"
   !macroend
 
   !macro customInstallShortcutsStarted
-    !insertmacro ZCodeReportInstallerStage "shortcuts-started"
+    !insertmacro MikikoReportInstallerStage "shortcuts-started"
   !macroend
 
   !macro customInstallShortcutsCompleted
-    !insertmacro ZCodeReportInstallerStage "shortcuts-completed"
+    !insertmacro MikikoReportInstallerStage "shortcuts-completed"
   !macroend
 
-  Function ZCodeDetectPreviousUninstallerCapabilities
-    StrCpy $ZCodePreviousUninstallerSupportsManifest "0"
+  Function MikikoDetectPreviousUninstallerCapabilities
+    StrCpy $MikikoPreviousUninstallerSupportsManifest "0"
     ; manifest 是卸载器能力标记：存在即表示旧卸载器会按清单选择性删除。
     IfFileExists "$INSTDIR\${ZCODE_INSTALL_MANIFEST_NAME}" 0 zcodePreviousUninstallerCapabilityCheckNested
-      StrCpy $ZCodePreviousUninstallerSupportsManifest "1"
+      StrCpy $MikikoPreviousUninstallerSupportsManifest "1"
       Return
 
     zcodePreviousUninstallerCapabilityCheckNested:
       ; assisted installer 的目录页会在后续 instfilesPre 才补上 APP_FILENAME 子目录，提前兼容两种形态。
       IfFileExists "$INSTDIR\${APP_FILENAME}\${ZCODE_INSTALL_MANIFEST_NAME}" 0 zcodePreviousUninstallerCapabilityDone
-        StrCpy $ZCodePreviousUninstallerSupportsManifest "1"
+        StrCpy $MikikoPreviousUninstallerSupportsManifest "1"
 
     zcodePreviousUninstallerCapabilityDone:
   FunctionEnd
@@ -296,8 +296,8 @@
       ; 静默自动更新无人值守，未设置 /SD 的模态框会一直等待用户点击，
       ; 使明确的退出码无法返回 electron-updater。静默时自动采用 IDOK，交互时仍显示提示。
       SetDetailsPrint listonly
-      DetailPrint "ZCode: cleanup-failed exit-code=$R0"
-      Call ZCodeShowUninstallerCleanupDetails
+      DetailPrint "Mikiko: cleanup-failed exit-code=$R0"
+      Call MikikoShowUninstallerCleanupDetails
       MessageBox MB_OK|MB_ICONSTOP "旧版本清理失败（错误码 $R0）。可能是文件被占用、权限不足或磁盘空间不足。详细日志：${ZCODE_UNINSTALLER_LOG_PATH}" /SD IDOK
       SetErrorLevel 2
       Quit
@@ -317,32 +317,32 @@
   !ifndef BUILD_UNINSTALLER
     ; 异步生成的 header 可能先 include 本文件，再注册 UAC 插件目录。
     ; 在 customHeader 展开函数，确保插件已注册；preInit 仍调用同一函数和真实 UAC 判据。
-    Function ZCodeInitializeInstallerLog
+    Function MikikoInitializeInstallerLog
       Push $R0
       Push $R1
       Push $R2
-      StrCpy $ZCodeInstallerLogUnavailable ""
+      StrCpy $MikikoInstallerLogUnavailable ""
       ${If} ${ZCODE_INSTALLER_IS_ELEVATED_INNER}
-        StrCpy $ZCodeInstallerProcessRole "elevated-inner"
-        StrCpy $ZCodeInstallerLogPath "${ZCODE_INSTALLER_ELEVATED_LOG_PATH}"
+        StrCpy $MikikoInstallerProcessRole "elevated-inner"
+        StrCpy $MikikoInstallerLogPath "${ZCODE_INSTALLER_ELEVATED_LOG_PATH}"
       ${Else}
-        StrCpy $ZCodeInstallerProcessRole "outer"
+        StrCpy $MikikoInstallerProcessRole "outer"
         StrCpy $R0 $CMDLINE
         ClearErrors
         ${GetOptions} $R0 "/LOG=" $R1
         IfErrors zcodeInstallerLogUseDefault
         StrCmp $R1 "" zcodeInstallerLogUseDefault
-        StrCpy $ZCodeInstallerLogPath $R1
+        StrCpy $MikikoInstallerLogPath $R1
         Goto zcodeInstallerLogPathReady
         zcodeInstallerLogUseDefault:
-          StrCpy $ZCodeInstallerLogPath "${ZCODE_INSTALLER_DEFAULT_LOG_PATH}"
+          StrCpy $MikikoInstallerLogPath "${ZCODE_INSTALLER_DEFAULT_LOG_PATH}"
         zcodeInstallerLogPathReady:
-          ${GetParent} $ZCodeInstallerLogPath $R2
+          ${GetParent} $MikikoInstallerLogPath $R2
           StrCmp $R2 "" zcodeInstallerLogInitialized
           CreateDirectory "$R2"
       ${EndIf}
       zcodeInstallerLogInitialized:
-        !insertmacro ZCodeReportInstallerStage "installer-process-started role=$ZCodeInstallerProcessRole"
+        !insertmacro MikikoReportInstallerStage "installer-process-started role=$MikikoInstallerProcessRole"
       Pop $R2
       Pop $R1
       Pop $R0
@@ -364,7 +364,7 @@
 !ifndef BUILD_UNINSTALLER
   ; electron-builder 会先编译卸载器，但快捷方式目标读取只在安装更新流程中调用。
   ; 若把函数带入卸载器，NSIS 会产生 6010 未引用告警，并在 /WX 下直接中断 Windows CI。
-  Function ZCodeReadShortcutTarget
+  Function MikikoReadShortcutTarget
     Exch $R9
     Push $R1
     Push $R2
@@ -388,10 +388,10 @@
   FunctionEnd
 !endif
 
-!macro ZCodeRepairShortcutIfNeeded SHORTCUT_PATH LABEL_PREFIX
+!macro MikikoRepairShortcutIfNeeded SHORTCUT_PATH LABEL_PREFIX
   ${if} ${FileExists} "${SHORTCUT_PATH}"
     Push "${SHORTCUT_PATH}"
-    Call ZCodeReadShortcutTarget
+    Call MikikoReadShortcutTarget
     Pop $R0
     StrCmp $R0 "$appExe" ${LABEL_PREFIX}Done 0
 
@@ -414,16 +414,16 @@
 
 !macro customInstall
   !ifndef BUILD_UNINSTALLER
-    !insertmacro ZCodeReportInstallerStage "install-finalization-started"
+    !insertmacro MikikoReportInstallerStage "install-finalization-started"
   !endif
   ${if} ${isUpdated}
   ${orIf} $keepShortcuts == "true"
     !ifndef DO_NOT_CREATE_START_MENU_SHORTCUT
-      !insertmacro ZCodeRepairShortcutIfNeeded "$newStartMenuLink" zcodeStartMenuShortcutRepair
+      !insertmacro MikikoRepairShortcutIfNeeded "$newStartMenuLink" zcodeStartMenuShortcutRepair
     !endif
 
     !ifndef DO_NOT_CREATE_DESKTOP_SHORTCUT
-      !insertmacro ZCodeRepairShortcutIfNeeded "$newDesktopLink" zcodeDesktopShortcutRepair
+      !insertmacro MikikoRepairShortcutIfNeeded "$newDesktopLink" zcodeDesktopShortcutRepair
     !endif
   ${endIf}
 
@@ -432,12 +432,12 @@
   ; assisted installer 完成页始终直接运行本次安装落盘的 exe。
   StrCpy $launchLink "$appExe"
   !ifndef BUILD_UNINSTALLER
-    !insertmacro ZCodeReportInstallerStage "install-completed"
+    !insertmacro MikikoReportInstallerStage "install-completed"
   !endif
 !macroend
 
 !macro customPageAfterChangeDir
-  Function ZCodeResizeInstallDirBackButton
+  Function MikikoResizeInstallDirBackButton
     GetDlgItem $1 $HWNDPARENT 3
     StrCmp $1 0 zcodeResizeInstallDirBackButtonDone 0
 
@@ -461,18 +461,18 @@
     zcodeResizeInstallDirBackButtonDone:
   FunctionEnd
 
-  Function ZCodeFindNestedDataDir
+  Function MikikoFindNestedDataDir
     Exch $R9
     Push $0
     Push $1
 
     StrCpy $R2 ""
 
-    IfFileExists "$R9\.zcode\*.*" 0 +2
-      StrCpy $R2 "$R9\.zcode"
+    IfFileExists "$R9\.mikiko\*.*" 0 +2
+      StrCpy $R2 "$R9\.mikiko"
     StrCmp $R2 "" 0 zcodeFindNestedDataDirDone
-    IfFileExists "$R9\.zcode" 0 zcodeFindNestedDataDirListChildren
-      StrCpy $R2 "$R9\.zcode"
+    IfFileExists "$R9\.mikiko" 0 zcodeFindNestedDataDirListChildren
+      StrCpy $R2 "$R9\.mikiko"
     StrCmp $R2 "" 0 zcodeFindNestedDataDirDone
 
     zcodeFindNestedDataDirListChildren:
@@ -485,7 +485,7 @@
       StrCmp $1 ".." zcodeFindNestedDataDirContinue
       IfFileExists "$R9\$1\*.*" 0 zcodeFindNestedDataDirContinue
         Push "$R9\$1"
-        Call ZCodeFindNestedDataDir
+        Call MikikoFindNestedDataDir
         StrCmp $R2 "" zcodeFindNestedDataDirContinue zcodeFindNestedDataDirClose
 
     zcodeFindNestedDataDirContinue:
@@ -502,11 +502,11 @@
       Pop $R9
   FunctionEnd
 
-  Function ZCodeBlockInstallDirContainsData
-    Call ZCodeDetectPreviousUninstallerCapabilities
-    StrCmp $ZCodePreviousUninstallerSupportsManifest "1" zcodeInstallDirDataBlockSkip
+  Function MikikoBlockInstallDirContainsData
+    Call MikikoDetectPreviousUninstallerCapabilities
+    StrCmp $MikikoPreviousUninstallerSupportsManifest "1" zcodeInstallDirDataBlockSkip
 
-    ;  用户可能把数据存储目录放进安装目录，Windows 更新覆盖安装目录时会清掉 .zcode。
+    ;  用户可能把数据存储目录放进安装目录，Windows 更新覆盖安装目录时会清掉 .mikiko。
     ; assisted installer 会把不含应用名的选择目录补成 "$INSTDIR\${APP_FILENAME}"，所以这里按相同规则计算最终安装目录。
     ${StrContains} $R1 "${APP_FILENAME}" "$INSTDIR"
     StrCmp $R1 "" 0 zcodeInstallDirDataBlockUseSelectedDir
@@ -517,21 +517,21 @@
       StrCpy $R0 "$INSTDIR"
 
     zcodeInstallDirDataBlockCheckDir:
-      ; 旧阻断只检查最终安装目录直属的 .zcode，漏掉 data\.zcode 等子目录数据。
-      ; 安装器覆盖安装时会管理整个安装目录树，递归命中任意 .zcode 都必须阻断。
+      ; 旧阻断只检查最终安装目录直属的 .mikiko，漏掉 data\.mikiko 等子目录数据。
+      ; 安装器覆盖安装时会管理整个安装目录树，递归命中任意 .mikiko 都必须阻断。
       Push "$R0"
-      Call ZCodeFindNestedDataDir
+      Call MikikoFindNestedDataDir
       StrCmp $R2 "" zcodeInstallDirDataBlockSkip zcodeInstallDirDataBlockFound
 
     zcodeInstallDirDataBlockFound:
       IfSilent zcodeInstallDirDataBlockSilent
 
-      !insertmacro MUI_HEADER_TEXT "需要修改安装目录" "当前安装目录或其子目录包含 ZCode 数据目录"
+      !insertmacro MUI_HEADER_TEXT "需要修改安装目录" "当前安装目录或其子目录包含 Mikiko 数据目录"
       nsDialogs::Create 1018
       Pop $0
       StrCmp $0 error zcodeInstallDirDataBlockDialogFailed 0
 
-      ${NSD_CreateLabel} 0u 0u 300u 44u "检测到该安装目录或其子目录中存在 .zcode 数据目录：$\r$\n$R2"
+      ${NSD_CreateLabel} 0u 0u 300u 44u "检测到该安装目录或其子目录中存在 .mikiko 数据目录：$\r$\n$R2"
       Pop $1
       ${NSD_CreateLabel} 0u 54u 300u 70u "为避免历史会话和配置被安装器清理，请返回上一步选择其他安装目录。$\r$\n$\r$\n当前目录不能继续安装。"
       Pop $1
@@ -541,13 +541,13 @@
       GetDlgItem $1 $HWNDPARENT 3
       EnableWindow $1 1
       SendMessage $1 ${WM_SETTEXT} 0 "STR:重选目录"
-      Call ZCodeResizeInstallDirBackButton
+      Call MikikoResizeInstallDirBackButton
 
       nsDialogs::Show
       Return
 
     zcodeInstallDirDataBlockDialogFailed:
-      MessageBox MB_OK|MB_ICONSTOP "检测到安装目录或其子目录中存在 .zcode 数据目录，安装已停止。请重新运行安装器并选择其他安装目录。"
+      MessageBox MB_OK|MB_ICONSTOP "检测到安装目录或其子目录中存在 .mikiko 数据目录，安装已停止。请重新运行安装器并选择其他安装目录。"
       SetErrorLevel 1
       Quit
 
@@ -559,11 +559,11 @@
       Abort
   FunctionEnd
 
-  Function ZCodeBlockInstallDirContainsDataLeave
+  Function MikikoBlockInstallDirContainsDataLeave
     ; 阻断页的下一步按钮已禁用，但自动化或系统快捷键仍可能触发下一页。
     ; leave 回调只处理继续前进的路径，这里强制留在当前页，确保用户只能返回修改安装目录。
     Abort
   FunctionEnd
 
-  Page custom ZCodeBlockInstallDirContainsData ZCodeBlockInstallDirContainsDataLeave
+  Page custom MikikoBlockInstallDirContainsData MikikoBlockInstallDirContainsDataLeave
 !macroend

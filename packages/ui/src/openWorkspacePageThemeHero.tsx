@@ -27,7 +27,7 @@ function getThemeHeroPalette(theme: Theme): ThemeHeroPalette {
         heading: "text-slate-900",
         description: "text-slate-700/80",
       };
-    case "zai-light":
+    case "mikiko-light":
       return {
         meshBase: "#f8f8f8",
         meshLight: "#80beff",
@@ -38,7 +38,7 @@ function getThemeHeroPalette(theme: Theme): ThemeHeroPalette {
         heading: "text-[#0D0D0D]",
         description: "text-[#5C5C5C]",
       };
-    case "zai-dark":
+    case "mikiko-dark":
       return {
         meshBase: "#001d3d",
         meshLight: "#80beff",

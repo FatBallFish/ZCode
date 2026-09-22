@@ -458,7 +458,7 @@ body {
   --color-plugin-paid-plan-badge-foreground: #ffd8b8;
 }
 
-.theme-zai-light {
+.theme-mikiko-light {
   --animated-gradient-text-strong: rgba(13, 13, 13, 1);
   --animated-gradient-text-soft: rgba(13, 13, 13, 0.22);
   --color-background: #f8f8f8;
@@ -603,7 +603,7 @@ body {
   --color-plugin-paid-plan-badge-foreground: #4b280f;
 }
 
-.theme-zai-dark {
+.theme-mikiko-dark {
   --animated-gradient-text-strong: rgba(255, 255, 255, 1);
   --animated-gradient-text-soft: rgba(255, 255, 255, 0.22);
   --color-background: #161616;

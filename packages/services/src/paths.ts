@@ -33,7 +33,8 @@ export function setDataBaseDir(dir: string | null): void {
 /** Get the current base directory. Priority: setDataBaseDir() > env ZCODE_DATA_BASE_DIR > homedir(). */
 export function getDataBaseDir(): string {
   if (_dataBaseDir) return _dataBaseDir;
-  if (envDataBaseDir) return envDataBaseDir;
+  // 宿主可能传入已含 .mikiko 的完整数据根；再拼后缀会产生 ~/.mikiko/.mikiko 双嵌套。
+  if (envDataBaseDir) return envDataBaseDir.replace(/\/\.mikiko$/, "");
   // 服务实例会启动后台刷新任务；若每次调用都动态读取 HOME，
   // 测试或宿主切换环境变量后，旧实例可能把数据写到新实例目录。
   return defaultDataBaseDir;
@@ -41,7 +42,7 @@ export function getDataBaseDir(): string {
 
 /** {dataBaseDir}/.zcode */
 export function getZCodeDataRootDir(): string {
-  return join(getDataBaseDir(), ".zcode");
+  return join(getDataBaseDir(), ".mikiko");
 }
 
 /** 非项目对话共享的真实工作目录；默认 ~/.zcode/workspace/default。 */
@@ -113,6 +114,11 @@ function collectWindowsForbiddenAppInstallDirs(
   const candidates = [
     options.appInstallDir,
     readEnvValue(env, ZCODE_WINDOWS_APP_INSTALL_DIR_ENV),
+    programFiles ? win32.join(programFiles, "Mikiko") : null,
+    programFilesX86 ? win32.join(programFilesX86, "Mikiko") : null,
+    programW6432 ? win32.join(programW6432, "Mikiko") : null,
+    localAppData ? win32.join(localAppData, "Programs", "Mikiko") : null,
+    // 旧版 ZCode 与 Mikiko 可能并存，数据根同样不允许放进旧安装目录。
     programFiles ? win32.join(programFiles, "ZCode") : null,
     programFilesX86 ? win32.join(programFilesX86, "ZCode") : null,
     programW6432 ? win32.join(programW6432, "ZCode") : null,
@@ -229,8 +235,8 @@ export function getLegacyDeletedTaskSessionSnapshotPath(
  * state must only live at the default homedir location.
  */
 export async function copyDataDirectory(oldBaseDir: string, newBaseDir: string): Promise<void> {
-  const oldDir = join(oldBaseDir, ".zcode", "v2");
-  const newDir = join(newBaseDir, ".zcode", "v2");
+  const oldDir = join(oldBaseDir, ".mikiko", "v2");
+  const newDir = join(newBaseDir, ".mikiko", "v2");
   await cp(oldDir, newDir, {
     recursive: true,
     force: false,

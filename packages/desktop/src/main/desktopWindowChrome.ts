@@ -174,7 +174,7 @@ export function applyAppIcon(iconPath: string) {
 
   // TypeScript 不会因为 process.platform === "darwin" 自动收窄 app.dock。
   // app.dock 的类型在定义上仍然可能是 undefined，直接调用会持续报 ts(18048)。
-  // 这里把平台判断和空值判断合并，既符合运行时语义，也让类型系统明确知道 Dock 一定存在。
+  // macOS 专用安全区由入口装配并随包发布；这里直接消费该路径，避免探测不存在的旁路资源后静默回退。
   const dockIcon = nativeImage.createFromPath(iconPath);
   if (!dockIcon.isEmpty()) {
     app.dock.setIcon(dockIcon);

@@ -1,5 +1,6 @@
 import type { IPlatformService, UpdateStatePayload } from "@zcode/shared";
 import { cn } from "@/components/lib/utils.js";
+import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -35,7 +36,6 @@ interface DesktopTopOverlayProps {
   canGoBack: boolean;
   canGoForward: boolean;
   showNewTaskButton?: boolean;
-  appLogoUrl: string;
   platform: IPlatformService;
   onToggleSidebar: () => void;
   onCreateTask: () => void;
@@ -65,7 +65,6 @@ export function DesktopTopOverlay({
   canGoBack: _canGoBack,
   canGoForward: _canGoForward,
   showNewTaskButton,
-  appLogoUrl,
   platform,
   onToggleSidebar,
   onCreateTask,
@@ -139,12 +138,7 @@ export function DesktopTopOverlay({
               buttonClassName="group relative overflow-hidden rounded-lg"
               onClick={onToggleSidebar}
             >
-              <img
-                src={appLogoUrl}
-                alt="ZCode"
-                className="size-5 transition-opacity duration-150 group-hover:opacity-0"
-                draggable={false}
-              />
+              <ZCodeAboutLogo className="size-5 transition-opacity duration-150 group-hover:opacity-0" />
               <SidebarToggleIcon className="absolute inset-0 m-auto size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
             </DesktopTopOverlayActionButton>
           )}

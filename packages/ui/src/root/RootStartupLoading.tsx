@@ -43,10 +43,10 @@ function ZCodeStartupLogo({
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="118"
+      width="100"
       height="100"
       fill="none"
-      viewBox="0 0 256 218"
+      viewBox="0 0 64 64"
       className={cn("shrink-0 text-current", className)}
       aria-hidden="true"
       focusable="false"
@@ -61,13 +61,11 @@ function ZCodeStartupLogo({
         />
       ) : null}
       <path
-        fill="currentColor"
-        d="M134.4 0.130152L116.48 25.6022C113.665 29.5699 109.054 32.0019 104.064 32.0019H6.3999V0C6.3999 0.130149 134.4 0.130152 134.4 0.130152Z"
-      />
-      <path fill="currentColor" d="M256 0.130127L102.401 217.732H0L153.599 0.130127H256Z" />
-      <path
-        fill="currentColor"
-        d="M121.601 217.732L139.65 192.134C142.465 188.166 147.076 185.734 152.067 185.734H249.604V217.736H121.601V217.732Z"
+        d="M17 47V17l15 16 15-16v30"
+        stroke="currentColor"
+        strokeWidth="7"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
       />
     </svg>
   );

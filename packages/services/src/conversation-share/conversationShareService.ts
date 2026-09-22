@@ -727,7 +727,7 @@ export class ConversationShareService implements IConversationShareService {
       process.env.ZCODE_CONVERSATION_SHARE_WEB_URL ??
       `${resolveRuntimeZCodeEndpointOrigin(process.env)}/cn/share`
     ).replace(/\/+$/u, "");
-    this.importIndexPath = join(this.conversationWorkspaceRoot, ".zcode-share-imports.json");
+    this.importIndexPath = join(this.conversationWorkspaceRoot, ".mikiko-share-imports.json");
     this.logger = options.logger ?? createServiceLogger("conversation-share");
     this.completedImportsLoaded = this.loadCompletedImportIndex();
     if (this.zcodeSessionService) {
@@ -1387,9 +1387,9 @@ export class ConversationShareService implements IConversationShareService {
         : this.conversationWorkspaceRoot;
     const workspaceIdentity =
       input.targetWorkspaceIdentity && !remoteTarget ? input.targetWorkspaceIdentity : undefined;
-    const shareRoot = join(workspacePath, ".zcode-share");
+    const shareRoot = join(workspacePath, ".mikiko-share");
     const importRoot = join(shareRoot, sanitizeFileSegment(continuation.share.share_id));
-    const markerPath = join(importRoot, ".zcode-share-import.json");
+    const markerPath = join(importRoot, ".mikiko-share-import.json");
     const stagingPath = join(importRoot, ".share-import-staging");
     const finalArtifactsPath = join(importRoot, "shared-artifacts");
     const conversationPath = join(importRoot, "shared-conversation.json");
@@ -1714,7 +1714,7 @@ export class ConversationShareService implements IConversationShareService {
     workspacePath: string;
     contextId: string;
   }): Promise<ImportedConversationShare | null> {
-    const shareRoot = join(input.workspacePath, ".zcode-share");
+    const shareRoot = join(input.workspacePath, ".mikiko-share");
     let entries: Dirent[];
     try {
       entries = await readdir(shareRoot, { withFileTypes: true });
@@ -2168,12 +2168,12 @@ export class ConversationShareService implements IConversationShareService {
     await this.completedImportsLoaded;
     // 只扫描默认 conversation workspace 的 import-owned 子目录；其它 workspace 的 marker
     // 在下一次带 target 的导入请求中处理，避免启动期枚举并触碰用户项目目录。
-    const shareRoot = join(this.conversationWorkspaceRoot, ".zcode-share");
+    const shareRoot = join(this.conversationWorkspaceRoot, ".mikiko-share");
     const imports = await readdir(shareRoot, { withFileTypes: true }).catch(() => []);
     for (const entry of imports) {
       if (!entry.isDirectory()) continue;
       const importRoot = join(shareRoot, entry.name);
-      const markerPath = join(importRoot, ".zcode-share-import.json");
+      const markerPath = join(importRoot, ".mikiko-share-import.json");
       let marker: {
         sessionId?: unknown;
         shareCode?: unknown;

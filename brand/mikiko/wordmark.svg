@@ -1,0 +1,18 @@
+<svg viewBox="-3 -3 128 34" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MIKIKO">
+  <!-- Mikiko 字标：几何构成派，全部笔画为等宽直线/正圆（stroke 5，方头端点），
+       与图形标、App 图标同一设计语言。fill 由 currentColor 控制。 -->
+  <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="square">
+    <!-- M（宽 22） -->
+    <path d="M0 28V0l11 12 11-12v28"/>
+    <!-- I -->
+    <path d="M29 0v28"/>
+    <!-- K（宽 19） -->
+    <path d="M36 0v28M55 0 36 14l19 14"/>
+    <!-- I -->
+    <path d="M62 0v28"/>
+    <!-- K -->
+    <path d="M69 0v28M88 0 69 14l19 14"/>
+    <!-- O（正圆，外径 24） -->
+    <circle cx="107" cy="14" r="9.5"/>
+  </g>
+</svg>

@@ -2,6 +2,7 @@
 import type { Locale, UserInfo } from "@zcode/shared";
 import { memo, useCallback, useEffect, useState } from "react";
 import {
+  testId,
   DesktopCommandIds,
   TID_LOGIN_MENU_ITEM,
   TID_LOGIN_TRIGGER,
@@ -26,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.js";
 import {
+  BarChart3Icon,
   PencilRuler,
   Globe,
   Loader2,
@@ -40,6 +42,10 @@ import {
 } from "lucide-react";
 import { usePlatform } from "@/hooks/usePlatform.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { ISub2ApiService } from "@zcode/services";
+import type { Sub2ApiSitesState } from "@zcode/services";
+import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
+import { setPendingSettingsUsageIntent } from "@/lib/settingsNavigation.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 import { useZCodeStore } from "@/store/StoreProvider.js";
 import { normalizeInterfaceMode } from "@/lib/interfaceMode.js";
@@ -65,7 +71,7 @@ function getSidebarProfileName(user?: UserInfo | null): string {
     return username;
   }
 
-  return "ZCode";
+  return "Mikiko";
 }
 
 function getSidebarProfileBadge(
@@ -131,8 +137,40 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
   const zoomOutShortcutLabel = useShortcutCommandLabel("zoomOut");
   const resetZoomShortcutLabel = useShortcutCommandLabel("resetZoom");
   const isRestoringOAuthSession = useZCodeStore((state) => state.isRestoringOAuthSession);
+  // 中转站账号：仅在无智谱 OAuth 登录态时作为身份展示源（邮箱 + 余额）。
+  const baseServices = useBaseWorkspaceServices();
+  const sub2ApiService = baseServices?.sub2ApiService as ISub2ApiService | undefined;
+  const [sub2ApiSites, setSub2ApiSites] = useState<Sub2ApiSitesState | null>(null);
+  useEffect(() => {
+    if (!sub2ApiService) {
+      return;
+    }
+    void sub2ApiService.getSites().then(setSub2ApiSites);
+    const disposable = sub2ApiService.onDidChange(setSub2ApiSites);
+    return () => disposable.dispose();
+  }, [sub2ApiService]);
+  const sub2ApiAuthedSites = (sub2ApiSites?.sites ?? []).filter(
+    (site) => site.account && site.enabled !== false,
+  );
+  // 账号切换器：在中转站多账号间切换展示（仅切换展示，不做退登，后台 token 续期不受影响）。
+  const [selectedRelaySiteId, setSelectedRelaySiteId] = useState<string | null>(null);
+  // 账号显示源切换：点击菜单中的中转站账号后主体展示该站点（不影响任何登录态与
+  // 后台 token 续期）；未选择时无 OAuth 才回退显示首个中转站。
+  const sub2ApiAccountSite =
+    sub2ApiAuthedSites.find((site) => site.siteId === selectedRelaySiteId) ??
+    (user ? null : (sub2ApiAuthedSites[0] ?? null));
   const profileBadge = getSidebarProfileBadge(user, intl.formatMessage);
-  const avatarFallbackText = getAvatarFallbackText(user);
+  const profileBadgeOverride = sub2ApiAccountSite?.account?.email ?? profileBadge;
+  const profileSubtitle =
+    sub2ApiAccountSite?.account && typeof sub2ApiAccountSite.account.balanceUsd === "number"
+      ? `$${sub2ApiAccountSite.account.balanceUsd.toFixed(2)}`
+      : null;
+  const avatarFallbackText = getAvatarFallbackText(
+    user ??
+      (sub2ApiAccountSite?.account
+        ? ({ username: sub2ApiAccountSite.account.email } as UserInfo)
+        : null),
+  );
   const avatarKey = user?.avatarUrl ?? user?.id ?? "guest";
   const showAuthRestoreLoading = !user && isRestoringOAuthSession;
   const usageSummaryState = useWorkspaceSidebarFooterUsageSummaryState({
@@ -163,10 +201,13 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
       <div className="min-w-0 flex-1 overflow-hidden text-left">
         <div className="flex min-w-0 items-center gap-1.5">
           <span className="min-w-0 truncate text-ui-base font-semibold text-foreground">
-            {profileBadge}
+            {profileBadgeOverride}
           </span>
           {user ? <WorkspaceSidebarFooterPlanBadge state={usageSummaryState} /> : null}
         </div>
+        {profileSubtitle ? (
+          <div className="truncate text-ui-sm text-muted-foreground">{profileSubtitle}</div>
+        ) : null}
       </div>
     </>
   );
@@ -273,14 +314,14 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
                       id: "sidebar.settings.systemDefault",
                     })}
                   </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="zai-dark">
+                  <DropdownMenuRadioItem value="mikiko-dark">
                     {intl.formatMessage({
-                      id: "sidebar.settings.theme.zai-dark",
+                      id: "sidebar.settings.theme.mikiko-dark",
                     })}
                   </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="zai-light">
+                  <DropdownMenuRadioItem value="mikiko-light">
                     {intl.formatMessage({
-                      id: "sidebar.settings.theme.zai-light",
+                      id: "sidebar.settings.theme.mikiko-light",
                     })}
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
@@ -343,13 +384,64 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
             ) : null}
-            {/* 升级入口状态不再以菜单开关为生命周期边界。*/}
-            <WorkspaceSidebarFooterUsageSummaryContent
-              state={usageSummaryState}
-              onUsageClick={usageButtonClick}
-              onUpgradeClick={onUpgradeClick}
-            />
-            {onLogin && !user ? (
+            {sub2ApiAuthedSites.length > 0 ? (
+              <>
+                <DropdownMenuSeparator />
+                {sub2ApiAuthedSites.map((site) => {
+                  const selected = site.siteId === sub2ApiAccountSite?.siteId;
+                  return (
+                    <DropdownMenuItem
+                      key={site.siteId}
+                      data-testid={testId("sidebar-relay-account", site.siteId)}
+                      onSelect={() => {
+                        setSelectedRelaySiteId(site.siteId);
+                      }}
+                    >
+                      <span className="flex size-4 items-center justify-center rounded-full bg-primary/10 text-ui-xs font-semibold text-primary">
+                        {(site.siteName ?? "S").slice(0, 1)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{site.siteName ?? site.panelBaseUrl}</span>
+                        <span className="block truncate text-ui-xs text-muted-foreground">
+                          {site.account?.email}
+                          {typeof site.account?.balanceUsd === "number"
+                            ? ` · $${site.account.balanceUsd.toFixed(2)}`
+                            : ""}
+                        </span>
+                      </span>
+                      {selected ? (
+                        <span
+                          className="size-2 shrink-0 rounded-full bg-primary"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </>
+            ) : null}
+            {sub2ApiAccountSite ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  data-testid="sidebar-sub2api-usage-button"
+                  onSelect={() => {
+                    setPendingSettingsUsageIntent();
+                    usageButtonClick?.();
+                  }}
+                >
+                  <BarChart3Icon className="size-4" />
+                  {intl.formatMessage({ id: "sidebar.usage.plan.openStats" })}
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <WorkspaceSidebarFooterUsageSummaryContent
+                state={usageSummaryState}
+                onUsageClick={usageButtonClick}
+                onUpgradeClick={onUpgradeClick}
+              />
+            )}
+            {onLogin && !user && !sub2ApiAccountSite ? (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={onLogin} data-testid={TID_LOGIN_MENU_ITEM}>
@@ -358,7 +450,25 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
                 </DropdownMenuItem>
               </>
             ) : null}
-            {onLogout ? (
+            {sub2ApiAccountSite ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  data-testid={TID_LOGOUT_BUTTON}
+                  onSelect={() => {
+                    // 展示的是中转站账号时，退出该站点并自动切换到下一个仍在登录的账号。
+                    const remaining = sub2ApiAuthedSites.filter(
+                      (site) => site.siteId !== sub2ApiAccountSite.siteId,
+                    );
+                    setSelectedRelaySiteId(remaining[0]?.siteId ?? null);
+                    void sub2ApiService?.logout(sub2ApiAccountSite.siteId);
+                  }}
+                >
+                  <LogOut className="size-4" />
+                  {intl.formatMessage({ id: "app.logout" })}
+                </DropdownMenuItem>
+              </>
+            ) : onLogout ? (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={onLogout} data-testid={TID_LOGOUT_BUTTON}>
