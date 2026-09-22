@@ -75,28 +75,28 @@ function registerE2EStoreBridgesIfEnabled() {
 
 // 初始化主题：默认 Zai dark，后续由 useTheme hook 接管
 {
-  const saved = localStorage.getItem("zcode-theme") || "zai-dark";
+  const saved = localStorage.getItem("zcode-theme") || "mikiko-dark";
   const resolved =
     saved === "system"
       ? window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light"
-      : saved === "dark" || saved === "zai-dark"
+      : saved === "dark" || saved === "mikiko-dark"
         ? "dark"
         : "light";
   const appliedTheme =
     saved === "system"
       ? resolved === "dark"
-        ? "zai-dark"
-        : "zai-light"
+        ? "mikiko-dark"
+        : "mikiko-light"
       : saved === "dark"
-        ? "zai-dark"
+        ? "mikiko-dark"
         : saved === "light"
-          ? "zai-light"
+          ? "mikiko-light"
           : saved;
   if (resolved === "dark") document.documentElement.classList.add("dark");
-  document.documentElement.classList.toggle("theme-zai-light", appliedTheme === "zai-light");
-  document.documentElement.classList.toggle("theme-zai-dark", appliedTheme === "zai-dark");
+  document.documentElement.classList.toggle("theme-mikiko-light", appliedTheme === "mikiko-light");
+  document.documentElement.classList.toggle("theme-mikiko-dark", appliedTheme === "mikiko-dark");
 }
 
 const isMacDesktop = navigator.userAgent.includes("Mac");

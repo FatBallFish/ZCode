@@ -1,0 +1,9 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mikiko">
+  <!-- Mikiko 图形标：黑底圆角方 + 等宽直线构成的 M（与 App 图标同一设计语言）。
+       底色随主题：浅色主题 color=#000（黑底白 M），深色主题 color=#fff（白底黑 M）。
+       墨色默认白，可用 CSS 变量 --mikiko-mark-ink 覆盖。 -->
+  <rect x="4" y="4" width="56" height="56" rx="13" fill="currentColor"/>
+  <path d="M18 44V20l14 15 14-15v24" fill="none"
+        stroke="var(--mikiko-mark-ink, #ffffff)" stroke-width="6"
+        stroke-linecap="square" stroke-linejoin="miter"/>
+</svg>

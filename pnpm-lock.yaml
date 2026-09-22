@@ -72,6 +72,9 @@ importers:
       oxlint:
         specifier: ^1.57.0
         version: 1.60.0
+      pngjs:
+        specifier: 7.0.0
+        version: 7.0.0
       postject:
         specifier: 1.0.0-alpha.6
         version: 1.0.0-alpha.6

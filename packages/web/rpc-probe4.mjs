@@ -1,0 +1,10 @@
+import { connectViaWebSocket } from "@zcode/client";
+const services = await connectViaWebSocket("ws://localhost:3030/ws", { onDisconnect: () => {} });
+const keys = await services.sub2ApiService.listKeys("mikikocc");
+const ollama = keys.find((k) => k.name === "Ollama");
+console.log("ollama key id:", ollama?.id, "group:", ollama?.groupLabel);
+const state = await services.sub2ApiService.activateKey("mikikocc", ollama.id);
+console.log("activated:", state.activeKeyId, "providerId:", state.providerId);
+const usage = await services.sub2ApiService.refreshActiveKeyUsage("mikikocc");
+console.log("active usage:", usage?.status, usage?.models?.length, "models");
+process.exit(0);

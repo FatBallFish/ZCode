@@ -20,6 +20,7 @@ import {
   IModelSelectionService,
   IProviderSettingsService,
   IProviderProvisioningTargetService,
+  ISub2ApiService,
   IUsageStatsService,
   ICodingPlanSubscriptionService,
   IClientConfigService,
@@ -72,6 +73,7 @@ export class RemoteServiceAccess implements IServiceAccessor {
   readonly modelSelectionService: IModelSelectionService;
   /** Host-only target proxy；不属于 IServiceAccessor，避免向 Renderer 暴露 Secret 写入接口。 */
   readonly providerProvisioningTargetService!: IProviderProvisioningTargetService;
+  readonly sub2ApiService: ISub2ApiService;
   readonly usageStatsService: IUsageStatsService;
   readonly codingPlanSubscriptionService: ICodingPlanSubscriptionService;
   readonly clientConfigService: IClientConfigService;
@@ -160,6 +162,9 @@ export class RemoteServiceAccess implements IServiceAccessor {
       ),
       enumerable: false,
     });
+    this.sub2ApiService = ProxyChannel.toService<ISub2ApiService>(
+      channelClient.getChannel(ISub2ApiService.channelName),
+    );
     this.usageStatsService = ProxyChannel.toService<IUsageStatsService>(
       channelClient.getChannel(IUsageStatsService.channelName),
     );

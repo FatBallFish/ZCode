@@ -129,7 +129,7 @@ function ResponsiveDocxEditorViewer({
             只缩小不放大，并同步包装层宽高，避免单独 transform 后仍保留未缩放的横向滚动区。 */}
         <div
           ref={contentRef}
-          className="theme-zai-light min-w-max text-foreground"
+          className="theme-mikiko-light min-w-max text-foreground"
           data-docx-fit-content
           style={
             fit

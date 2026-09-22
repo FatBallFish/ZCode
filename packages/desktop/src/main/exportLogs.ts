@@ -33,7 +33,7 @@ function getZCodeDataDir() {
 }
 
 function getZCodeCliDir() {
-  return join(homedir(), ".zcode", "cli");
+  return join(homedir(), ".mikiko", "cli");
 }
 
 function getZCodeCliLogDir() {
@@ -962,7 +962,7 @@ async function createLogArchiveArtifacts(
   // 如果导出日志只扫描 v2，定位 agent CLI 启动、协议或崩溃问题时会缺少最关键的原生侧日志。
   await collectLogArchiveFilesFromDirectory(
     zcodeCliLogDir,
-    posix.join(".zcode", "cli", "log"),
+    posix.join(".mikiko", "cli", "log"),
     visitedDirs,
     files,
   );
@@ -973,12 +973,12 @@ async function createLogArchiveArtifacts(
   // 二者都不在 ~/.zcode/cli/log 下，需要额外收集才能完整还原现场。
   await collectLogArchiveFile(
     join(zcodeCliDir, "config.json"),
-    posix.join(".zcode", "cli", "config.json"),
+    posix.join(".mikiko", "cli", "config.json"),
     files,
   );
   await collectLogArchiveFilesFromDirectory(
     join(zcodeCliDir, "rollout"),
-    posix.join(".zcode", "cli", "rollout"),
+    posix.join(".mikiko", "cli", "rollout"),
     visitedDirs,
     files,
   );
@@ -1174,7 +1174,7 @@ export async function exportLogs(
 
     const sourceDir = getSourceDir();
     const timestamp = formatTimestamp(now());
-    const exportBaseName = `zcode-logs-${timestamp}`;
+    const exportBaseName = `mikiko-logs-${timestamp}`;
     const outputRootDir = getOutputRootDir();
     await mkdir(outputRootDir, { recursive: true });
     const outputDir = await mkdtemp(join(outputRootDir, `${exportBaseName}-`));

@@ -278,7 +278,7 @@ async function runTimedAsync(label, fn) {
 
 function resolveAppAsarPath(context) {
   if (context.electronPlatformName === "darwin") {
-    const appName = `${context.packager?.appInfo?.productFilename ?? "ZCode"}.app`;
+    const appName = `${context.packager?.appInfo?.productFilename ?? "Mikiko"}.app`;
     return resolve(context.appOutDir, appName, "Contents", "Resources", "app.asar");
   }
 
@@ -287,7 +287,7 @@ function resolveAppAsarPath(context) {
 
 function resolvePackagedResourcesDir(context) {
   if (context.electronPlatformName === "darwin") {
-    const appName = `${context.packager?.appInfo?.productFilename ?? "ZCode"}.app`;
+    const appName = `${context.packager?.appInfo?.productFilename ?? "Mikiko"}.app`;
     return resolve(context.appOutDir, appName, "Contents", "Resources");
   }
 
@@ -458,7 +458,7 @@ export default {
     zcodeProductFlavor: desktopProductIdentity.flavor,
     homepage: "https://zcode.z.ai",
     author: {
-      name: "ZCode",
+      name: "Mikiko",
       email: "dev@zcode.z.ai",
     },
   },
@@ -595,6 +595,15 @@ export default {
       from: "build/icon.png",
       to: "icon.png",
     },
+    ...(targetPlatform.os === "darwin"
+      ? [
+          {
+            // Dock 使用 824/1024 安全区的专用透明 PNG；不能回退到 Windows/Linux 的更大主体。
+            from: "build/icon_macos.png",
+            to: "icon_macos.png",
+          },
+        ]
+      : []),
     ...(targetPlatform.os === "linux"
       ? [
           {

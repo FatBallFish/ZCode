@@ -216,6 +216,26 @@ export { IFileWatcherService } from "./fileWatcher/fileWatcher.js";
 export { IOAuthService } from "./oauth/oauth.js";
 
 // UsageStats service — IUsageStatsService is both a type (interface) and value (descriptor)
+export { ISub2ApiService } from "./sub2api/sub2api.js";
+export type {
+  Sub2ApiAccountDetail,
+  Sub2ApiAccountSummary,
+  Sub2ApiGroupInfo,
+  Sub2ApiKeyRecord,
+  Sub2ApiKeyUsage,
+  Sub2ApiKeyVerification,
+  Sub2ApiLoginErrorCode,
+  Sub2ApiLoginResult,
+  Sub2ApiModelConfigOverride,
+  Sub2ApiPublicSettings,
+  Sub2ApiSiteKind,
+  Sub2ApiSiteState,
+  Sub2ApiSitesState,
+  Sub2ApiSubscriptionInfo,
+  Sub2ApiSubscriptionWindow,
+  Sub2ApiUsagePoint,
+  Sub2ApiUsageSnapshot,
+} from "./sub2api/sub2api.js";
 export { IUsageStatsService } from "./usage-stats/usageStats.js";
 
 // Storage（资源管理器「存储」tab）：数据类型在 @zcode/shared；这里只导出服务接口与卷分组纯函数

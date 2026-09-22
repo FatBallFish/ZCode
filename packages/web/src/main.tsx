@@ -32,7 +32,7 @@ import type { IPlatformService, RemoteTarget, ServerRemoteInfo } from "@zcode/sh
 import { WEB_DEFAULT_THEME, resolveWebInitialTheme } from "./webThemeSeed.js";
 
 function resolveWebThemePreference(defaultTheme: Theme = WEB_DEFAULT_THEME): Theme {
-  const saved = localStorage.getItem("zcode-theme");
+  const saved = localStorage.getItem("mikiko-theme");
   return resolveWebInitialTheme({ storedTheme: saved, defaultTheme });
 }
 
@@ -41,29 +41,29 @@ function resolveWebThemePreference(defaultTheme: Theme = WEB_DEFAULT_THEME): The
 {
   // 分享页没有本地主题配置时使用浅色，已有配置仍然沿用；其他 Web 页面继续默认深色。
   const saved = resolveWebThemePreference(
-    isConversationSharePath(window.location.pathname) ? "zai-light" : undefined,
+    isConversationSharePath(window.location.pathname) ? "mikiko-light" : undefined,
   );
   const resolved =
     saved === "system"
       ? window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light"
-      : saved === "dark" || saved === "zai-dark"
+      : saved === "dark" || saved === "mikiko-dark"
         ? "dark"
         : "light";
   const appliedTheme =
     saved === "system"
       ? resolved === "dark"
-        ? "zai-dark"
-        : "zai-light"
+        ? "mikiko-dark"
+        : "mikiko-light"
       : saved === "dark"
-        ? "zai-dark"
+        ? "mikiko-dark"
         : saved === "light"
-          ? "zai-light"
+          ? "mikiko-light"
           : saved;
   document.documentElement.classList.toggle("dark", resolved === "dark");
-  document.documentElement.classList.toggle("theme-zai-light", appliedTheme === "zai-light");
-  document.documentElement.classList.toggle("theme-zai-dark", appliedTheme === "zai-dark");
+  document.documentElement.classList.toggle("theme-mikiko-light", appliedTheme === "mikiko-light");
+  document.documentElement.classList.toggle("theme-mikiko-dark", appliedTheme === "mikiko-dark");
 }
 
 async function resolveFeedbackUrl(): Promise<string | undefined> {
@@ -96,7 +96,7 @@ function isWebOAuthCallback(params: URLSearchParams): boolean {
 }
 
 function renderWebAuthCallbackPage(): void {
-  document.title = "ZCode - Sign In";
+  document.title = "Mikiko - Sign In";
   const callbackState = parseOAuthState(
     new URLSearchParams(window.location.search).get("state") ?? "",
   );
@@ -121,7 +121,7 @@ async function renderConversationSharePage(): Promise<void> {
   document.documentElement.lang = routeLocale;
   // 分享页必须设置 title：否则浏览器标签只显示 index.html 的通用标题。
   // 会话标题要等 preview 加载完，先给一个语言正确的兜底。
-  document.title = routeLocale === "zh-CN" ? "ZCode 会话分享" : "ZCode Conversation Share";
+  document.title = routeLocale === "zh-CN" ? "Mikiko 会话分享" : "Mikiko Conversation Share";
   const shareCode = resolveConversationShareCodeFromPath(window.location.pathname);
   if (!shareCode) {
     root.render(
@@ -182,7 +182,7 @@ async function renderConversationSharePage(): Promise<void> {
       }}
       onLogout={onLogout}
       locale={routeLocale}
-      theme={resolveWebThemePreference("zai-light")}
+      theme={resolveWebThemePreference("mikiko-light")}
     />,
   );
 }
@@ -415,7 +415,7 @@ function WebBootstrapErrorScreen({ message }: { message: string }) {
 }
 
 function renderWebBootstrapError(error: unknown): void {
-  document.title = "ZCode - Web";
+  document.title = "Mikiko - Web";
   root.render(
     <WebBootstrapErrorScreen message={error instanceof Error ? error.message : String(error)} />,
   );
@@ -446,7 +446,7 @@ async function bootstrapWebApp() {
       onClose: () => {},
     });
     const platform = createWebPlatform();
-    document.title = "ZCode - Web + Server";
+    document.title = "Mikiko - Web + Server";
 
     root.render(
       <AppErrorBoundary>

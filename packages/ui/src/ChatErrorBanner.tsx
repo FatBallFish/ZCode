@@ -1,10 +1,13 @@
 import { CodingPlanEntryButton } from "@/settings/CodingPlanEntryButton.js";
+import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
+import { ISub2ApiService } from "@zcode/services";
+import type { Sub2ApiSitesState } from "@zcode/services";
 /**
  * ChatErrorBanner — 错误提示组件
  *
  * 显示 ZCode Agent 链路中的错误，带 traceId 方便排查。
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MEDIA_BUDGET_CURRENT_ATTACHMENT_TOO_LARGE_ERROR_CODE,
   MEDIA_BUDGET_CURRENT_IMAGE_TOO_LARGE_ERROR_CODE,
@@ -127,6 +130,25 @@ export function ChatErrorBanner({
   const iconButtonClassName = "shrink-0";
   const localizedErrorMessage = resolveChatErrorBannerDisplayMessage(error, intl);
   const modelConfigMissing = isModelConfigMissingError(error);
+  // 中转站（Sub2API）登录态下「升级」按钮会导向智谱套餐体系，误导中转站用户，隐藏之。
+  const baseServices = useBaseWorkspaceServices();
+  const sub2ApiService = baseServices?.sub2ApiService as ISub2ApiService | undefined;
+  const [sub2ApiSites, setSub2ApiSites] = useState<Sub2ApiSitesState | null>(null);
+  useEffect(() => {
+    if (!sub2ApiService) {
+      return;
+    }
+    let disposed = false;
+    void sub2ApiService.getSites().then((state) => {
+      if (!disposed) {
+        setSub2ApiSites(state);
+      }
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [sub2ApiService]);
+  const relayAccountSignedIn = sub2ApiSites?.sites.some((site) => site.account) ?? false;
   const hookBlocked = error.code === "fault.runtime.hookBlocked";
   if (shouldSuppressChatErrorBanner(error)) {
     return null;
@@ -208,22 +230,24 @@ export function ChatErrorBanner({
 
         {modelConfigMissing ? (
           <>
-            <CodingPlanEntryButton
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={onOpenUpgrade}
-              className={cn(
-                actionButtonClassName,
-                "button-gradient gap-1.5 text-white hover:bg-transparent hover:opacity-90 dark:bg-[#484A58] dark:hover:bg-[#484A58]",
-              )}
-              aria-label={intl.formatMessage({
-                id: "chat.quota.action.upgrade",
-              })}
-            >
-              <RocketIcon className="size-3.5" />
-              {intl.formatMessage({ id: "chat.quota.action.upgrade" })}
-            </CodingPlanEntryButton>
+            {!relayAccountSignedIn ? (
+              <CodingPlanEntryButton
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={onOpenUpgrade}
+                className={cn(
+                  actionButtonClassName,
+                  "button-gradient gap-1.5 text-white hover:bg-transparent hover:opacity-90 dark:bg-[#484A58] dark:hover:bg-[#484A58]",
+                )}
+                aria-label={intl.formatMessage({
+                  id: "chat.quota.action.upgrade",
+                })}
+              >
+                <RocketIcon className="size-3.5" />
+                {intl.formatMessage({ id: "chat.quota.action.upgrade" })}
+              </CodingPlanEntryButton>
+            ) : null}
             <Button
               type="button"
               variant="outline"

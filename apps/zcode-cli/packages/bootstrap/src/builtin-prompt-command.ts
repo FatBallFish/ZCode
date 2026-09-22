@@ -53,7 +53,7 @@ function buildInitAgentsPrompt(params: {
     "Target:",
     `- Workspace directory: ${params.workingDirectory}`,
     `- Instruction file: ${params.targetPath}`,
-    `- Existing hidden instruction candidates: ${join(params.workingDirectory, ".zcode", "AGENTS.md")} and ${join(params.workingDirectory, ".agents", "AGENTS.md")}`,
+    `- Existing hidden instruction candidates: ${join(params.workingDirectory, ".mikiko", "AGENTS.md")} and ${join(params.workingDirectory, ".agents", "AGENTS.md")}`,
     "- File name must be exactly AGENTS.md.",
     "- This command targets the current workspace only. Do not write ~/.zcode/AGENTS.md.",
     additionalInstructions,

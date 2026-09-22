@@ -21,7 +21,7 @@ function resolveApprovedPlanFilePath(input: {
 }): string {
   return join(
     input.workspaceRoot,
-    ".zcode",
+    ".mikiko",
     "plans",
     `plan-${sanitizePlanFileSessionId(input.sessionId)}.md`,
   );
