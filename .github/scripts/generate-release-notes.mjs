@@ -61,4 +61,24 @@ for (const category of categories) {
   sections.push(`## ${category.title}\n\n${items.join("\n")}`);
 }
 
+// Mac 未签名安装指引：与 DMG 内「安装必读.txt」同一口径（specs/desktop/dmg-installer.md）。
+// 当前 Mac 包走无证书模式发布，Release 里必须附带清除隔离标记的命令；
+// 待启用 Developer ID 签名与公证后，删除本段与 DMG 注入逻辑一并对齐。
+sections.push(
+  [
+    "## 💻 Mac 安装说明",
+    "",
+    "Mac 安装包暂未做 Apple 开发者签名与公证，首次打开可能被系统拦截",
+    "（提示「无法验证开发者」或「文件已损坏」）。请先把 **Mikiko** 拖入 **Applications** 文件夹，",
+    "然后打开「终端」执行以下命令清除隔离标记，再从 Applications 启动：",
+    "",
+    "```bash",
+    "xattr -rc /Applications/Mikiko.app",
+    "```",
+    "",
+    "若提示权限不足，请改用：`sudo xattr -rc /Applications/Mikiko.app`（需输入开机密码）。",
+    "该命令只移除下载文件附带的隔离标记，不修改系统设置。DMG 内也附有同名说明文件「安装必读.txt」。",
+  ].join("\n"),
+);
+
 console.log(sections.join("\n\n").trimEnd());
