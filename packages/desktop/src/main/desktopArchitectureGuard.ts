@@ -1,9 +1,6 @@
 import type { BrowserWindow, NativeImage } from "electron";
-import {
-  DEFAULT_ZCODE_ENDPOINT_ORIGIN,
-  buildZCodeEndpointUrls,
-  type Locale,
-} from "@zcode/shared";
+import { type Locale } from "@zcode/shared";
+import { DESKTOP_RELEASES_DOWNLOAD_URL } from "./desktopExternalLinks.js";
 
 export interface ArchitectureMismatch {
   /** 当前运行的二进制架构，例如 x64。 */
@@ -48,6 +45,7 @@ export function detectArchitectureMismatch(
   return { binaryArch, nativeArch: "arm64" };
 }
 
+<<<<<<< HEAD
 export function resolveArchitectureDownloadUrl(
   locale: Locale,
   endpointOrigin = DEFAULT_ZCODE_ENDPOINT_ORIGIN,
@@ -57,6 +55,8 @@ export function resolveArchitectureDownloadUrl(
   return locale === "zh-CN" ? `${origin}/cn` : `${origin}/en`;
 }
 
+=======
+>>>>>>> b50c661f (feat(installer): DMG 无证书辅助脚本、浅色安装背景与统一下载外链)
 interface ArchitectureMismatchDialogText {
   title: string;
   message: string;
@@ -141,8 +141,9 @@ export async function maybeWarnArchitectureMismatch(options: {
       : await dialog.showMessageBox(dialogOptions);
 
   if (response === 0) {
-    const url = resolveArchitectureDownloadUrl(options.locale);
-    options.logger.info(`[architecture] 用户选择前往下载：${url}`);
-    await shell.openExternal(url);
+    // 官网下载页尚未就绪；macOS（Rosetta）与 Windows on ARM 共用本弹窗，
+    // 「前往下载」统一指向 GitHub Releases，避免落到不可用的官网地址。
+    options.logger.info(`[architecture] 用户选择前往下载：${DESKTOP_RELEASES_DOWNLOAD_URL}`);
+    await shell.openExternal(DESKTOP_RELEASES_DOWNLOAD_URL);
   }
 }

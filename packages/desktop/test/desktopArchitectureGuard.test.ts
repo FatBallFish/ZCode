@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   detectArchitectureMismatch,
   formatArchitectureMismatchDialogText,
-  resolveArchitectureDownloadUrl,
 } from "../src/main/desktopArchitectureGuard.js";
 
 describe("detectArchitectureMismatch", () => {
@@ -44,13 +43,6 @@ describe("detectArchitectureMismatch", () => {
         runningUnderARM64Translation: true,
       }),
     ).toBeNull();
-  });
-});
-
-describe("resolveArchitectureDownloadUrl", () => {
-  it("按语言分流到官网下载页", () => {
-    expect(resolveArchitectureDownloadUrl("zh-CN")).toBe("https://zcode.z.ai/cn");
-    expect(resolveArchitectureDownloadUrl("en-US")).toBe("https://zcode.z.ai/en");
   });
 });
 
