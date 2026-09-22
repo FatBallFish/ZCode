@@ -1,0 +1,113 @@
+name: Release Desktop Installers
+
+# 推送 v* 版本 tag 触发：三端四架构打包（mac arm64/x64、win x64、linux x64），
+# 汇总产物并按历史 Commit 生成 Notes（Features/BugFix/Optimize）发布 GitHub Release。
+# Mac 无证书模式：bundle 会自动注入 DMG「清除隔离标记」辅助脚本（specs/desktop/dmg-installer.md）。
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: bundle ${{ matrix.target }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            target: mac
+            arch: arm64
+          - runner: macos-latest
+            target: mac
+            arch: x64
+          - runner: windows-latest
+            target: win
+            arch: x64
+          - runner: ubuntu-latest
+            target: linux
+            arch: x64
+    env:
+      # 正式包身份（production flavor）；跳过开发态 mock-cdn 离线缓存，打包态不依赖。
+      ZCODE_ENV: production
+      ZCODE_SKIP_REMOTE_ASSETS: "1"
+      HUSKY: "0"
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+
+      - name: Install Linux packaging tools
+        # rpm/deb/pacman 目标依赖 rpmbuild、zstd 与 bsdtar（libarchive-tools）。
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm zstd libarchive-tools
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Bundle desktop installers
+        run: pnpm bundle:desktop -- --os ${{ matrix.target }} --arch ${{ matrix.arch }}
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.target }}-${{ matrix.arch }}
+          # 只上传安装包本体；blockmap 已随无证书注入删除或随更新屏蔽无消费方，unpacked 目录不分发。
+          path: |
+            packages/desktop/dist/*.dmg
+            packages/desktop/dist/*.zip
+            packages/desktop/dist/*.exe
+            packages/desktop/dist/*.AppImage
+            packages/desktop/dist/*.deb
+            packages/desktop/dist/*.rpm
+            packages/desktop/dist/*.pkg.tar.zst
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out (full history for release notes)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all installers
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: installers-*
+          merge-multiple: true
+
+      - name: Generate release notes
+        run: |
+          node .github/scripts/generate-release-notes.mjs "${GITHUB_REF_NAME}" > release-notes.md
+          cat release-notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${GITHUB_REF_NAME#v}" \
+            --notes-file release-notes.md \
+            artifacts/*
