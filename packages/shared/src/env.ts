@@ -37,6 +37,14 @@ export const ZCODE_PRODUCT_FLAVOR = normalizeZCodeProductFlavor(
   typeof __ZCODE_PRODUCT_FLAVOR__ !== "undefined" ? __ZCODE_PRODUCT_FLAVOR__ : undefined,
   ZCODE_ENV,
 );
+/**
+ * 更新能力总开关。更新系统尚未搭建，暂时屏蔽为 false：正式包不发起任何更新校验
+ * （autoUpdater 启动检查/轮询/手动检查、启动强更 gate），更新入口一并隐藏。
+ * 这是暂时屏蔽而非移除——更新服务就绪后改回 true 即恢复原有接线，
+ * 各入口的读取点见 specs/update/update-check.md，不得单独删除。
+ */
+export const ZCODE_UPDATES_ENABLED = false;
+
 export const ZCODE_APP_VERSION_ENV = "ZCODE_APP_VERSION" as const;
 export const ZCODE_BUILD_COMMIT_ID_ENV = "ZCODE_BUILD_COMMIT_ID" as const;
 
