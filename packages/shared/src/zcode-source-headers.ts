@@ -1,7 +1,8 @@
 import { DEFAULT_ZCODE_ENDPOINT_ORIGIN } from "./zcodeEndpoint.js";
 
 export const ZCODE_SOURCE_HEADERS = {
-  "User-Agent": "ZCode/unknown",
+  // 品牌：对外 UA 前缀为 Mikiko；X-Title/X-* 自定义头属于后端契约，随品牌更名单独与后端对齐。
+  "User-Agent": "Mikiko/unknown",
   "HTTP-Referer": DEFAULT_ZCODE_ENDPOINT_ORIGIN,
   "X-Title": "Z Code@electron",
 } as const;
@@ -45,7 +46,7 @@ export function buildZCodeSourceHeadersFromContext(
   return {
     ...ZCODE_SOURCE_HEADERS,
     "HTTP-Referer": endpointOrigin,
-    "User-Agent": `ZCode/${appVersion ?? "unknown"}`,
+    "User-Agent": `Mikiko/${appVersion ?? "unknown"}`,
     ...(appVersion ? { "X-ZCode-App-Version": appVersion } : {}),
     "X-Title": `Z Code@${sourceTitle}`,
     ...(platform && arch ? { "X-Platform": `${platform}-${arch}` } : {}),
