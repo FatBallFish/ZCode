@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
-import darkEmptyStateLogoUrl from "@/assets/Z.svg";
+import darkEmptyStateLogoUrl from "@/assets/M.svg";
 import { cn } from "@/components/lib/utils.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";

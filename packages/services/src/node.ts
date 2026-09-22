@@ -412,6 +412,8 @@ import {
   IModelSelectionService,
   IProviderSettingsService,
 } from "./model-provider/providerFacadeServices.js";
+import { ISub2ApiService } from "./sub2api/sub2api.js";
+import { createSub2ApiService } from "./sub2api/sub2apiService.js";
 import { createProviderSettingsConnectivityTester } from "./model-provider/providerSettingsConnectivity.js";
 import {
   createProviderProvisioningSource,
@@ -1068,7 +1070,7 @@ export { isOfficialCuaPluginEnabledForWorkspace };
 
 export function hasGlobalCliZCodeCuaServer(env: NodeJS.ProcessEnv = process.env): boolean {
   const home = env.HOME?.trim() || homedir();
-  const configPath = join(home, ".zcode", "cli", "config.json");
+  const configPath = join(home, ".mikiko", "cli", "config.json");
   let parsed: unknown;
   try {
     parsed = JSON.parse(readFileSync(configPath, "utf8"));
@@ -2665,7 +2667,11 @@ export function createLocalServices(options: {
   providerProvisioningTriggerDisposers.set(services, providerProvisioningDisposers);
   services
     .register(IProviderSettingsService, providerRuntime.providerSettings)
-    .register(IModelSelectionService, providerRuntime.modelSelection);
+    .register(IModelSelectionService, providerRuntime.modelSelection)
+    .register(
+      ISub2ApiService,
+      createSub2ApiService({ providerSettingsService: providerRuntime.providerSettings }),
+    );
   if (isDesktopAttachedRemote || options.providerProvisioningTargetEnabled === true) {
     services.register(
       IProviderProvisioningTargetService,

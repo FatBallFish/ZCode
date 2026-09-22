@@ -40,7 +40,7 @@ interface ScopedErrorBoundaryProps {
   onCaughtReactError?: (error: Error, errorInfo: ErrorInfo, scope: string) => void;
 }
 
-const LOCALE_PREFERENCE_KEY = "zcode-locale-preference";
+const LOCALE_PREFERENCE_KEY = "mikiko-locale-preference";
 
 function normalizeError(error: unknown): Error {
   if (error instanceof Error) {

@@ -1,0 +1,1 @@
+import{t as e}from"./createLucideIcon-BFc1S57Y.js";var t=[[`path`,{d:`m17 2-5 5-5-5`,key:`16satq`}],[`rect`,{width:`20`,height:`15`,x:`2`,y:`7`,rx:`2`,key:`1e6viu`}]],n=e(`tv`,t);export{t as __iconNode,n as default};

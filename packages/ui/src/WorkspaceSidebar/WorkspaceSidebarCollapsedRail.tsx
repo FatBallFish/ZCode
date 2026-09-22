@@ -1,5 +1,5 @@
 import { PanelLeftOpen } from "lucide-react";
-import appLogoUrl from "@/assets/provider-icons/logo-zai.svg";
+import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
 import { Button } from "@/components/ui/button.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
@@ -32,12 +32,7 @@ export function WorkspaceSidebarCollapsedRail({
                 id: "workspaceSidebar.toggleSidebar",
               })}
             >
-              <img
-                src={appLogoUrl}
-                alt="ZCode"
-                className="size-5 transition-opacity group-hover:opacity-0"
-                draggable={false}
-              />
+              <ZCodeAboutLogo className="size-5 transition-opacity group-hover:opacity-0" />
               <PanelLeftOpen className="absolute size-4 opacity-0 transition-opacity group-hover:opacity-100" />
             </Button>
           </ControlHintTooltip>

@@ -1,0 +1,16 @@
+<svg viewBox="0 0 176 40" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mikiko">
+  <!-- Mikiko 横排组合：图形标（0.625 缩放）+ 字标。用于 README 头部等场景。 -->
+  <rect width="40" height="40" rx="8" fill="currentColor"/>
+  <path d="M11.25 27.5V12.5l8.75 9.375 8.75-9.375v15" fill="none"
+        stroke="var(--mikiko-mark-ink, #ffffff)" stroke-width="3.75"
+        stroke-linecap="square" stroke-linejoin="miter"/>
+  <g transform="translate(52 6)" fill="none" stroke="currentColor"
+     stroke-width="5" stroke-linecap="square">
+    <path d="M0 28V0l11 12 11-12v28"/>
+    <path d="M29 0v28"/>
+    <path d="M36 0v28M55 0 36 14l19 14"/>
+    <path d="M62 0v28"/>
+    <path d="M69 0v28M88 0 69 14l19 14"/>
+    <circle cx="107" cy="14" r="9.5"/>
+  </g>
+</svg>

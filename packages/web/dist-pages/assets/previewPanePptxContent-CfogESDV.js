@@ -1,0 +1,1 @@
+import{r as e}from"./index-BKFc6g-X.js";export{e as PptxPreviewContent};

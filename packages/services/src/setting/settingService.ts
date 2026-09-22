@@ -53,7 +53,7 @@ function resolveUserHomeDir() {
 }
 
 function getSettingsDir() {
-  return join(resolveUserHomeDir(), ".zcode", "v2");
+  return join(resolveUserHomeDir(), ".mikiko", "v2");
 }
 
 function getSettingsFile() {
