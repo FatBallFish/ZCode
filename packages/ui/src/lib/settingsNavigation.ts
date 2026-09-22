@@ -7,6 +7,7 @@ export type SettingsSectionId =
   | "migration"
   | "browser"
   | "modelProvider"
+  | "sub2api"
   | "memory"
   | "plugin"
   | "mcp"

@@ -54,7 +54,10 @@ export function useProviderAvailabilityLoginEntryGuard({
         : modelSelectionView;
       const availability = resolveProviderAvailabilityState({ modelSelectionView: refreshedView });
       const { hasUsableProvider, providerCount } = availability;
-      const shouldOpenLoginEntry = !providerFamilyDomain || (!user && !hasUsableProvider);
+      // Mikiko 品牌更名：Sub2API 网关密钥是一等账号体系，存在可用供应商（含个人 API Key
+      // 供应商）时不应再强制弹出官方 Z.ai/BigModel 阵营选择页；仅在既无登录态又无任何
+      // 可用模型配置时才引导连接账号。原逻辑 !providerFamilyDomain 短路会无视个人供应商。
+      const shouldOpenLoginEntry = !user && !hasUsableProvider;
 
       // 未登录且没有可用模型配置时必须引导用户连接账号或填写 API Key。
       // 启动检查、API Key 设置回流等入口统一走这里，避免各处复制判断后语义分叉。
