@@ -739,6 +739,26 @@ async function main() {
     runElectronBuilderWithRetry(buildArgs, buildEnv),
   );
 
+  // 未签名 Mac 包注入「清除隔离标记」辅助脚本（specs/desktop/dmg-installer.md）。
+  // 判定必须与 electron-builder.config.js 的 shouldEnableMacSigning 同口径：
+  // ZCODE_ENABLE_MAC_SIGN=1 且存在 APPLE_SIGNING_IDENTITY/CSC_NAME 才算签名模式；
+  // 两处口径若漂移，会出现“已签名包仍带绕 Gatekeeper 脚本”或“未签名包缺脚本”。
+  const rawMacSigningIdentity = process.env.APPLE_SIGNING_IDENTITY || process.env.CSC_NAME;
+  const isMacSignedPackaging =
+    process.env.ZCODE_ENABLE_MAC_SIGN === "1" && Boolean(rawMacSigningIdentity);
+  if (os === "mac" && !isMacSignedPackaging) {
+    console.log("[bundle] 未检测到 Developer ID 签名配置，走无证书打包模式：注入 DMG 辅助脚本");
+    runTimedSync("bundle:inject-unsigned-dmg-helper", () =>
+      run(process.execPath, [
+        resolve(desktopRoot, "scripts", "inject-unsigned-dmg-helper.mjs"),
+        "--os",
+        os,
+        "--arch",
+        arch,
+      ]),
+    );
+  }
+
   runTimedSync("bundle:verify-runtime-dependencies", () =>
     verifyPackagedRuntimeDependencies(os, arch),
   );
