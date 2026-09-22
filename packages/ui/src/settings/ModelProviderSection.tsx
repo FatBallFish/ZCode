@@ -37,6 +37,9 @@ import {
   type ModelProviderNavGroup,
 } from "./model-provider-section/constants.js";
 import { ModelProviderSectionDetail } from "./model-provider-section/Detail.js";
+import type { ISub2ApiService } from "@zcode/services";
+import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
+import { toast } from "@/components/ui/toast.js";
 import { ModelProviderSectionLayout } from "./model-provider-section/SectionLayout.js";
 import { ProviderTemplatePicker } from "./model-provider-section/ProviderTemplatePicker.js";
 import type { CodingPlanLoginOptions } from "./model-provider-section/codingPlanPricingCards.js";
@@ -310,6 +313,64 @@ export function ModelProviderSection({
   const [, setCodingPlanProductsRefreshToken] = useState(0);
   const [pendingCreatedProviderId, setPendingCreatedProviderId] = useState<string | null>(null);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [relayAddingSite, setRelayAddingSite] = useState(false);
+  // 中转站（Sub2API）站点：导航分组与详情管理的数据源。
+  const baseServices = useBaseWorkspaceServices();
+  const sub2ApiServiceForNav = baseServices?.sub2ApiService as ISub2ApiService | undefined;
+  const [relaySites, setRelaySites] = useState<
+    Array<{
+      siteId: string;
+      siteName?: string;
+      panelBaseUrl: string;
+      kind: string;
+      enabled?: boolean;
+    }>
+  >([]);
+  const [relayBoundProviderIds, setRelayBoundProviderIds] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
+  useEffect(() => {
+    if (!sub2ApiServiceForNav) {
+      return;
+    }
+    type RelaySiteEntry = {
+      siteId: string;
+      siteName?: string;
+      panelBaseUrl: string;
+      kind: string;
+      enabled?: boolean;
+    };
+    const toSite = (site: {
+      siteId: string;
+      siteName?: string | null;
+      panelBaseUrl: string;
+      kind: string;
+      enabled?: boolean;
+    }): RelaySiteEntry => ({
+      siteId: site.siteId,
+      siteName: site.siteName ?? undefined,
+      panelBaseUrl: site.panelBaseUrl,
+      kind: site.kind,
+      enabled: site.enabled !== false,
+    });
+    void sub2ApiServiceForNav.getSites().then((state) => {
+      setRelaySites(state.sites.map(toSite));
+      setRelayBoundProviderIds(
+        new Set(
+          state.sites.flatMap((site) => (site.providerBindings ?? []).map((b) => b.providerId)),
+        ),
+      );
+    });
+    const disposable = sub2ApiServiceForNav.onDidChange((state) => {
+      setRelaySites(state.sites.map(toSite));
+      setRelayBoundProviderIds(
+        new Set(
+          state.sites.flatMap((site) => (site.providerBindings ?? []).map((b) => b.providerId)),
+        ),
+      );
+    });
+    return () => disposable.dispose();
+  }, [sub2ApiServiceForNav]);
   const [creatingProvider, setCreatingProvider] = useState(false);
 
   useEffect(() => {
@@ -697,6 +758,8 @@ export function ModelProviderSection({
       selectedNodeKey,
       setSelectedNodeKey,
       intl,
+      relaySites,
+      relayBoundProviderIds,
     });
   const selectedPlanAccessKey =
     selectedNavItem?.type === "codingPlan" || selectedNavItem?.type === "teamPlan"
@@ -1087,6 +1150,24 @@ export function ModelProviderSection({
         <ProviderTemplatePicker
           templates={providerTemplates}
           creating={creatingProvider}
+          onOpenRelaySite={() => {
+            // 添加 Sub2api：直接新建一个待绑定的空站点记录并选中，地址输入与登录在详情页完成。
+            setTemplatePickerOpen(false);
+            void (async () => {
+              try {
+                const baseServicesForAdd = baseServices;
+                const svc = baseServicesForAdd?.sub2ApiService as ISub2ApiService | undefined;
+                if (!svc) {
+                  return;
+                }
+                const site = await svc.addSite("about:blank");
+                setRelayAddingSite(true);
+                setSelectedNodeKey(`relay:${site.siteId}`);
+              } catch (error) {
+                toast(error instanceof Error ? error.message : String(error));
+              }
+            })();
+          }}
           onBack={() => setTemplatePickerOpen(false)}
           onCreateFromTemplate={(templateId) => {
             return handleCreateProvider({ templateId });

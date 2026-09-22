@@ -135,6 +135,16 @@ export function resolveModelProviderDisplayName(
 export type ModelProviderNavItem =
   | {
       key: string;
+      type: "relay";
+      /** sub2api 站点 id（mikikocc 或 sub2api-xxx）。 */
+      siteId: string;
+      label: string;
+      statusActive: boolean;
+      /** 站点级启停（会话模型列表可见性）。 */
+      siteEnabled?: boolean;
+    }
+  | {
+      key: string;
       type: "preset";
       /** 品牌入口图标独立于其历史 Start 导航身份。 */
       logo?: ProviderSettingsFormProvider["config"]["logo"];
@@ -220,7 +230,7 @@ export type ModelProviderNavItem =
       statusActive: boolean;
     };
 
-export type ModelProviderNavGroupId = "preset" | "custom";
+export type ModelProviderNavGroupId = "relay" | "preset" | "custom";
 
 export interface ModelProviderNavGroup {
   id: ModelProviderNavGroupId;

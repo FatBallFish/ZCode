@@ -26,6 +26,7 @@ import {
   createCodingPlanProviderNodeKey,
   createCustomProviderNodeKey,
   createPresetProviderNodeKey,
+  createRelayProviderNodeKey,
 } from "@/settings/model-provider-section/utils.js";
 import {
   sortModelProvidersForDisplay,
@@ -61,6 +62,16 @@ interface UseModelProviderNavigationOptions {
   selectedNodeKey: string | null;
   setSelectedNodeKey: (key: string | null) => void;
   intl: ReturnType<typeof useZCodeIntl>["intl"];
+  /** 中转站（Sub2API）站点列表：MikikoCC 固定 + 用户添加的站点。 */
+  relaySites?: Array<{
+    siteId: string;
+    siteName?: string;
+    panelBaseUrl: string;
+    kind: string;
+    enabled?: boolean;
+  }>;
+  /** 中转站密钥绑定的供应商 id：在「自定义供应商」分组中隐藏，仅由中转站分区管理。 */
+  relayBoundProviderIds?: ReadonlySet<string>;
 }
 
 export function useModelProviderNavigation({
@@ -80,14 +91,19 @@ export function useModelProviderNavigation({
   selectedNodeKey,
   setSelectedNodeKey,
   intl,
+  relaySites = [],
+  relayBoundProviderIds = new Set(),
 }: UseModelProviderNavigationOptions) {
   const customProviders = useMemo(() => {
     const allCustomProviders = modelProviders.filter(
-      (provider) => provider.config.group === "standard-personal",
+      (provider) =>
+        provider.config.group === "standard-personal" &&
+        // 中转站密钥供应商由「中转站」分区统一管理，不在自定义供应商分组重复出现。
+        !relayBoundProviderIds.has(provider.providerId),
     );
     // 这里复用模型菜单的展示排序，确保设置页和聊天框供应商顺序一致。
     return sortModelProvidersForDisplay(allCustomProviders, displayOrder);
-  }, [displayOrder, modelProviders]);
+  }, [displayOrder, modelProviders, relayBoundProviderIds]);
 
   const codingPlanItems = useMemo(
     () =>
@@ -180,6 +196,18 @@ export function useModelProviderNavigation({
   const navigationGroups = useMemo<ModelProviderNavGroup[]>(() => {
     const groups: ModelProviderNavGroup[] = [
       {
+        id: "relay",
+        title: intl.formatMessage({ id: "settings.modelProvider.relayTitle" }),
+        items: relaySites.map((site) => ({
+          key: createRelayProviderNodeKey(site.siteId),
+          type: "relay" as const,
+          siteId: site.siteId,
+          label: site.kind === "mikikocc" ? "MikikoCC" : (site.siteName ?? site.panelBaseUrl),
+          statusActive: false,
+          siteEnabled: site.enabled !== false,
+        })),
+      },
+      {
         id: "preset",
         title: intl.formatMessage({ id: "settings.modelProvider.presetTitle" }),
         items: [
@@ -226,6 +254,7 @@ export function useModelProviderNavigation({
     return groups;
   }, [
     customProviders,
+    relaySites,
     codingPlanItems,
     connectionModeCodingPlanItems,
     // 左侧导航分组标题在这个 memo 内格式化。
@@ -497,6 +526,12 @@ function pickInitialConnectionNavigationItem(
   if (personalCodingPlanFallback) {
     return personalCodingPlanFallback;
   }
+  // 中转站条目（当前登录的 Sub2API 账号供应商）优先于智谱 Start Plan 与预置入口：
+  // 中转站是 Mikiko 主账号体系，无智谱登录时不应默认落在 Z.ai。
+  const relayItem = selectableNavigationItems.find((item) => item.type === "relay");
+  if (relayItem) {
+    return relayItem;
+  }
   if (planItems[0]) {
     return planItems[0];
   }
@@ -524,7 +559,7 @@ export function connectionSelectionMatchesNavigationItem(
   selection: ProviderFamilyConnectionSelection,
   item: Exclude<ModelProviderNavGroup["items"][number], { type: "codingPlanLoading" }>,
 ): boolean {
-  if (item.type === "custom") return false;
+  if (item.type === "custom" || item.type === "relay") return false;
   const familySpec = resolveModelProviderFamilySpecByProviderId(item.presetId ?? "");
   if (familySpec?.id !== family) return false;
   if (selection.kind === "start-plan") {

@@ -28,6 +28,10 @@ import {
 } from "@zcode/shared";
 import { useCallback, useMemo, type KeyboardEvent } from "react";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
+import { Switch } from "@/components/ui/switch.js";
+import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
+import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import type { ISub2ApiService } from "@zcode/services";
 import type { ModelProviderNavGroup, ModelProviderNavItem } from "./constants.js";
 import { useOptimisticReorder } from "./useOptimisticReorder.js";
 import { renderModelProviderNavIcon } from "./utils.js";
@@ -127,6 +131,9 @@ function ModelProviderNavigationButton({
         <span className="flex min-w-0 flex-1 items-center gap-1.5 max-md:sr-only">
           <span className="min-w-0 truncate">{label}</span>
         </span>
+        {item.type === "relay" ? (
+          <RelaySiteToggleSwitch siteId={item.siteId} enabled={item.siteEnabled !== false} />
+        ) : null}
         {"provider" in item ? (
           <ProviderStatusIndicator
             provider={item.type === "preset" ? item.statusProvider : item.provider}
@@ -207,6 +214,9 @@ function SortableModelProviderNavigationButton({
         <span className="flex min-w-0 flex-1 items-center gap-1.5 max-md:sr-only">
           <span className="min-w-0 truncate">{label}</span>
         </span>
+        {item.type === "relay" ? (
+          <RelaySiteToggleSwitch siteId={item.siteId} enabled={item.siteEnabled !== false} />
+        ) : null}
         {"provider" in item ? (
           <ProviderStatusIndicator
             provider={item.type === "preset" ? item.statusProvider : item.provider}
@@ -214,6 +224,31 @@ function SortableModelProviderNavigationButton({
         ) : null}
       </div>
     </ControlHintTooltip>
+  );
+}
+
+function RelaySiteToggleSwitch({ siteId, enabled }: { siteId: string; enabled: boolean }) {
+  const { intl } = useZCodeIntl();
+  const baseServices = useBaseWorkspaceServices();
+  const sub2ApiService = baseServices?.sub2ApiService as ISub2ApiService | undefined;
+  return (
+    <span
+      className="shrink-0"
+      onClick={(event) => {
+        // Switch 是行内附属控制：点击不得触发条目选中与拖拽。
+        event.stopPropagation();
+      }}
+      onMouseDown={(event) => event.stopPropagation()}
+    >
+      <Switch
+        size="sm"
+        checked={enabled}
+        aria-label={intl.formatMessage({ id: "settings.sub2api.site.toggle" })}
+        onCheckedChange={(checked) => {
+          void sub2ApiService?.setSiteEnabled(siteId, checked);
+        }}
+      />
+    </span>
   );
 }
 

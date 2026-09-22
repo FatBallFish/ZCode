@@ -34,6 +34,7 @@ export function buildRegistryModelSelectGroups(
   selectedProvider: ZCodeProvider,
   view: ModelSelectionView,
   labels: ModelProviderGroupLabelOptions = {},
+  relayBadgeByProviderId?: Readonly<Record<string, string>>,
 ): ModelSelectGroup[] {
   return view.providers.flatMap((provider) => {
     if (!supportsRegistryApiFormat(selectedProvider, provider.config.api?.type)) {
@@ -44,12 +45,20 @@ export function buildRegistryModelSelectGroups(
     const accountPresentation = accountAccess.success
       ? getRegistryAccountProviderGroupPresentation(provider.providerId, accountAccess.data, labels)
       : null;
+    // 中转站（Sub2API）密钥供应商：灰色品牌标签（Mikiko / Sub2api）来自站点绑定映射。
+    const relayBadge = !accountPresentation
+      ? relayBadgeByProviderId?.[provider.providerId]
+      : undefined;
 
     return [
       {
         key: `registry-provider:${provider.providerId}`,
         label: accountPresentation?.label || provider.providerName?.trim() || provider.providerId,
-        ...(accountPresentation?.labelBadge ? { labelBadge: accountPresentation.labelBadge } : {}),
+        ...(accountPresentation?.labelBadge
+          ? { labelBadge: accountPresentation.labelBadge }
+          : relayBadge
+            ? { labelBadge: relayBadge }
+            : {}),
         ...(accountPresentation ? { directItems: true } : {}),
         items: provider.models.map(({ modelId, config }) => ({
           key: `registry-provider:${provider.providerId}:${modelId}`,

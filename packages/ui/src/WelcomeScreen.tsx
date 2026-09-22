@@ -22,6 +22,7 @@ import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
 import { useOAuth } from "./hooks/useOAuth.js";
 import { useZCodeIntl } from "./i18n/IntlProvider.js";
 import { LoginApiKeyForm } from "./login/LoginApiKeyForm.js";
+import { WelcomeSub2ApiLogin } from "./WelcomeSub2ApiLogin.js";
 import { renderOAuthProviderIcon } from "./lib/oauthProviderIcon.js";
 import { ThemeHeroVisual } from "./openWorkspacePageThemeHero.js";
 import { useZCodeStore } from "./store/StoreProvider.js";
@@ -89,7 +90,9 @@ function LoginPanel({ active, onComplete }: LoginPanelProps) {
   const loginEntryRequest = useZCodeStore((s) => s.loginEntryRequest);
   const clearLoginEntryRequest = useZCodeStore((s) => s.clearLoginEntryRequest);
   const markLoginEntryAttemptStatus = useZCodeStore((s) => s.markLoginEntryAttemptStatus);
-  const [loginMode, setLoginMode] = useState<"providers" | "apiKey">("providers");
+  const [loginMode, setLoginMode] = useState<"providers" | "apiKey" | "mikikocc" | "sub2api">(
+    "providers",
+  );
   const wasActiveRef = useRef(active);
   const consumedLoginRequestRef = useRef<number | null>(null);
   const observedOAuthSuccessSeqRef = useRef(oauthSuccessSeq);
@@ -315,10 +318,21 @@ function LoginPanel({ active, onComplete }: LoginPanelProps) {
 
             {!loadingProviders ? (
               <div className="space-y-2">
+                <Button
+                  variant="default"
+                  className="h-10 w-full text-ui-base"
+                  size="lg"
+                  data-testid={testId(TID_LOGIN_USE_API_KEY_BUTTON, "mikikocc-primary")}
+                  onClick={() => {
+                    setLoginMode("mikikocc");
+                  }}
+                >
+                  {intl.formatMessage({ id: "login.sub2api.mikikocc" })}
+                </Button>
                 {visibleProviders.map((provider) => (
                   <Button
                     key={provider.id}
-                    variant="default"
+                    variant="outline"
                     className="h-10 w-full text-ui-base"
                     size="lg"
                     data-testid={
@@ -349,6 +363,17 @@ function LoginPanel({ active, onComplete }: LoginPanelProps) {
                 >
                   {intl.formatMessage({ id: "login.useApiKey" })}
                 </Button>
+                <Button
+                  variant="outline"
+                  className="h-10 w-full text-ui-base"
+                  size="lg"
+                  data-testid={testId(TID_LOGIN_USE_API_KEY_BUTTON, "sub2api")}
+                  onClick={() => {
+                    setLoginMode("sub2api");
+                  }}
+                >
+                  {intl.formatMessage({ id: "login.sub2api.sub2api" })}
+                </Button>
               </div>
             ) : null}
           </div>
@@ -365,6 +390,14 @@ function LoginPanel({ active, onComplete }: LoginPanelProps) {
               resetApiKeyForm();
               return onComplete("skip");
             }}
+          />
+        ) : null}
+
+        {status === "idle" && (loginMode === "mikikocc" || loginMode === "sub2api") ? (
+          <WelcomeSub2ApiLogin
+            variant={loginMode}
+            onCancel={() => setLoginMode("providers")}
+            onLoggedIn={() => onComplete("apiKey")}
           />
         ) : null}
 
@@ -477,7 +510,7 @@ function LoginPanelLogo() {
     // 登录 logo 壳是固定深色底，边框不能跟随浅色主题 token，否则浅色主题下边框过重。
     <div
       className="relative mb-1 flex size-16 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#000000_0%,#151718_100%)] text-[#ffffff] shadow-lg/20 before:pointer-events-none before:absolute before:inset-0 before:rounded-2xl before:border before:border-[rgba(255,255,255,0.1)]"
-      aria-label="ZCode"
+      aria-label="Mikiko"
       role="img"
     >
       <ZCodeAboutLogo className="h-auto w-10" />

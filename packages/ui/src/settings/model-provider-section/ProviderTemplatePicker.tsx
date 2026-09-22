@@ -24,12 +24,15 @@ export function ProviderTemplatePicker({
   onCreateFromTemplate,
   onCreateCustom,
   creating,
+  onOpenRelaySite,
 }: {
   templates: ProviderSettingsView["providerTemplates"];
   onBack: () => void;
   onCreateFromTemplate: ProviderTemplateCreate;
   onCreateCustom: CustomProviderCreate;
   creating: boolean;
+  /** 打开中转站站点管理（MikikoCC 直达；Sub2api 走 BaseURL 添加）。 */
+  onOpenRelaySite: (siteId: string | "new-sub2api") => void;
 }) {
   const { intl, locale } = useZCodeIntl();
   const { dismissFeedback, showFeedback } = useProviderDetailFeedback();
@@ -87,6 +90,24 @@ export function ProviderTemplatePicker({
       </div>
 
       <div className="space-y-6">
+        <section data-provider-template-group="relay" className="space-y-3">
+          <h3 className="text-ui-base font-medium text-foreground-subtle">
+            {intl.formatMessage({ id: "settings.modelProvider.templateGroup.relay" })}
+          </h3>
+          <div className="grid grid-cols-1 gap-2">
+            <ProviderTemplateCard
+              label="Sub2api"
+              disabled={creating}
+              testId={testId(TID_MODEL_PROVIDER_TEMPLATE_ITEM, "relay-sub2api")}
+              icon={
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+                  S2A
+                </span>
+              }
+              onClick={() => onOpenRelaySite("new-sub2api")}
+            />
+          </div>
+        </section>
         {groups.map((group) => (
           <section key={group.id} data-provider-template-group={group.id} className="space-y-3">
             <h3 className="text-ui-base font-medium text-foreground-subtle">

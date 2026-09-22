@@ -8,6 +8,10 @@ export function createPresetProviderNodeKey(id: BuiltinModelProviderId): string 
   return `preset:${id}`;
 }
 
+export function createRelayProviderNodeKey(siteId: string): string {
+  return `relay:${siteId}`;
+}
+
 export function createCodingPlanProviderNodeKey(id: BuiltinModelProviderId): string {
   return `coding-plan:${id}`;
 }
@@ -23,6 +27,22 @@ export function resolveModelProviderNavLogo(item: ModelProviderNavItem) {
 }
 
 export function renderModelProviderNavIcon(item: ModelProviderNavItem): ReactNode {
+  if (item.type === "relay") {
+    if (item.siteId === "mikikocc") {
+      return (
+        <svg viewBox="0 0 64 64" className="size-4 shrink-0" fill="none" aria-hidden="true">
+          <path
+            d="M17 47V17l15 16 15-16v30"
+            stroke="currentColor"
+            strokeWidth="8"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+          />
+        </svg>
+      );
+    }
+    return <PackageIcon className="size-4 shrink-0" />;
+  }
   if ("provider" in item && item.provider) {
     return <ProviderLogo logo={resolveModelProviderNavLogo(item)} className="size-4" />;
   }

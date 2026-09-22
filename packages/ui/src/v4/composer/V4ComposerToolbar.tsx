@@ -82,6 +82,7 @@ import { useCodingPlanUpgradeDialog } from "@/settings/CodingPlanUpgradeDialogPr
 import { useCodingPlanEntitlements } from "@/settings/model-provider-section/useCodingPlanEntitlements.js";
 import { decodeCustomModelValue, encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
 import { buildRegistryModelSelectGroups } from "@/lib/modelSelectionGroups.js";
+import { useRelayBadgeOptions } from "@/hooks/useRelayBadgeOptions.js";
 import {
   buildCodingPlanUsageSources,
   type CodingPlanUsageSource,
@@ -729,33 +730,40 @@ function V4ComposerModelControlsImpl({
     });
   }, [draftMode, effectiveConfig, modelSelectionView?.revision]);
 
+  // 中转站（Sub2API）密钥供应商 → 品牌灰标（Mikiko / Sub2api）。
+  const relayBadgeOptions = useRelayBadgeOptions();
   const modelSelectGroups = useMemo<ModelSelectGroup[]>(() => {
     if (!modelSelectionView) return [];
-    return buildRegistryModelSelectGroups(displayProvider, modelSelectionView, {
-      apiKeyLabel: intl.formatMessage({ id: "settings.modelProvider.apiKey" }),
-      apiKeyBadgeLabel: intl.formatMessage({
-        id: "settings.modelProvider.connectionMode.apiKeyBadge",
-      }),
-      codingPlanLabel: intl.formatMessage({
-        id: "settings.modelProvider.connectionMode.codingPlan",
-      }),
-      codingPlanBadgeLabel: intl.formatMessage({
-        id: "settings.modelProvider.connectionMode.codingPlanBadge",
-      }),
-      startPlanLabel: intl.formatMessage({
-        id: "settings.modelProvider.connectionMode.startPlan",
-      }),
-      startPlanBadgeLabel: intl.formatMessage({
-        id: "settings.modelProvider.connectionMode.startPlanBadge",
-      }),
-      teamPlanBadgeLabel: intl.formatMessage({
-        id: "settings.modelProvider.connectionMode.teamPlanBadge",
-      }),
-      teamPlanFallbackLabel: intl.formatMessage({
-        id: "settings.modelProvider.connectionMode.teamPlan",
-      }),
-    });
-  }, [displayProvider, intl, modelSelectionView]);
+    return buildRegistryModelSelectGroups(
+      displayProvider,
+      modelSelectionView,
+      {
+        apiKeyLabel: intl.formatMessage({ id: "settings.modelProvider.apiKey" }),
+        apiKeyBadgeLabel: intl.formatMessage({
+          id: "settings.modelProvider.connectionMode.apiKeyBadge",
+        }),
+        codingPlanLabel: intl.formatMessage({
+          id: "settings.modelProvider.connectionMode.codingPlan",
+        }),
+        codingPlanBadgeLabel: intl.formatMessage({
+          id: "settings.modelProvider.connectionMode.codingPlanBadge",
+        }),
+        startPlanLabel: intl.formatMessage({
+          id: "settings.modelProvider.connectionMode.startPlan",
+        }),
+        startPlanBadgeLabel: intl.formatMessage({
+          id: "settings.modelProvider.connectionMode.startPlanBadge",
+        }),
+        teamPlanBadgeLabel: intl.formatMessage({
+          id: "settings.modelProvider.connectionMode.teamPlanBadge",
+        }),
+        teamPlanFallbackLabel: intl.formatMessage({
+          id: "settings.modelProvider.connectionMode.teamPlan",
+        }),
+      },
+      relayBadgeOptions,
+    );
+  }, [displayProvider, intl, modelSelectionView, relayBadgeOptions]);
 
   // 修复：恢复「管理模型」入口（老版 onManageModels = 打开设置页并定位模型供应商区）。
   const handleOpenModelProviderSettings = useCallback(() => {

@@ -1,4 +1,5 @@
 import { useCodingPlanEntryGate } from "@/settings/CodingPlanEntryButton.js";
+import { Sub2ApiSection } from "@/settings/Sub2ApiSection.js";
 /* eslint-disable max-lines -- Model Provider 详情页当前集中编排 Plan Card、API Key 表单和 OAuth 套餐态；后续稳定后再按 family/API/OAuth 拆分。 */
 import {
   BIGMODEL_PROVIDER_ID,
@@ -226,6 +227,8 @@ function resolvePlanSettingsProvider({
 
 export function ModelProviderSectionDetail({
   selectedNavItem,
+  relayAddSiteRequested = false,
+  onRelayAddSiteConsumed,
   navigationItems = selectedNavItem ? [selectedNavItem] : [],
   connectionSettingsFailed = false,
   connectionSelections,
@@ -254,6 +257,8 @@ export function ModelProviderSectionDetail({
   providerSettingsView: providerSettingsViewOverride,
 }: {
   selectedNavItem: ModelProviderNavItem | null;
+  relayAddSiteRequested?: boolean;
+  onRelayAddSiteConsumed?: () => void;
   navigationItems?: ModelProviderNavItem[];
   connectionSettingsFailed?: boolean;
   connectionSelections?: ProviderFamilyConnectionSelectionSettings;
@@ -392,6 +397,20 @@ export function ModelProviderSectionDetail({
 
   if (!selectedNavItem) {
     return <ModelProviderLoadingCard loadingLabel={loadingLabel} />;
+  }
+
+  if (selectedNavItem.type === "relay") {
+    // 中转站（Sub2API）站点条目：账号/密钥/分组/模型管理复用 Mikiko 网关分区内容。
+    return (
+      <div className="h-full overflow-y-auto">
+        <Sub2ApiSection
+          initialSiteId={selectedNavItem.siteId}
+          embedded
+          addSiteRequested={relayAddSiteRequested}
+          onAddSiteRequestConsumed={onRelayAddSiteConsumed}
+        />
+      </div>
+    );
   }
 
   if (selectedNavItem.type === "preset") {

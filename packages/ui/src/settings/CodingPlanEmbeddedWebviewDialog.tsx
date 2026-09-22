@@ -85,7 +85,7 @@ export function CodingPlanEmbeddedWebviewDialog({
 }: CodingPlanEmbeddedWebviewDialogProps) {
   const { intl, locale } = useZCodeIntl();
   const platform = usePlatform();
-  const theme = useZCodeStoreWithDefault((state) => state.theme, "zai-dark");
+  const theme = useZCodeStoreWithDefault((state) => state.theme, "mikiko-dark");
   const userId = useZCodeStoreWithDefault((state) => state.user?.id ?? null, null);
   const webviewRef = useRef<ElectronWebviewTag | null>(null);
   const onOpenResultRef = useRef(onOpenResult);
@@ -117,9 +117,9 @@ export function CodingPlanEmbeddedWebviewDialog({
   });
   const provider = resolveCodingPlanWebsiteProvider(providerId);
   const embeddedTheme: CodingPlanEmbeddedTheme =
-    normalizeThemePreference(theme) === "zai-dark" || resolveTheme(theme) === "dark"
-      ? "zai-dark"
-      : "zai-light";
+    normalizeThemePreference(theme) === "mikiko-dark" || resolveTheme(theme) === "dark"
+      ? "mikiko-dark"
+      : "mikiko-light";
   const computedWebviewUrl = useMemo(() => {
     const env = readCodingPlanWebviewImportMetaEnv();
     const origin = resolveCodingPlanEmbeddedOrigin({
