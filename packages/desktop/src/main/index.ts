@@ -791,8 +791,9 @@ const remoteSessionManager = createRemoteWorkspaceSessionManager({
   reportRemoteDisconnect: reportRemoteDisconnectToArms,
 });
 
-// 手机远控（specs/remote/mobile-remote-control.md）：relay 端点未配置时返回 null，
-// 功能整体关闭（UI 不出入口、进程零出网）。
+// 手机远控（specs/remote/mobile-remote-control.md）：配置文件启动自检 + enabled 开关
+// 见 remoteControl/fileConfig.ts；端点完全不可解析时 service 为 null（零出网），
+// 入口仍展示，state.disabledReason="unconfigured" 适配 UI。
 const remoteControlService = createRemoteControlProductionService({
   logger,
   windowHostProcessMap,
@@ -806,8 +807,9 @@ const remoteControlService = createRemoteControlProductionService({
   detachPort: remoteSessionManager.detachLocalWorkspaceAttachment,
   preloadPath: join(import.meta.dirname, "../preload/index.cjs"),
 });
-// IPC 恒注册：relay 未配置时 GetState 返回 enabled:false，UI 据此隐藏入口，
-// 避免 renderer invoke 无 handler 的 unhandled rejection（spec §12 场景 11）。
+// IPC 恒注册（spec §21.10）：enabled 恒 true（入口只受平台能力门控），
+// relay 端点缺失/配置停用由 state.disabledReason 表达，避免 renderer invoke 无 handler
+// 的 unhandled rejection。
 registerRemoteControlIpc({ service: remoteControlService });
 if (remoteControlService) {
   app.on("will-quit", () => {

@@ -56,7 +56,6 @@ import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 import { useZCodeStore } from "@/store/StoreProvider.js";
 import { normalizeInterfaceMode } from "@/lib/interfaceMode.js";
 import type { Theme } from "@/useTheme.js";
-import { WorkspaceWebRemoteControlTrigger } from "@/WorkspaceWebRemoteControlTrigger.js";
 import {
   WorkspaceSidebarFooterPlanBadge,
   WorkspaceSidebarFooterUsageSummaryContent,
@@ -197,7 +196,10 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
           <span className="min-w-0 truncate text-ui-base font-semibold text-foreground">
             {profileBadgeOverride}
           </span>
-          {user ? <WorkspaceSidebarFooterPlanBadge state={usageSummaryState} /> : null}
+          {/* 订阅 badge 属于智谱账号的订阅信息：footer 展示中转站账号时不得残留（spec sub2api-gateway）。 */}
+          {user && !sub2ApiAccountSite ? (
+            <WorkspaceSidebarFooterPlanBadge state={usageSummaryState} />
+          ) : null}
         </div>
         {profileSubtitle ? (
           <div className="truncate text-ui-sm text-muted-foreground">{profileSubtitle}</div>
@@ -392,6 +394,29 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
             {sub2ApiAuthedSites.length > 0 ? (
               <>
                 <DropdownMenuSeparator />
+                {/* 智谱账号条目：切到中转站后唯一的切回入口（spec sub2api-gateway，
+                    setRelaySiteSelection(null) 即回落智谱展示）；无智谱登录时不展示。 */}
+                {user ? (
+                  <DropdownMenuItem
+                    data-testid="sidebar-zhipu-account"
+                    onSelect={() => {
+                      setRelaySiteSelection(null);
+                    }}
+                  >
+                    <span className="flex size-4 items-center justify-center rounded-full bg-primary/10 text-ui-xs font-semibold text-primary">
+                      {avatarFallbackText}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{profileBadge}</span>
+                    </span>
+                    {!sub2ApiAccountSite ? (
+                      <span
+                        className="size-2 shrink-0 rounded-full bg-primary"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </DropdownMenuItem>
+                ) : null}
                 {sub2ApiAuthedSites.map((site) => {
                   const selected = site.siteId === sub2ApiAccountSite?.siteId;
                   return (
@@ -486,7 +511,8 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
         </DropdownMenu>
         <div className="flex shrink-0 items-center gap-1.5">
           {/* 手机远控入口：平台未实现（Web / relay 未配置）时隐藏；Main 拥有状态，弹窗只读镜像。
-              状态色（spec §21.3.1）：connected 绿、pending/waiting 橙、disabled 默认。 */}
+              状态色（spec §21.3.1）：connected 绿、pending/waiting 橙、disabled 默认。
+              Bot 渠道远控合并进同一弹窗（spec §21.9），不再单独展示图标。 */}
           {remoteControl.available ? (
             <ControlHintTooltip title={intl.formatMessage({ id: "remoteControl.title" })}>
               <Button
@@ -514,18 +540,14 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
               open={remoteControlOpen}
               onOpenChange={setRemoteControlOpen}
               state={remoteControl.state}
+              pendingAction={remoteControl.pendingAction}
+              workspacePath={workspacePath}
+              workspaceIdentity={workspaceIdentity}
               onStart={remoteControl.start}
               onStop={remoteControl.stop}
               onDisconnect={remoteControl.disconnect}
               onRefreshTicket={remoteControl.refreshTicket}
               onSetAutoRefresh={remoteControl.setAutoRefresh}
-            />
-          ) : null}
-          {isDesktop && workspacePath ? (
-            <WorkspaceWebRemoteControlTrigger
-              workspacePath={workspacePath}
-              workspaceIdentity={workspaceIdentity}
-              compact
             />
           ) : null}
           <ControlHintTooltip title={settingsButtonLabel}>

@@ -1627,6 +1627,7 @@ const zhCN: Record<string, string> = {
   "webRemoteControl.botChannel.telegram.description": "从 Telegram 打开这个工作区。",
   "webRemoteControl.botChannel.configure": "去 Bot Channels 配置",
   "webRemoteControl.botChannel.manageBots": "机器人管理",
+  "webRemoteControl.botChannel.noWorkspace": "打开一个工作区后即可配置 Bot 渠道。",
   "remote.title": "连接远程环境",
   "remote.description":
     "通过 SSH、Server、WSL 或 Docker 连接远程工作区，并在当前窗口中继续选择目录。",
@@ -1785,8 +1786,14 @@ const zhCN: Record<string, string> = {
   "taskList.mobileActive": "手机正在操作此任务",
   "appShell.backToSessions": "返回会话列表",
   "remoteControl.title": "移动端远程控制",
-  "remoteControl.description": "扫码或在手机上打开链接，即可远程控制当前工作区。",
+  "remoteControl.description": "扫码直连手机，或通过聊天 Bot 远程访问当前工作区。",
+  "remoteControl.phoneSection.title": "手机扫码直连",
+  "remoteControl.phoneSection.description": "扫码或在手机上打开链接，直接控制当前工作区。",
   "remoteControl.disabled.description": "开启后生成二维码，用手机扫码即可在公网远程控制这台电脑。",
+  "remoteControl.disabled.configDisabled":
+    "远程控制已在配置文件中停用。将 ~/.mikiko/remote-control.json 的 enabled 改为 true 并重启应用后可恢复。",
+  "remoteControl.disabled.unconfigured":
+    "远程控制服务端点未配置，请检查 ~/.mikiko/remote-control.json 的 relayWsUrl / relayHttpUrl。",
   "remoteControl.disabled.start": "开启移动端远程控制",
   "remoteControl.connected.title": "{device}已连接",
   "remoteControl.connected.hint": "{device}可以控制当前工作区。",
