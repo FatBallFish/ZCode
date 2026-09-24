@@ -297,6 +297,21 @@ export class ProviderSettingsFacade {
     });
   }
 
+  /**
+   * 中转站（Sub2API relay）模型推荐解析：按「模型 ID + API 格式」匹配内置推荐规则
+   * 并忽略 baseUrl（relay 网关不在官方端点规则内，常规 resolveModelConfig 拿不到
+   * properties）。同步投影时把结果作为推荐配置快照落盘。
+   */
+  resolveRelayModelRecommendation(input: {
+    readonly modelId: ModelId;
+    readonly apiType?: string;
+  }): ModelConfigObject {
+    const snapshot = requireSnapshot(this.#source);
+    return snapshot.config.zcodeBuiltinModelRules
+      .resolveForRelayModel({ modelId: input.modelId, apiType: input.apiType })
+      .toJSON();
+  }
+
   onDidChange(listener: (view: ProviderSettingsView) => void): () => void {
     return this.#source.onDidChange(() => listener(this.getView()));
   }

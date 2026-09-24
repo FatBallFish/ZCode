@@ -2619,6 +2619,8 @@ const enUS: Record<string, string> = {
   "settings.sub2api.login.captchaBlocked":
     "This site enforces a captcha and cannot be signed into from the app. Create an API key in the site console and add it below.",
   "settings.sub2api.keys.title": "API Keys",
+  "settings.sub2api.keys.refresh": "Refresh keys",
+  "settings.sub2api.models.refresh": "Refresh models",
   "settings.sub2api.keys.namePlaceholder": "Key name (optional)",
   "settings.sub2api.keys.add": "Verify and add",
   "settings.sub2api.keys.added": "Key added and activated",

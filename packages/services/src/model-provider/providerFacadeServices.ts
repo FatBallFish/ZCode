@@ -35,6 +35,11 @@ export interface IProviderSettingsService {
     input?: Parameters<ProviderSettingsFacade["createPersonalProvider"]>[0],
   ): Promise<ProviderSettingsCreationResult>;
   resolveModelConfig(input: ResolveModelConfigInput): Promise<ModelConfigResolution>;
+  /** 中转站模型推荐：按「模型 ID + API 格式」匹配内置推荐规则（忽略 baseUrl）。 */
+  resolveRelayModelRecommendation(input: {
+    modelId: string;
+    apiType?: string;
+  }): Promise<ModelConfigObject>;
   savePersonalProviderOverlay(
     providerId: ProviderId,
     config: ProviderConfigObject,
@@ -128,6 +133,10 @@ export function createProviderSettingsService(
     resolveModelConfig: async (input) => {
       await ensureReady();
       return facade.resolveModelConfig(input);
+    },
+    resolveRelayModelRecommendation: async (input) => {
+      await ensureReady();
+      return facade.resolveRelayModelRecommendation(input);
     },
     savePersonalProviderOverlay: async (providerId, config, metadata) => {
       await ensureReady();
