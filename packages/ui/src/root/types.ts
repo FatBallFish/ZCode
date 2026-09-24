@@ -71,6 +71,8 @@ export interface RootProps {
   supportsEmbeddedBrowser?: boolean;
   /** 是否启用远程工作区能力，Web 普通模式先只支持本地 server 工作区 */
   allowRemoteWorkspace?: boolean;
+  /** 手机远控会话（custom 远控链路）：Root 挂载时标记远程只控模式（spec §21.5）。 */
+  isRemoteSession?: boolean;
   /** Web 远程控制模式下的已打开 workspace 切换入口 */
   webRemoteControlWorkspaceSwitcher?: WebRemoteControlWorkspaceSwitcherApi;
   /** Web 远控跨 workspace 点击任务后的单次移动端落点 */
