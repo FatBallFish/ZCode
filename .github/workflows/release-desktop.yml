@@ -227,6 +227,15 @@ jobs:
           pattern: installers-*
           merge-multiple: true
 
+      - name: Export release notes
+        # 更新日志与 GitHub Release 正文同源（release job 先行生成）；注入 latest*.yml 的
+        # releaseNotesByLocale，客户端「发现更新」弹窗与安装后说明展示自建日志。
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${GITHUB_REF_NAME}" --json body -q .body > release-notes.md
+          echo "release notes: $(wc -c < release-notes.md) bytes"
+
       - name: Publish manifests and installers
         env:
           UPDATE_PUBLISH_TOKEN: ${{ secrets.UPDATE_PUBLISH_TOKEN }}
@@ -238,4 +247,5 @@ jobs:
           mkdir -p packages/desktop/dist
           cp artifacts/* packages/desktop/dist/ 2>/dev/null || true
           node scripts/publish-update-feed.mjs \
-            --dist packages/desktop/dist --version "${GITHUB_REF_NAME#v}" --channel stable
+            --dist packages/desktop/dist --version "${GITHUB_REF_NAME#v}" --channel stable \
+            --release-notes release-notes.md

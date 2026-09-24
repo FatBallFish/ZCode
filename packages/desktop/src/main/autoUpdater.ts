@@ -2,13 +2,11 @@
 import type { ISettingService } from "@zcode/services";
 import {
   DEFAULT_LOCALE,
-  DEFAULT_ZCODE_ENDPOINT_ORIGIN,
   desktopMenuMessageIds,
   formatDesktopMenuMessage,
   getDesktopMenuMessage,
   MIKIKO_UPDATE_ENDPOINT_ORIGIN,
   PlatformChannels,
-  resolveRuntimeZCodeEndpointOrigin,
   type ElectronReleaseChannel,
   type Locale,
   type PostUpdateReleaseNotesPayload,
@@ -116,7 +114,6 @@ interface InitAutoUpdaterOptions {
   locale?: Locale;
   updateFeedSource?: RuntimeUpdateFeedSource;
   deviceMid?: string;
-  resolveEndpointOrigin?: () => string | Promise<string>;
 }
 
 let quitAndInstallInFlight = false;
@@ -757,12 +754,15 @@ function applyManifestUpdateProvider(options: InitAutoUpdaterOptions): void {
   autoUpdater.setFeedURL({
     provider: "custom",
     updateProvider: ManifestUpdateProvider,
+    // 更新检查固定走自建更新服务（2026-09-24 修复 1.0.0 更新误连官方源）：
+    // 此前同时传入动态 resolveEndpointOrigin（resolveCurrentZCodeEndpointOrigin，
+    // 无环境/设置覆盖时回退官方 zcode.z.ai），而 provider 内动态解析优先于静态
+    // endpointOrigin，检查与更新日志实际打到官方源，提示升级官方 3.14.3 并展示
+    // 官方日志。这里不再传动态解析；开发联调仍可用 updateFeedSource.manifestUrl 覆盖。
     endpointOrigin: MIKIKO_UPDATE_ENDPOINT_ORIGIN,
     ...(manifestUrl ? { manifestUrl } : {}),
     releasePlatform: getElectronReleasePlatform(),
     deviceMid: options.deviceMid,
-    resolveEndpointOrigin:
-      options.resolveEndpointOrigin ?? (() => resolveRuntimeZCodeEndpointOrigin(process.env)),
     resolveReleaseChannel: async () => {
       availableUpdateChannel = await resolveUpdateReleaseChannel(options.settingService);
       return availableUpdateChannel;
@@ -771,7 +771,7 @@ function applyManifestUpdateProvider(options: InitAutoUpdaterOptions): void {
   logger.info(
     manifestUrl
       ? `[auto-update] service manifest provider applied platform=${getElectronReleasePlatform()} manifestUrl=${redactUpdateFeedUrlForLog(manifestUrl)}`
-      : `[auto-update] service manifest provider applied platform=${getElectronReleasePlatform()}`,
+      : `[auto-update] service manifest provider applied platform=${getElectronReleasePlatform()} endpoint=${MIKIKO_UPDATE_ENDPOINT_ORIGIN}`,
   );
 }
 
