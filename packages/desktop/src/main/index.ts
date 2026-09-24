@@ -2070,7 +2070,8 @@ app.whenReady().then(async () => {
     settingService: mainSettingService,
     locale: currentApplicationLocale,
     deviceMid,
-    resolveEndpointOrigin: resolveCurrentZCodeEndpointOrigin,
+    // 更新检查固定走自建更新服务（agent-update.mikiko.ai），不随 zcodeEndpointOrigin
+    // 设置/环境变量切换——1.0.0 曾因动态端点解析回退官方源而提示官方 3.14.3。
     updateFeedSource: resolveUpdateFeedSourceFromStartupConfig({
       argv: process.argv,
       env: process.env,
