@@ -604,7 +604,7 @@ const zhCN: Record<string, string> = {
   "confirmDialog.projectRemoveDescription":
     "项目“{projectName}”会从侧边栏移除，但不会删除磁盘上的文件。",
   "bots.title": "机器人",
-  "bots.description": "把外部聊天工具和 Webhook 接入 ZCode 机器人。",
+  "bots.description": "把外部聊天工具和 Webhook 接入 Mikiko 机器人。",
   "bots.listTitle": "机器人",
   "bots.addBot": "新建机器人",
   "bots.addBinding": "添加新的绑定",
@@ -650,9 +650,9 @@ const zhCN: Record<string, string> = {
   "bots.setup.guide.telegram.bind.3": "收到绑定成功提示后回到这里继续下一步。",
   "bots.setup.guide.weixin.create.1": "点击微信扫码登录，用微信扫描二维码并在手机端确认。",
   "bots.setup.guide.weixin.create.2":
-    "ZCode 会直接保存 iLink 返回的 bot_token；扫码后请在微信里向 Bot 发送任意消息完成会话激活。",
+    "Mikiko 会直接保存 iLink 返回的 bot_token；扫码后请在微信里向 Bot 发送任意消息完成会话激活。",
   "bots.setup.guide.weixin.create.3":
-    "ZCode 内置 iLink 客户端，通过 `/ilink/bot/getupdates` 长轮询收消息，通过 `/ilink/bot/sendmessage` 回复。",
+    "Mikiko 内置 iLink 客户端，通过 `/ilink/bot/getupdates` 长轮询收消息，通过 `/ilink/bot/sendmessage` 回复。",
   "bots.setup.guide.weixin.bind.1": "在微信里打开要绑定的单聊。",
   "bots.setup.guide.weixin.bind.2": "发送 {command}。",
   "bots.setup.guide.weixin.bind.3": "看到绑定成功后回到这里继续配置默认 workspace 和 CLI。",
@@ -665,12 +665,12 @@ const zhCN: Record<string, string> = {
   "bots.setup.guide.feishu.bind.2": "在单聊中直接发送 {command}。",
   "bots.setup.guide.feishu.bind.3": "看到绑定成功后回到这里继续配置默认 workspace 和 CLI。",
   "bots.setup.guide.webhook.create.1":
-    "Webhook 模式不需要先在第三方平台创建原生机器人；你的系统只需要能向 ZCode 回调接口发消息。",
+    "Webhook 模式不需要先在第三方平台创建原生机器人；你的系统只需要能向 Mikiko 回调接口发消息。",
   "bots.setup.guide.webhook.create.2":
     "先约定一个共享 secret；如果你还想接收异步回复，再填一个出站 Webhook URL。",
   "bots.setup.guide.webhook.create.3":
     "同一个外部用户要保持稳定的 userId，这样绑定和后续上下文才能对应到同一人。",
-  "bots.setup.guide.webhook.bind.1": "向 ZCode 的 `/api/bots/webhook` 发送一条私聊消息回调。",
+  "bots.setup.guide.webhook.bind.1": "向 Mikiko 的 `/api/bots/webhook` 发送一条私聊消息回调。",
   "bots.setup.guide.webhook.bind.2":
     '请求体至少带上当前 botId、稳定的 userId、`chatType: "private"`，并把 text 设成 {command}。',
   "bots.setup.guide.webhook.bind.3":
@@ -802,7 +802,7 @@ const zhCN: Record<string, string> = {
   "bots.runtime.telegramLongPollingRunning": "Telegram 长轮询运行中。",
   "bots.runtime.telegramLongPollingStarting": "Telegram 长轮询启动中。",
   "bots.runtime.telegramLongPollingStopped": "Telegram 长轮询已停止。",
-  "bots.runtime.telegramLongPollingHandledElsewhere": "Telegram 长轮询由另一个 ZCode 窗口处理。",
+  "bots.runtime.telegramLongPollingHandledElsewhere": "Telegram 长轮询由另一个 Mikiko 窗口处理。",
   "bots.runtime.telegramTokenMissing": "Telegram 机器人凭据缺失。",
   "bots.runtime.telegramPollingFailedRetrying": "Telegram 轮询失败，正在重试。",
   "bots.runtime.feishuWebSocketStarting": "飞书 WebSocket 启动中。",

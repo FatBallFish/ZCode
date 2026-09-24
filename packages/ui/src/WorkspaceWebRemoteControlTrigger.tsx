@@ -1,10 +1,5 @@
 import { useState } from "react";
-import { Smartphone } from "lucide-react";
-import type { WebRemoteControlStatus } from "@zcode/shared";
-import {
-  buildWebRemoteControlEntryViewTelemetry,
-  parseRemoteWorkspaceIdentity,
-} from "@zcode/shared";
+import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
@@ -183,10 +178,8 @@ function WorkspaceWebRemoteControlTriggerContent({
             className,
           )}
         >
-          {/* Bugfix: 触发入口以前只显示固定手机图标，用户无法从桌面端判断手机是否已连上。
-              这里复用远控状态轮询结果，用语义色表达连接状态，并把入口名称和状态文案合进同一个 tooltip，
-              避免桌面端 footer 外层和按钮内层同时弹出两份提示。 */}
-          <Smartphone className={cn("size-4", triggerPresentation.iconClassName)} />
+          {/* 入口统一使用远程控制图标，具体 Bot 渠道在弹层内区分。 */}
+          <MessageCircle className="size-4 text-foreground-subtle" />
           {compact ? (
             <span className="sr-only">
               {intl.formatMessage({ id: "webRemoteControl.trigger" })}
