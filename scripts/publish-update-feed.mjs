@@ -8,8 +8,10 @@
  *
  * 用法：
  *   node scripts/publish-update-feed.mjs --dist packages/desktop/dist --version 1.0.0 \
- *     --channel stable [--endpoint https://agent-update.mikiko.ai] [--download-origin https://agent-dl.mikiko.ai]
- *   环境变量：UPDATE_PUBLISH_TOKEN（必须）
+ *     --channel stable [--endpoint https://agent-update.mikiko.ai] [--download-origin https://agent-dl.mikiko.ai] \
+ *     [--release-notes release-notes.md]
+ *   环境变量：UPDATE_PUBLISH_TOKEN（必须）；--release-notes 为 markdown 文件，
+ *   注入 latest*.yml 的 releaseNotesByLocale 作为客户端更新日志。
  */
 
 import { createHash } from "node:crypto";
@@ -27,6 +29,7 @@ const version = readArg("version");
 const channel = readArg("channel") ?? "stable";
 const endpoint = readArg("endpoint") ?? "https://agent-update.mikiko.ai";
 const downloadOrigin = readArg("download-origin") ?? "https://agent-dl.mikiko.ai";
+const releaseNotesPath = readArg("release-notes");
 const token = process.env.UPDATE_PUBLISH_TOKEN;
 const MULTIPART_THRESHOLD = 90 * 1024 * 1024;
 
@@ -147,16 +150,22 @@ async function main() {
     await publishBytes(`/admin/files/${key}`, body, contentType, key);
   }
 
-  // 2. 通道清单：重写 yml 相对 url 为下载域绝对地址。
+  // 2. 通道清单：重写 yml 相对 url 为下载域绝对地址，并注入更新日志（releaseNotesByLocale，
+  //    与官方 manifest 同字段；客户端 autoUpdater.toPostUpdateReleaseNotesPayload 读取展示）。
+  const releaseNotesMarkdown = releaseNotesPath
+    ? (await readFile(releaseNotesPath, "utf8")).replace(/\r\n/g, "\n").trim()
+    : "";
+  const releaseNotesYaml = buildReleaseNotesYaml(releaseNotesMarkdown, version);
   const manifests = files.filter((name) => /^latest(-mac|-linux)?\.yml$/.test(name));
   for (const name of manifests) {
     const raw = await readFile(join(distDir, name), "utf8");
-    const rewritten = raw.replace(
-      /^( *- )url: (?!https?:)(\S+)$/gm,
-      `$1url: ${downloadOrigin}/files/${version}/$2`,
-    );
+    const rewritten =
+      raw.replace(
+        /^( *- )url: (?!https?:)(\S+)$/gm,
+        `$1url: ${downloadOrigin}/files/${version}/$2`,
+      ) + releaseNotesYaml;
     const key = `channels/${channel}/${name}`;
-    console.log(`发布清单 ${name} → ${key}`);
+    console.log(`发布清单 ${name} → ${key}${releaseNotesYaml ? "（含更新日志）" : ""}`);
     await publishBytes(
       `/admin/channel/${channel}/${name}`,
       new TextEncoder().encode(rewritten),
@@ -165,6 +174,25 @@ async function main() {
     );
   }
   console.log("完成。");
+}
+
+/**
+ * 更新日志（2026-09-24 用户需求）：electron-builder 产物 yml 不带 release notes，
+ * 注入 releaseNotesByLocale（zh-CN/en-US 同内容，客户端 zh 优先回退 en）后，
+ * 「发现更新」弹窗与安装后说明才能展示自建版本日志——1.0.0 之前日志实际来自
+ * 误连的官方 manifest。标题用显式文案（Release 正文只有 ## 分节，无 H1）。
+ */
+function buildReleaseNotesYaml(markdown, version) {
+  if (!markdown) {
+    return "";
+  }
+  const title = `Mikiko ${version} 更新日志`;
+  const indented = markdown
+    .split("\n")
+    .map((line) => (line.trim().length > 0 ? `      ${line}` : ""))
+    .join("\n");
+  const localeBlock = `    title: ${JSON.stringify(title)}\n    markdown: |\n${indented}\n`;
+  return `releaseNotesByLocale:\n  zh-CN:\n${localeBlock}  en-US:\n${localeBlock}`;
 }
 
 main().catch((error) => {
