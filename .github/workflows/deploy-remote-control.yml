@@ -6,14 +6,13 @@ name: Deploy Remote Control
 # - 手机页：构建域名无关 Pages 产物 → wrangler 发布（需 secret CLOUDFLARE_API_TOKEN）。
 # 任一 secret 未配置时对应 job 主动跳过（exit 78），不阻塞另一个。
 
+# 触发与发版对齐（2026-09-24 修订）：push 分支不触发——custom_main 高频提交且可能领先于
+# tag，会造成三端部署内容与已发布版本不一致。改为打 v* tag 触发（与 release-desktop.yml
+# 同节奏），保证每次部署的都是一次确定要发布的版本；支持手动 dispatch 兜底。
 on:
   push:
-    branches: [main, custom_main]
-    paths:
-      - "packages/relay-server/**"
-      - "packages/web/src/remote-control/**"
-      - "packages/shared/src/remote-control/**"
-      - ".github/workflows/deploy-remote-control.yml"
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
 
 concurrency:
