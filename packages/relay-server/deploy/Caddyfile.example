@@ -1,0 +1,13 @@
+# 服务器直连模式 TLS 反代与静态托管示例（Caddy 自动签发证书）。
+# 手机页静态文件来自 relay-server-deploy 产物外另行构建的 web 产物，或同一服务器托管 dist-pages 内容。
+
+relay.example.com {
+	# 桌面/手机 WS 与 bind API 全部走这里（wss → 本机明文 ws）。
+	reverse_proxy 127.0.0.1:8080
+}
+
+remote.example.com {
+	# 手机页静态资源（packages/web 的 build:remote-pages 产物，CI relay-cloudflare-deploy 内 web/ 同源内容）。
+	root * /srv/mikiko-remote/web
+	file_server
+}

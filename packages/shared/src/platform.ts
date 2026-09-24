@@ -589,6 +589,40 @@ export interface IPlatformService {
   /** 释放当前窗口里已创建的远程 session */
   disposeRemoteSession(sessionId: string): Promise<void>;
 
+  // —— 手机远控（spec specs/remote/mobile-remote-control.md §7.5；Desktop only，Web 不实现即隐藏入口）——
+
+  /** 拉取 Main 侧远控状态与可用性（relay 未配置时 enabled=false，UI 隐藏入口）。 */
+  getRemoteControlState?(): Promise<{
+    state: import("./remote-control/index.js").DesktopRemoteControlState;
+    enabled: boolean;
+  }>;
+
+  /** 开启手机远控（连接 relay 并签发票据，进入 pending）。 */
+  startRemoteControl?(): Promise<import("./remote-control/index.js").DesktopRemoteControlState>;
+
+  /** 关闭手机远控（revoke 票据并断开全部连接）。 */
+  stopRemoteControl?(): Promise<import("./remote-control/index.js").DesktopRemoteControlState>;
+
+  /** 重新生成手机远控二维码票据。 */
+  refreshRemoteControlTicket?(): Promise<
+    import("./remote-control/index.js").DesktopRemoteControlState
+  >;
+
+  /** 断开当前手机设备（票据保留可重连，功能保持开启，spec §21.2）。 */
+  disconnectRemoteControl?(): Promise<
+    import("./remote-control/index.js").DesktopRemoteControlState
+  >;
+
+  /** 自动刷新开关（spec §21.1.5）：开=短时票据到期自动重签；关=长效票据。 */
+  setRemoteControlAutoRefresh?(
+    enabled: boolean,
+  ): Promise<import("./remote-control/index.js").DesktopRemoteControlState>;
+
+  /** 订阅远控状态推送，返回 disposer。 */
+  onRemoteControlStateChanged?(
+    handler: (state: import("./remote-control/index.js").DesktopRemoteControlState) => void,
+  ): () => void;
+
   /** 检查本机 Docker daemon 是否可用 */
   isDockerAvailable(): Promise<boolean>;
 

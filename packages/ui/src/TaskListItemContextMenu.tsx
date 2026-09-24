@@ -49,7 +49,8 @@ export function TaskListItemContextMenu({
   /** 叶子数达上限且该 session 未在任何 pane 时禁用。 */
   openInSplitPaneDisabled?: boolean;
   onOpenTaskFeedback: () => void;
-  onOpenTaskPathInFileManager: () => void;
+  /** 远程会话下不注入：Finder 菜单项整体隐藏（spec §21.5）。 */
+  onOpenTaskPathInFileManager?: () => void;
   onCopyWorkspacePath: () => void;
   onCopyTaskPath: () => void;
   onCopyTaskLogPath: () => void;

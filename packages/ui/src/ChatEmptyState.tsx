@@ -195,7 +195,8 @@ export function ChatEmptyWorkspacePreviewMenu({
   allowConversationWorkspaceDetach?: boolean;
   onSelectWorkspace: (workspaceTab: ChatEmptyWorkspaceMenuTab) => void;
   onSelectConversationWorkspace: () => void | Promise<void>;
-  onOpenFolder: () => void;
+  /** 远程控制等不支持打开工作区的壳层不注入：入口隐藏（spec §21.5）。 */
+  onOpenFolder?: () => void;
   allowOpenWorkspace?: boolean;
   allowRemoteWorkspace?: boolean;
   remoteWorkspaceSessions?: RemoteWorkspaceSessionEntry[];
@@ -391,7 +392,7 @@ export function ChatEmptyWorkspacePreviewMenu({
           ) : null}
 
           <DropdownMenuSeparator />
-          {allowOpenWorkspace ? (
+          {allowOpenWorkspace && onOpenFolder ? (
             <DropdownMenuItem onSelect={onOpenFolder}>
               <FolderPlus className="size-4 text-foreground-subtle" />
               <span>{intl.formatMessage({ id: "workspace.openFolder" })}</span>

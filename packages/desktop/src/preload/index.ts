@@ -3,6 +3,7 @@ import {
   databaseStartupStateSchema,
   databaseStartupPortPayloadSchema,
 } from "@zcode/shared";
+import type { DesktopRemoteControlState } from "@zcode/shared/remote-control";
 /* eslint-disable max-lines -- preload bridge 集中暴露桌面平台 IPC，拆散会让 contextBridge 权限边界更难审计。 */
 import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 import {
@@ -270,6 +271,55 @@ contextBridge.exposeInMainWorld("zcode", {
     ipcRenderer.invoke(PlatformChannels.BindRemoteWorkspaceSessionContext, context),
   disposeRemoteSession: (sessionId: string): Promise<void> =>
     ipcRenderer.invoke(PlatformChannels.DisposeRemoteSession, sessionId),
+  remoteControlGetState: (): Promise<{ state: DesktopRemoteControlState; enabled: boolean }> =>
+    ipcRenderer.invoke(PlatformChannels.RemoteControlGetState),
+  remoteControlStart: (): Promise<{ state: DesktopRemoteControlState }> =>
+    ipcRenderer.invoke(PlatformChannels.RemoteControlStart),
+  remoteControlStop: (): Promise<{ state: DesktopRemoteControlState }> =>
+    ipcRenderer.invoke(PlatformChannels.RemoteControlStop),
+  remoteControlRefreshTicket: (): Promise<{ state: DesktopRemoteControlState }> =>
+    ipcRenderer.invoke(PlatformChannels.RemoteControlRefreshTicket),
+  remoteControlDisconnect: (): Promise<{ state: DesktopRemoteControlState }> =>
+    ipcRenderer.invoke(PlatformChannels.RemoteControlDisconnect),
+  remoteControlSetAutoRefresh: (enabled: boolean): Promise<{ state: DesktopRemoteControlState }> =>
+    ipcRenderer.invoke(PlatformChannels.RemoteControlSetAutoRefresh, enabled),
+  /** Main → Renderer 远控状态推送（Main 是唯一所有者，renderer 只读镜像） */
+  onRemoteControlStateChanged: (callback: (state: DesktopRemoteControlState) => void) => {
+    const listener = (_event: unknown, payload: { state: DesktopRemoteControlState }) =>
+      callback(payload.state);
+    ipcRenderer.on(PlatformChannels.RemoteControlStateChanged, listener);
+    return () => {
+      ipcRenderer.removeListener(PlatformChannels.RemoteControlStateChanged, listener);
+    };
+  },
+  /** v2 P2P：隐藏 RTC 窗口 → Main 协商事件 */
+  sendRemoteControlRtcEvent: (
+    event: import("@zcode/shared/remote-control").RemoteControlRtcEvent,
+  ) => {
+    ipcRenderer.send(PlatformChannels.RemoteControlRtcEvent, event);
+  },
+  /**
+   * v2 P2P：Main → 隐藏 RTC 窗口协商命令。MessagePort 无法过 contextBridge，
+   * 以 window.postMessage transfer 转移（与 ScopedServicePort 同一模式）。
+   */
+  onRemoteControlRtcCommand: (
+    callback: (command: import("@zcode/shared/remote-control").RemoteControlRtcCommand) => void,
+  ) => {
+    const listener = (
+      event: Electron.IpcRendererEvent,
+      command: import("@zcode/shared/remote-control").RemoteControlRtcCommand,
+    ) => {
+      if (event.ports.length > 0) {
+        window.postMessage({ __zcodeRtcCommand: true, command }, "*", event.ports);
+      } else {
+        window.postMessage({ __zcodeRtcCommand: true, command }, "*");
+      }
+    };
+    ipcRenderer.on(PlatformChannels.RemoteControlRtcCommand, listener);
+    return () => {
+      ipcRenderer.removeListener(PlatformChannels.RemoteControlRtcCommand, listener);
+    };
+  },
   isDockerAvailable: (): Promise<boolean> => ipcRenderer.invoke(PlatformChannels.IsDockerAvailable),
   listWSLDistros: () => ipcRenderer.invoke(PlatformChannels.ListWSLDistros),
   listDockerContainers: () => ipcRenderer.invoke(PlatformChannels.ListDockerContainers),

@@ -37,6 +37,9 @@ modules:
   - id: server
     roots: [packages/server/src]
     managed: false
+  - id: relay-server
+    roots: [packages/relay-server/src]
+    managed: false
   - id: zcode-server-cli
     roots: [packages/zcode-server-cli/src]
     managed: false

@@ -3,6 +3,7 @@ name: Release Desktop Installers
 # 推送 v* 版本 tag 触发：三端四架构打包（mac arm64/x64、win x64、linux x64），
 # 汇总产物并按历史 Commit 生成 Notes（Features/BugFix/Optimize）发布 GitHub Release。
 # Mac 无证书模式：bundle 会自动注入 DMG「清除隔离标记」辅助脚本（specs/desktop/dmg-installer.md）。
+# relay job 同时打包手机远控中转服务两种部署产物（服务器直连 / Cloudflare 边缘，spec §20）并入 Release。
 on:
   push:
     tags:
@@ -76,12 +77,82 @@ jobs:
             packages/desktop/dist/*.deb
             packages/desktop/dist/*.rpm
             packages/desktop/dist/*.pkg.tar.zst
+            packages/desktop/dist/*.blockmap
+            packages/desktop/dist/latest*.yml
+          if-no-files-found: error
+          retention-days: 7
+
+  relay:
+    name: package relay deploy kits
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HUSKY: "0"
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build relay bundle
+        run: pnpm --filter @zcode/relay-server run build:bundle
+
+      - name: Build phone UI (Pages, domain-agnostic)
+        # 不注入 VITE_ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL：运行时经票据 ws 参数定位 relay（spec §5.3）。
+        run: pnpm --filter @zcode/web run build:remote-pages
+
+      - name: Assemble server-mode kit
+        run: |
+          root=packages/relay-server
+          stage=relay-artifacts/server
+          mkdir -p "$stage/docs"
+          cp "$root/dist/relay.cjs" "$stage/"
+          cp "$root/deploy/relay.env.direct.example" "$stage/relay.env.example"
+          cp "$root/deploy/mikiko-relay.service" "$root/deploy/Caddyfile.example" "$stage/"
+          cp "$root/docs/deploy-server.md" "$stage/docs/"
+          cp -R packages/web/dist-pages "$stage/web"
+
+      - name: Assemble cloudflare-mode kit
+        run: |
+          root=packages/relay-server
+          stage=relay-artifacts/cloudflare
+          mkdir -p "$stage/docs"
+          cp "$root/dist/relay.cjs" "$stage/"
+          cp "$root/deploy/relay.env.cloudflare.example" "$stage/relay.env.example"
+          cp "$root/deploy/mikiko-relay.service" "$root/deploy/mikiko-tunnel.service" "$stage/"
+          cp "$root/deploy/deploy-pages.sh" "$stage/"
+          cp "$root/docs/deploy-cloudflare.md" "$stage/docs/"
+          cp -R packages/web/dist-pages "$stage/web"
+
+      - name: Upload server-mode kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: relay-server-deploy
+          path: relay-artifacts/server/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload cloudflare-mode kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: relay-cloudflare-deploy
+          path: relay-artifacts/cloudflare/
           if-no-files-found: error
           retention-days: 7
 
   release:
     name: publish release
-    needs: build
+    needs: [build, relay]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -96,6 +167,24 @@ jobs:
           path: artifacts
           pattern: installers-*
           merge-multiple: true
+
+      - name: Download relay deploy kits
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: relay-*-deploy
+          merge-multiple: false
+
+      - name: Zip relay deploy kits
+        # 目录形态产物先打包成 zip 再挂到 Release，下载即用（与部署文档的 unzip 步骤对应）。
+        run: |
+          cd artifacts
+          for dir in relay-server-deploy relay-cloudflare-deploy; do
+            if [ -d "$dir" ]; then
+              zip -r "$dir.zip" "$dir"
+              rm -rf "$dir"
+            fi
+          done
 
       - name: Generate release notes
         run: |
@@ -116,3 +205,37 @@ jobs:
             --title "${GITHUB_REF_NAME#v}" \
             --notes-file release-notes.md \
             artifacts/*
+
+  publish-update-feed:
+    name: publish update feed (R2)
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: installers-*
+          merge-multiple: true
+
+      - name: Publish manifests and installers
+        env:
+          UPDATE_PUBLISH_TOKEN: ${{ secrets.UPDATE_PUBLISH_TOKEN }}
+        run: |
+          if [ -z "$UPDATE_PUBLISH_TOKEN" ]; then
+            echo "::notice::secrets.UPDATE_PUBLISH_TOKEN 未配置，跳过升级 feed 发布（版本仍可在 GitHub Release 下载）"
+            exit 78
+          fi
+          mkdir -p packages/desktop/dist
+          cp artifacts/* packages/desktop/dist/ 2>/dev/null || true
+          node scripts/publish-update-feed.mjs \
+            --dist packages/desktop/dist --version "${GITHUB_REF_NAME#v}" --channel stable

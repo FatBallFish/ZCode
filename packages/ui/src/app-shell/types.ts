@@ -94,7 +94,8 @@ export interface AppProps {
   onCreateConversationTask?: () => void;
   onResolveConversationWorkspace?: () => Promise<string>;
   onOpenWorkspace: () => void;
-  onOpenFolderFromWorkspaceMenu: () => void;
+  /** 远程控制等不支持打开工作区的壳层不注入：侧栏「添加项目」整体隐藏（spec §21.5）。 */
+  onOpenFolderFromWorkspaceMenu?: () => void;
   onOpenRemoteWorkspace?: () => void;
   onCreateScratchWorkspace: (name: string) => Promise<string | null>;
   remoteConnectionInProgress?: boolean;

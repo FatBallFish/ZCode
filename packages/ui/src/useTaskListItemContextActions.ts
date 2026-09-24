@@ -4,6 +4,7 @@ import { usePlatform } from "@/hooks/usePlatform.js";
 import { useTaskNativeSessionLogFile } from "@/hooks/useTaskNativeSessionLogFile.js";
 import { useTaskSessionFilePath } from "@/hooks/useTaskSessionFilePath.js";
 import { useWorkspaceOpenInEditorTarget } from "@/hooks/useWorkspaceOpenInEditorTarget.js";
+import { isRemoteSession } from "@/lib/remoteSessionCapability.js";
 import { logger } from "@/logger.js";
 
 interface TaskPathState {
@@ -17,7 +18,8 @@ interface TaskListItemContextActionsResult {
   taskNativeSessionLogFile: TaskPathState;
   fileManagerLabel: string;
   handleCopyText: (label: string, value: string | null) => Promise<void>;
-  handleOpenTaskPathInFileManager: () => Promise<void>;
+  /** 远程会话（手机远控）下为 undefined：浏览器无法唤起本机文件管理器，入口整体隐藏（spec §21.5）。 */
+  handleOpenTaskPathInFileManager?: () => Promise<void>;
 }
 
 export function useTaskListItemContextActions({
@@ -141,7 +143,9 @@ export function useTaskListItemContextActions({
     taskNativeSessionLogFile,
     fileManagerLabel: getFileManagerLabel(intl),
     handleCopyText,
-    handleOpenTaskPathInFileManager,
+    handleOpenTaskPathInFileManager: isRemoteSession()
+      ? undefined
+      : handleOpenTaskPathInFileManager,
   };
 }
 

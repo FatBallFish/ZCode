@@ -42,7 +42,8 @@ export function GroupedTaskContextMenuContent({
   onStartRenameTask: (task: ZCodeTaskMeta) => void;
   onArchiveTask: (task: ZCodeTaskMeta) => void;
   onMarkTaskAsUnread: (task: ZCodeTaskMeta) => void;
-  onOpenTaskPathInFileManager: () => void;
+  /** 远程会话下不注入：Finder 菜单项整体隐藏（spec §21.5）。 */
+  onOpenTaskPathInFileManager?: () => void;
   onCopyText: (label: string, text: string | null) => void;
   onOpenTaskFeedback: () => void;
   disabledReason?: string;
@@ -129,17 +130,19 @@ export function GroupedTaskContextMenuContent({
         {intl.formatMessage({ id: "taskList.markAsUnread" })}
       </ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem
-        disabled={Boolean(disabledReason)}
-        title={disabledReason}
-        onSelect={() => {
-          if (!disabledReason) {
-            onOpenTaskPathInFileManager();
-          }
-        }}
-      >
-        {fileManagerLabel}
-      </ContextMenuItem>
+      {onOpenTaskPathInFileManager ? (
+        <ContextMenuItem
+          disabled={Boolean(disabledReason)}
+          title={disabledReason}
+          onSelect={() => {
+            if (!disabledReason) {
+              onOpenTaskPathInFileManager();
+            }
+          }}
+        >
+          {fileManagerLabel}
+        </ContextMenuItem>
+      ) : null}
       <ContextMenuItem
         onSelect={() =>
           onCopyText(intl.formatMessage({ id: "appHeader.copyPath" }), task.workspacePath)

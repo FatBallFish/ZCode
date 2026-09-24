@@ -279,7 +279,8 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   fileTreeOpenRequest?: SidebarFileTreeOpenRequest | null;
   onCreateTask: (request?: CreateTaskRequest) => void;
   onCreateConversationTask: () => void;
-  onOpenFolderFromWorkspaceMenu: () => void;
+  /** 远程控制等不支持打开工作区的壳层不注入：整个「添加项目」入口隐藏（spec §21.5）。 */
+  onOpenFolderFromWorkspaceMenu?: () => void;
   onOpenRemoteWorkspace?: () => void;
   theme: Theme;
   onConnectRemote: (options: RemoteTarget, requestId?: string) => Promise<string>;
@@ -1447,44 +1448,48 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
                               onOpenChange={handleProjectSectionOpenChange}
                               testId={TID_PROJECT_SECTION}
                               action={
-                                <DropdownMenu>
-                                  <ControlHintTooltip
-                                    title={intl.formatMessage({
-                                      id: "workspaceSidebar.addProject",
-                                    })}
-                                  >
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        className="text-foreground-subtle hover:text-foreground data-[state=open]:text-foreground"
-                                        aria-label={intl.formatMessage({
-                                          id: "workspaceSidebar.addProject",
-                                        })}
-                                        data-testid={TID_PROJECT_ADD}
-                                      >
-                                        <Plus className="size-3.5" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                  </ControlHintTooltip>
-                                  <DropdownMenuContent align="end" className="min-w-44">
-                                    <DropdownMenuItem onSelect={onOpenFolderFromWorkspaceMenu}>
-                                      <FolderOpen className="size-4" />
-                                      {intl.formatMessage({
-                                        id: "workspace.openFolder",
+                                onOpenFolderFromWorkspaceMenu || onOpenRemoteWorkspace ? (
+                                  <DropdownMenu>
+                                    <ControlHintTooltip
+                                      title={intl.formatMessage({
+                                        id: "workspaceSidebar.addProject",
                                       })}
-                                    </DropdownMenuItem>
-                                    {onOpenRemoteWorkspace ? (
-                                      <DropdownMenuItem onSelect={onOpenRemoteWorkspace}>
-                                        <Cloud className="size-4" />
-                                        {intl.formatMessage({
-                                          id: "remote.trigger",
-                                        })}
-                                      </DropdownMenuItem>
-                                    ) : null}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                    >
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon-sm"
+                                          className="text-foreground-subtle hover:text-foreground data-[state=open]:text-foreground"
+                                          aria-label={intl.formatMessage({
+                                            id: "workspaceSidebar.addProject",
+                                          })}
+                                          data-testid={TID_PROJECT_ADD}
+                                        >
+                                          <Plus className="size-3.5" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                    </ControlHintTooltip>
+                                    <DropdownMenuContent align="end" className="min-w-44">
+                                      {onOpenFolderFromWorkspaceMenu ? (
+                                        <DropdownMenuItem onSelect={onOpenFolderFromWorkspaceMenu}>
+                                          <FolderOpen className="size-4" />
+                                          {intl.formatMessage({
+                                            id: "workspace.openFolder",
+                                          })}
+                                        </DropdownMenuItem>
+                                      ) : null}
+                                      {onOpenRemoteWorkspace ? (
+                                        <DropdownMenuItem onSelect={onOpenRemoteWorkspace}>
+                                          <Cloud className="size-4" />
+                                          {intl.formatMessage({
+                                            id: "remote.trigger",
+                                          })}
+                                        </DropdownMenuItem>
+                                      ) : null}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                ) : undefined
                               }
                             >
                               {projectWorkspaceTabs.length === 0 ? (

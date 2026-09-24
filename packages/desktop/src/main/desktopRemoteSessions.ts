@@ -891,9 +891,54 @@ export function createRemoteWorkspaceSessionManager(options: {
     return { process, port: port1, remoteKind: descriptor.target.kind };
   }
 
+  /**
+   * 手机远控：把手机管道以 web-remote-replayable attachment 挂到窗口 Local Host（spec §7.2）。
+   * 与 renderer reload 复挂同构（scope local，workspace 真值归 Host 的 activeServices 所有）。
+   */
+  function attachLocalWorkspaceSessionHost(params: {
+    webContentsId: number;
+    clientMode: "web-remote-replayable";
+  }): { process: ElectronUtilityProcess; attachmentId: string; port: MessagePortMain } {
+    const child = options.windowHostProcessMap.get(params.webContentsId);
+    if (!child || child.pid == null) {
+      throw Object.assign(
+        new Error(`未找到窗口 Local Host，webContentsId=${params.webContentsId}`),
+        { code: "HOST_NOT_READY" as const },
+      );
+    }
+    const attachmentId = randomUUID();
+    const { port1, port2 } = createMessageChannel();
+    child.postMessage(
+      {
+        type: HostMessageTypes.AttachServicePort,
+        requestId: randomUUID(),
+        attachmentId,
+        clientMode: params.clientMode,
+        scope: { kind: "local" },
+      },
+      [port2],
+    );
+    return { process: child, attachmentId, port: port1 };
+  }
+
+  /** 手机远控：按 attachmentId 拆除本地 Host attachment（幂等）。 */
+  function detachLocalWorkspaceAttachment(
+    webContentsId: number,
+    attachmentId: string,
+    reason: string,
+  ): void {
+    const child = options.windowHostProcessMap.get(webContentsId);
+    if (!child) {
+      return;
+    }
+    detachServicePort(child, attachmentId, reason);
+  }
+
   return {
     createRemoteWorkspaceSession,
     attachRemoteWorkspaceSessionHost,
+    attachLocalWorkspaceSessionHost,
+    detachLocalWorkspaceAttachment,
     bindRemoteWorkspaceSessionContext,
     confirmRendererAttachmentReady,
     reattachRemoteWorkspaceSessionsForWindow,

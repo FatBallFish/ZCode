@@ -68,7 +68,8 @@ export function TaskActionMenuContent({
   /** 当前 session 或 pane 数达上限且目标无已有归属时禁用（保留布局与层级）。 */
   openInSplitPaneDisabled?: boolean;
   onOpenTaskFeedback?: () => void;
-  onOpenTaskPathInFileManager: () => void;
+  /** 远程会话（手机远控）下调用方不注入：菜单项整体隐藏（spec §21.5）。 */
+  onOpenTaskPathInFileManager?: () => void;
   onCopyWorkspacePath: () => void;
   onCopyTaskPath: () => void;
   onCopyTaskLogPath: () => void;
@@ -133,7 +134,7 @@ export function TaskActionMenuContent({
         </Item>
       ) : null}
       <Separator />
-      {!hideMobileUnsupportedActions ? (
+      {!hideMobileUnsupportedActions && onOpenTaskPathInFileManager ? (
         <Item
           disabled={disableTaskActions}
           title={disableTaskActions ? disabledReason : undefined}

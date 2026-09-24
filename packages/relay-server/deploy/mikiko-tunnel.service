@@ -1,0 +1,14 @@
+[Unit]
+Description=Mikiko remote control Cloudflare tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# token 从 Cloudflare Zero Trust 控制台创建 named tunnel 后获取（部署文档「创建隧道」一节）。
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate tunnel run --token REPLACE_WITH_TUNNEL_TOKEN
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

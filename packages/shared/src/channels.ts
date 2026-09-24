@@ -9,6 +9,7 @@ import type {
 } from "./index.js";
 import type { OAuthStateRegistration } from "./oauth.js";
 import type { AppSettings, Locale } from "./protocol.js";
+import type { DesktopRemoteControlState } from "./remote-control/index.js";
 import type { StorageCleanRequest, StorageCleanResult, StorageUsageSnapshot } from "./storage.js";
 import type {
   ArmsCustomEventPayload,
@@ -184,6 +185,22 @@ export const PlatformChannels = {
   BindRemoteWorkspaceSessionContext: "zcode:bind-remote-workspace-session-context",
   /** 释放当前窗口里的远程 session */
   DisposeRemoteSession: "zcode:dispose-remote-session",
+  /** Renderer → Main：拉取手机远控当前状态 */
+  RemoteControlGetState: "zcode:remote-control-get-state",
+  /** Renderer → Main：开启手机远控（连接 relay 并签发票据，进入 pending） */
+  RemoteControlStart: "zcode:remote-control-start",
+  /** Renderer → Main：关闭手机远控（revoke 票据并断开全部连接） */
+  RemoteControlStop: "zcode:remote-control-stop",
+  /** Renderer → Main：重新生成手机远控二维码票据 */
+  RemoteControlRefreshTicket: "zcode:remote-control-refresh-ticket",
+  RemoteControlDisconnect: "zcode:remote-control-disconnect",
+  RemoteControlSetAutoRefresh: "zcode:remote-control-set-auto-refresh",
+  /** Main → Renderer：手机远控状态推送（Main 是状态的唯一所有者，renderer 只读镜像） */
+  RemoteControlStateChanged: "zcode:remote-control-state-changed",
+  /** Main → 隐藏 RTC 窗口：P2P 协商命令（v2；offer 前的 iceServers/answer/ice/port 指令） */
+  RemoteControlRtcCommand: "zcode:remote-control-rtc-command",
+  /** 隐藏 RTC 窗口 → Main：P2P 协商事件（offer/ice/dcOpen/failed） */
+  RemoteControlRtcEvent: "zcode:remote-control-rtc-event",
   /** Renderer → Main：检查本机 Docker daemon 是否可用 */
   IsDockerAvailable: "zcode:is-docker-available",
   /** Renderer → Main：列出本机可用的 WSL 发行版 */
@@ -715,6 +732,42 @@ export interface PlatformChannelMap {
   };
   [PlatformChannels.DisposeRemoteSession]: {
     request: string;
+    response: void;
+  };
+  [PlatformChannels.RemoteControlGetState]: {
+    request: void;
+    response: { state: DesktopRemoteControlState; enabled: boolean };
+  };
+  [PlatformChannels.RemoteControlStart]: {
+    request: void;
+    response: { state: DesktopRemoteControlState };
+  };
+  [PlatformChannels.RemoteControlStop]: {
+    request: void;
+    response: { state: DesktopRemoteControlState };
+  };
+  [PlatformChannels.RemoteControlRefreshTicket]: {
+    request: void;
+    response: { state: DesktopRemoteControlState };
+  };
+  [PlatformChannels.RemoteControlDisconnect]: {
+    request: void;
+    response: { state: DesktopRemoteControlState };
+  };
+  [PlatformChannels.RemoteControlSetAutoRefresh]: {
+    request: boolean;
+    response: { state: DesktopRemoteControlState };
+  };
+  [PlatformChannels.RemoteControlStateChanged]: {
+    request: { state: DesktopRemoteControlState };
+    response: void;
+  };
+  [PlatformChannels.RemoteControlRtcCommand]: {
+    request: import("./remote-control/index.js").RemoteControlRtcCommand;
+    response: void;
+  };
+  [PlatformChannels.RemoteControlRtcEvent]: {
+    request: import("./remote-control/index.js").RemoteControlRtcEvent;
     response: void;
   };
   [PlatformChannels.IsDockerAvailable]: {

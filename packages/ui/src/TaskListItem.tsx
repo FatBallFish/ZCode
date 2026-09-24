@@ -925,9 +925,14 @@ export function TaskListItemContextMenuContent({
       onOpenTaskFeedback={() => {
         void handleOpenTaskFeedback();
       }}
-      onOpenTaskPathInFileManager={() => {
-        void handleOpenTaskPathInFileManager();
-      }}
+      onOpenTaskPathInFileManager={
+        // 远程会话下钩子不提供处理器：菜单项整体隐藏（spec §21.5）。
+        handleOpenTaskPathInFileManager
+          ? () => {
+              void handleOpenTaskPathInFileManager();
+            }
+          : undefined
+      }
       onCopyWorkspacePath={() => {
         void handleCopyText(intl.formatMessage({ id: "appHeader.copyPath" }), workspacePath);
       }}
