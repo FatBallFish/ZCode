@@ -45,11 +45,11 @@ import { ProviderTemplatePicker } from "./model-provider-section/ProviderTemplat
 import type { CodingPlanLoginOptions } from "./model-provider-section/codingPlanPricingCards.js";
 import { useModelProviderNavigation } from "./model-provider-section/useModelProviderNavigation.js";
 import { reportPresetSubscriptionSuccess } from "./model-provider-section/oauthActions.js";
+import { createCustomProviderNodeKey } from "./model-provider-section/utils.js";
 import {
-  createCodingPlanProviderNodeKey,
-  createCustomProviderNodeKey,
-  createPresetProviderNodeKey,
-} from "./model-provider-section/utils.js";
+  resolveModelProviderTargetSelection,
+  resolveProviderFamilySideNodeKey,
+} from "./model-provider-section/providerTargetResolution.js";
 import {
   confirmAndDeleteModelProvider,
   refreshModelProviderSection,
@@ -108,22 +108,6 @@ function shouldRetryUnchangedCodingPlanProviderSync({
   selectedKeyUnchanged: boolean;
 }): boolean {
   return modeUnchanged && selectedKeyUnchanged && attemptKey !== null && attemptStatus === "failed";
-}
-
-function resolveCodingPlanIntentProviderId(
-  target: SettingsModelProviderTarget | undefined,
-): BuiltinModelProviderId | null {
-  switch (target?.providerId) {
-    case BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan:
-    case BUILTIN_MODEL_PROVIDER_IDS.zaiTeamCodingPlan:
-    case BUILTIN_MODEL_PROVIDER_IDS.zaiStartPlan:
-    case BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan:
-    case BUILTIN_MODEL_PROVIDER_IDS.bigmodelTeamCodingPlan:
-    case BUILTIN_MODEL_PROVIDER_IDS.bigmodelStartPlan:
-      return target.providerId;
-    default:
-      return null;
-  }
 }
 
 function shouldRefreshCodingPlanEntitlementsAfterSave(
@@ -192,12 +176,6 @@ function clearPendingProviderFamilyConnectionSelection(
   return rest;
 }
 
-function resolveProviderFamilySideNodeKey(providerId: BuiltinModelProviderId): string | null {
-  if (isStartPlanModelProviderId(providerId)) return createCodingPlanProviderNodeKey(providerId);
-  const familySpec = resolveModelProviderFamilySpecByProviderId(providerId);
-  return familySpec ? createPresetProviderNodeKey(familySpec.startPlanProviderId) : null;
-}
-
 function resolveConnectionSelectionForNavItem(
   item: Extract<
     ModelProviderNavGroup["items"][number],
@@ -229,6 +207,13 @@ function resolveModelProviderSideSelectionKey(
     return item.key;
   return resolveProviderFamilySideNodeKey(item.presetId) ?? item.key;
 }
+
+/** 初始 selectedNodeKey 同步解析用的空上下文：只有内置 Coding Plan 能即刻定位。 */
+const EMPTY_PROVIDER_TARGET_CONTEXT = {
+  customProviderIds: new Set<string>(),
+  relayProviderSiteIdByKey: new Map<string, string>(),
+  relaySiteIds: new Set<string>(),
+} as const;
 
 /**
  * 模型 Provider 设置只由 SettingsPage 注入 Local Host；这里不接收 workspaceIdentity，
@@ -293,14 +278,19 @@ export function ModelProviderSection({
   }, [providerSettingsView]);
   const providerConnectionRefreshSignal = providerSettingsView?.revision;
   const [initialModelProviderTarget] = useState(() => consumePendingSettingsModelProviderTarget());
-  const [invalidProviderTarget, setInvalidProviderTarget] = useState(() =>
-    Boolean(
-      initialModelProviderTarget && !resolveCodingPlanIntentProviderId(initialModelProviderTarget),
-    ),
-  );
+  // 非内置供应商（中转站/自定义）的意图要等列表数据加载后由 pending 流程解析定位，
+  // 初始一律不判 invalid，避免在数据未就绪时误报「无法打开目标供应商」。
+  const [invalidProviderTarget, setInvalidProviderTarget] = useState(false);
   const [selectedNodeKey, setSelectedNodeKey] = useState<string | null>(() => {
-    const providerId = resolveCodingPlanIntentProviderId(initialModelProviderTarget);
-    return providerId ? resolveProviderFamilySideNodeKey(providerId) : null;
+    // 初始同步路径只有内置 Coding Plan ID 可解析；其余返回 pending，交给数据
+    // 到达后的 pendingModelProviderTarget / 导航事件重试。
+    const resolution = resolveModelProviderTargetSelection(initialModelProviderTarget, {
+      customProviderIds: EMPTY_PROVIDER_TARGET_CONTEXT.customProviderIds,
+      relayProviderSiteIdByKey: EMPTY_PROVIDER_TARGET_CONTEXT.relayProviderSiteIdByKey,
+      relaySiteIds: EMPTY_PROVIDER_TARGET_CONTEXT.relaySiteIds,
+      navigationReady: false,
+    });
+    return resolution.kind === "node" ? resolution.nodeKey : null;
   });
   const [presetSubscriptionProviderId, setPresetSubscriptionProviderId] =
     useState<BuiltinModelProviderId | null>(null);
@@ -324,13 +314,19 @@ export function ModelProviderSection({
       panelBaseUrl: string;
       kind: string;
       enabled?: boolean;
+      providerBindings?: Array<{ providerId: string }>;
     }>
   >([]);
   const [relayBoundProviderIds, setRelayBoundProviderIds] = useState<ReadonlySet<string>>(
     new Set(),
   );
+  // 站点列表首次加载完成（或确认无中转站服务）后意图解析才允许判 invalid。
+  const [relaySitesLoaded, setRelaySitesLoaded] = useState(false);
   useEffect(() => {
     if (!sub2ApiServiceForNav) {
+      // 无中转站服务（如无本地 workspace 的远端会话）：空站点集视为已就绪，
+      // 供应商意图解析不因此一直挂起。
+      setRelaySitesLoaded(true);
       return;
     }
     type RelaySiteEntry = {
@@ -339,6 +335,7 @@ export function ModelProviderSection({
       panelBaseUrl: string;
       kind: string;
       enabled?: boolean;
+      providerBindings?: Array<{ providerId: string }>;
     };
     const toSite = (site: {
       siteId: string;
@@ -346,12 +343,16 @@ export function ModelProviderSection({
       panelBaseUrl: string;
       kind: string;
       enabled?: boolean;
+      providerBindings?: Array<{ providerId: string }>;
     }): RelaySiteEntry => ({
       siteId: site.siteId,
       siteName: site.siteName ?? undefined,
       panelBaseUrl: site.panelBaseUrl,
       kind: site.kind,
       enabled: site.enabled !== false,
+      providerBindings: site.providerBindings?.map((binding) => ({
+        providerId: binding.providerId,
+      })),
     });
     void sub2ApiServiceForNav.getSites().then((state) => {
       setRelaySites(state.sites.map(toSite));
@@ -360,6 +361,7 @@ export function ModelProviderSection({
           state.sites.flatMap((site) => (site.providerBindings ?? []).map((b) => b.providerId)),
         ),
       );
+      setRelaySitesLoaded(true);
     });
     const disposable = sub2ApiServiceForNav.onDidChange((state) => {
       setRelaySites(state.sites.map(toSite));
@@ -387,14 +389,44 @@ export function ModelProviderSection({
     setPendingCreatedProviderId(null);
   }, [modelProviders, pendingCreatedProviderId]);
 
+  // 意图解析的数据上下文：中转站绑定映射、供应商 id 集与就绪标记。
+  // 数据未就绪时 applyModelProviderTarget 返回 false（不消费），
+  // applyModelProviderTarget 依赖变化会重新触发 pending effect 重试。
+  const relayProviderSiteIdByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const site of relaySites) {
+      for (const binding of site.providerBindings ?? []) {
+        map.set(binding.providerId, site.siteId);
+      }
+    }
+    return map;
+  }, [relaySites]);
+  const relaySiteIds = useMemo(() => new Set(relaySites.map((site) => site.siteId)), [relaySites]);
+  const loadedProviderIds = useMemo(
+    () => new Set(modelProviders.map((provider) => provider.providerId)),
+    [modelProviders],
+  );
+  const providerTargetNavigationReady = !loading && relaySitesLoaded;
+
   const applyModelProviderTarget = useCallback(
     (target: SettingsModelProviderTarget | undefined) => {
       if (!target) return false;
-      const providerId = resolveCodingPlanIntentProviderId(target);
-      if (!providerId) {
+      const resolution = resolveModelProviderTargetSelection(target, {
+        customProviderIds: loadedProviderIds,
+        relayProviderSiteIdByKey,
+        relaySiteIds,
+        navigationReady: providerTargetNavigationReady,
+      });
+      if (resolution.kind === "pending") {
+        // 供应商/中转站列表还没加载完：暂不消费意图，数据到达后由 effect 重试。
+        return false;
+      }
+      if (resolution.kind === "invalid") {
         // 未知 ID 不能只静默忽略：pending 指令不消费的话，外部输入错误会困住导航。
         // 仅显示错误，保留当前可操作页面和持久连接，后续合法导航/手动选择可恢复。
-        logger.warn("[ModelProviderSection] 无法打开目标供应商", { providerId: target.providerId });
+        logger.warn("[ModelProviderSection] 无法打开目标供应商", {
+          target,
+        });
         setInvalidProviderTarget(true);
         setTemplatePickerOpen(false);
         return true;
@@ -402,10 +434,10 @@ export function ModelProviderSection({
 
       setInvalidProviderTarget(false);
       setTemplatePickerOpen(false);
-      setSelectedNodeKey(resolveProviderFamilySideNodeKey(providerId));
+      setSelectedNodeKey(resolution.nodeKey);
       return true;
     },
-    [],
+    [loadedProviderIds, providerTargetNavigationReady, relayProviderSiteIdByKey, relaySiteIds],
   );
 
   useEffect(() => {

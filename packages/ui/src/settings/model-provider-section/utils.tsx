@@ -1,24 +1,16 @@
 import type { ReactNode } from "react";
-import { type BuiltinModelProviderId } from "@zcode/shared";
 import { PackageIcon } from "lucide-react";
 import { ProviderLogo } from "./ProviderLogo.js";
 import { type ModelProviderNavItem } from "./constants.js";
 
-export function createPresetProviderNodeKey(id: BuiltinModelProviderId): string {
-  return `preset:${id}`;
-}
-
-export function createRelayProviderNodeKey(siteId: string): string {
-  return `relay:${siteId}`;
-}
-
-export function createCodingPlanProviderNodeKey(id: BuiltinModelProviderId): string {
-  return `coding-plan:${id}`;
-}
-
-export function createCustomProviderNodeKey(id: string): string {
-  return `custom:${id}`;
-}
+// 节点 key 构造迁至纯模块（providerTargetResolution，可被 node:test 直接加载），
+// 这里保持原导出面不变；utils.tsx 依赖图标资源，不适合进纯逻辑测试的导入链。
+export {
+  createCodingPlanProviderNodeKey,
+  createCustomProviderNodeKey,
+  createPresetProviderNodeKey,
+  createRelayProviderNodeKey,
+} from "./providerTargetResolution.js";
 
 export function resolveModelProviderNavLogo(item: ModelProviderNavItem) {
   // 品牌主入口沿用 Start 导航 ID，但不能因此显示体验套餐图标。
