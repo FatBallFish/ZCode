@@ -2162,6 +2162,8 @@ const zhCN: Record<string, string> = {
   "settings.sub2api.login.captchaBlocked":
     "该站点开启了人机验证，暂不支持应用内密码登录。请在站点控制台创建 API Key 后使用下方“添加密钥”。",
   "settings.sub2api.keys.title": "API 密钥",
+  "settings.sub2api.keys.refresh": "刷新密钥列表",
+  "settings.sub2api.models.refresh": "刷新模型列表",
   "settings.sub2api.keys.namePlaceholder": "密钥名称（可选）",
   "settings.sub2api.keys.add": "验证并添加",
   "settings.sub2api.keys.added": "密钥已添加并激活",
