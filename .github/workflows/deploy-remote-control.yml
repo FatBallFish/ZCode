@@ -59,8 +59,23 @@ jobs:
             exit 78
           fi
           mkdir -p ~/.ssh
-          printf '%s\n' "$RELAY_DEPLOY_KEY" > ~/.ssh/relay_key
+          # 规范化常见粘贴损坏：首尾引号/CR/字面 \n，并确保末尾换行。
+          printf '%s' "$RELAY_DEPLOY_KEY" \
+            | sed -e 's/^"//' -e 's/"$//' -e $'s/\r//' -e 's/\\n/\n/g' > ~/.ssh/relay_key
+          echo >> ~/.ssh/relay_key
           chmod 600 ~/.ssh/relay_key
+          # 私钥自检：无法解析 = 粘贴损坏；指纹不符 = 配错钥匙（指纹是公开信息，可安全打印比对）。
+          if ! EXPECTED_PUB=$(ssh-keygen -y -f ~/.ssh/relay_key 2>/dev/null); then
+            echo "::error::私钥无法解析（粘贴损坏或为带口令密钥）。请用无口令的部署私钥重新配置 secrets.RELAY_DEPLOY_KEY"
+            exit 1
+          fi
+          ACTUAL_FP=$(ssh-keygen -lf ~/.ssh/relay_key | awk '{print $2}')
+          echo "CI 密钥指纹: $ACTUAL_FP"
+          EXPECTED_FP="SHA256:/jSkBYf5v8uACkfTtgsTTNRb42fyQIhyhpKBOdyV5MY"
+          if [ "$ACTUAL_FP" != "$EXPECTED_FP" ]; then
+            echo "::error::密钥指纹与服务器登记的部署钥不一致（期望 $EXPECTED_FP）。secrets.RELAY_DEPLOY_KEY 应为 ~/.ssh/id_ed25519_relay_ci 的私钥内容"
+            exit 1
+          fi
           ssh-keyscan -H "$RELAY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           scp -i ~/.ssh/relay_key packages/relay-server/dist/relay.cjs "$RELAY_USER@$RELAY_HOST:$RELAY_PATH"
           ssh -i ~/.ssh/relay_key "$RELAY_USER@$RELAY_HOST" "systemctl restart mikiko-relay && sleep 1 && systemctl is-active mikiko-relay"
@@ -121,5 +136,4 @@ jobs:
             echo "::notice::secrets.CLOUDFLARE_API_TOKEN 未配置，跳过升级服务部署"
             exit 78
           fi
-          npm install --no-save wrangler@4
-          npx wrangler deploy
+          npx --yes wrangler@4 deploy
