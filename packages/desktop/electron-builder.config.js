@@ -773,6 +773,6 @@ export default {
     useMultipleRangeRequest: false,
     // 新客户端运行时使用服务端 manifest provider；这里仅保留 electron-builder 必需的
     // generic publish 占位，避免打包产物继续携带可配置的旧 stable feed。
-    url: "http://localhost:8081",
+    url: "https://agent-dl.mikiko.ai/feed",
   },
 };

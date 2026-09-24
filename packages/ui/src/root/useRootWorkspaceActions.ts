@@ -576,7 +576,10 @@ export function useRootWorkspaceActions({
     handleEnsureConversationWorkspace,
     handleCreateConversationTask,
     handleOpenWorkspace,
-    handleOpenFolderFromWorkspaceMenu,
+    // 远程控制等不支持打开工作区的壳层：不注入处理器，侧栏「添加项目→打开文件夹」整体隐藏（spec §21.5）。
+    handleOpenFolderFromWorkspaceMenu: allowOpenWorkspace
+      ? handleOpenFolderFromWorkspaceMenu
+      : undefined,
     handleCreateScratchWorkspace,
     handleCreateTask,
     handleBackFromSettings,

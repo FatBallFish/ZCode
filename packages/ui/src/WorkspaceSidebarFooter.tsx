@@ -36,11 +36,14 @@ import {
   Maximize,
   Palette,
   Settings,
+  Smartphone,
   User,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
 import { usePlatform } from "@/hooks/usePlatform.js";
+import { useRemoteControl } from "@/remoteControl/useRemoteControl.js";
+import { RemoteControlDialog } from "@/remoteControl/RemoteControlDialog.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { ISub2ApiService } from "@zcode/services";
 import type { Sub2ApiSitesState } from "@zcode/services";
@@ -217,6 +220,8 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
       : intl.formatMessage({ id: "settings.title" });
   const usageButtonClick = onUsageClick ?? onSettingsButtonClick;
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [remoteControlOpen, setRemoteControlOpen] = useState(false);
+  const remoteControl = useRemoteControl();
   const [desktopZoomLevel, setDesktopZoomLevel] = useState(0);
   const runDesktopZoomCommand = useCallback(
     (command: (typeof DesktopCommandIds)["ZoomIn" | "ZoomOut" | "ResetZoom"]) => {
@@ -480,6 +485,42 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
           </DropdownMenuContent>
         </DropdownMenu>
         <div className="flex shrink-0 items-center gap-1.5">
+          {/* 手机远控入口：平台未实现（Web / relay 未配置）时隐藏；Main 拥有状态，弹窗只读镜像。
+              状态色（spec §21.3.1）：connected 绿、pending/waiting 橙、disabled 默认。 */}
+          {remoteControl.available ? (
+            <ControlHintTooltip title={intl.formatMessage({ id: "remoteControl.title" })}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-lg"
+                data-testid="remote-control-trigger"
+                aria-label={intl.formatMessage({ id: "remoteControl.title" })}
+                onClick={() => setRemoteControlOpen(true)}
+              >
+                <Smartphone
+                  className={cn(
+                    "size-4",
+                    remoteControl.state?.phase === "connected" && "text-emerald-500",
+                    (remoteControl.state?.phase === "pending" ||
+                      remoteControl.state?.phase === "waiting") &&
+                      "text-amber-500",
+                  )}
+                />
+              </Button>
+            </ControlHintTooltip>
+          ) : null}
+          {remoteControl.available && remoteControl.state ? (
+            <RemoteControlDialog
+              open={remoteControlOpen}
+              onOpenChange={setRemoteControlOpen}
+              state={remoteControl.state}
+              onStart={remoteControl.start}
+              onStop={remoteControl.stop}
+              onDisconnect={remoteControl.disconnect}
+              onRefreshTicket={remoteControl.refreshTicket}
+              onSetAutoRefresh={remoteControl.setAutoRefresh}
+            />
+          ) : null}
           {isDesktop && workspacePath ? (
             <WorkspaceWebRemoteControlTrigger
               workspacePath={workspacePath}

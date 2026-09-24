@@ -43,7 +43,7 @@ export const ZCODE_PRODUCT_FLAVOR = normalizeZCodeProductFlavor(
  * 这是暂时屏蔽而非移除——更新服务就绪后改回 true 即恢复原有接线，
  * 各入口的读取点见 specs/update/update-check.md，不得单独删除。
  */
-export const ZCODE_UPDATES_ENABLED = false;
+export const ZCODE_UPDATES_ENABLED = true;
 
 export const ZCODE_APP_VERSION_ENV = "ZCODE_APP_VERSION" as const;
 export const ZCODE_BUILD_COMMIT_ID_ENV = "ZCODE_BUILD_COMMIT_ID" as const;

@@ -63,24 +63,25 @@ import {
   setDataBaseDir,
 } from "@zcode/services/node";
 import {
-  desktopMenuMessageIds,
-  type Locale,
-  type AppSettings,
-  PlatformChannels,
-  ZCODE_ENV,
-  ZCODE_PRODUCT_FLAVOR,
-  ZCODE_UPDATES_ENABLED,
-  DEFAULT_ZCODE_ENDPOINT_ORIGIN,
-  DEFAULT_LOCALE,
-  ZCODE_VERSION,
-  ZCODE_TELEMETRY_ENABLED,
-  ZCODE_ARMS_RUM_ENDPOINT,
   buildZCodeEndpointUrls,
+  DEFAULT_LOCALE,
+  DEFAULT_ZCODE_ENDPOINT_ORIGIN,
+  desktopMenuMessageIds,
+  HostMessageTypes,
+  MIKIKO_UPDATE_ENDPOINT_ORIGIN,
+  PlatformChannels,
   resolveZCodeEndpointOrigin,
   shouldEnableE2ETestBridge,
-  type UpdateStatePayload,
+  type AppSettings,
+  type Locale,
   type TelemetryEventPayload,
-  HostMessageTypes,
+  type UpdateStatePayload,
+  ZCODE_ARMS_RUM_ENDPOINT,
+  ZCODE_ENV,
+  ZCODE_PRODUCT_FLAVOR,
+  ZCODE_TELEMETRY_ENABLED,
+  ZCODE_UPDATES_ENABLED,
+  ZCODE_VERSION,
 } from "@zcode/shared";
 import { logger } from "./logger.js";
 import { markMainLaunchAppReady } from "./desktopLaunchMarks.js";
@@ -206,6 +207,8 @@ import {
   saveCliMcpToUserDirectory,
 } from "./mcpUserDirectory/index.js";
 import { registerRemoteIpcHandlers } from "./desktopMainIpcRemote.js";
+import { createRemoteControlProductionService } from "./remoteControl/wiring.js";
+import { registerRemoteControlIpc } from "./remoteControl/remoteControlIpc.js";
 import {
   configureDesktopStabilityTelemetry,
   getStabilityLifecycleScene,
@@ -791,6 +794,44 @@ const remoteSessionManager = createRemoteWorkspaceSessionManager({
   reportRemoteConnectionStateChanged: reportRemoteConnectionStateChangedToArms,
   reportRemoteDisconnect: reportRemoteDisconnectToArms,
 });
+
+// 手机远控（specs/remote/mobile-remote-control.md）：relay 端点未配置时返回 null，
+// 功能整体关闭（UI 不出入口、进程零出网）。
+const remoteControlService = createRemoteControlProductionService({
+  logger,
+  windowHostProcessMap,
+  attachPort: (webContentsId) => {
+    const attached = remoteSessionManager.attachLocalWorkspaceSessionHost({
+      webContentsId,
+      clientMode: "web-remote-replayable",
+    });
+    return { attachmentId: attached.attachmentId, port: attached.port };
+  },
+  detachPort: remoteSessionManager.detachLocalWorkspaceAttachment,
+  preloadPath: join(import.meta.dirname, "../preload/index.cjs"),
+});
+// IPC 恒注册：relay 未配置时 GetState 返回 enabled:false，UI 据此隐藏入口，
+// 避免 renderer invoke 无 handler 的 unhandled rejection（spec §12 场景 11）。
+registerRemoteControlIpc({ service: remoteControlService });
+if (remoteControlService) {
+  app.on("will-quit", () => {
+    remoteControlService.dispose();
+  });
+  // 测试辅助（env 门控）：自动开启远控并把一次性票据 URL 打到 stdout，
+  // 供真机/自动化浏览器直接打开；生产构建不注入该变量即完全不生效。
+  if (process.env.ZCODE_REMOTE_CONTROL_TEST_AUTOSTART === "1") {
+    remoteControlService.start();
+    let lastPrintedSid: string | null = null;
+    const ticketPoller = setInterval(() => {
+      const state = remoteControlService.getState();
+      if (state.phase === "pending" && state.sid !== lastPrintedSid) {
+        lastPrintedSid = state.sid;
+        console.log(`[remote-control][test] ticket url: ${state.url}`);
+      }
+    }, 500);
+    ticketPoller.unref?.();
+  }
+}
 
 const deviceMid = ensureDesktopDeviceMidSync();
 // 帮助配置是公开读取，不能复用下面附带账号鉴权的灰度响应缓存。
@@ -2268,7 +2309,8 @@ app.whenReady().then(async () => {
       ? await maybeBlockStartupForForceUpdate({
           locale: currentApplicationLocale,
           logger,
-          endpointOrigin: await resolveCurrentZCodeEndpointOrigin(),
+          // 强更配置走自建升级服务（spec update-service），与账号后端解耦。
+          endpointOrigin: MIKIKO_UPDATE_ENDPOINT_ORIGIN,
           onBlocked: () => {
             forceUpdateMainWindowCreationBlocked = true;
           },

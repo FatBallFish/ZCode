@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# 手机远控 Pages 部署产物（CI/本地 build:remote-pages 生成，不入库）。
+packages/web/dist-pages/
 # zcode-server-cli 发行包 staging 输出，本地组装产物不入库。
 dist-release/
 # macOS CI 按架构隔离 electron-builder 输出目录，这些仍是构建产物。
