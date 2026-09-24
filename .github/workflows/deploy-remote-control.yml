@@ -137,3 +137,5 @@ jobs:
             exit 78
           fi
           npx --yes wrangler@4 deploy
+
+# trigger: verify-deploy-key
