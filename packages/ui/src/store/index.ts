@@ -138,6 +138,10 @@ export interface ZCodeState {
   authSessionSeq: number;
   setUser: (user: UserInfo | null) => void;
 
+  /** 左下角 footer 当前选中的中转站账号站点 id（窗口级共享，不持久化）。 */
+  sidebarRelayAccountSiteId: string | null;
+  setSidebarRelayAccountSiteId: (siteId: string | null) => void;
+
   /** 启动阶段是否仍在恢复 OAuth 登录态 */
   isRestoringOAuthSession: boolean;
   setIsRestoringOAuthSession: (restoring: boolean) => void;
@@ -321,6 +325,16 @@ export function createZCodeStore(
         authSessionSeq:
           state.user === null && user !== null ? state.authSessionSeq + 1 : state.authSessionSeq,
       })),
+
+    /**
+     * 左下角 footer 展示的中转站账号（Sub2API 站点 id）。工作区与设置页各挂一个
+     * footer 实例，此前选中态是组件本地 state，进设置页后新实例丢失选中、有智谱
+     * OAuth 时回落显示智谱账号。改为窗口级共享（跟随 useZCodeStore 生命周期，
+     * 不持久化），两处展示与「设置跟随账户」意图共用同一份事实。
+     */
+    sidebarRelayAccountSiteId: null,
+    setSidebarRelayAccountSiteId: (siteId: string | null) =>
+      set({ sidebarRelayAccountSiteId: siteId?.trim() || null }),
 
     isRestoringOAuthSession: options.initialIsRestoringOAuthSession ?? false,
     setIsRestoringOAuthSession: (restoring: boolean) => set({ isRestoringOAuthSession: restoring }),

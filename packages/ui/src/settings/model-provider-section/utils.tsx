@@ -8,21 +8,14 @@ import {
   type ModelProviderNavItem,
 } from "./constants.js";
 
-export function createPresetProviderNodeKey(id: BuiltinModelProviderId): string {
-  return `preset:${id}`;
-}
-
-export function createRelayProviderNodeKey(siteId: string): string {
-  return `relay:${siteId}`;
-}
-
-export function createCodingPlanProviderNodeKey(id: BuiltinModelProviderId): string {
-  return `coding-plan:${id}`;
-}
-
-export function createCustomProviderNodeKey(id: string): string {
-  return `custom:${id}`;
-}
+// 节点 key 构造迁至纯模块（providerTargetResolution，可被 node:test 直接加载），
+// 这里保持原导出面不变；utils.tsx 依赖图标资源，不适合进纯逻辑测试的导入链。
+export {
+  createCodingPlanProviderNodeKey,
+  createCustomProviderNodeKey,
+  createPresetProviderNodeKey,
+  createRelayProviderNodeKey,
+} from "./providerTargetResolution.js";
 
 export function resolveOAuthProviderIdByPreset(
   presetId: BuiltinModelProviderId,

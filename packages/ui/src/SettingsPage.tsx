@@ -825,9 +825,10 @@ export function SettingsPage({
         } else if (resolveSettingsSection(section) !== "plugin") {
           setPluginNavigationOrigin(undefined);
         }
-        if (section === "modelProvider" && detail?.modelProviderId) {
+        if (section === "modelProvider" && (detail?.modelProviderId || detail?.sub2apiSiteId)) {
           setPendingModelProviderTarget({
-            providerId: detail.modelProviderId,
+            ...(detail?.modelProviderId ? { providerId: detail.modelProviderId } : {}),
+            ...(detail?.sub2apiSiteId ? { relaySiteId: detail.sub2apiSiteId } : {}),
           });
         }
       }),

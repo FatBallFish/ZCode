@@ -1,6 +1,6 @@
 /* oxlint-disable eslint(max-lines) -- footer 聚合账户、主题、模式和快捷键菜单。 */
 import type { Locale, UserInfo } from "@zcode/shared";
-import { memo, useCallback, useEffect, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import {
   testId,
   DesktopCommandIds,
@@ -13,7 +13,6 @@ import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar.js";
 import { cn } from "@/components/lib/utils.js";
 import { Button } from "@/components/ui/button.js";
-import { toast } from "@/components/ui/toast.js";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +28,6 @@ import {
 } from "@/components/ui/dropdown-menu.js";
 import {
   BarChart3Icon,
-  Copy,
   PencilRuler,
   Globe,
   Loader2,
@@ -48,9 +46,12 @@ import { useRemoteControl } from "@/remoteControl/useRemoteControl.js";
 import { RemoteControlDialog } from "@/remoteControl/RemoteControlDialog.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { ISub2ApiService } from "@zcode/services";
-import type { Sub2ApiSitesState } from "@zcode/services";
 import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
-import { setPendingSettingsUsageIntent } from "@/lib/settingsNavigation.js";
+import { useSidebarAccountDisplay } from "@/lib/sidebarAccount.js";
+import {
+  setPendingModelProviderTarget,
+  setPendingSettingsUsageIntent,
+} from "@/lib/settingsNavigation.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 import { useZCodeStore } from "@/store/StoreProvider.js";
 import { normalizeInterfaceMode } from "@/lib/interfaceMode.js";
@@ -113,7 +114,6 @@ export const WorkspaceSidebarFooter = memo(
     workspaceRemoteSessionId,
     activeTaskId,
     isDesktop = false,
-    banner,
     className,
   }: {
     theme: Theme;
@@ -134,7 +134,6 @@ export const WorkspaceSidebarFooter = memo(
     workspaceRemoteSessionId?: string;
     activeTaskId?: string | null;
     isDesktop?: boolean;
-    banner?: ReactNode;
     className?: string;
   }) {
     const { intl } = useZCodeIntl();
@@ -148,32 +147,16 @@ export const WorkspaceSidebarFooter = memo(
       (state) => state.isRestoringOAuthSession,
     );
     // 中转站账号：仅在无智谱 OAuth 登录态时作为身份展示源（邮箱 + 余额）。
+    // 选中态与站点订阅收敛到 useSidebarAccountDisplay（窗口级共享）：工作区与设置页
+    // 各挂一个 footer 实例，本地 state 会在进设置页时丢失选中、回落智谱账号展示。
     const baseServices = useBaseWorkspaceServices();
     const sub2ApiService = baseServices?.sub2ApiService as
       ISub2ApiService | undefined;
-    const [sub2ApiSites, setSub2ApiSites] = useState<Sub2ApiSitesState | null>(
-      null,
-    );
-    useEffect(() => {
-      if (!sub2ApiService) {
-        return;
-      }
-      void sub2ApiService.getSites().then(setSub2ApiSites);
-      const disposable = sub2ApiService.onDidChange(setSub2ApiSites);
-      return () => disposable.dispose();
-    }, [sub2ApiService]);
-    const sub2ApiAuthedSites = (sub2ApiSites?.sites ?? []).filter(
-      (site) => site.account && site.enabled !== false,
-    );
-    // 账号切换器：在中转站多账号间切换展示（仅切换展示，不做退登，后台 token 续期不受影响）。
-    const [selectedRelaySiteId, setSelectedRelaySiteId] = useState<
-      string | null
-    >(null);
-    // 账号显示源切换：点击菜单中的中转站账号后主体展示该站点（不影响任何登录态与
-    // 后台 token 续期）；未选择时无 OAuth 才回退显示首个中转站。
-    const sub2ApiAccountSite =
-      sub2ApiAuthedSites.find((site) => site.siteId === selectedRelaySiteId) ??
-      (user ? null : (sub2ApiAuthedSites[0] ?? null));
+    const {
+      authedRelaySites: sub2ApiAuthedSites,
+      relaySite: sub2ApiAccountSite,
+      setRelaySiteSelection,
+    } = useSidebarAccountDisplay();
     const profileBadge = getSidebarProfileBadge(user, intl.formatMessage);
     const profileBadgeOverride =
       sub2ApiAccountSite?.account?.email ?? profileBadge;
@@ -195,15 +178,6 @@ export const WorkspaceSidebarFooter = memo(
       workspaceIdentity,
       workspacePath,
     });
-    const copyUserId = async () => {
-      if (!user?.id) return;
-      try {
-        await navigator.clipboard.writeText(user.id);
-        toast(intl.formatMessage({ id: "sidebar.profile.userIdCopied" }));
-      } catch {
-        toast(intl.formatMessage({ id: "sidebar.profile.userIdCopyFailed" }));
-      }
-    };
     const profileContent = (
       <>
         <Avatar key={avatarKey} size="default">
@@ -215,339 +189,32 @@ export const WorkspaceSidebarFooter = memo(
               avatarFallbackText
             ) : showAuthRestoreLoading ? (
               <>
-                {/* Bugfix: OAuth 启动恢复未落定前，footer 之前会直接显示未登录头像，
+                {/* OAuth 启动恢复未落定前，footer 之前会直接显示未登录头像，
                   用户很容易把“还在校验”误判成“已经退出”。
                   这里用 loading 图标明确表达“状态确认中”，等恢复成功或失败后再展示最终状态。 */}
-              <Loader2 className="size-4 animate-spin" />
-              <span className="sr-only">{intl.formatMessage({ id: "common.loading" })}</span>
-            </>
-          ) : (
-            <User className="size-4" />
-          )}
-        </AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1 overflow-hidden text-left">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate text-ui-base font-semibold text-foreground">
-            {profileBadgeOverride}
-          </span>
-          {user ? <WorkspaceSidebarFooterPlanBadge state={usageSummaryState} /> : null}
-        </div>
-        {profileSubtitle ? (
-          <div className="truncate text-ui-sm text-muted-foreground">{profileSubtitle}</div>
-        ) : null}
-      </div>
-    </>
-  );
-  const settingsButtonLabel =
-    settingsButtonMode === "back"
-      ? intl.formatMessage({ id: "workspace.backToWorkspace" })
-      : intl.formatMessage({ id: "settings.title" });
-  const usageButtonClick = onUsageClick ?? onSettingsButtonClick;
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [remoteControlOpen, setRemoteControlOpen] = useState(false);
-  const remoteControl = useRemoteControl();
-  const [desktopZoomLevel, setDesktopZoomLevel] = useState(0);
-  const runDesktopZoomCommand = useCallback(
-    (command: (typeof DesktopCommandIds)["ZoomIn" | "ZoomOut" | "ResetZoom"]) => {
-      void platform.executeDesktopCommand(command);
-    },
-    [platform],
-  );
-
-  useEffect(() => {
-    if (!isDesktop) {
-      setDesktopZoomLevel(0);
-      return;
-    }
-
-    let isCancelled = false;
-    void platform.getDesktopZoomLevel?.().then((state) => {
-      if (!isCancelled && Number.isFinite(state.zoomLevel)) {
-        setDesktopZoomLevel(state.zoomLevel);
-      }
-    });
-
-    const dispose = platform.onDesktopZoomLevelChanged?.((state) => {
-      if (Number.isFinite(state.zoomLevel)) {
-        setDesktopZoomLevel(state.zoomLevel);
-      }
-    });
-
-    return () => {
-      isCancelled = true;
-      dispose?.();
-    };
-  }, [isDesktop, platform]);
-
-  const canResetDesktopZoom = desktopZoomLevel !== 0;
-  const canZoomIn = desktopZoomLevel < DESKTOP_ZOOM_MAX_LEVEL;
-  const canZoomOut = desktopZoomLevel > DESKTOP_ZOOM_MIN_LEVEL;
-
-  return (
-    // footer 被 Settings 复用，页面专属边距由调用方传入，避免修改共享默认样式。
-    <footer className={cn("flex shrink-0 flex-col gap-2.5 px-4 pt-2 pb-4", className)}>
-      <div className="flex min-w-0 gap-2">
-        <DropdownMenu open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
-          <DropdownMenuTrigger asChild>
-            {/* 头像和 Login 之前直接绑定到登录动作，导致用户无法从这里打开偏好设置。
-              现在把这一块改成统一的设置菜单入口，登录/退出留在菜单项里，交互职责更清晰。 */}
-            <Button
-              type="button"
-              variant="ghost"
-              size={"lg"}
-              className="min-w-0 flex-1 justify-start gap-2 overflow-hidden rounded-tl-2xl rounded-bl-2xl border-0 pl-0"
-              data-testid={TID_LOGIN_TRIGGER}
-              aria-label={profileBadge}
-            >
-              {/* Button 默认 shrink-0 且带 whitespace-nowrap，超长用户名会把 footer 撑出 sidebar。
-                这里让触发按钮和文本列都允许收缩，并只在用户名自身做单行截断。 */}
-              {profileContent}
-            </Button>
-          </DropdownMenuTrigger>
-          {/* 菜单内容保持挂载，避免每次点击头像菜单都重建 footer 内部状态。*/}
-          <DropdownMenuContent align="start" className="w-max min-w-50" forceMount>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <Globe className="size-4" />
-                {intl.formatMessage({ id: "settings.locale" })}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-48">
-                <DropdownMenuRadioGroup value={localeMenuValue} onValueChange={onLocaleChange}>
-                  <DropdownMenuRadioItem value="system">
-                    {intl.formatMessage({
-                      id: "sidebar.settings.systemDefault",
-                    })}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="en-US">
-                    {intl.formatMessage({
-                      id: "sidebar.settings.locale.en-US",
-                    })}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="zh-CN">
-                    {intl.formatMessage({
-                      id: "sidebar.settings.locale.zh-CN",
-                    })}
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <Palette className="size-4" />
-                {intl.formatMessage({ id: "settings.themeMode" })}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-48">
-                <DropdownMenuRadioGroup value={theme} onValueChange={onThemeChange}>
-                  <DropdownMenuRadioItem value="system">
-                    {intl.formatMessage({
-                      id: "sidebar.settings.systemDefault",
-                    })}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="mikiko-dark">
-                    {intl.formatMessage({
-                      id: "sidebar.settings.theme.mikiko-dark",
-                    })}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="mikiko-light">
-                    {intl.formatMessage({
-                      id: "sidebar.settings.theme.mikiko-light",
-                    })}
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <PencilRuler className="size-4" />
-                {intl.formatMessage({ id: "settings.interfaceMode" })}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-48">
-                <DropdownMenuRadioGroup
-                  value={interfaceMode}
-                  onValueChange={(value) => setInterfaceMode(normalizeInterfaceMode(value))}
-                >
-                  <DropdownMenuRadioItem value="coding">
-                    {intl.formatMessage({ id: "settings.interfaceMode.coding" })}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="office">
-                    {intl.formatMessage({ id: "settings.interfaceMode.office" })}
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            {/* 快捷键设置：缩放子菜单 label 读生效表，设置页改绑后即时跟随 */}
-            {/* 收口重复缩放子菜单时误留了语言之后的那份，导致菜单顺序变成
-                语言→缩放→主题；账户菜单分组顺序固定为 语言→主题→界面模式→缩放→用量→登录/登出，
-                这里把唯一一份（读生效表）挪回用量摘要之前，不要再补第二份缩放子菜单。 */}
-            {isDesktop ? (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <ZoomIn className="size-4" />
-                  {intl.formatMessage({ id: "sidebar.settings.interfaceZoom" })}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-50">
-                  <DropdownMenuItem
-                    disabled={!canZoomIn}
-                    onSelect={() => runDesktopZoomCommand(DesktopCommandIds.ZoomIn)}
-                  >
-                    <ZoomIn className="size-4" />
-                    {intl.formatMessage({ id: "titleBar.menu.view.zoomIn" })}
-                    <DropdownMenuShortcut>{zoomInShortcutLabel}</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={!canZoomOut}
-                    onSelect={() => runDesktopZoomCommand(DesktopCommandIds.ZoomOut)}
-                  >
-                    <ZoomOut className="size-4" />
-                    {intl.formatMessage({ id: "titleBar.menu.view.zoomOut" })}
-                    <DropdownMenuShortcut>{zoomOutShortcutLabel}</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={!canResetDesktopZoom}
-                    onSelect={() => runDesktopZoomCommand(DesktopCommandIds.ResetZoom)}
-                  >
-                    <Maximize className="size-4" />
-                    {intl.formatMessage({ id: "titleBar.menu.view.actualSize" })}
-                    <DropdownMenuShortcut>{resetZoomShortcutLabel}</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            ) : null}
-            {sub2ApiAuthedSites.length > 0 ? (
-              <>
-                <DropdownMenuSeparator />
-                {sub2ApiAuthedSites.map((site) => {
-                  const selected = site.siteId === sub2ApiAccountSite?.siteId;
-                  return (
-                    <DropdownMenuItem
-                      key={site.siteId}
-                      data-testid={testId("sidebar-relay-account", site.siteId)}
-                      onSelect={() => {
-                        setSelectedRelaySiteId(site.siteId);
-                      }}
-                    >
-                      <span className="flex size-4 items-center justify-center rounded-full bg-primary/10 text-ui-xs font-semibold text-primary">
-                        {(site.siteName ?? "S").slice(0, 1)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate">{site.siteName ?? site.panelBaseUrl}</span>
-                        <span className="block truncate text-ui-xs text-muted-foreground">
-                          {site.account?.email}
-                          {typeof site.account?.balanceUsd === "number"
-                            ? ` · $${site.account.balanceUsd.toFixed(2)}`
-                            : ""}
-                        </span>
-                      </span>
-                      {selected ? (
-                        <span
-                          className="size-2 shrink-0 rounded-full bg-primary"
-                          aria-hidden="true"
-                        />
-                      ) : null}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </>
-            ) : null}
-            {sub2ApiAccountSite ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  data-testid="sidebar-sub2api-usage-button"
-                  onSelect={() => {
-                    setPendingSettingsUsageIntent();
-                    usageButtonClick?.();
-                  }}
-                >
-                  <BarChart3Icon className="size-4" />
-                  {intl.formatMessage({ id: "sidebar.usage.plan.openStats" })}
-                </DropdownMenuItem>
+                <Loader2 className="size-4 animate-spin" />
+                <span className="sr-only">
+                  {intl.formatMessage({ id: "common.loading" })}
+                </span>
               </>
             ) : (
               <User className="size-4" />
             )}
-            {onLogin && !user && !sub2ApiAccountSite ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={onLogin} data-testid={TID_LOGIN_MENU_ITEM}>
-                  <LogInIcon className="size-4" />
-                  {intl.formatMessage({ id: "app.login" })}
-                </DropdownMenuItem>
-              </>
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1 overflow-hidden text-left">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="min-w-0 truncate text-ui-base font-semibold text-foreground">
+              {profileBadgeOverride}
+            </span>
+            {user ? (
+              <WorkspaceSidebarFooterPlanBadge state={usageSummaryState} />
             ) : null}
-            {sub2ApiAccountSite ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  data-testid={TID_LOGOUT_BUTTON}
-                  onSelect={() => {
-                    // 展示的是中转站账号时，退出该站点并自动切换到下一个仍在登录的账号。
-                    const remaining = sub2ApiAuthedSites.filter(
-                      (site) => site.siteId !== sub2ApiAccountSite.siteId,
-                    );
-                    setSelectedRelaySiteId(remaining[0]?.siteId ?? null);
-                    void sub2ApiService?.logout(sub2ApiAccountSite.siteId);
-                  }}
-                >
-                  <LogOut className="size-4" />
-                  {intl.formatMessage({ id: "app.logout" })}
-                </DropdownMenuItem>
-              </>
-            ) : onLogout ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={onLogout} data-testid={TID_LOGOUT_BUTTON}>
-                  <LogOut className="size-4" />
-                  {intl.formatMessage({ id: "app.logout" })}
-                </DropdownMenuItem>
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {/* 手机远控入口：平台未实现（Web / relay 未配置）时隐藏；Main 拥有状态，弹窗只读镜像。
-              状态色（spec §21.3.1）：connected 绿、pending/waiting 橙、disabled 默认。 */}
-          {remoteControl.available ? (
-            <ControlHintTooltip title={intl.formatMessage({ id: "remoteControl.title" })}>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-lg"
-                data-testid="remote-control-trigger"
-                aria-label={intl.formatMessage({ id: "remoteControl.title" })}
-                onClick={() => setRemoteControlOpen(true)}
-              >
-                <Smartphone
-                  className={cn(
-                    "size-4",
-                    remoteControl.state?.phase === "connected" && "text-emerald-500",
-                    (remoteControl.state?.phase === "pending" ||
-                      remoteControl.state?.phase === "waiting") &&
-                      "text-amber-500",
-                  )}
-                />
-              </Button>
-            </ControlHintTooltip>
-          ) : null}
-          {remoteControl.available && remoteControl.state ? (
-            <RemoteControlDialog
-              open={remoteControlOpen}
-              onOpenChange={setRemoteControlOpen}
-              state={remoteControl.state}
-              onStart={remoteControl.start}
-              onStop={remoteControl.stop}
-              onDisconnect={remoteControl.disconnect}
-              onRefreshTicket={remoteControl.refreshTicket}
-              onSetAutoRefresh={remoteControl.setAutoRefresh}
-            />
-          ) : null}
-          {isDesktop && workspacePath ? (
-            <WorkspaceWebRemoteControlTrigger
-              workspacePath={workspacePath}
-              workspaceIdentity={workspaceIdentity}
-              compact
-            />
+          </div>
+          {profileSubtitle ? (
+            <div className="truncate text-ui-sm text-muted-foreground">
+              {profileSubtitle}
+            </div>
           ) : null}
         </div>
       </>
@@ -557,7 +224,20 @@ export const WorkspaceSidebarFooter = memo(
         ? intl.formatMessage({ id: "workspace.backToWorkspace" })
         : intl.formatMessage({ id: "settings.title" });
     const usageButtonClick = onUsageClick ?? onSettingsButtonClick;
+    // 齿轮（工作区侧）打开设置前预置模型设置页的跟随目标（用户需求：按左下角当前
+    // 展示账户定位）——展示中转站账号 → 对应站点；展示智谱 OAuth 账号 → 清空目标，
+    // 模型设置页走默认家族侧。目标在用户实际进入模型设置分区时才被消费。
+    const settingsGearClick = useCallback(() => {
+      setPendingModelProviderTarget(
+        sub2ApiAccountSite
+          ? { relaySiteId: sub2ApiAccountSite.siteId }
+          : undefined,
+      );
+      onSettingsButtonClick?.();
+    }, [onSettingsButtonClick, sub2ApiAccountSite]);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+    const [remoteControlOpen, setRemoteControlOpen] = useState(false);
+    const remoteControl = useRemoteControl();
     const [desktopZoomLevel, setDesktopZoomLevel] = useState(0);
     const runDesktopZoomCommand = useCallback(
       (
@@ -605,14 +285,13 @@ export const WorkspaceSidebarFooter = memo(
           className,
         )}
       >
-        {banner}
         <div className="flex min-w-0 gap-2">
           <DropdownMenu
             open={profileMenuOpen}
             onOpenChange={setProfileMenuOpen}
           >
             <DropdownMenuTrigger asChild>
-              {/* Bugfix: 头像和 Login 之前直接绑定到登录动作，导致用户无法从这里打开偏好设置。
+              {/* 头像和 Login 之前直接绑定到登录动作，导致用户无法从这里打开偏好设置。
               现在把这一块改成统一的设置菜单入口，登录/退出留在菜单项里，交互职责更清晰。 */}
               <Button
                 type="button"
@@ -622,90 +301,17 @@ export const WorkspaceSidebarFooter = memo(
                 data-testid={TID_LOGIN_TRIGGER}
                 aria-label={profileBadge}
               >
-                {/* Bugfix: Button 默认 shrink-0 且带 whitespace-nowrap，超长用户名会把 footer 撑出 sidebar。
+                {/* Button 默认 shrink-0 且带 whitespace-nowrap，超长用户名会把 footer 撑出 sidebar。
                 这里让触发按钮和文本列都允许收缩，并只在用户名自身做单行截断。 */}
                 {profileContent}
               </Button>
             </DropdownMenuTrigger>
-            {/* Bugfix: 菜单内容保持挂载，避免每次点击头像菜单都重建 footer 内部状态。 */}
+            {/* 菜单内容保持挂载，避免每次点击头像菜单都重建 footer 内部状态。*/}
             <DropdownMenuContent
               align="start"
-              className="w-max min-w-50 max-w-[calc(100vw-2rem)]"
+              className="w-max min-w-50"
               forceMount
             >
-              {user ? (
-                <>
-                  <div
-                    data-testid="profile-menu-header"
-                    className="flex max-w-80 items-center gap-2 px-2 py-1.5"
-                  >
-                    <Avatar key={avatarKey} size="default">
-                      {user.avatarUrl ? (
-                        <AvatarImage src={user.avatarUrl} alt={profileBadge} />
-                      ) : null}
-                      <AvatarFallback className="bg-background text-foreground">
-                        {avatarFallbackText}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span
-                          data-testid="profile-menu-name"
-                          className="truncate text-ui-base font-medium"
-                        >
-                          {profileBadge}
-                        </span>
-                        <span
-                          data-testid="profile-menu-plan"
-                          className="flex shrink-0 [&>span]:border-border/50 [&>span]:bg-transparent [&>span]:font-normal"
-                        >
-                          <WorkspaceSidebarFooterPlanBadge
-                            state={usageSummaryState}
-                          />
-                        </span>
-                      </div>
-                      {user.id ? (
-                        <div className="flex min-w-0 items-center gap-1 text-ui-sm text-foreground-subtle">
-                          <span
-                            data-testid="profile-menu-id"
-                            className="min-w-0 truncate"
-                          >
-                            {intl.formatMessage(
-                              { id: "sidebar.profile.accountId" },
-                              { id: user.id },
-                            )}
-                          </span>
-                          <DropdownMenuItem
-                            asChild
-                            className="data-[highlighted]:bg-transparent data-[highlighted]:hover:bg-menu-hover data-[highlighted]:focus-visible:bg-menu-hover"
-                            onSelect={(event) => {
-                              event.preventDefault();
-                              void copyUserId();
-                            }}
-                          >
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-xs"
-                              data-testid="copy-user-id"
-                              className="min-h-0 p-0 text-foreground-subtle"
-                              aria-label={intl.formatMessage({
-                                id: "sidebar.profile.copyUserId",
-                              })}
-                              title={intl.formatMessage({
-                                id: "sidebar.profile.copyUserId",
-                              })}
-                            >
-                              <Copy className="size-3" />
-                            </Button>
-                          </DropdownMenuItem>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  <DropdownMenuSeparator />
-                </>
-              ) : null}
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Globe className="size-4" />
@@ -787,12 +393,10 @@ export const WorkspaceSidebarFooter = memo(
                   </DropdownMenuRadioGroup>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
-              {/* 快捷键设置（a58fdef 一系）：缩放子菜单 label 读生效表，设置页改绑后即时跟随 */}
-              {/* Bugfix: ecc6952 收口重复缩放子菜单时误留了语言之后的那份，导致菜单顺序变成
+              {/* 快捷键设置：缩放子菜单 label 读生效表，设置页改绑后即时跟随 */}
+              {/* 收口重复缩放子菜单时误留了语言之后的那份，导致菜单顺序变成
                 语言→缩放→主题；账户菜单分组顺序固定为 语言→主题→界面模式→缩放→用量→登录/登出，
-                这里把唯一一份（读生效表）挪回用量摘要之前。
-                staging 的 1d3179cb83 独立做过同一处移动（位置一致、缺本注释与 JSX 缩进），
-                合并时保留本版本，不要再补第二份缩放子菜单。 */}
+                这里把唯一一份（读生效表）挪回用量摘要之前，不要再补第二份缩放子菜单。 */}
               {isDesktop ? (
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
@@ -856,7 +460,7 @@ export const WorkspaceSidebarFooter = memo(
                           site.siteId,
                         )}
                         onSelect={() => {
-                          setSelectedRelaySiteId(site.siteId);
+                          setRelaySiteSelection(site.siteId);
                         }}
                       >
                         <span className="flex size-4 items-center justify-center rounded-full bg-primary/10 text-ui-xs font-semibold text-primary">
@@ -927,7 +531,7 @@ export const WorkspaceSidebarFooter = memo(
                       const remaining = sub2ApiAuthedSites.filter(
                         (site) => site.siteId !== sub2ApiAccountSite.siteId,
                       );
-                      setSelectedRelaySiteId(remaining[0]?.siteId ?? null);
+                      setRelaySiteSelection(remaining[0]?.siteId ?? null);
                       void sub2ApiService?.logout(sub2ApiAccountSite.siteId);
                     }}
                   >
@@ -950,12 +554,49 @@ export const WorkspaceSidebarFooter = memo(
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="flex shrink-0 items-center gap-1.5">
+            {/* 手机远控入口：平台未实现（Web / relay 未配置）时隐藏；Main 拥有状态，弹窗只读镜像。
+              状态色（spec §21.3.1）：connected 绿、pending/waiting 橙、disabled 默认。 */}
+            {remoteControl.available ? (
+              <ControlHintTooltip
+                title={intl.formatMessage({ id: "remoteControl.title" })}
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-lg"
+                  data-testid="remote-control-trigger"
+                  aria-label={intl.formatMessage({ id: "remoteControl.title" })}
+                  onClick={() => setRemoteControlOpen(true)}
+                >
+                  <Smartphone
+                    className={cn(
+                      "size-4",
+                      remoteControl.state?.phase === "connected" &&
+                        "text-emerald-500",
+                      (remoteControl.state?.phase === "pending" ||
+                        remoteControl.state?.phase === "waiting") &&
+                        "text-amber-500",
+                    )}
+                  />
+                </Button>
+              </ControlHintTooltip>
+            ) : null}
+            {remoteControl.available && remoteControl.state ? (
+              <RemoteControlDialog
+                open={remoteControlOpen}
+                onOpenChange={setRemoteControlOpen}
+                state={remoteControl.state}
+                onStart={remoteControl.start}
+                onStop={remoteControl.stop}
+                onDisconnect={remoteControl.disconnect}
+                onRefreshTicket={remoteControl.refreshTicket}
+                onSetAutoRefresh={remoteControl.setAutoRefresh}
+              />
+            ) : null}
             {isDesktop && workspacePath ? (
               <WorkspaceWebRemoteControlTrigger
                 workspacePath={workspacePath}
                 workspaceIdentity={workspaceIdentity}
-                remoteSessionId={workspaceRemoteSessionId}
-                initialTaskId={activeTaskId ?? undefined}
                 compact
               />
             ) : null}
@@ -967,7 +608,7 @@ export const WorkspaceSidebarFooter = memo(
                 data-testid={TID_TASK_SETTINGS_BUTTON}
                 aria-label={settingsButtonLabel}
                 disabled={!onSettingsButtonClick}
-                onClick={onSettingsButtonClick}
+                onClick={settingsGearClick}
               >
                 <Settings className="size-4" />
               </Button>
