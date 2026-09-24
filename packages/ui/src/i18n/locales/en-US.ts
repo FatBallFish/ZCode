@@ -2068,6 +2068,7 @@ const enUS: Record<string, string> = {
   "webRemoteControl.stopSuccess": "Web remote control stopped",
   "webRemoteControl.startFailed": "Failed to start Web remote control: {error}",
   "webRemoteControl.stopFailed": "Failed to stop Web remote control: {error}",
+  "webRemoteControl.botChannel.noWorkspace": "Open a workspace to configure bot channels.",
   "remote.title": "Connect remote environment",
   "remote.description":
     "Connect to a remote workspace over SSH, Server, WSL, or Docker, then choose a directory in the current window.",
@@ -2249,9 +2250,16 @@ const enUS: Record<string, string> = {
   "appShell.backToSessions": "Back to sessions",
   "remoteControl.title": "Mobile remote control",
   "remoteControl.description":
-    "Scan the QR code or open the link on a phone to remote-control the current workspace.",
+    "Connect a phone by QR code, or access this workspace remotely through chat bots.",
+  "remoteControl.phoneSection.title": "Phone QR connection",
+  "remoteControl.phoneSection.description":
+    "Scan the QR code or open the link on a phone to control the current workspace directly.",
   "remoteControl.disabled.description":
     "Generate a QR code and scan it with your phone to control this computer over the internet.",
+  "remoteControl.disabled.configDisabled":
+    'Remote control is disabled in the config file. Set "enabled": true in ~/.mikiko/remote-control.json and restart the app to re-enable it.',
+  "remoteControl.disabled.unconfigured":
+    "Remote control relay endpoints are not configured. Check relayWsUrl / relayHttpUrl in ~/.mikiko/remote-control.json.",
   "remoteControl.disabled.start": "Enable mobile remote control",
   "remoteControl.connected.title": "{device} connected",
   "remoteControl.connected.hint": "{device} can control this workspace.",

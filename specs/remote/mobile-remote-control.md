@@ -600,7 +600,7 @@ type RtcSignal =
 部署增强：
 
 1. `entry.ts` 顶层 await 收进 `main()`——esbuild `--format=cjs` 打包部署必需；relay 以零依赖单文件部署（Node ≥ 18）。
-2. 端点解析增加配置文件 fallback：环境变量 > `~/.mikiko/remote-control.json`（`relayWsUrl`/`relayHttpUrl`/`stunUrls?`/`deviceName?`）> 关闭。打包版 App 免环境变量启用远控；配置文件同样受「双端点成对」约束，缺失即零出网。
+2. 端点解析增加配置文件 fallback：环境变量 > `~/.mikiko/remote-control.json`（`enabled`/`relayWsUrl`/`relayHttpUrl`/`stunUrls?`/`deviceName?`，启动自检与开关语义见 §21.10）> 关闭。打包版 App 免环境变量启用远控；配置文件同样受「双端点成对」约束，缺失即零出网（入口仍展示，`disabledReason="unconfigured"`）。
 3. 手机页静态资源建议部署至 Cloudflare Pages（`--base=/` 专属域，`?sid=` 入口与路径无关），票据 URL 的 `RELAY_WEB_REMOTE_BASE` 指向该域；relay 仅承载 WS 与 bind（小流量）。
 
 ## 18. Cloudflare 部署结论（2026-09-24 真机定稿）
@@ -736,6 +736,21 @@ Release 流水线（`.github/workflows/release-desktop.yml`）新增 `relay` job
 2. 弹窗所有活跃相位常驻展示：二维码 + 时效胶囊（长期有效/倒计时）+ 自动刷新开关 + 刷新二维码 + 复制链接；「关闭远程控制」为底部弱化按钮。
 3. 设备卡片：UA 推断形态图标（Android/iOS/Mac/Windows/Linux）+ 状态胶囊（连接=绿/重连=琥珀+倒计时）+ **类型化文案**（「{设备类型}已连接 / {设备类型}可以控制当前工作区」，解析失败回落「移动设备」）+ **UA 摘要独立一行**（`deviceUa.ts` 纯函数解析「浏览器 版本 · 系统 版本」，自动截断；行尾 info 图标 hover 展示完整 UA）；右侧断开图标按钮仅连接态显示。
 4. 更名「手机远控」→「移动端远程控制」（i18n 全量更新，文案对齐 2026-09-24 设计稿）。
+
+### 21.9 远控弹窗合并 Bot 渠道与动作防抖（2026-09-25）
+
+1. **单一入口**：侧栏 footer 只保留一个 Smartphone 图标（状态色规则不变），上游 v3.14.3 合入的 Bot 渠道远控入口不再单独展示图标——三图标并排会挤压用户信息组件，且 Bot 入口依赖 `workspacePath`，在设置页会消失。
+2. **弹窗布局**：「移动端远程控制」弹窗改为左右分栏（`sm:max-w-2xl`，左窄右宽 `1.15fr/1fr`）：左栏=手机扫码直连（§21.8 的二维码/设备卡片/票据/操作行，逻辑全部走二开 relay 实现，不引入上游手机页实现）；右栏=Bot Channel 渠道列表（微信/飞书/Lark/Telegram + 机器人管理，点击打开 `BotsDialog`，复用上游 `webRemoteControl.botChannel.*` 文案）。无 `workspacePath`（设置页）时右栏整体禁用并提示需先打开工作区。
+3. **动作 pending 态与防抖**（owner：`useRemoteControl` renderer hook，Main 状态机不变）：`start/stop/disconnect/refreshTicket` 执行期间暴露 `pendingAction`（同一时间至多一个）；pending 中重复调用同一动作直接忽略（防抖），对应按钮展示 spinner 并禁用（loading 反馈）。解除条件：IPC promise 落定，或状态推送到达目标相位（start→非 disabled / stop→disabled），先到先清，防止 IPC 丢失导致永久卡 pending。
+4. **i18n**：`remoteControl.description` 更新为覆盖两种远控方式的文案；新增 `webRemoteControl.botChannel.noWorkspace`（无工作区提示）。`WorkspaceWebRemoteControlTrigger`/`WebRemoteControlDialog` 组件随合并删除，文案键保留由 `BotChannelSection` 消费。
+
+### 21.10 配置文件自检、顶层开关与入口解耦（2026-09-25）
+
+1. **启动自检（幂等）**：App 启动时（wiring 创建）检查 `~/.mikiko/remote-control.json`——不存在则写入默认值 `{ enabled: true, relayWsUrl: "wss://ws.mikiko.ai/ws/desktop", relayHttpUrl: "https://ws.mikiko.ai" }`（§19 生产端点）；存在（含用户自定义）则不操作；写入失败仅告警不阻断启动。逻辑在 `remoteControl/fileConfig.ts`（无 electron 依赖，node:test 直测 `test/remoteControl/fileConfig.test.ts`）。
+2. **顶层 `enabled` 开关**：仅显式 `false` 视为停用（历史配置无此字段按启用，不改写用户文件）。停用时：`getState` 恒报 `{phase:"disabled", disabledReason:"config"}`、`start` 不生效、不接 RTC 与版本门控；**手机扫码直连**整体停用，Bot 渠道不受影响。
+3. **入口解耦**：`RemoteControlGetState` 的 `enabled` 只反映平台能力（桌面恒注册 IPC → true；Web 无方法 → 入口隐藏），不再受配置文件影响。relay 端点完全不可解析（service=null，零出网）时入口仍展示，`state.disabledReason="unconfigured"` 适配。
+4. **UI 适配**：`disabledReason` 存在时左栏不展示「开启移动端远程控制」按钮，改用 `PowerOff` 停用图标 + 归因文案（`remoteControl.disabled.configDisabled` / `remoteControl.disabled.unconfigured`，含改回方法）。
+5. **弹窗尺寸**：`sm:max-w-3xl` + `grid-cols-2` + `items-stretch`——右栏 Bot 描述单行不换行；左右分栏边框高度统一，左栏内容（含二维码与 disabled 空态）垂直居中。
 
 终验（2026-09-24）：`remote.mikiko.ai` 静态 200（主 JS 2.4MB/s）+ `wss://ws.mikiko.ai` 数据面全通；票据 URL 生成于 `https://remote.mikiko.ai`；手机端落地页→连接→主界面真实数据渲染通过；quick tunnel 已退役，服务器仅存 `mikiko-relay`/`mikiko-tunnel` 两个 systemd 服务。
 

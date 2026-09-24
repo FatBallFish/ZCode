@@ -56,7 +56,6 @@ import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 import { useZCodeStore } from "@/store/StoreProvider.js";
 import { normalizeInterfaceMode } from "@/lib/interfaceMode.js";
 import type { Theme } from "@/useTheme.js";
-import { WorkspaceWebRemoteControlTrigger } from "@/WorkspaceWebRemoteControlTrigger.js";
 import {
   WorkspaceSidebarFooterPlanBadge,
   WorkspaceSidebarFooterUsageSummaryContent,
@@ -96,526 +95,476 @@ function getAvatarFallbackText(user: UserInfo | null | undefined): string {
   return source[0]?.toUpperCase() ?? "Z";
 }
 
-export const WorkspaceSidebarFooter = memo(
-  function WorkspaceSidebarFooterComponent({
-    theme,
-    localeMenuValue,
-    onLocaleChange,
-    onThemeChange,
-    onSettingsButtonClick,
-    onUsageClick,
-    onUpgradeClick,
-    onLogin,
-    onLogout,
-    settingsButtonMode = "settings",
-    user,
-    workspacePath,
+export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterComponent({
+  theme,
+  localeMenuValue,
+  onLocaleChange,
+  onThemeChange,
+  onSettingsButtonClick,
+  onUsageClick,
+  onUpgradeClick,
+  onLogin,
+  onLogout,
+  settingsButtonMode = "settings",
+  user,
+  workspacePath,
+  workspaceIdentity,
+  workspaceRemoteSessionId,
+  activeTaskId,
+  isDesktop = false,
+  className,
+}: {
+  theme: Theme;
+  localeMenuValue: Locale | "system";
+  onLocaleChange: (value: string) => void;
+  onThemeChange: (value: string) => void;
+  onSettingsButtonClick?: () => void;
+  onUsageClick?: () => void;
+  onUpgradeClick?: Parameters<
+    typeof WorkspaceSidebarFooterUsageSummaryContent
+  >[0]["onUpgradeClick"];
+  onLogin?: () => void;
+  onLogout?: () => void;
+  settingsButtonMode?: "settings" | "back";
+  user?: UserInfo | null;
+  workspacePath?: string;
+  workspaceIdentity?: string;
+  workspaceRemoteSessionId?: string;
+  activeTaskId?: string | null;
+  isDesktop?: boolean;
+  className?: string;
+}) {
+  const { intl } = useZCodeIntl();
+  const platform = usePlatform();
+  const interfaceMode = useZCodeStore((state) => state.interfaceMode);
+  const setInterfaceMode = useZCodeStore((state) => state.setInterfaceMode);
+  const zoomInShortcutLabel = useShortcutCommandLabel("zoomIn");
+  const zoomOutShortcutLabel = useShortcutCommandLabel("zoomOut");
+  const resetZoomShortcutLabel = useShortcutCommandLabel("resetZoom");
+  const isRestoringOAuthSession = useZCodeStore((state) => state.isRestoringOAuthSession);
+  // 中转站账号：仅在无智谱 OAuth 登录态时作为身份展示源（邮箱 + 余额）。
+  // 选中态与站点订阅收敛到 useSidebarAccountDisplay（窗口级共享）：工作区与设置页
+  // 各挂一个 footer 实例，本地 state 会在进设置页时丢失选中、回落智谱账号展示。
+  const baseServices = useBaseWorkspaceServices();
+  const sub2ApiService = baseServices?.sub2ApiService as ISub2ApiService | undefined;
+  const {
+    authedRelaySites: sub2ApiAuthedSites,
+    relaySite: sub2ApiAccountSite,
+    setRelaySiteSelection,
+  } = useSidebarAccountDisplay();
+  const profileBadge = getSidebarProfileBadge(user, intl.formatMessage);
+  const profileBadgeOverride = sub2ApiAccountSite?.account?.email ?? profileBadge;
+  const profileSubtitle =
+    sub2ApiAccountSite?.account && typeof sub2ApiAccountSite.account.balanceUsd === "number"
+      ? `$${sub2ApiAccountSite.account.balanceUsd.toFixed(2)}`
+      : null;
+  const avatarFallbackText = getAvatarFallbackText(
+    user ??
+      (sub2ApiAccountSite?.account
+        ? ({ username: sub2ApiAccountSite.account.email } as UserInfo)
+        : null),
+  );
+  const avatarKey = user?.avatarUrl ?? user?.id ?? "guest";
+  const showAuthRestoreLoading = !user && isRestoringOAuthSession;
+  const usageSummaryState = useWorkspaceSidebarFooterUsageSummaryState({
+    enabled: true,
     workspaceIdentity,
-    workspaceRemoteSessionId,
-    activeTaskId,
-    isDesktop = false,
-    className,
-  }: {
-    theme: Theme;
-    localeMenuValue: Locale | "system";
-    onLocaleChange: (value: string) => void;
-    onThemeChange: (value: string) => void;
-    onSettingsButtonClick?: () => void;
-    onUsageClick?: () => void;
-    onUpgradeClick?: Parameters<
-      typeof WorkspaceSidebarFooterUsageSummaryContent
-    >[0]["onUpgradeClick"];
-    onLogin?: () => void;
-    onLogout?: () => void;
-    settingsButtonMode?: "settings" | "back";
-    user?: UserInfo | null;
-    workspacePath?: string;
-    workspaceIdentity?: string;
-    workspaceRemoteSessionId?: string;
-    activeTaskId?: string | null;
-    isDesktop?: boolean;
-    className?: string;
-  }) {
-    const { intl } = useZCodeIntl();
-    const platform = usePlatform();
-    const interfaceMode = useZCodeStore((state) => state.interfaceMode);
-    const setInterfaceMode = useZCodeStore((state) => state.setInterfaceMode);
-    const zoomInShortcutLabel = useShortcutCommandLabel("zoomIn");
-    const zoomOutShortcutLabel = useShortcutCommandLabel("zoomOut");
-    const resetZoomShortcutLabel = useShortcutCommandLabel("resetZoom");
-    const isRestoringOAuthSession = useZCodeStore(
-      (state) => state.isRestoringOAuthSession,
-    );
-    // 中转站账号：仅在无智谱 OAuth 登录态时作为身份展示源（邮箱 + 余额）。
-    // 选中态与站点订阅收敛到 useSidebarAccountDisplay（窗口级共享）：工作区与设置页
-    // 各挂一个 footer 实例，本地 state 会在进设置页时丢失选中、回落智谱账号展示。
-    const baseServices = useBaseWorkspaceServices();
-    const sub2ApiService = baseServices?.sub2ApiService as
-      ISub2ApiService | undefined;
-    const {
-      authedRelaySites: sub2ApiAuthedSites,
-      relaySite: sub2ApiAccountSite,
-      setRelaySiteSelection,
-    } = useSidebarAccountDisplay();
-    const profileBadge = getSidebarProfileBadge(user, intl.formatMessage);
-    const profileBadgeOverride =
-      sub2ApiAccountSite?.account?.email ?? profileBadge;
-    const profileSubtitle =
-      sub2ApiAccountSite?.account &&
-      typeof sub2ApiAccountSite.account.balanceUsd === "number"
-        ? `$${sub2ApiAccountSite.account.balanceUsd.toFixed(2)}`
-        : null;
-    const avatarFallbackText = getAvatarFallbackText(
-      user ??
-        (sub2ApiAccountSite?.account
-          ? ({ username: sub2ApiAccountSite.account.email } as UserInfo)
-          : null),
-    );
-    const avatarKey = user?.avatarUrl ?? user?.id ?? "guest";
-    const showAuthRestoreLoading = !user && isRestoringOAuthSession;
-    const usageSummaryState = useWorkspaceSidebarFooterUsageSummaryState({
-      enabled: true,
-      workspaceIdentity,
-      workspacePath,
-    });
-    const profileContent = (
-      <>
-        <Avatar key={avatarKey} size="default">
-          {user?.avatarUrl ? (
-            <AvatarImage src={user.avatarUrl} alt={profileBadge} />
-          ) : null}
-          <AvatarFallback className="bg-background text-foreground">
-            {user ? (
-              avatarFallbackText
-            ) : showAuthRestoreLoading ? (
-              <>
-                {/* OAuth 启动恢复未落定前，footer 之前会直接显示未登录头像，
+    workspacePath,
+  });
+  const profileContent = (
+    <>
+      <Avatar key={avatarKey} size="default">
+        {user?.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={profileBadge} /> : null}
+        <AvatarFallback className="bg-background text-foreground">
+          {user ? (
+            avatarFallbackText
+          ) : showAuthRestoreLoading ? (
+            <>
+              {/* OAuth 启动恢复未落定前，footer 之前会直接显示未登录头像，
                   用户很容易把“还在校验”误判成“已经退出”。
                   这里用 loading 图标明确表达“状态确认中”，等恢复成功或失败后再展示最终状态。 */}
-                <Loader2 className="size-4 animate-spin" />
-                <span className="sr-only">
-                  {intl.formatMessage({ id: "common.loading" })}
-                </span>
-              </>
-            ) : (
-              <User className="size-4" />
-            )}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1 overflow-hidden text-left">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="min-w-0 truncate text-ui-base font-semibold text-foreground">
-              {profileBadgeOverride}
-            </span>
-            {user ? (
-              <WorkspaceSidebarFooterPlanBadge state={usageSummaryState} />
-            ) : null}
-          </div>
-          {profileSubtitle ? (
-            <div className="truncate text-ui-sm text-muted-foreground">
-              {profileSubtitle}
-            </div>
+              <Loader2 className="size-4 animate-spin" />
+              <span className="sr-only">{intl.formatMessage({ id: "common.loading" })}</span>
+            </>
+          ) : (
+            <User className="size-4" />
+          )}
+        </AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1 overflow-hidden text-left">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0 truncate text-ui-base font-semibold text-foreground">
+            {profileBadgeOverride}
+          </span>
+          {/* 订阅 badge 属于智谱账号的订阅信息：footer 展示中转站账号时不得残留（spec sub2api-gateway）。 */}
+          {user && !sub2ApiAccountSite ? (
+            <WorkspaceSidebarFooterPlanBadge state={usageSummaryState} />
           ) : null}
         </div>
-      </>
+        {profileSubtitle ? (
+          <div className="truncate text-ui-sm text-muted-foreground">{profileSubtitle}</div>
+        ) : null}
+      </div>
+    </>
+  );
+  const settingsButtonLabel =
+    settingsButtonMode === "back"
+      ? intl.formatMessage({ id: "workspace.backToWorkspace" })
+      : intl.formatMessage({ id: "settings.title" });
+  const usageButtonClick = onUsageClick ?? onSettingsButtonClick;
+  // 齿轮（工作区侧）打开设置前预置模型设置页的跟随目标（用户需求：按左下角当前
+  // 展示账户定位）——展示中转站账号 → 对应站点；展示智谱 OAuth 账号 → 清空目标，
+  // 模型设置页走默认家族侧。目标在用户实际进入模型设置分区时才被消费。
+  const settingsGearClick = useCallback(() => {
+    setPendingModelProviderTarget(
+      sub2ApiAccountSite ? { relaySiteId: sub2ApiAccountSite.siteId } : undefined,
     );
-    const settingsButtonLabel =
-      settingsButtonMode === "back"
-        ? intl.formatMessage({ id: "workspace.backToWorkspace" })
-        : intl.formatMessage({ id: "settings.title" });
-    const usageButtonClick = onUsageClick ?? onSettingsButtonClick;
-    // 齿轮（工作区侧）打开设置前预置模型设置页的跟随目标（用户需求：按左下角当前
-    // 展示账户定位）——展示中转站账号 → 对应站点；展示智谱 OAuth 账号 → 清空目标，
-    // 模型设置页走默认家族侧。目标在用户实际进入模型设置分区时才被消费。
-    const settingsGearClick = useCallback(() => {
-      setPendingModelProviderTarget(
-        sub2ApiAccountSite
-          ? { relaySiteId: sub2ApiAccountSite.siteId }
-          : undefined,
-      );
-      onSettingsButtonClick?.();
-    }, [onSettingsButtonClick, sub2ApiAccountSite]);
-    const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-    const [remoteControlOpen, setRemoteControlOpen] = useState(false);
-    const remoteControl = useRemoteControl();
-    const [desktopZoomLevel, setDesktopZoomLevel] = useState(0);
-    const runDesktopZoomCommand = useCallback(
-      (
-        command: (typeof DesktopCommandIds)["ZoomIn" | "ZoomOut" | "ResetZoom"],
-      ) => {
-        void platform.executeDesktopCommand(command);
-      },
-      [platform],
-    );
+    onSettingsButtonClick?.();
+  }, [onSettingsButtonClick, sub2ApiAccountSite]);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [remoteControlOpen, setRemoteControlOpen] = useState(false);
+  const remoteControl = useRemoteControl();
+  const [desktopZoomLevel, setDesktopZoomLevel] = useState(0);
+  const runDesktopZoomCommand = useCallback(
+    (command: (typeof DesktopCommandIds)["ZoomIn" | "ZoomOut" | "ResetZoom"]) => {
+      void platform.executeDesktopCommand(command);
+    },
+    [platform],
+  );
 
-    useEffect(() => {
-      if (!isDesktop) {
-        setDesktopZoomLevel(0);
-        return;
+  useEffect(() => {
+    if (!isDesktop) {
+      setDesktopZoomLevel(0);
+      return;
+    }
+
+    let isCancelled = false;
+    void platform.getDesktopZoomLevel?.().then((state) => {
+      if (!isCancelled && Number.isFinite(state.zoomLevel)) {
+        setDesktopZoomLevel(state.zoomLevel);
       }
+    });
 
-      let isCancelled = false;
-      void platform.getDesktopZoomLevel?.().then((state) => {
-        if (!isCancelled && Number.isFinite(state.zoomLevel)) {
-          setDesktopZoomLevel(state.zoomLevel);
-        }
-      });
+    const dispose = platform.onDesktopZoomLevelChanged?.((state) => {
+      if (Number.isFinite(state.zoomLevel)) {
+        setDesktopZoomLevel(state.zoomLevel);
+      }
+    });
 
-      const dispose = platform.onDesktopZoomLevelChanged?.((state) => {
-        if (Number.isFinite(state.zoomLevel)) {
-          setDesktopZoomLevel(state.zoomLevel);
-        }
-      });
+    return () => {
+      isCancelled = true;
+      dispose?.();
+    };
+  }, [isDesktop, platform]);
 
-      return () => {
-        isCancelled = true;
-        dispose?.();
-      };
-    }, [isDesktop, platform]);
+  const canResetDesktopZoom = desktopZoomLevel !== 0;
+  const canZoomIn = desktopZoomLevel < DESKTOP_ZOOM_MAX_LEVEL;
+  const canZoomOut = desktopZoomLevel > DESKTOP_ZOOM_MIN_LEVEL;
 
-    const canResetDesktopZoom = desktopZoomLevel !== 0;
-    const canZoomIn = desktopZoomLevel < DESKTOP_ZOOM_MAX_LEVEL;
-    const canZoomOut = desktopZoomLevel > DESKTOP_ZOOM_MIN_LEVEL;
-
-    return (
-      // footer 被 Settings 复用，页面专属边距由调用方传入，避免修改共享默认样式。
-      <footer
-        className={cn(
-          "flex shrink-0 flex-col gap-2.5 px-4 pt-2 pb-4",
-          className,
-        )}
-      >
-        <div className="flex min-w-0 gap-2">
-          <DropdownMenu
-            open={profileMenuOpen}
-            onOpenChange={setProfileMenuOpen}
-          >
-            <DropdownMenuTrigger asChild>
-              {/* 头像和 Login 之前直接绑定到登录动作，导致用户无法从这里打开偏好设置。
+  return (
+    // footer 被 Settings 复用，页面专属边距由调用方传入，避免修改共享默认样式。
+    <footer className={cn("flex shrink-0 flex-col gap-2.5 px-4 pt-2 pb-4", className)}>
+      <div className="flex min-w-0 gap-2">
+        <DropdownMenu open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            {/* 头像和 Login 之前直接绑定到登录动作，导致用户无法从这里打开偏好设置。
               现在把这一块改成统一的设置菜单入口，登录/退出留在菜单项里，交互职责更清晰。 */}
-              <Button
-                type="button"
-                variant="ghost"
-                size={"lg"}
-                className="min-w-0 flex-1 justify-start gap-2 overflow-hidden rounded-tl-2xl rounded-bl-2xl border-0 pl-0"
-                data-testid={TID_LOGIN_TRIGGER}
-                aria-label={profileBadge}
-              >
-                {/* Button 默认 shrink-0 且带 whitespace-nowrap，超长用户名会把 footer 撑出 sidebar。
-                这里让触发按钮和文本列都允许收缩，并只在用户名自身做单行截断。 */}
-                {profileContent}
-              </Button>
-            </DropdownMenuTrigger>
-            {/* 菜单内容保持挂载，避免每次点击头像菜单都重建 footer 内部状态。*/}
-            <DropdownMenuContent
-              align="start"
-              className="w-max min-w-50"
-              forceMount
+            <Button
+              type="button"
+              variant="ghost"
+              size={"lg"}
+              className="min-w-0 flex-1 justify-start gap-2 overflow-hidden rounded-tl-2xl rounded-bl-2xl border-0 pl-0"
+              data-testid={TID_LOGIN_TRIGGER}
+              aria-label={profileBadge}
             >
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Globe className="size-4" />
-                  {intl.formatMessage({ id: "settings.locale" })}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-48">
-                  <DropdownMenuRadioGroup
-                    value={localeMenuValue}
-                    onValueChange={onLocaleChange}
-                  >
-                    <DropdownMenuRadioItem value="system">
-                      {intl.formatMessage({
-                        id: "sidebar.settings.systemDefault",
-                      })}
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="en-US">
-                      {intl.formatMessage({
-                        id: "sidebar.settings.locale.en-US",
-                      })}
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="zh-CN">
-                      {intl.formatMessage({
-                        id: "sidebar.settings.locale.zh-CN",
-                      })}
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Palette className="size-4" />
-                  {intl.formatMessage({ id: "settings.themeMode" })}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-48">
-                  <DropdownMenuRadioGroup
-                    value={theme}
-                    onValueChange={onThemeChange}
-                  >
-                    <DropdownMenuRadioItem value="system">
-                      {intl.formatMessage({
-                        id: "sidebar.settings.systemDefault",
-                      })}
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="mikiko-dark">
-                      {intl.formatMessage({
-                        id: "sidebar.settings.theme.mikiko-dark",
-                      })}
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="mikiko-light">
-                      {intl.formatMessage({
-                        id: "sidebar.settings.theme.mikiko-light",
-                      })}
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <PencilRuler className="size-4" />
-                  {intl.formatMessage({ id: "settings.interfaceMode" })}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-48">
-                  <DropdownMenuRadioGroup
-                    value={interfaceMode}
-                    onValueChange={(value) =>
-                      setInterfaceMode(normalizeInterfaceMode(value))
-                    }
-                  >
-                    <DropdownMenuRadioItem value="coding">
-                      {intl.formatMessage({
-                        id: "settings.interfaceMode.coding",
-                      })}
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="office">
-                      {intl.formatMessage({
-                        id: "settings.interfaceMode.office",
-                      })}
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              {/* 快捷键设置：缩放子菜单 label 读生效表，设置页改绑后即时跟随 */}
-              {/* 收口重复缩放子菜单时误留了语言之后的那份，导致菜单顺序变成
+              {/* Button 默认 shrink-0 且带 whitespace-nowrap，超长用户名会把 footer 撑出 sidebar。
+                这里让触发按钮和文本列都允许收缩，并只在用户名自身做单行截断。 */}
+              {profileContent}
+            </Button>
+          </DropdownMenuTrigger>
+          {/* 菜单内容保持挂载，避免每次点击头像菜单都重建 footer 内部状态。*/}
+          <DropdownMenuContent align="start" className="w-max min-w-50" forceMount>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Globe className="size-4" />
+                {intl.formatMessage({ id: "settings.locale" })}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-48">
+                <DropdownMenuRadioGroup value={localeMenuValue} onValueChange={onLocaleChange}>
+                  <DropdownMenuRadioItem value="system">
+                    {intl.formatMessage({
+                      id: "sidebar.settings.systemDefault",
+                    })}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="en-US">
+                    {intl.formatMessage({
+                      id: "sidebar.settings.locale.en-US",
+                    })}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="zh-CN">
+                    {intl.formatMessage({
+                      id: "sidebar.settings.locale.zh-CN",
+                    })}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Palette className="size-4" />
+                {intl.formatMessage({ id: "settings.themeMode" })}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-48">
+                <DropdownMenuRadioGroup value={theme} onValueChange={onThemeChange}>
+                  <DropdownMenuRadioItem value="system">
+                    {intl.formatMessage({
+                      id: "sidebar.settings.systemDefault",
+                    })}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="mikiko-dark">
+                    {intl.formatMessage({
+                      id: "sidebar.settings.theme.mikiko-dark",
+                    })}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="mikiko-light">
+                    {intl.formatMessage({
+                      id: "sidebar.settings.theme.mikiko-light",
+                    })}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <PencilRuler className="size-4" />
+                {intl.formatMessage({ id: "settings.interfaceMode" })}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-48">
+                <DropdownMenuRadioGroup
+                  value={interfaceMode}
+                  onValueChange={(value) => setInterfaceMode(normalizeInterfaceMode(value))}
+                >
+                  <DropdownMenuRadioItem value="coding">
+                    {intl.formatMessage({ id: "settings.interfaceMode.coding" })}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="office">
+                    {intl.formatMessage({ id: "settings.interfaceMode.office" })}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            {/* 快捷键设置：缩放子菜单 label 读生效表，设置页改绑后即时跟随 */}
+            {/* 收口重复缩放子菜单时误留了语言之后的那份，导致菜单顺序变成
                 语言→缩放→主题；账户菜单分组顺序固定为 语言→主题→界面模式→缩放→用量→登录/登出，
                 这里把唯一一份（读生效表）挪回用量摘要之前，不要再补第二份缩放子菜单。 */}
-              {isDesktop ? (
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
+            {isDesktop ? (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <ZoomIn className="size-4" />
+                  {intl.formatMessage({ id: "sidebar.settings.interfaceZoom" })}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-50">
+                  <DropdownMenuItem
+                    disabled={!canZoomIn}
+                    onSelect={() => runDesktopZoomCommand(DesktopCommandIds.ZoomIn)}
+                  >
                     <ZoomIn className="size-4" />
-                    {intl.formatMessage({
-                      id: "sidebar.settings.interfaceZoom",
-                    })}
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-50">
-                    <DropdownMenuItem
-                      disabled={!canZoomIn}
-                      onSelect={() =>
-                        runDesktopZoomCommand(DesktopCommandIds.ZoomIn)
-                      }
-                    >
-                      <ZoomIn className="size-4" />
-                      {intl.formatMessage({ id: "titleBar.menu.view.zoomIn" })}
-                      <DropdownMenuShortcut>
-                        {zoomInShortcutLabel}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={!canZoomOut}
-                      onSelect={() =>
-                        runDesktopZoomCommand(DesktopCommandIds.ZoomOut)
-                      }
-                    >
-                      <ZoomOut className="size-4" />
-                      {intl.formatMessage({ id: "titleBar.menu.view.zoomOut" })}
-                      <DropdownMenuShortcut>
-                        {zoomOutShortcutLabel}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={!canResetDesktopZoom}
-                      onSelect={() =>
-                        runDesktopZoomCommand(DesktopCommandIds.ResetZoom)
-                      }
-                    >
-                      <Maximize className="size-4" />
-                      {intl.formatMessage({
-                        id: "titleBar.menu.view.actualSize",
-                      })}
-                      <DropdownMenuShortcut>
-                        {resetZoomShortcutLabel}
-                      </DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              ) : null}
-              {sub2ApiAuthedSites.length > 0 ? (
-                <>
-                  <DropdownMenuSeparator />
-                  {sub2ApiAuthedSites.map((site) => {
-                    const selected = site.siteId === sub2ApiAccountSite?.siteId;
-                    return (
-                      <DropdownMenuItem
-                        key={site.siteId}
-                        data-testid={testId(
-                          "sidebar-relay-account",
-                          site.siteId,
-                        )}
-                        onSelect={() => {
-                          setRelaySiteSelection(site.siteId);
-                        }}
-                      >
-                        <span className="flex size-4 items-center justify-center rounded-full bg-primary/10 text-ui-xs font-semibold text-primary">
-                          {(site.siteName ?? "S").slice(0, 1)}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate">
-                            {site.siteName ?? site.panelBaseUrl}
-                          </span>
-                          <span className="block truncate text-ui-xs text-muted-foreground">
-                            {site.account?.email}
-                            {typeof site.account?.balanceUsd === "number"
-                              ? ` · $${site.account.balanceUsd.toFixed(2)}`
-                              : ""}
-                          </span>
-                        </span>
-                        {selected ? (
-                          <span
-                            className="size-2 shrink-0 rounded-full bg-primary"
-                            aria-hidden="true"
-                          />
-                        ) : null}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </>
-              ) : null}
-              {sub2ApiAccountSite ? (
-                <>
-                  <DropdownMenuSeparator />
+                    {intl.formatMessage({ id: "titleBar.menu.view.zoomIn" })}
+                    <DropdownMenuShortcut>{zoomInShortcutLabel}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
                   <DropdownMenuItem
-                    data-testid="sidebar-sub2api-usage-button"
+                    disabled={!canZoomOut}
+                    onSelect={() => runDesktopZoomCommand(DesktopCommandIds.ZoomOut)}
+                  >
+                    <ZoomOut className="size-4" />
+                    {intl.formatMessage({ id: "titleBar.menu.view.zoomOut" })}
+                    <DropdownMenuShortcut>{zoomOutShortcutLabel}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={!canResetDesktopZoom}
+                    onSelect={() => runDesktopZoomCommand(DesktopCommandIds.ResetZoom)}
+                  >
+                    <Maximize className="size-4" />
+                    {intl.formatMessage({ id: "titleBar.menu.view.actualSize" })}
+                    <DropdownMenuShortcut>{resetZoomShortcutLabel}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ) : null}
+            {sub2ApiAuthedSites.length > 0 ? (
+              <>
+                <DropdownMenuSeparator />
+                {/* 智谱账号条目：切到中转站后唯一的切回入口（spec sub2api-gateway，
+                    setRelaySiteSelection(null) 即回落智谱展示）；无智谱登录时不展示。 */}
+                {user ? (
+                  <DropdownMenuItem
+                    data-testid="sidebar-zhipu-account"
                     onSelect={() => {
-                      setPendingSettingsUsageIntent();
-                      usageButtonClick?.();
+                      setRelaySiteSelection(null);
                     }}
                   >
-                    <BarChart3Icon className="size-4" />
-                    {intl.formatMessage({ id: "sidebar.usage.plan.openStats" })}
+                    <span className="flex size-4 items-center justify-center rounded-full bg-primary/10 text-ui-xs font-semibold text-primary">
+                      {avatarFallbackText}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{profileBadge}</span>
+                    </span>
+                    {!sub2ApiAccountSite ? (
+                      <span
+                        className="size-2 shrink-0 rounded-full bg-primary"
+                        aria-hidden="true"
+                      />
+                    ) : null}
                   </DropdownMenuItem>
-                </>
-              ) : (
-                <WorkspaceSidebarFooterUsageSummaryContent
-                  state={usageSummaryState}
-                  onUsageClick={usageButtonClick}
-                  onUpgradeClick={onUpgradeClick}
-                />
-              )}
-              {onLogin && !user && !sub2ApiAccountSite ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={onLogin}
-                    data-testid={TID_LOGIN_MENU_ITEM}
-                  >
-                    <LogInIcon className="size-4" />
-                    {intl.formatMessage({ id: "app.login" })}
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-              {sub2ApiAccountSite ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    data-testid={TID_LOGOUT_BUTTON}
-                    onSelect={() => {
-                      // 展示的是中转站账号时，退出该站点并自动切换到下一个仍在登录的账号。
-                      const remaining = sub2ApiAuthedSites.filter(
-                        (site) => site.siteId !== sub2ApiAccountSite.siteId,
-                      );
-                      setRelaySiteSelection(remaining[0]?.siteId ?? null);
-                      void sub2ApiService?.logout(sub2ApiAccountSite.siteId);
-                    }}
-                  >
-                    <LogOut className="size-4" />
-                    {intl.formatMessage({ id: "app.logout" })}
-                  </DropdownMenuItem>
-                </>
-              ) : onLogout ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={onLogout}
-                    data-testid={TID_LOGOUT_BUTTON}
-                  >
-                    <LogOut className="size-4" />
-                    {intl.formatMessage({ id: "app.logout" })}
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {/* 手机远控入口：平台未实现（Web / relay 未配置）时隐藏；Main 拥有状态，弹窗只读镜像。
-              状态色（spec §21.3.1）：connected 绿、pending/waiting 橙、disabled 默认。 */}
-            {remoteControl.available ? (
-              <ControlHintTooltip
-                title={intl.formatMessage({ id: "remoteControl.title" })}
-              >
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-lg"
-                  data-testid="remote-control-trigger"
-                  aria-label={intl.formatMessage({ id: "remoteControl.title" })}
-                  onClick={() => setRemoteControlOpen(true)}
+                ) : null}
+                {sub2ApiAuthedSites.map((site) => {
+                  const selected = site.siteId === sub2ApiAccountSite?.siteId;
+                  return (
+                    <DropdownMenuItem
+                      key={site.siteId}
+                      data-testid={testId("sidebar-relay-account", site.siteId)}
+                      onSelect={() => {
+                        setRelaySiteSelection(site.siteId);
+                      }}
+                    >
+                      <span className="flex size-4 items-center justify-center rounded-full bg-primary/10 text-ui-xs font-semibold text-primary">
+                        {(site.siteName ?? "S").slice(0, 1)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{site.siteName ?? site.panelBaseUrl}</span>
+                        <span className="block truncate text-ui-xs text-muted-foreground">
+                          {site.account?.email}
+                          {typeof site.account?.balanceUsd === "number"
+                            ? ` · $${site.account.balanceUsd.toFixed(2)}`
+                            : ""}
+                        </span>
+                      </span>
+                      {selected ? (
+                        <span
+                          className="size-2 shrink-0 rounded-full bg-primary"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </>
+            ) : null}
+            {sub2ApiAccountSite ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  data-testid="sidebar-sub2api-usage-button"
+                  onSelect={() => {
+                    setPendingSettingsUsageIntent();
+                    usageButtonClick?.();
+                  }}
                 >
-                  <Smartphone
-                    className={cn(
-                      "size-4",
-                      remoteControl.state?.phase === "connected" &&
-                        "text-emerald-500",
-                      (remoteControl.state?.phase === "pending" ||
-                        remoteControl.state?.phase === "waiting") &&
-                        "text-amber-500",
-                    )}
-                  />
-                </Button>
-              </ControlHintTooltip>
-            ) : null}
-            {remoteControl.available && remoteControl.state ? (
-              <RemoteControlDialog
-                open={remoteControlOpen}
-                onOpenChange={setRemoteControlOpen}
-                state={remoteControl.state}
-                onStart={remoteControl.start}
-                onStop={remoteControl.stop}
-                onDisconnect={remoteControl.disconnect}
-                onRefreshTicket={remoteControl.refreshTicket}
-                onSetAutoRefresh={remoteControl.setAutoRefresh}
+                  <BarChart3Icon className="size-4" />
+                  {intl.formatMessage({ id: "sidebar.usage.plan.openStats" })}
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <WorkspaceSidebarFooterUsageSummaryContent
+                state={usageSummaryState}
+                onUsageClick={usageButtonClick}
+                onUpgradeClick={onUpgradeClick}
               />
+            )}
+            {onLogin && !user && !sub2ApiAccountSite ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={onLogin} data-testid={TID_LOGIN_MENU_ITEM}>
+                  <LogInIcon className="size-4" />
+                  {intl.formatMessage({ id: "app.login" })}
+                </DropdownMenuItem>
+              </>
             ) : null}
-            {isDesktop && workspacePath ? (
-              <WorkspaceWebRemoteControlTrigger
-                workspacePath={workspacePath}
-                workspaceIdentity={workspaceIdentity}
-                compact
-              />
+            {sub2ApiAccountSite ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  data-testid={TID_LOGOUT_BUTTON}
+                  onSelect={() => {
+                    // 展示的是中转站账号时，退出该站点并自动切换到下一个仍在登录的账号。
+                    const remaining = sub2ApiAuthedSites.filter(
+                      (site) => site.siteId !== sub2ApiAccountSite.siteId,
+                    );
+                    setRelaySiteSelection(remaining[0]?.siteId ?? null);
+                    void sub2ApiService?.logout(sub2ApiAccountSite.siteId);
+                  }}
+                >
+                  <LogOut className="size-4" />
+                  {intl.formatMessage({ id: "app.logout" })}
+                </DropdownMenuItem>
+              </>
+            ) : onLogout ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={onLogout} data-testid={TID_LOGOUT_BUTTON}>
+                  <LogOut className="size-4" />
+                  {intl.formatMessage({ id: "app.logout" })}
+                </DropdownMenuItem>
+              </>
             ) : null}
-            <ControlHintTooltip title={settingsButtonLabel}>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {/* 手机远控入口：平台未实现（Web / relay 未配置）时隐藏；Main 拥有状态，弹窗只读镜像。
+              状态色（spec §21.3.1）：connected 绿、pending/waiting 橙、disabled 默认。
+              Bot 渠道远控合并进同一弹窗（spec §21.9），不再单独展示图标。 */}
+          {remoteControl.available ? (
+            <ControlHintTooltip title={intl.formatMessage({ id: "remoteControl.title" })}>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-lg"
-                data-testid={TID_TASK_SETTINGS_BUTTON}
-                aria-label={settingsButtonLabel}
-                disabled={!onSettingsButtonClick}
-                onClick={settingsGearClick}
+                data-testid="remote-control-trigger"
+                aria-label={intl.formatMessage({ id: "remoteControl.title" })}
+                onClick={() => setRemoteControlOpen(true)}
               >
-                <Settings className="size-4" />
+                <Smartphone
+                  className={cn(
+                    "size-4",
+                    remoteControl.state?.phase === "connected" && "text-emerald-500",
+                    (remoteControl.state?.phase === "pending" ||
+                      remoteControl.state?.phase === "waiting") &&
+                      "text-amber-500",
+                  )}
+                />
               </Button>
             </ControlHintTooltip>
-          </div>
+          ) : null}
+          {remoteControl.available && remoteControl.state ? (
+            <RemoteControlDialog
+              open={remoteControlOpen}
+              onOpenChange={setRemoteControlOpen}
+              state={remoteControl.state}
+              pendingAction={remoteControl.pendingAction}
+              workspacePath={workspacePath}
+              workspaceIdentity={workspaceIdentity}
+              onStart={remoteControl.start}
+              onStop={remoteControl.stop}
+              onDisconnect={remoteControl.disconnect}
+              onRefreshTicket={remoteControl.refreshTicket}
+              onSetAutoRefresh={remoteControl.setAutoRefresh}
+            />
+          ) : null}
+          <ControlHintTooltip title={settingsButtonLabel}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-lg"
+              data-testid={TID_TASK_SETTINGS_BUTTON}
+              aria-label={settingsButtonLabel}
+              disabled={!onSettingsButtonClick}
+              onClick={settingsGearClick}
+            >
+              <Settings className="size-4" />
+            </Button>
+          </ControlHintTooltip>
         </div>
-      </footer>
-    );
-  },
-);
+      </div>
+    </footer>
+  );
+});

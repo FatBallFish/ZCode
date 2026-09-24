@@ -1,6 +1,4 @@
 import { hostname } from "node:os";
-import { homedir } from "node:os";
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { app, BrowserWindow, ipcMain, safeStorage } from "electron";
 import type { UtilityProcess as ElectronUtilityProcess } from "electron";
@@ -8,6 +6,11 @@ import { WebSocket } from "ws";
 import { PlatformChannels } from "@zcode/shared";
 import type { DesktopRemoteControlState } from "@zcode/shared/remote-control";
 import { createDeviceCredentialStore, type SafeStorageLike } from "./deviceCredentials.js";
+import {
+  ensureRemoteControlFileConfig,
+  readRemoteControlFileConfig,
+  remoteControlConfigPath,
+} from "./fileConfig.js";
 import { createWsTransportFactory } from "./relayConnection.js";
 import {
   createRemoteControlService,
@@ -20,35 +23,19 @@ import { createRtcBrowserWindow, createRtcEventHub } from "./rtc/rtcWindow.js";
 /**
  * 生产环境接线：把 remoteControlService 与 Electron（窗口跟踪、safeStorage、ipc 推送）
  * 和 relay 端点连起来。端点解析顺序：环境变量 > `~/.mikiko/remote-control.json` 配置文件；
- * 两者都未配置时返回 null，UI 不展示入口（默认不出网）。
+ * 两者都未配置时返回 null，UI 侧由 state.disabledReason="unconfigured" 适配展示。
  *
- * 配置文件让打包版 App 免环境变量启用远控（打包进程不易注入 env）：
- *   { "relayWsUrl": "wss://relay.example.com/ws/desktop",
- *     "relayHttpUrl": "https://relay.example.com",
+ * 配置文件让打包版 App 免环境变量启用远控，App 启动时幂等自检：文件不存在则写入
+ * 默认值（mikiko.ai 生产端点，enabled=true），存在则不操作（见 fileConfig.ts）：
+ *   { "enabled": true,                              // 手机扫码直连总开关（false=停用）
+ *     "relayWsUrl": "wss://ws.mikiko.ai/ws/desktop",
+ *     "relayHttpUrl": "https://ws.mikiko.ai",
  *     "stunUrls": ["stun:stun.l.google.com:19302"],   // 可选
  *     "deviceName": "我的 MacBook Pro" }               // 可选
+ *
+ * enabled=false 时手机扫码直连整体停用（start 不生效、UI 展示停用态），
+ * 但远控入口与 Bot 渠道不受影响（spec §21.10）。
  */
-
-interface RemoteControlFileConfig {
-  relayWsUrl?: unknown;
-  relayHttpUrl?: unknown;
-  stunUrls?: unknown;
-  deviceName?: unknown;
-}
-
-function readRemoteControlFileConfig(
-  logger: RemoteControlProductionOptions["logger"],
-  readFile: (path: string, encoding: "utf8") => string = readFileSync,
-): RemoteControlFileConfig {
-  try {
-    const raw = JSON.parse(
-      readFile(join(homedir(), ".mikiko", "remote-control.json"), "utf8"),
-    ) as RemoteControlFileConfig;
-    return raw && typeof raw === "object" ? raw : {};
-  } catch {
-    return {}; // 无配置文件/解析失败都按未配置处理（默认零出网）。
-  }
-}
 
 export interface RemoteControlProductionOptions {
   logger: {
@@ -69,8 +56,20 @@ export function createRemoteControlProductionService(
   options: RemoteControlProductionOptions,
 ): RemoteControlService | null {
   const env = options.env ?? process.env;
+  // 启动幂等自检（spec §21.10）：配置文件不存在则写入默认值，存在则不操作。
+  const configPath = remoteControlConfigPath();
+  const ensureResult = ensureRemoteControlFileConfig(configPath);
+  if (ensureResult === "created") {
+    options.logger.info("[remote-control] 配置文件不存在，已写入默认配置", { path: configPath });
+  } else if (ensureResult === "failed") {
+    options.logger.warn("[remote-control] 默认配置写入失败，按当前可读配置继续", {
+      path: configPath,
+    });
+  }
   // 端点解析顺序：环境变量优先，其次 ~/.mikiko/remote-control.json（打包版 App 免 env 启用）。
-  const fileConfig = readRemoteControlFileConfig(options.logger);
+  const fileConfig = readRemoteControlFileConfig(configPath);
+  // 顶层功能开关：仅显式 false 视为停用（历史配置无此字段按启用处理，不改写用户文件）。
+  const configEnabled = fileConfig.enabled !== false;
   const fileWsUrl =
     typeof fileConfig.relayWsUrl === "string" && fileConfig.relayWsUrl.trim().length > 0
       ? fileConfig.relayWsUrl.trim()
@@ -174,6 +173,20 @@ export function createRemoteControlProductionService(
   });
   if (service == null) {
     return null;
+  }
+
+  // 配置总开关（spec §21.10）：enabled=false 时手机扫码直连停用——getState 恒报
+  // disabledReason:"config"（UI 隐藏开启按钮并提示改回方法），start 不生效。
+  // 不接 RTC 与版本门控（无法 start 即无额外资源可泄漏）；Bot 渠道不受此开关影响。
+  if (!configEnabled) {
+    const configDisabledState: DesktopRemoteControlState = {
+      phase: "disabled",
+      disabledReason: "config",
+    };
+    service.getState = () => configDisabledState;
+    service.start = () => configDisabledState;
+    options.logger.info("[remote-control] 配置开关停用手机扫码直连（enabled=false）");
+    return service;
   }
 
   // relay 版本门控（spec §22）：start 前拉取 healthz，桌面版本低于 relay 最低要求时

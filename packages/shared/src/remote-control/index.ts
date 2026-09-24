@@ -388,7 +388,15 @@ export interface RemoteControlTicketInfo {
 }
 
 export type DesktopRemoteControlState =
-  | { phase: "disabled"; lastError?: string }
+  | {
+      phase: "disabled";
+      lastError?: string;
+      /**
+       * 停用归因（spec §21.10）：`config` = 配置文件 enabled=false（用户可改回）；
+       * `unconfigured` = relay 端点缺失。两者 UI 不展示「开启」按钮，区别于用户主动关闭。
+       */
+      disabledReason?: "config" | "unconfigured";
+    }
   | {
       phase: "pending";
       sid: string;
