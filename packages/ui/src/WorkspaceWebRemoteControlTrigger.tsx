@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Smartphone } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
@@ -47,7 +47,7 @@ export function WorkspaceWebRemoteControlTrigger({
           )}
         >
           {/* 入口统一使用远程控制图标，具体 Bot 渠道在弹层内区分。 */}
-          <Smartphone className="size-4 text-foreground-subtle" />
+          <MessageCircle className="size-4 text-foreground-subtle" />
           {compact ? (
             <span className="sr-only">
               {intl.formatMessage({ id: "webRemoteControl.trigger" })}
