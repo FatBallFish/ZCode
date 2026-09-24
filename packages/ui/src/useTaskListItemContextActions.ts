@@ -7,6 +7,7 @@ import { useWorkspaceProviderConfigFile } from "@/hooks/useWorkspaceProviderConf
 import { useWorkspaceOpenInEditorTarget } from "@/hooks/useWorkspaceOpenInEditorTarget.js";
 import { readLastSelectedEditorId } from "@/lib/editorPreference.js";
 import { sortInstalledEditorsForOpenWith } from "@/lib/openWithEditors.js";
+import { isRemoteSession } from "@/lib/remoteSessionCapability.js";
 import { logger } from "@/logger.js";
 
 interface TaskPathState {
@@ -21,7 +22,8 @@ interface TaskListItemContextActionsResult {
   providerConfigFile: TaskPathState;
   fileManagerLabel: string;
   handleCopyText: (label: string, value: string | null) => Promise<void>;
-  handleOpenTaskPathInFileManager: () => Promise<void>;
+  /** 远程会话（手机远控）下为 undefined：浏览器无法唤起本机文件管理器，入口整体隐藏（spec §21.5）。 */
+  handleOpenTaskPathInFileManager?: () => Promise<void>;
   handleOpenProviderConfig: () => Promise<void>;
 }
 
@@ -267,8 +269,9 @@ export function useTaskListItemContextActions({
     providerConfigFile,
     fileManagerLabel: getFileManagerLabel(intl),
     handleCopyText,
-    handleOpenTaskPathInFileManager,
-    handleOpenProviderConfig,
+    handleOpenTaskPathInFileManager: isRemoteSession()
+      ? undefined
+      : handleOpenTaskPathInFileManager,
   };
 }
 

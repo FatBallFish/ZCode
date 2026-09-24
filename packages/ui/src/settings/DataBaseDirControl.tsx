@@ -9,6 +9,7 @@ import {
 } from "@zcode/shared";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
+import { usePlatform } from "@/hooks/usePlatform.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 
 export function DataBaseDirControl({
@@ -23,6 +24,9 @@ export function DataBaseDirControl({
   onSelectDataBaseDir: () => Promise<string | null>;
 }) {
   const { intl } = useZCodeIntl();
+  const platform = usePlatform();
+  // 浏览器（手机远控 / Web）没有系统目录选择器：点击只会静默无反应（spec §21.5.3），直接禁用。
+  const canSelectDirectory = platform.canSelectFilePath === true;
   const effectiveDir = dataBaseDir || defaultHomeDir;
   const [localDataBaseDir, setLocalDataBaseDir] = useState(effectiveDir);
   const [isPickingDataBaseDir, setIsPickingDataBaseDir] = useState(false);
@@ -95,7 +99,12 @@ export function DataBaseDirControl({
           variant="outline"
           size="sm"
           data-testid={TID_SETTINGS_DATA_BASE_DIR_BROWSE}
-          disabled={isSaving || isPickingDataBaseDir}
+          disabled={isSaving || isPickingDataBaseDir || !canSelectDirectory}
+          title={
+            canSelectDirectory
+              ? undefined
+              : intl.formatMessage({ id: "settings.dataBaseDirBrowseUnsupported" })
+          }
           onClick={() => void handleBrowseDataBaseDir()}
         >
           {intl.formatMessage({ id: "settings.dataBaseDirBrowse" })}

@@ -1,0 +1,21 @@
+# Mikiko 自建升级服务（spec specs/update/update-service.md）
+# 双域名：agent-update.mikiko.ai（API）与 agent-dl.mikiko.ai（R2 下载代理）。
+name = "mikiko-update-service"
+main = "src/worker.ts"
+compatibility_date = "2025-09-01"
+
+routes = [
+  { pattern = "agent-update.mikiko.ai", custom_domain = true },
+  { pattern = "agent-dl.mikiko.ai", custom_domain = true },
+]
+
+[[r2_buckets]]
+binding = "RELEASES"
+bucket_name = "mikiko-releases"
+
+[[kv_namespaces]]
+binding = "UPDATE_CONFIG"
+id = "efd13a51a8d845c5b6f811dedf490bd5"
+
+[observability]
+enabled = true

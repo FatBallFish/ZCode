@@ -582,8 +582,11 @@ function GroupedTaskRowComponent({
           onStartRenameTask={onStartRenameTask}
           onArchiveTask={onArchiveTask}
           onMarkTaskAsUnread={onMarkTaskAsUnread}
-          onOpenTaskPathInFileManager={() =>
-            void handleOpenTaskPathInFileManager()
+          onOpenTaskPathInFileManager={
+            // 远程会话下钩子不提供处理器：菜单项整体隐藏（spec §21.5）。
+            handleOpenTaskPathInFileManager
+              ? () => void handleOpenTaskPathInFileManager()
+              : undefined
           }
           onCopyText={(label, text) => void handleCopyText(label, text)}
           onOpenProviderConfig={() => void handleOpenProviderConfig()}

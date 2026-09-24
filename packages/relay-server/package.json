@@ -1,0 +1,31 @@
+{
+  "name": "@zcode/relay-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/entry.ts",
+    "start": "tsx src/entry.ts",
+    "build": "tsc -b",
+    "build:bundle": "esbuild src/entry.ts --bundle --platform=node --format=cjs --target=node18 --outfile=dist/relay.cjs",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "test": "node --import tsx --test test/*.test.ts --test-force-exit"
+  },
+  "dependencies": {
+    "@zcode/shared": "workspace:*",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.5.10",
+    "@zcode/client": "workspace:*",
+    "@zcode/rpc": "workspace:*",
+    "esbuild": "^0.27.7",
+    "tsx": "^4.19.0",
+    "typescript": "^6.0.2"
+  }
+}

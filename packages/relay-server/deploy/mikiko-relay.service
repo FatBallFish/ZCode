@@ -1,0 +1,19 @@
+[Unit]
+Description=Mikiko remote control relay
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/mikiko-remote
+EnvironmentFile=/srv/mikiko-remote/relay.env
+ExecStart=/usr/bin/node /srv/mikiko-remote/relay.cjs
+Restart=always
+RestartSec=3
+# relay 全内存零落盘，加固仅保留通用项；ReadWritePaths 与 ProtectSystem 配合放行日志外的必要路径。
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/srv/mikiko-remote
+
+[Install]
+WantedBy=multi-user.target

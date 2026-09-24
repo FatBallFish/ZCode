@@ -16,6 +16,7 @@ import { TooltipProvider } from "@/components/ui/tooltip.js";
 import { Button } from "@/components/ui/button.js";
 import { PlatformProvider } from "@/hooks/usePlatform.js";
 import { ServiceProvider } from "@/hooks/useServices.js";
+import { markRemoteSession } from "@/lib/remoteSessionCapability.js";
 import {
   useDynamicWorkflowAvailabilityLoader,
   useDynamicWorkflowUserModeSync,
@@ -231,6 +232,10 @@ function WebRemoteControlTaskSync({
  * 外层挂载 StoreProvider（连接广播服务）+ TabStoreProvider，内层处理认证和路由。
  */
 export function Root(props: RootProps) {
+  // 远程会话能力位（spec §21.5）：挂载即标记，供深层菜单/入口隐藏本地文件系统能力。
+  if (props.isRemoteSession) {
+    markRemoteSession();
+  }
   return (
     <LucideProvider strokeWidth={DEFAULT_LUCIDE_STROKE_WIDTH}>
       {/*

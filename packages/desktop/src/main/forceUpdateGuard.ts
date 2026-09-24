@@ -1,11 +1,11 @@
 import {
-  DEFAULT_ZCODE_ENDPOINT_ORIGIN,
-  ZCODE_VERSION,
   buildZCodeEndpointUrls,
   getForceUpdateMinimalVersionFromConfig,
+  MIKIKO_UPDATE_ENDPOINT_ORIGIN,
   resolveForceUpdateRequirement,
   type ForceUpdateRequirement,
   type Locale,
+  ZCODE_VERSION,
 } from "@zcode/shared";
 import { requestForceAutoUpdate, type ForceAutoUpdateState } from "./autoUpdater.js";
 import { showForceUpdatePrompt } from "./forceUpdatePrompt.js";
@@ -42,9 +42,7 @@ export interface ForceUpdateGuardOptions {
   onBlocked?: (requirement: ForceUpdateRequirement) => void;
 }
 
-export function resolveForceUpdateClientConfigUrl(
-  endpointOrigin = DEFAULT_ZCODE_ENDPOINT_ORIGIN,
-): string {
+function resolveForceUpdateClientConfigUrl(endpointOrigin = MIKIKO_UPDATE_ENDPOINT_ORIGIN): string {
   const url = new URL(
     `${buildZCodeEndpointUrls(endpointOrigin).origin}${ZCODE_CLIENT_CONFIG_API_PATH}`,
   );
@@ -183,7 +181,7 @@ export async function resolveDesktopForceUpdateRequirement(options: {
 
 export function resolveForceUpdateDownloadUrl(
   locale: Locale,
-  endpointOrigin = DEFAULT_ZCODE_ENDPOINT_ORIGIN,
+  endpointOrigin = MIKIKO_UPDATE_ENDPOINT_ORIGIN,
 ): string {
   const origin = buildZCodeEndpointUrls(endpointOrigin).origin;
   return locale === "zh-CN" ? `${origin}/cn` : `${origin}/en`;

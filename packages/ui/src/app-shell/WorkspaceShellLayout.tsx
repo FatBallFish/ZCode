@@ -6,7 +6,7 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import { GripHorizontal, LoaderIcon } from "lucide-react";
+import { GripHorizontal, LoaderIcon, PanelLeftOpen } from "lucide-react";
 import { TID_APP_HEADER } from "@zcode/shared";
 // 保活：workspace tab 真正关闭时，按 workspaceKey 回收 side pane terminal 的常驻 PTY/xterm。
 // 对称下侧 Terminal.tsx 的 openWorkspaceKeys 回收。
@@ -115,6 +115,8 @@ import {
 import type { WorkspaceShellLayoutProps } from "@/app-shell/types.js";
 import { useTabStoreApi } from "@/store/TabStoreProvider.js";
 import { useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
+import { isRemoteSession } from "@/lib/remoteSessionCapability.js";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport.js";
 import type { ComposerMentionPrefill } from "@/store/zcodeSessionStoreTypes.js";
 
 const WEB_REMOTE_CONTROL_MOBILE_QUERY = "(max-width: 767px)";
@@ -598,7 +600,13 @@ export const WorkspaceShellLayout = memo(
       reloadSessionDisabled ||
       reloadSessionPending;
     const simplifyHeaderForNarrowRemote =
-      isWebRemoteControlShell && isWebRemoteControlMobileViewport;
+      isRemoteSession() ||
+      (isWebRemoteControlShell && isWebRemoteControlMobileViewport);
+    // 小屏布局（spec §21.4.3）：非桌面壳 + <768px 视口 → 侧栏改覆盖式抽屉、
+    // 选会话即收起、提供「返回会话列表」悬浮入口；禁用 resize 自动收起（手机上必命中且无唤出入口）。
+    const isMobileLayout = useIsMobileViewport() && !isDesktop;
+    const isMobileLayoutRef = useRef(false);
+    isMobileLayoutRef.current = isMobileLayout;
     // 修复原因：文件树打开时任务列表整屏滑出，侧栏里的 New Task 入口也随之不可见。
     // 顶部浮层需要临时露出 New Task，关闭文件树后继续沿用侧栏收起态规则。
     const showTopOverlayNewTaskButton =
@@ -2347,13 +2355,39 @@ export const WorkspaceShellLayout = memo(
             isWebRemoteControlShell && "max-md:flex-col",
           )}
         >
+          {isMobileLayout && isSidebarPanelVisible ? (
+            // 小屏抽屉背板（spec §21.4.3）：点击空白处收起，等价「返回对话」。
+            <button
+              type="button"
+              aria-label="close sidebar"
+              className="fixed inset-0 z-30 bg-black/40"
+              onClick={handleToggleSidebar}
+            />
+          ) : null}
+          {isMobileLayout && !isSidebarPanelVisible ? (
+            // 小屏「返回会话列表」悬浮入口（spec §21.4.3）：置于左下角避开顶部 header，
+            // 单手可达；与右下角远控连接徽标对称。
+            <button
+              type="button"
+              data-testid="mobile-back-to-sessions"
+              aria-label={intl.formatMessage({ id: "appShell.backToSessions" })}
+              title={intl.formatMessage({ id: "appShell.backToSessions" })}
+              className="fixed bottom-3 left-3 z-30 flex size-10 items-center justify-center rounded-full border border-border bg-background/90 text-foreground shadow-md backdrop-blur"
+              onClick={handleToggleSidebar}
+            >
+              <PanelLeftOpen className="size-4.5" />
+            </button>
+          ) : null}
           <div
             ref={workspaceSidebarPanelElementRef}
             data-panel=""
             data-workspace-sidebar-panel="true"
             id="sidebar"
             className={cn(
-              "w-[var(--workspace-sidebar-panel-width)] max-w-[50%] flex-none overflow-hidden duration-200 ease-out transition-[width,opacity] data-[workspace-sidebar-resizing=true]:transition-opacity",
+              isMobileLayout
+                ? // 小屏抽屉（spec §21.4.3）：脱离文档流覆盖在对话区上，收起时平移隐藏。
+                  "fixed inset-y-0 left-0 z-40 w-[85vw] max-w-80 overflow-hidden bg-background shadow-2xl transition-transform duration-200 ease-out"
+                : "w-[var(--workspace-sidebar-panel-width)] max-w-[50%] flex-none overflow-hidden duration-200 ease-out transition-[width,opacity] data-[workspace-sidebar-resizing=true]:transition-opacity",
               // 修复原因：拖动侧栏宽度时如果继续过渡 width，会让指针移动和实际宽度之间产生滞后。
               // 拖拽 active 通过 DOM 标记切 transition，避免 pointerdown/up 为了切 class 重渲染整棵 workspace。
               isWebRemoteControlShell &&
@@ -2367,9 +2401,13 @@ export const WorkspaceShellLayout = memo(
                     ? "max-md:!h-[var(--web-remote-navigation-height)] max-md:!min-h-0 max-md:!w-full max-md:!max-w-none max-md:!flex-none max-md:!basis-auto max-md:border-b max-md:border-border max-md:bg-sidebar"
                     : "max-md:!h-0 max-md:!min-h-0 max-md:!w-full max-md:!max-w-none max-md:!flex-none max-md:!basis-0 max-md:!border-b-0",
                 ),
-              isSidebarPanelVisible
-                ? "opacity-100"
-                : "pointer-events-none opacity-0",
+              isMobileLayout
+                ? isSidebarPanelVisible
+                  ? "translate-x-0"
+                  : "pointer-events-none -translate-x-full"
+                : isSidebarPanelVisible
+                  ? "opacity-100"
+                  : "pointer-events-none opacity-0",
             )}
           >
             {/* Bugfix: 折叠远控顶部导航时保持组件挂载，避免展开后整块 sidebar 重新加载。 */}
@@ -2409,14 +2447,44 @@ export const WorkspaceShellLayout = memo(
                     workspacePath={workspaceAbsPath}
                     workspaceRemoteSessionId={workspaceRemoteSessionId}
                     activePreviewPath={activePreviewPath}
-                    onSelectTask={handleSelectTaskInChat}
+                    onSelectTask={(
+                      path,
+                      taskId,
+                      identity,
+                      remoteSessionId,
+                      unreadAt,
+                    ) => {
+                      handleSelectTaskInChat(
+                        path,
+                        taskId,
+                        identity,
+                        remoteSessionId,
+                        unreadAt,
+                      );
+                      // 小屏抽屉：选中会话即收起，回对话区（spec §21.4.3）。
+                      if (isMobileLayoutRef.current) {
+                        handleToggleSidebar();
+                      }
+                    }}
                     onStartDraftInWorkspace={handleCreateProjectDraft}
                     onOpenCodeViewer={handleOpenCodeViewer}
                     onOpenBrowserUrl={handleOpenBrowserUrl}
                     fileTreeOpenRequest={fileTreeOpenRequest}
-                    onCreateTask={handleCreateTaskInChat}
+                    onCreateTask={(request) => {
+                      handleCreateTaskInChat(request);
+                      if (isMobileLayoutRef.current) {
+                        handleToggleSidebar();
+                      }
+                    }}
                     onCreateConversationTask={
-                      onCreateConversationTask ?? handleCreateTaskInChat
+                      onCreateConversationTask
+                        ? () => {
+                            onCreateConversationTask();
+                            if (isMobileLayoutRef.current) {
+                              handleToggleSidebar();
+                            }
+                          }
+                        : handleCreateTaskInChat
                     }
                     onOpenFolderFromWorkspaceMenu={
                       onOpenFolderFromWorkspaceMenu

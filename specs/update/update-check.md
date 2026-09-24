@@ -2,7 +2,7 @@
 
 ## 现状与目标
 
-更新服务尚未搭建（无更新 feed、无强更配置端点）。在此之前，正式包（`ZCODE_PRODUCT_FLAVOR === "production"`）不得发起任何更新校验请求，也不得展示更新入口。**这是暂时屏蔽而非移除**：更新系统就绪后，将 `packages/shared/src/env.ts` 中的 `ZCODE_UPDATES_ENABLED` 改回 `true` 即整体恢复原有接线，各入口的读取点不得单独删除。
+2026-09-24：自建升级服务已上线（`specs/update/update-service.md`，agent-update/agent-dl.mikiko.ai），`ZCODE_UPDATES_ENABLED` 已恢复为 true 并指向自建端点。以下屏蔽描述仅作历史记录。此前：更新服务尚未搭建（无更新 feed、无强更配置端点）。正式包（`ZCODE_PRODUCT_FLAVOR === "production"`）不得发起任何更新校验请求，也不得展示更新入口。**这是暂时屏蔽而非移除**：更新系统就绪后，将 `packages/shared/src/env.ts` 中的 `ZCODE_UPDATES_ENABLED` 改回 `true` 即整体恢复原有接线，各入口的读取点不得单独删除。
 
 ## 状态所有者
 

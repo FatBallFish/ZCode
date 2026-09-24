@@ -12,12 +12,15 @@ import {
   desktopMenuMessageIds,
   formatDesktopMenuMessage,
   getDesktopMenuMessage,
+  MIKIKO_UPDATE_ENDPOINT_ORIGIN,
+  PlatformChannels,
   resolveRuntimeZCodeEndpointOrigin,
   type ElectronReleaseChannel,
   type Locale,
   type PostUpdateReleaseNotesPayload,
   type UpdateCheckResultPayload,
   type UpdateStatePayload,
+  ZCODE_VERSION,
 } from "@zcode/shared";
 import { logger } from "./logger.js";
 import { ManifestUpdateProvider, getElectronReleasePlatform } from "./manifestUpdateProvider.js";
@@ -785,7 +788,7 @@ function applyManifestUpdateProvider(options: InitAutoUpdaterOptions): void {
   autoUpdater.setFeedURL({
     provider: "custom",
     updateProvider: ManifestUpdateProvider,
-    endpointOrigin: DEFAULT_ZCODE_ENDPOINT_ORIGIN,
+    endpointOrigin: MIKIKO_UPDATE_ENDPOINT_ORIGIN,
     ...(manifestUrl ? { manifestUrl } : {}),
     releasePlatform: getElectronReleasePlatform(),
     deviceMid: options.deviceMid,

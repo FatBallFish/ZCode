@@ -24,6 +24,7 @@ import {
   WEB_REMOTE_CONTROL_WORKSPACE_RECONNECT_TIMEOUT_MS,
   resolveWebRemoteControlRelayWsUrl,
 } from "@zcode/shared";
+import { RemoteControlApp } from "./remote-control/RemoteControlApp.js";
 import { WebCallbackPage } from "./auth/WebCallbackPage.js";
 import { WebLoggedInWaitingPage } from "./auth/WebLoggedInWaitingPage.js";
 import { WebLoginPage } from "./auth/WebLoginPage.js";
@@ -2426,6 +2427,20 @@ async function bootstrapWebApp() {
 
   if (isConversationSharePath(window.location.pathname)) {
     await renderConversationSharePage();
+    return;
+  }
+
+  // 手机远控（spec specs/remote/mobile-remote-control.md §8.2）：二维码票据入口。
+  // relay WS 基址解析顺序（spec §5.3 增补）：票据 URL ws 参数（须 wss?://，防参数注入异常值）
+  // > 构建期注入 > 同源（本地调试经 vite proxy）；域名迁移免重新构建手机页。
+  if (params.has("sid") && params.has("hash")) {
+    const ticketWs = params.get("ws")?.trim() ?? "";
+    const relayWsBase =
+      (/^wss?:\/\//.test(ticketWs) ? ticketWs : "") ||
+      import.meta.env.VITE_ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL?.trim() ||
+      `${resolveDefaultWsOrigin()}`;
+    document.title = "Mikiko - Remote";
+    root.render(<RemoteControlApp relayWsBase={relayWsBase} platform={createWebPlatform()} />);
     return;
   }
 

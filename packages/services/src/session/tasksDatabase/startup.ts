@@ -87,13 +87,19 @@ export async function prepareTasksIndexStorage(
         /* 不可扩展异常仍保留原错误。 */
       }
     }
-    throw error;
-  } finally {
+    // 关库失败不得覆盖首因（原写在 finally 里条件 throw，被 no-unsafe-finally 判定为
+    // 会吞掉原始异常）；改为在 catch 路径内静默关库，成功路径的关库失败仍向外抛。
     try {
       db.close();
-    } catch (error) {
-      if (!failure) throw error;
+    } catch {
+      /* 保留原始异常。 */
     }
+    throw error;
+  }
+  try {
+    db.close();
+  } catch (error) {
+    if (!failure) throw error;
   }
   markTasksStorageMigrated(path);
   const repos = [
@@ -102,13 +108,7 @@ export async function prepareTasksIndexStorage(
     new OffPeakTaskRepo(path, LOCK_WAIT_MS),
   ];
   let preparationFailure: unknown;
-  try {
-    // 这些是原本就在初始化时执行的修复，不创建新的迁移或改变已有事务边界。
-    for (const repo of repos) await repo.ensureReady();
-  } catch (error) {
-    preparationFailure = error;
-    throw error;
-  } finally {
+  const closeRepos = (): { closeFailure: unknown } => {
     let closeFailure: unknown;
     for (const repo of repos) {
       try {
@@ -117,8 +117,20 @@ export async function prepareTasksIndexStorage(
         closeFailure ??= error;
       }
     }
-    if (!preparationFailure && closeFailure) throw closeFailure;
+    return { closeFailure };
+  };
+  try {
+    // 这些是原本就在初始化时执行的修复，不创建新的迁移或改变已有事务边界。
+    for (const repo of repos) await repo.ensureReady();
+  } catch (error) {
+    preparationFailure = error;
+    // 同上：关库失败不覆盖首因（no-unsafe-finally），catch 路径静默关库。
+    closeRepos();
+    throw error;
   }
+  // 成功路径的关库失败仍然向外抛。
+  const { closeFailure } = closeRepos();
+  if (!preparationFailure && closeFailure) throw closeFailure;
   markTasksStoragePrepared(path);
   report("ready", migration);
 }

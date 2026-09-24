@@ -3,6 +3,13 @@ import type { ZCodeEnv } from "./env.js";
 export const DEFAULT_ZCODE_ENDPOINT_ORIGIN = "https://zcode.z.ai";
 export const TEST_ZCODE_ENDPOINT_ORIGIN = "https://zcode.z.ai";
 export const CODING_PLAN_LOCAL_WEBVIEW_ORIGIN = "http://localhost:3000";
+
+/**
+ * Mikiko 自建升级服务（spec specs/update/update-service.md）：manifest 与强更配置端点。
+ * 与 DEFAULT_ZCODE_ENDPOINT_ORIGIN 分离——后者仍承载账号等既有后端能力。
+ */
+export const MIKIKO_UPDATE_ENDPOINT_ORIGIN = "https://agent-update.mikiko.ai";
+export const MIKIKO_UPDATE_DOWNLOAD_ORIGIN = "https://agent-dl.mikiko.ai";
 export const DEFAULT_BIGMODEL_API_ORIGIN = "https://bigmodel.cn";
 export const TEST_BIGMODEL_API_ORIGIN = "https://bigmodel.cn";
 export const DEFAULT_ZAI_OAUTH_ORIGIN = "https://chat.z.ai";

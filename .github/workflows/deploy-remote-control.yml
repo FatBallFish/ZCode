@@ -1,0 +1,125 @@
+name: Deploy Remote Control
+
+# 远控三端自动部署（spec §22）：push 到 main 且中继/手机页/共享协议有变更时触发。
+# - relay：构建单文件 bundle → SSH 部署到 VPS 并重启 systemd（需 secret RELAY_DEPLOY_KEY，
+#   其公钥已加入服务器 authorized_keys）。
+# - 手机页：构建域名无关 Pages 产物 → wrangler 发布（需 secret CLOUDFLARE_API_TOKEN）。
+# 任一 secret 未配置时对应 job 主动跳过（exit 78），不阻塞另一个。
+
+on:
+  push:
+    branches: [main, custom_main]
+    paths:
+      - "packages/relay-server/**"
+      - "packages/web/src/remote-control/**"
+      - "packages/shared/src/remote-control/**"
+      - ".github/workflows/deploy-remote-control.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-remote-control
+  cancel-in-progress: false
+
+env:
+  HUSKY: "0"
+  RELAY_HOST: 152.53.168.164
+  RELAY_USER: root
+  RELAY_PATH: /srv/mikiko-remote/relay.cjs
+
+jobs:
+  relay:
+    name: deploy relay (VPS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build relay bundle
+        run: pnpm --filter @zcode/relay-server run build:bundle
+
+      - name: Deploy over SSH
+        env:
+          RELAY_DEPLOY_KEY: ${{ secrets.RELAY_DEPLOY_KEY }}
+        run: |
+          if [ -z "$RELAY_DEPLOY_KEY" ]; then
+            echo "::notice::secrets.RELAY_DEPLOY_KEY 未配置，跳过中继部署（本地开发时可先手动部署）"
+            exit 78
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$RELAY_DEPLOY_KEY" > ~/.ssh/relay_key
+          chmod 600 ~/.ssh/relay_key
+          ssh-keyscan -H "$RELAY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          scp -i ~/.ssh/relay_key packages/relay-server/dist/relay.cjs "$RELAY_USER@$RELAY_HOST:$RELAY_PATH"
+          ssh -i ~/.ssh/relay_key "$RELAY_USER@$RELAY_HOST" "systemctl restart mikiko-relay && sleep 1 && systemctl is-active mikiko-relay"
+
+  pages:
+    name: deploy phone page (Pages)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build phone UI (domain-agnostic)
+        run: pnpm --filter @zcode/web run build:remote-pages
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::notice::secrets.CLOUDFLARE_API_TOKEN 未配置，跳过手机页部署"
+            exit 78
+          fi
+          npx --yes wrangler@4 pages deploy packages/web/dist-pages \
+            --project-name mikiko-remote --branch main
+
+  update-service:
+    name: deploy update worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+
+      - name: Deploy Worker
+        working-directory: packages/update-service
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::notice::secrets.CLOUDFLARE_API_TOKEN 未配置，跳过升级服务部署"
+            exit 78
+          fi
+          npm install --no-save wrangler@4
+          npx wrangler deploy
