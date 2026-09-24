@@ -37,22 +37,30 @@ if (!version || !token) {
 
 async function publishBytes(path, body, contentType, multipartKey) {
   if (body.byteLength <= MULTIPART_THRESHOLD) {
-    const response = await fetch(`${endpoint}${path}`, {
-      method: "PUT",
-      headers: { "x-publish-token": token, "content-type": contentType },
-      body,
-    });
+    const response = await fetchWithRetry(
+      `${endpoint}${path}`,
+      {
+        method: "PUT",
+        headers: { "x-publish-token": token, "content-type": contentType },
+        body,
+      },
+      path,
+    );
     if (!response.ok) {
       throw new Error(`上传失败 ${path}: ${response.status} ${await response.text()}`);
     }
     return;
   }
   // 分片：init → parts → complete。
-  const init = await fetch(`${endpoint}/admin/multipart/init`, {
-    method: "POST",
-    headers: { "x-publish-token": token, "content-type": "application/json" },
-    body: JSON.stringify({ key: multipartKey, contentType }),
-  });
+  const init = await fetchWithRetry(
+    `${endpoint}/admin/multipart/init`,
+    {
+      method: "POST",
+      headers: { "x-publish-token": token, "content-type": "application/json" },
+      body: JSON.stringify({ key: multipartKey, contentType }),
+    },
+    "multipart init",
+  );
   const initBody = await init.json();
   if (!init.ok) {
     throw new Error(`multipart init 失败: ${init.status} ${JSON.stringify(initBody)}`);
@@ -61,13 +69,14 @@ async function publishBytes(path, body, contentType, multipartKey) {
   const parts = [];
   for (let offset = 0, number = 1; offset < body.byteLength; offset += partSize, number++) {
     const chunk = body.subarray(offset, Math.min(offset + partSize, body.byteLength));
-    const partResponse = await fetch(
+    const partResponse = await fetchWithRetry(
       `${endpoint}/admin/multipart/${initBody.uploadId}/${number}?key=${encodeURIComponent(multipartKey)}`,
       {
         method: "PUT",
         headers: { "x-publish-token": token, "content-type": "application/octet-stream" },
         body: chunk,
       },
+      `分片 ${number}`,
     );
     const partBody = await partResponse.json();
     if (!partResponse.ok) {
@@ -76,14 +85,47 @@ async function publishBytes(path, body, contentType, multipartKey) {
     parts.push({ etag: partBody.etag, partNumber: number });
     console.log(`  part ${number}/${Math.ceil(body.byteLength / partSize)} 上传完成`);
   }
-  const complete = await fetch(`${endpoint}/admin/multipart/complete`, {
-    method: "POST",
-    headers: { "x-publish-token": token, "content-type": "application/json" },
-    body: JSON.stringify({ uploadId: initBody.uploadId, key: multipartKey, parts }),
-  });
+  const complete = await fetchWithRetry(
+    `${endpoint}/admin/multipart/complete`,
+    {
+      method: "POST",
+      headers: { "x-publish-token": token, "content-type": "application/json" },
+      body: JSON.stringify({ uploadId: initBody.uploadId, key: multipartKey, parts }),
+    },
+    "multipart complete",
+  );
   if (!complete.ok) {
     throw new Error(`multipart complete 失败: ${complete.status} ${await complete.text()}`);
   }
+}
+
+/**
+ * 上传重试（2026-09-24）：100-190MB 安装包经 Workers multipart 上传时，单连接
+ * 偶发 CF 边缘断流（CI 实测 500 part_failed "Network connection lost"、本地实测
+ * EPIPE），一条分片失败就整体退出会让发布半途而废且只能人工补发。网络类失败
+ * 与 5xx 按 2s/4s/8s 退避重试 3 次；4xx 是确定性错误（鉴权/参数），原样抛出。
+ */
+async function fetchWithRetry(url, init, label, attempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url, init);
+      if (response.status < 500) {
+        return response;
+      }
+      lastError = new Error(`${label}: HTTP ${response.status}`);
+      console.warn(`  ${lastError.message}，${attempt < attempts ? "退避重试" : "放弃"}`);
+    } catch (error) {
+      lastError = error;
+      console.warn(
+        `  ${label} 网络异常（${error.cause?.code ?? error.message}），${attempt < attempts ? "退避重试" : "放弃"}`,
+      );
+    }
+    if (attempt < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** (attempt - 1)));
+    }
+  }
+  throw lastError;
 }
 
 async function main() {
