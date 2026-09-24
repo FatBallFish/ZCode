@@ -422,6 +422,44 @@ export class ModelConfigRules {
     return result;
   }
 
+  /**
+   * 中转站（Sub2API relay）投影供应商的模型推荐解析：relay 网关转发的是与官方端点
+   * 相同的上游模型，但 provider-site 推荐规则全部绑定官方 baseUrl，常规 resolve()
+   * 对站点网关一个都匹配不上（表现为同步模型的输入类型/能力/上下文为空）。
+   * 这里按「模型 ID + API 格式」匹配并忽略 baseUrl：model-api 规则全部叠加，
+   * provider-site 规则只取 modelMatch 最具体的一条，避免多个站点的同名规则互相覆盖。
+   */
+  resolveForRelayModel(input: { modelId: string; apiType?: string }): ModelConfig {
+    let result = ModelConfig.empty();
+    let bestSiteRule: ProviderSiteMatchConfigRule | undefined;
+    for (const rule of this.#rules) {
+      if (rule.type !== "provider-site") continue;
+      if (!matchesRule(rule.modelMatch, input.modelId, true)) continue;
+      if (
+        rule.apiTypeMatch !== undefined &&
+        (input.apiType == null || !matchesRule(rule.apiTypeMatch, input.apiType))
+      )
+        continue;
+      if (!bestSiteRule || rule.modelMatch.length > bestSiteRule.modelMatch.length) {
+        bestSiteRule = rule;
+      }
+    }
+    for (const rule of this.#rules) {
+      if (rule.type !== "model-api") continue;
+      if (!matchesRule(rule.modelMatch, input.modelId, true)) continue;
+      if (
+        rule.apiTypeMatch !== undefined &&
+        (input.apiType == null || !matchesRule(rule.apiTypeMatch, input.apiType))
+      )
+        continue;
+      result = result.overlay(rule.config);
+    }
+    if (bestSiteRule) {
+      result = result.overlay(bestSiteRule.config);
+    }
+    return result;
+  }
+
   setExact(
     providerId: string,
     modelId: string,

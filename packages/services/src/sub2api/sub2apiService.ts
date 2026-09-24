@@ -123,8 +123,39 @@ function parseEnvelopeText(text: string, status: number): PanelEnvelope<unknown>
   }
 }
 
-function apiTypeForPlatform(platform?: string): "openai-chat-completions" | "anthropic-messages" {
-  return platform === "anthropic" ? "anthropic-messages" : "openai-chat-completions";
+/**
+ * 虚拟模型（sub2api 网关侧合成，非真实可调用模型）：同步时整体过滤，不进供应商模型列表，
+ * 也不参与 API 格式推断的前缀判定（用户需求 2026-09-24）。
+ */
+const SUB2API_VIRTUAL_MODEL_IDS = new Set(["codex-auto-review"]);
+
+function filterVirtualModels(models: readonly string[]): string[] {
+  return models.filter((model) => !SUB2API_VIRTUAL_MODEL_IDS.has(model));
+}
+
+/**
+ * API 格式推断（含 Response 规则，用户需求 2026-09-24）：
+ * - anthropic 平台 → anthropic-messages
+ * - openai 平台 且 密钥下所有模型均为 gpt- 前缀 → openai-responses（GPT 系列默认走 Response API）
+ * - 其他 → openai-chat-completions
+ * 注意：此值仅在新建供应商时写入；已有供应商同步不覆盖用户手动改过的格式（差量更新语义）。
+ */
+function inferApiType(
+  platform: string | undefined,
+  models: readonly string[],
+): "openai-chat-completions" | "anthropic-messages" | "openai-responses" {
+  if (platform === "anthropic") {
+    return "anthropic-messages";
+  }
+  const effectiveModels = filterVirtualModels(models);
+  if (
+    platform === "openai" &&
+    effectiveModels.length > 0 &&
+    effectiveModels.every((model) => model.startsWith("gpt-"))
+  ) {
+    return "openai-responses";
+  }
+  return "openai-chat-completions";
 }
 
 function parseModelIds(payload: unknown): string[] {
@@ -134,7 +165,7 @@ function parseModelIds(payload: unknown): string[] {
   }
   return data
     .map((entry) => (typeof entry?.id === "string" ? entry.id : ""))
-    .filter((id) => id.length > 0)
+    .filter((id) => id.length > 0 && !SUB2API_VIRTUAL_MODEL_IDS.has(id))
     .sort((a, b) => a.localeCompare(b));
 }
 
@@ -458,7 +489,7 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       .filter((model) => model.length > 0 && !models.includes(model));
     models.push(...customModels.slice(0, MAX_PROJECTED_MODELS - models.length));
     const apiConfig = {
-      type: apiTypeForPlatform(key.platform),
+      type: inferApiType(key.platform, models),
       baseUrl: `${gatewayBase(site)}/v1`,
     } as const;
     const accessConfig = { type: "api-key", apiKey: key.apiKey } as const;
@@ -596,6 +627,81 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
     return error;
   }
 
+  // 同步互斥锁（2026-09-24 修复登录后双同步并发）：login() 内的服务层自动同步与
+  // UI 层 autoSync 并发时，双方读到同一份空 bindings → 都走创建路径 → 重名副本。
+  // 同一站点同一时刻只允许一个 syncProviders 在跑，后来者复用在途 Promise。
+  const syncInFlight = new Map<string, Promise<Sub2ApiSiteState>>();
+
+  // 模型推荐缓存（2026-09-24 用户需求）：同步时按「模型 ID + API 格式」走智能配置
+  // 匹配（忽略 baseUrl 的官方端点规则），同一组合只解析一次；多密钥同模型、重复
+  // 同步直接复用，避免重复解析与逐模型重复写盘。null 表示已解析且无推荐。
+  const modelRecommendationCache = new Map<string, Record<string, unknown> | null>();
+
+  async function resolveModelRecommendation(
+    modelId: string,
+    apiType: string,
+  ): Promise<Record<string, unknown> | null> {
+    const cacheKey = `${apiType}::${modelId}`;
+    if (modelRecommendationCache.has(cacheKey)) {
+      return modelRecommendationCache.get(cacheKey) ?? null;
+    }
+    let value: Record<string, unknown> | null = null;
+    try {
+      const resolved = await deps.providerSettingsService.resolveRelayModelRecommendation({
+        modelId,
+        apiType,
+      });
+      value =
+        resolved && Object.keys(resolved).length > 0 ? (resolved as Record<string, unknown>) : null;
+    } catch {
+      // 推荐解析失败不阻断同步：模型按无推荐配置落盘，与旧行为一致。
+    }
+    modelRecommendationCache.set(cacheKey, value);
+    return value;
+  }
+
+  // 配置写串行化（2026-09-23 修复站点丢失/复活）：本服务的写路径全部是
+  // 「loadConfig 捕获快照 → await 网络（超时可达 25s）→ 用快照写回」的形状，
+  // 没有串行化时，余额/密钥 60-120s 定时刷新的在途流程会用进入前捕获的旧快照
+  // 覆盖磁盘：并发 addSite 刚写入的占位站点被冲掉（绑定地址报「站点不存在」）、
+  // 已删除站点被复活（删除提示成功但记录仍在）。所有改写配置的方法经
+  // serializedService 整体排队，保证单进程内「读-改-写」原子；网络等待也在
+  // 队列内——这些是用户节奏的低频操作，正确性优先于吞吐。内部自调用
+  // （login → syncProviders、refreshAccount → getAccountDetail）持有 raw service
+  // 引用、绕过代理直接进原方法，天然不会重入排队造成死锁。
+  let configWriteChain: Promise<unknown> = Promise.resolve();
+
+  function withConfigLock<T>(run: () => Promise<T>): Promise<T> {
+    const task = configWriteChain.then(run, run);
+    // 前序任务失败只向它自己的调用方传播，不能卡死整条队列。
+    configWriteChain = task.then(
+      () => undefined,
+      () => undefined,
+    );
+    return task;
+  }
+
+  /** 必须整体串行化的写方法；纯读方法（getSites/getModelConfig 等）不加锁。 */
+  const configWriteMethods: ReadonlySet<string> = new Set([
+    "addSite",
+    "bindSiteAddress",
+    "removeSite",
+    "login",
+    "loginWith2FA",
+    "logout",
+    "getAccountDetail",
+    "refreshAccount",
+    "listKeys",
+    "createKey",
+    "updateKey",
+    "deleteKey",
+    "activateKey",
+    "refreshKeyModels",
+    "syncProviders",
+    "setSiteEnabled",
+    "setModelConfig",
+  ]);
+
   const service: ISub2ApiService = {
     onDidChange: (listener) => changeEmitter.event(listener),
     async getSites() {
@@ -687,6 +793,25 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
           throw new Error(`删除密钥供应商失败（${binding.keyName}），请重试`);
         }
       }
+      // 品牌前缀兜底清扫（2026-09-24 修复重登重复供应商）：bindings 只反映删站点那一刻的
+      // 记录，历史上同步竞态/失败可能留下未登记的供应商；重加站点登录会按重名规则生成
+      // "Claude 2" 这类副本。这里把该站点品牌前缀（"{brand} · "）开头的个人供应商全部删除。
+      try {
+        const brand = site.siteName || "Sub2api";
+        const prefix = `${brand} · `.toLowerCase();
+        const view = await deps.providerSettingsService.getView();
+        const ghosts = view.providers.filter((provider) => {
+          const name = provider.providerName?.trim().toLowerCase();
+          return name != null && name.startsWith(prefix);
+        });
+        for (const ghost of ghosts) {
+          await deps.providerSettingsService
+            .deletePersonalProvider(ghost.providerId)
+            .catch(() => undefined);
+        }
+      } catch {
+        // 兜底清扫失败不阻断删除（bindings 主路径已执行）。
+      }
       const next = { ...config, sites: config.sites.filter((entry) => entry.id !== siteId) };
       await saveConfig(next);
       return toSitesState(next);
@@ -747,6 +872,12 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       const groups = await fetchGroups(site).catch(() => []);
       const syncedKeyCount = await fetchAndStoreKeys(site, groups);
       await saveConfig({ ...config, sites: config.sites });
+      // 登录后自动同步供应商与模型列表（用户需求 #3）：不再依赖用户打开设置页才触发。
+      try {
+        await service.syncProviders(site.id);
+      } catch {
+        // 同步失败不阻断登录返回；用户进设置页可手动重试。
+      }
       return { state: toSiteState(site), syncedKeyCount };
     },
     async loginWith2FA(request) {
@@ -773,6 +904,12 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       const groups = await fetchGroups(site).catch(() => []);
       const syncedKeyCount = await fetchAndStoreKeys(site, groups);
       await saveConfig({ ...config, sites: config.sites });
+      // 登录后自动同步（2FA）供应商与模型列表（用户需求 #3）：不再依赖用户打开设置页才触发。
+      try {
+        await service.syncProviders(site.id);
+      } catch {
+        // 同步失败不阻断登录返回；用户进设置页可手动重试。
+      }
       return { state: toSiteState(site), syncedKeyCount };
     },
     async logout(siteId) {
@@ -1060,117 +1197,95 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       return verification.models;
     },
     async syncProviders(siteId) {
-      // 强制从磁盘重读：与其他写操作并发时 cached 可能过期。
-      cached = null;
-      const { config, site } = await findSite(siteId);
-      const keys = (site.legacyKeys ?? []).filter((key) => key.apiKey.length > 0);
-      const brand = site.kind === "mikikocc" ? "MikikoCC" : site.siteName || "Sub2api";
-      // 统一品牌前缀命名：跨站点密钥可能同名，前缀从源头避免冲突与自动后缀污染。
-      const providerLabelFor = (keyName: string) => `${brand} · ${keyName || "Key"}`;
-      const siteEnabled = site.enabled !== false;
-      const bindings = [...(site.providerBindings ?? [])];
-      const orphanProviderIds: string[] = [];
+      // 互斥（2026-09-24）：同站点在途同步直接复用结果——login() 内的服务层自动同步
+      // 与 UI 层 autoSync 并发时，双方读到同一份空 bindings → 都走创建路径 → 重名副本。
+      const existing = syncInFlight.get(siteId);
+      if (existing) {
+        return existing;
+      }
+      const run = async (): Promise<Sub2ApiSiteState> => {
+        // 强制从磁盘重读：与其他写操作并发时 cached 可能过期。
+        cached = null;
+        const { config, site } = await findSite(siteId);
+        const keys = (site.legacyKeys ?? []).filter((key) => key.apiKey.length > 0);
+        const brand = site.kind === "mikikocc" ? "MikikoCC" : site.siteName || "Sub2api";
+        // 统一品牌前缀命名：跨站点密钥可能同名，前缀从源头避免冲突与自动后缀污染。
+        const providerLabelFor = (keyName: string) => `${brand} · ${keyName || "Key"}`;
+        const siteEnabled = site.enabled !== false;
+        const bindings = [...(site.providerBindings ?? [])];
+        const orphanProviderIds: string[] = [];
 
-      // 删除已不存在的密钥对应的供应商。
-      for (const binding of bindings) {
-        if (!keys.some((key) => key.id === binding.keyId)) {
-          orphanProviderIds.push(binding.providerId);
+        // 删除已不存在的密钥对应的供应商。
+        for (const binding of bindings) {
+          if (!keys.some((key) => key.id === binding.keyId)) {
+            orphanProviderIds.push(binding.providerId);
+          }
         }
-      }
-      for (const providerId of orphanProviderIds) {
-        await deps.providerSettingsService
-          .deletePersonalProvider(providerId)
-          .catch(() => undefined);
-      }
-      const effectiveBindings = bindings.filter(
-        (binding) => !orphanProviderIds.includes(binding.providerId),
-      );
+        for (const providerId of orphanProviderIds) {
+          await deps.providerSettingsService
+            .deletePersonalProvider(providerId)
+            .catch(() => undefined);
+        }
+        const effectiveBindings = bindings.filter(
+          (binding) => !orphanProviderIds.includes(binding.providerId),
+        );
 
-      for (const key of keys) {
-        try {
-          const binding = effectiveBindings.find((entry) => entry.keyId === key.id);
-          // 模型清单取本地离线数据；未拉取过的密钥现场拉一次并落盘。
-          let models = site.keyModels?.[key.id];
-          if (!models || models.length === 0) {
-            const verification = await fetchGatewayModels(site, key.apiKey);
-            if (verification.ok) {
-              models = verification.models;
-              site.keyModels = { ...(site.keyModels ?? {}), [key.id]: models };
-            } else {
-              models = [];
-            }
-          }
-          const customModels = Object.entries(config.modelConfigs)
-            .filter(
-              ([configKey, override]) =>
-                override.custom === true && configKey.startsWith(`${site.id}:${key.id}:`),
-            )
-            .map(([configKey]) => configKey.split(":")[2] ?? "")
-            .filter((model) => model.length > 0 && !(models ?? []).includes(model));
-          const allModels = [...(models ?? []), ...customModels].slice(0, MAX_PROJECTED_MODELS);
-          if (allModels.length === 0) {
-            continue;
-          }
-          const apiConfig = {
-            type: apiTypeForPlatform(key.platform),
-            baseUrl: `${gatewayBase(site)}/v1`,
-          } as const;
-          const accessConfig = { type: "api-key", apiKey: key.apiKey } as const;
-
-          if (!binding) {
-            const created = await deps.providerSettingsService.createPersonalProvider({
-              providerName: providerLabelFor(key.name),
-              initialConfig: {
-                personalModelIds: allModels,
-                modelOrder: allModels,
-              },
-            });
-            // createPersonalProvider 的 initialConfig 不落 api/access，创建后必须立即用
-            // 完整 sparse overlay 写入端点与密钥，否则供应商不可执行、不进模型选择器。
-            await deps.providerSettingsService.savePersonalProviderOverlay(
-              created.providerId,
-              {
-                api: apiConfig,
-                access: accessConfig,
-                personalModelIds: allModels,
-                modelOrder: allModels,
-              },
-              { enabled: siteEnabled && key.status === "active" },
-            );
-            for (const modelId of allModels) {
-              const override = config.modelConfigs[modelConfigKey(site.id, key.id, modelId)];
+        for (const key of keys) {
+          try {
+            let binding = effectiveBindings.find((entry) => entry.keyId === key.id);
+            if (!binding) {
+              // 孤儿认领（2026-09-24 修复重登重复）：站点重加后 keyId 全新，但同名供应商可能
+              // 仍存在（删除时绑定缺失/历史竞态遗留）。按「品牌 · 密钥名」全局查找并认领，
+              // 避免按重名规则生成 "Claude 2" 副本。
+              const expectedName = providerLabelFor(key.name);
               try {
-                await deps.providerSettingsService.addPersonalModel(
-                  created.providerId,
-                  modelId,
-                  override ? buildModelConfig(override) : {},
-                  true,
+                const view = await deps.providerSettingsService.getView();
+                const candidate = view.providers.find(
+                  (provider) =>
+                    provider.providerName?.trim().toLowerCase() ===
+                    expectedName.trim().toLowerCase(),
                 );
+                if (candidate) {
+                  effectiveBindings.push({
+                    keyId: key.id,
+                    keyName: key.name,
+                    providerId: candidate.providerId,
+                  });
+                  binding = effectiveBindings[effectiveBindings.length - 1];
+                }
               } catch {
-                // 模型条目以清单为准，重复添加忽略。
+                // 视图读取失败走正常创建路径。
               }
             }
-            effectiveBindings.push({
-              keyId: key.id,
-              keyName: key.name,
-              providerId: created.providerId,
-            });
-          } else {
-            const overlayOk = await deps.providerSettingsService
-              .savePersonalProviderOverlay(
-                binding.providerId,
-                {
-                  api: apiConfig,
-                  access: accessConfig,
-                  personalModelIds: allModels,
-                  modelOrder: allModels,
-                },
-                { enabled: siteEnabled && key.status === "active" },
+            // 模型清单取本地离线数据；未拉取过的密钥现场拉一次并落盘。
+            let models = site.keyModels?.[key.id];
+            if (!models || models.length === 0) {
+              const verification = await fetchGatewayModels(site, key.apiKey);
+              if (verification.ok) {
+                models = verification.models;
+                site.keyModels = { ...(site.keyModels ?? {}), [key.id]: models };
+              } else {
+                models = [];
+              }
+            }
+            const customModels = Object.entries(config.modelConfigs)
+              .filter(
+                ([configKey, override]) =>
+                  override.custom === true && configKey.startsWith(`${site.id}:${key.id}:`),
               )
-              .then(() => true)
-              .catch(() => false);
-            if (!overlayOk) {
-              // 绑定的供应商已被外部删除——降级重建并更新绑定。
+              .map(([configKey]) => configKey.split(":")[2] ?? "")
+              .filter((model) => model.length > 0 && !(models ?? []).includes(model));
+            const allModels = [...(models ?? []), ...customModels].slice(0, MAX_PROJECTED_MODELS);
+            if (allModels.length === 0) {
+              continue;
+            }
+            const apiConfig = {
+              type: inferApiType(key.platform, models ?? []),
+              baseUrl: `${gatewayBase(site)}/v1`,
+            } as const;
+            const accessConfig = { type: "api-key", apiKey: key.apiKey } as const;
+
+            if (!binding) {
               const created = await deps.providerSettingsService.createPersonalProvider({
                 providerName: providerLabelFor(key.name),
                 initialConfig: {
@@ -1178,6 +1293,8 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
                   modelOrder: allModels,
                 },
               });
+              // createPersonalProvider 的 initialConfig 不落 api/access，创建后必须立即用
+              // 完整 sparse overlay 写入端点与密钥，否则供应商不可执行、不进模型选择器。
               await deps.providerSettingsService.savePersonalProviderOverlay(
                 created.providerId,
                 {
@@ -1188,32 +1305,165 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
                 },
                 { enabled: siteEnabled && key.status === "active" },
               );
-              binding.providerId = created.providerId;
-            }
-            for (const modelId of allModels) {
-              const override = config.modelConfigs[modelConfigKey(site.id, key.id, modelId)];
+              for (const modelId of allModels) {
+                const override = config.modelConfigs[modelConfigKey(site.id, key.id, modelId)];
+                try {
+                  // 智能配置（用户需求 2026-09-24）：同步模型按「ID + API 格式」匹配推荐
+                  // 配置快照（输入类型/能力/推理等级），无用户覆盖时随条目落盘。
+                  const recommendation = override
+                    ? null
+                    : await resolveModelRecommendation(modelId, apiConfig.type);
+                  await deps.providerSettingsService.addPersonalModel(
+                    created.providerId,
+                    modelId,
+                    override ? buildModelConfig(override) : (recommendation ?? {}),
+                    true,
+                  );
+                } catch {
+                  // 模型条目以清单为准，重复添加忽略。
+                }
+              }
+              effectiveBindings.push({
+                keyId: key.id,
+                keyName: key.name,
+                providerId: created.providerId,
+              });
+            } else {
+              // 差量更新（用户需求 #4）：已有供应商的 api.type 以当前生效值为准——用户手动改过
+              // （如 Response）的格式同步不得打回；当前无值（历史数据 type 未持久化）才写入
+              // 本轮推断值。baseUrl 与密钥始终更新。
+              let keepApiType: typeof apiConfig.type | undefined;
+              // 模型合并：读取当前供应商的模型列表，保留不在同步清单里的（用户直接在供应商
+              // 设置页添加的模型，spec #4.3 手动模型不删）。名称冲突时人工的已在 currentModels
+              // 中，同步清单里的同名模型会被去重跳过。
+              let mergedModels = allModels;
+              // 已存在模型的个人配置视图：判断历史同步的模型是否需要补写推荐配置快照。
+              let existingModelEntries = new Map<string, { personalExactConfig?: unknown }>();
               try {
-                await deps.providerSettingsService.addPersonalModel(
-                  binding.providerId,
-                  modelId,
-                  override ? buildModelConfig(override) : {},
-                  true,
+                const currentView = await deps.providerSettingsService.getView();
+                const currentProvider = currentView.providers.find(
+                  (provider) => provider.providerId === binding.providerId,
                 );
+                // 显式保留当前 type（effectiveConfig 是生效配置；personalConfig 优先以覆盖为准）。
+                const currentApi = (currentProvider?.personalConfig?.api ??
+                  currentProvider?.effectiveConfig?.api) as
+                  | { type?: typeof apiConfig.type }
+                  | undefined;
+                keepApiType = currentApi?.type;
+                const currentModelIds: string[] =
+                  currentProvider?.models?.map((m) => m.modelId) ?? [];
+                existingModelEntries = new Map(
+                  (currentProvider?.models ?? []).map((model) => [
+                    model.modelId,
+                    { personalExactConfig: model.personalExactConfig },
+                  ]),
+                );
+                const syncedSet = new Set(allModels);
+                const userAdded = currentModelIds.filter((id) => !syncedSet.has(id));
+                if (userAdded.length > 0) {
+                  mergedModels = [...allModels, ...userAdded].slice(0, MAX_PROJECTED_MODELS);
+                }
               } catch {
-                // 同上。
+                // 读取当前列表失败时退化为全量覆盖（与旧行为一致）。
+              }
+              const updateApiConfig = {
+                ...(keepApiType ? { type: keepApiType } : { type: apiConfig.type }),
+                baseUrl: apiConfig.baseUrl,
+              } as typeof apiConfig;
+              const overlayOk = await deps.providerSettingsService
+                .savePersonalProviderOverlay(
+                  binding.providerId,
+                  {
+                    api: updateApiConfig,
+                    access: accessConfig,
+                    personalModelIds: mergedModels,
+                    modelOrder: mergedModels,
+                  },
+                  { enabled: siteEnabled && key.status === "active" },
+                )
+                .then(() => true)
+                .catch(() => false);
+              if (!overlayOk) {
+                // 绑定的供应商已被外部删除——降级重建并更新绑定。
+                const created = await deps.providerSettingsService.createPersonalProvider({
+                  providerName: providerLabelFor(key.name),
+                  initialConfig: {
+                    personalModelIds: allModels,
+                    modelOrder: allModels,
+                  },
+                });
+                await deps.providerSettingsService.savePersonalProviderOverlay(
+                  created.providerId,
+                  {
+                    api: apiConfig,
+                    access: accessConfig,
+                    personalModelIds: allModels,
+                    modelOrder: allModels,
+                  },
+                  { enabled: siteEnabled && key.status === "active" },
+                );
+                binding.providerId = created.providerId;
+              }
+              for (const modelId of allModels) {
+                const override = config.modelConfigs[modelConfigKey(site.id, key.id, modelId)];
+                try {
+                  // 智能配置（用户需求 2026-09-24）：新模型随推荐配置快照落盘；已存在模型
+                  // 仅当个人配置为空（历史同步未落推荐、用户也未手动改过）时补写快照，
+                  // 用户配置过的条目不覆盖。
+                  const recommendation = override
+                    ? null
+                    : await resolveModelRecommendation(modelId, updateApiConfig.type);
+                  const configPayload = override
+                    ? buildModelConfig(override)
+                    : (recommendation ?? {});
+                  const existing = existingModelEntries.get(modelId);
+                  if (!existing) {
+                    await deps.providerSettingsService.addPersonalModel(
+                      binding.providerId,
+                      modelId,
+                      configPayload,
+                      true,
+                    );
+                    continue;
+                  }
+                  const personalExact = existing.personalExactConfig as
+                    | Record<string, unknown>
+                    | undefined;
+                  const personalEmpty =
+                    !personalExact ||
+                    Object.keys(personalExact).every((field) => field === "enabled");
+                  if (recommendation && personalEmpty) {
+                    // savePersonalModelDraft 以 revision 防并发覆盖：逐模型取最新视图，
+                    // 冲突（其他写入竞态）时本轮跳过，下次同步重试。
+                    const view = await deps.providerSettingsService.getView();
+                    await deps.providerSettingsService.savePersonalModelDraft({
+                      providerId: binding.providerId,
+                      originalModelId: modelId,
+                      nextModelId: modelId,
+                      personalConfig: recommendation,
+                      useRecommendedConfig: true,
+                      basedOnRevision: view.revision,
+                    });
+                  }
+                } catch {
+                  // 同上：单模型失败不中断。
+                }
               }
             }
+          } catch {
+            // 单个密钥同步失败（名称冲突/网络等）不中断整体循环；已完成的绑定照常保存，
+            // 避免半途中断导致 bindings 丢失、已建供应商泄漏到自定义分组。
           }
-        } catch {
-          // 单个密钥同步失败（名称冲突/网络等）不中断整体循环；已完成的绑定照常保存，
-          // 避免半途中断导致 bindings 丢失、已建供应商泄漏到自定义分组。
         }
-      }
 
-      site.providerBindings = effectiveBindings;
-      // 结构性变更（新增/删除供应商）需要广播，让模型选择器与导航即时刷新。
-      await saveConfig({ ...config, sites: config.sites });
-      return toSiteState(site);
+        site.providerBindings = effectiveBindings;
+        // 结构性变更（新增/删除供应商）需要广播，让模型选择器与导航即时刷新。
+        await saveConfig({ ...config, sites: config.sites });
+        return toSiteState(site);
+      };
+      const promise = run().finally(() => syncInFlight.delete(siteId));
+      syncInFlight.set(siteId, promise);
+      return promise;
     },
     async getModelConfig(siteId, keyId, model) {
       const config = await loadConfig();
@@ -1226,5 +1476,17 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
     },
   };
 
-  return service;
+  // 返回代理而非 raw service：外部（RPC/UI）调用写方法时整体排队；闭包内部的
+  // service.xxx 自调用仍指向 raw 对象，在调用方已持有的队列槽内继续执行，不重入。
+  return new Proxy(service, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop);
+      if (typeof prop === "string" && configWriteMethods.has(prop) && typeof value === "function") {
+        const method = value as (...args: unknown[]) => Promise<unknown>;
+        return (...args: unknown[]): Promise<unknown> =>
+          withConfigLock(() => method.apply(target, args));
+      }
+      return value;
+    },
+  });
 }

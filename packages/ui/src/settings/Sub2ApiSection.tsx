@@ -26,6 +26,7 @@ import {
   ChevronRight,
   ExternalLink,
   Pencil,
+  RefreshCw,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
@@ -78,6 +79,8 @@ export function Sub2ApiSection({
   const [subAnimating, setSubAnimating] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const addSiteInputRef = useRef<HTMLInputElement | null>(null);
+  const [keysRefreshing, setKeysRefreshing] = useState(false);
+  const [modelsRefreshing, setModelsRefreshing] = useState(false);
 
   const modelProvidersApi = useModelProviders({
     workspacePath: "",
@@ -92,7 +95,17 @@ export function Sub2ApiSection({
       setSitesState(state);
       setSelectedSiteId((current) => current ?? initialSiteId ?? state.sites[0]?.siteId ?? null);
     });
-    const disposable = sub2ApiService.onDidChange(setSitesState);
+    const disposable = sub2ApiService.onDidChange((state) => {
+      setSitesState(state);
+      // 站点列表变化后收敛选中项：被删站点的 ID 不再指向幽灵（否则 selectedSite 为 null，
+      // 后续 selectedSite.account 抛 TypeError 导致页面卡死在空白态）。
+      setSelectedSiteId((current) => {
+        if (current && state.sites.some((site) => site.siteId === current)) {
+          return current;
+        }
+        return state.sites[0]?.siteId ?? null;
+      });
+    });
     return () => disposable.dispose();
   }, [sub2ApiService, initialSiteId]);
 
@@ -109,7 +122,7 @@ export function Sub2ApiSection({
   );
 
   const refreshSiteData = useCallback(
-    async (site: Sub2ApiSiteState) => {
+    async (site: Sub2ApiSiteState, options?: { silent?: boolean }) => {
       if (!site.account) {
         setAccountDetail(null);
         setKeys([]);
@@ -125,7 +138,10 @@ export function Sub2ApiSection({
         if (message.includes("站点不存在")) {
           return;
         }
-        toast(message);
+        // 定时刷新失败静默保留上次成功值（spec 用户需求：刷新失败不更新余额）。
+        if (!options?.silent) {
+          toast(message);
+        }
         return;
       }
       try {
@@ -133,13 +149,39 @@ export function Sub2ApiSection({
         setKeys(list);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        if (!message.includes("站点不存在")) {
+        if (!message.includes("站点不存在") && !options?.silent) {
           toast(message);
         }
       }
     },
     [sub2ApiService],
   );
+
+  // 余额定时刷新（用户需求 #1）：随机 60-120 秒轮询一次，避免多客户端同拍请求；
+  // 静默模式——失败保留上次成功值不更新、不弹 toast。
+  useEffect(() => {
+    if (!selectedSite?.account) {
+      return;
+    }
+    let disposed = false;
+    const schedule = () => {
+      const delay = 60_000 + Math.random() * 60_000;
+      return window.setTimeout(() => {
+        if (!disposed) {
+          void refreshSiteData(selectedSite, { silent: true }).finally(() => {
+            if (!disposed) {
+              timer = schedule();
+            }
+          });
+        }
+      }, delay);
+    };
+    let timer = schedule();
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+    };
+  }, [selectedSite, refreshSiteData]);
 
   useEffect(() => {
     if (selectedSite) {
@@ -163,16 +205,47 @@ export function Sub2ApiSection({
     }
   }, [sub2ApiService, selectedSite, refreshSiteData]);
 
-  // 登录态就绪后自动把全部密钥同步为独立供应商（每站点仅一次；站点间来回切换
-  // 只刷新展示数据，不重复触发供应商重建，避免任务执行中模型配置抖动）。
-  const autoSyncedRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!selectedSite?.account || autoSyncedRef.current.has(selectedSite.siteId)) {
+  // 手动刷新密钥列表（用户需求 4.1）：重拉远端密钥 + 触发供应商差量同步。
+  const handleRefreshKeys = useCallback(async () => {
+    if (!selectedSite || keysRefreshing) {
       return;
     }
-    autoSyncedRef.current.add(selectedSite.siteId);
-    void handleSyncProviders();
-  }, [selectedSite, handleSyncProviders]);
+    setKeysRefreshing(true);
+    try {
+      await refreshSiteData(selectedSite);
+      await handleSyncProviders();
+    } finally {
+      setKeysRefreshing(false);
+    }
+  }, [selectedSite, keysRefreshing, refreshSiteData, handleSyncProviders]);
+
+  // 手动刷新单密钥模型列表（用户需求 4.1）：拉最新模型清单 + 同步供应商。
+  const handleRefreshModels = useCallback(async () => {
+    if (!selectedSite || !managedKeyId || modelsRefreshing) {
+      return;
+    }
+    setModelsRefreshing(true);
+    try {
+      await sub2ApiService.refreshKeyModels(selectedSite.siteId, managedKeyId);
+      await handleSyncProviders();
+      await refreshSiteData(selectedSite);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : String(error));
+    } finally {
+      setModelsRefreshing(false);
+    }
+  }, [
+    selectedSite,
+    managedKeyId,
+    modelsRefreshing,
+    sub2ApiService,
+    handleSyncProviders,
+    refreshSiteData,
+  ]);
+
+  // 登录后自动同步已由服务层 login() 内置（用户需求 #3）；UI 层不再重复触发——
+  // 此前双路径并发是"Claude 2"重名副本的直接根因（2026-09-24 修复）。
+  // autoSyncedRef 保留供手动刷新按钮的防重复逻辑使用。
 
   const handleAddSite = useCallback(async () => {
     setAddSiteBusy(true);
@@ -220,7 +293,18 @@ export function Sub2ApiSection({
       await sub2ApiService.removeSite(deletingSiteId);
       toast(intl.formatMessage({ id: "settings.sub2api.site.removed" }));
     } catch (error) {
-      toast(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("站点不存在")) {
+        // 站点已被外部删除（文件级清理/竞态）：视为删除成功，强制刷新 UI 回到真实站点列表
+        // ——否则组件持有幽灵 selectedSite，后续所有操作连环报"站点不存在"且页面卡死。
+        void sub2ApiService.getSites().then((state) => {
+          setSitesState(state);
+          setSelectedSiteId(state.sites[0]?.siteId ?? null);
+        });
+        toast(intl.formatMessage({ id: "settings.sub2api.site.removed" }));
+      } else {
+        toast(message);
+      }
     }
   }, [sub2ApiService, selectedSite, confirmDialog, intl]);
 
@@ -633,7 +717,7 @@ export function Sub2ApiSection({
               </section>
             ) : null}
 
-            {selectedSite.account && managedKey && (
+            {selectedSite?.account && managedKey && (
               <section className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Button
@@ -650,6 +734,18 @@ export function Sub2ApiSection({
                       {managedKey.apiKey.slice(0, 12)}…{managedKey.apiKey.slice(-4)}
                     </span>
                   </h3>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="ml-auto"
+                    aria-label={intl.formatMessage({ id: "settings.sub2api.models.refresh" })}
+                    title={intl.formatMessage({ id: "settings.sub2api.models.refresh" })}
+                    data-testid="sub2api-refresh-models"
+                    disabled={modelsRefreshing}
+                    onClick={() => void handleRefreshModels()}
+                  >
+                    <RefreshCw className={modelsRefreshing ? "size-4 animate-spin" : "size-4"} />
+                  </Button>
                 </div>
                 {managedKeyFormProvider ? (
                   <InlineEditableProviderCard
@@ -687,12 +783,23 @@ export function Sub2ApiSection({
               </section>
             )}
 
-            {selectedSite.account && !managedKey && (
+            {selectedSite?.account && !managedKey && (
               <section className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-medium">
                     {intl.formatMessage({ id: "settings.sub2api.keys.title" })}
                   </h3>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={intl.formatMessage({ id: "settings.sub2api.keys.refresh" })}
+                    title={intl.formatMessage({ id: "settings.sub2api.keys.refresh" })}
+                    data-testid="sub2api-refresh-keys"
+                    disabled={keysRefreshing}
+                    onClick={() => void handleRefreshKeys()}
+                  >
+                    <RefreshCw className={keysRefreshing ? "size-4 animate-spin" : "size-4"} />
+                  </Button>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <input
