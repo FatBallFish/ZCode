@@ -241,6 +241,7 @@ import type { ZCodeUiError } from "@/lib/zcodeUiError.js";
 import { isProviderNotReadyError } from "@/lib/chatPrepareError.js";
 import { useOptionalCodingPlanUpgradeDialog } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { setPendingSettingsSectionIntent } from "@/lib/settingsNavigation.js";
+import { useSidebarAccountDisplay } from "@/lib/sidebarAccount.js";
 import { useOptionalTabStore } from "@/store/TabStoreProvider.js";
 import type {
   OpenPlanDetailSideTabRequest,
@@ -3982,10 +3983,19 @@ export function SessionPane({
     draftModelReadinessError,
     sendSubmissionError,
   ]);
+  const sidebarAccountDisplay = useSidebarAccountDisplay();
   const handleOpenModelSettings = useCallback(() => {
-    setPendingSettingsSectionIntent("modelProvider");
+    // 跟随左下角 footer 当前展示的账户（用户需求 #2，2026-09-24 修订：不再按会话
+    // 选中模型的供应商定位）——展示中转站账号时定位到对应站点节点，展示智谱
+    // OAuth 账号时清空目标走默认家族侧。
+    setPendingSettingsSectionIntent(
+      "modelProvider",
+      sidebarAccountDisplay.relaySite
+        ? { sub2apiSiteId: sidebarAccountDisplay.relaySite.siteId }
+        : {},
+    );
     openSettingsTab();
-  }, [openSettingsTab]);
+  }, [openSettingsTab, sidebarAccountDisplay.relaySite]);
   const handleOpenModelUpgrade = useCallback(() => {
     if (!codingPlanUpgradeDialog) return;
     const providerId =

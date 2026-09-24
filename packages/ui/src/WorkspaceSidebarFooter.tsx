@@ -46,9 +46,12 @@ import { useRemoteControl } from "@/remoteControl/useRemoteControl.js";
 import { RemoteControlDialog } from "@/remoteControl/RemoteControlDialog.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { ISub2ApiService } from "@zcode/services";
-import type { Sub2ApiSitesState } from "@zcode/services";
 import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
-import { setPendingSettingsUsageIntent } from "@/lib/settingsNavigation.js";
+import { useSidebarAccountDisplay } from "@/lib/sidebarAccount.js";
+import {
+  setPendingModelProviderTarget,
+  setPendingSettingsUsageIntent,
+} from "@/lib/settingsNavigation.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 import { useZCodeStore } from "@/store/StoreProvider.js";
 import { normalizeInterfaceMode } from "@/lib/interfaceMode.js";
@@ -140,27 +143,15 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
   const resetZoomShortcutLabel = useShortcutCommandLabel("resetZoom");
   const isRestoringOAuthSession = useZCodeStore((state) => state.isRestoringOAuthSession);
   // 中转站账号：仅在无智谱 OAuth 登录态时作为身份展示源（邮箱 + 余额）。
+  // 选中态与站点订阅收敛到 useSidebarAccountDisplay（窗口级共享）：工作区与设置页
+  // 各挂一个 footer 实例，本地 state 会在进设置页时丢失选中、回落智谱账号展示。
   const baseServices = useBaseWorkspaceServices();
   const sub2ApiService = baseServices?.sub2ApiService as ISub2ApiService | undefined;
-  const [sub2ApiSites, setSub2ApiSites] = useState<Sub2ApiSitesState | null>(null);
-  useEffect(() => {
-    if (!sub2ApiService) {
-      return;
-    }
-    void sub2ApiService.getSites().then(setSub2ApiSites);
-    const disposable = sub2ApiService.onDidChange(setSub2ApiSites);
-    return () => disposable.dispose();
-  }, [sub2ApiService]);
-  const sub2ApiAuthedSites = (sub2ApiSites?.sites ?? []).filter(
-    (site) => site.account && site.enabled !== false,
-  );
-  // 账号切换器：在中转站多账号间切换展示（仅切换展示，不做退登，后台 token 续期不受影响）。
-  const [selectedRelaySiteId, setSelectedRelaySiteId] = useState<string | null>(null);
-  // 账号显示源切换：点击菜单中的中转站账号后主体展示该站点（不影响任何登录态与
-  // 后台 token 续期）；未选择时无 OAuth 才回退显示首个中转站。
-  const sub2ApiAccountSite =
-    sub2ApiAuthedSites.find((site) => site.siteId === selectedRelaySiteId) ??
-    (user ? null : (sub2ApiAuthedSites[0] ?? null));
+  const {
+    authedRelaySites: sub2ApiAuthedSites,
+    relaySite: sub2ApiAccountSite,
+    setRelaySiteSelection,
+  } = useSidebarAccountDisplay();
   const profileBadge = getSidebarProfileBadge(user, intl.formatMessage);
   const profileBadgeOverride = sub2ApiAccountSite?.account?.email ?? profileBadge;
   const profileSubtitle =
@@ -218,6 +209,15 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
       ? intl.formatMessage({ id: "workspace.backToWorkspace" })
       : intl.formatMessage({ id: "settings.title" });
   const usageButtonClick = onUsageClick ?? onSettingsButtonClick;
+  // 齿轮（工作区侧）打开设置前预置模型设置页的跟随目标（用户需求：按左下角当前
+  // 展示账户定位）——展示中转站账号 → 对应站点；展示智谱 OAuth 账号 → 清空目标，
+  // 模型设置页走默认家族侧。目标在用户实际进入模型设置分区时才被消费。
+  const settingsGearClick = useCallback(() => {
+    setPendingModelProviderTarget(
+      sub2ApiAccountSite ? { relaySiteId: sub2ApiAccountSite.siteId } : undefined,
+    );
+    onSettingsButtonClick?.();
+  }, [onSettingsButtonClick, sub2ApiAccountSite]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [remoteControlOpen, setRemoteControlOpen] = useState(false);
   const remoteControl = useRemoteControl();
@@ -398,7 +398,7 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
                       key={site.siteId}
                       data-testid={testId("sidebar-relay-account", site.siteId)}
                       onSelect={() => {
-                        setSelectedRelaySiteId(site.siteId);
+                        setRelaySiteSelection(site.siteId);
                       }}
                     >
                       <span className="flex size-4 items-center justify-center rounded-full bg-primary/10 text-ui-xs font-semibold text-primary">
@@ -464,7 +464,7 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
                     const remaining = sub2ApiAuthedSites.filter(
                       (site) => site.siteId !== sub2ApiAccountSite.siteId,
                     );
-                    setSelectedRelaySiteId(remaining[0]?.siteId ?? null);
+                    setRelaySiteSelection(remaining[0]?.siteId ?? null);
                     void sub2ApiService?.logout(sub2ApiAccountSite.siteId);
                   }}
                 >
@@ -528,7 +528,7 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
               data-testid={TID_TASK_SETTINGS_BUTTON}
               aria-label={settingsButtonLabel}
               disabled={!onSettingsButtonClick}
-              onClick={onSettingsButtonClick}
+              onClick={settingsGearClick}
             >
               <Settings className="size-4" />
             </Button>

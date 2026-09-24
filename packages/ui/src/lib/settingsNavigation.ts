@@ -32,6 +32,7 @@ const SETTINGS_SECTION_INTENT_KEY = "zcode-settings-section-intent",
   SETTINGS_PLUGIN_ORIGIN_INTENT_KEY = "zcode-settings-plugin-origin-intent",
   SETTINGS_PLUGIN_SCOPE_KEY_INTENT_KEY = "zcode-settings-plugin-scope-key-intent";
 const SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY = "zcode-settings-model-provider-id-intent";
+const SETTINGS_SUB2API_SITE_INTENT_KEY = "zcode-settings-sub2api-site-intent";
 const SETTINGS_SECTION_INTENT_EVENT = "zcode:settings-section-intent",
   SETTINGS_LAST_SECTION_STORAGE_KEY = "zcode-settings-last-section";
 const HIDDEN_SETTINGS_SECTIONS = new Set<SettingsSectionId>([
@@ -53,10 +54,17 @@ interface SettingsSectionIntentEventDetail {
   pluginScopeKey?: string;
   usageTab?: SettingsUsageTabTarget;
   modelProviderId?: string;
+  sub2apiSiteId?: string;
 }
 
+/**
+ * 模型设置页的定位目标：跟随左下角当前展示的账户——
+ * 中转站账号 → relaySiteId（对应站点节点）；智谱/Bigmodel 内置供应商 → providerId；
+ * 两者都缺省时由模型设置页走默认回退。
+ */
 export interface SettingsModelProviderTarget {
-  providerId: string;
+  providerId?: string;
+  relaySiteId?: string;
 }
 
 function isSettingsSectionId(value: string): value is SettingsSectionId {
@@ -220,6 +228,7 @@ export function setPendingSettingsSectionIntent(
     pluginOrigin?: SettingsPluginNavigationOrigin;
     pluginScopeKey?: string;
     modelProviderId?: string;
+    sub2apiSiteId?: string;
     usageTab?: SettingsUsageTabTarget;
   } = {},
 ): void {
@@ -253,6 +262,11 @@ export function setPendingSettingsSectionIntent(
     } else {
       window.sessionStorage.removeItem(SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY);
     }
+    if (options.sub2apiSiteId) {
+      window.sessionStorage.setItem(SETTINGS_SUB2API_SITE_INTENT_KEY, options.sub2apiSiteId);
+    } else {
+      window.sessionStorage.removeItem(SETTINGS_SUB2API_SITE_INTENT_KEY);
+    }
   } catch {
     // 忽略浏览器存储异常，不影响主流程。
   }
@@ -268,6 +282,7 @@ export function setPendingSettingsSectionIntent(
         pluginScopeKey: options.pluginScopeKey?.trim() || undefined,
         usageTab: options.usageTab,
         modelProviderId: options.modelProviderId,
+        sub2apiSiteId: options.sub2apiSiteId,
       },
     }),
   );
@@ -282,6 +297,7 @@ function clearPendingSettingsSectionIntent(): void {
     window.sessionStorage.removeItem(SETTINGS_SECTION_INTENT_KEY);
     window.sessionStorage.removeItem(SETTINGS_USAGE_TAB_INTENT_KEY);
     window.sessionStorage.removeItem(SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY);
+    window.sessionStorage.removeItem(SETTINGS_SUB2API_SITE_INTENT_KEY);
     window.sessionStorage.removeItem(SETTINGS_PLUGIN_TAB_INTENT_KEY);
     window.sessionStorage.removeItem(SETTINGS_PLUGIN_ORIGIN_INTENT_KEY);
     window.sessionStorage.removeItem(SETTINGS_PLUGIN_SCOPE_KEY_INTENT_KEY);
@@ -402,15 +418,46 @@ export function consumePendingSettingsModelProviderTarget():
   try {
     const providerId = window.sessionStorage.getItem(SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY);
     window.sessionStorage.removeItem(SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY);
-    if (!providerId?.trim()) {
-      return undefined;
-    }
-    return {
-      providerId: providerId.trim(),
+    const relaySiteId = window.sessionStorage.getItem(SETTINGS_SUB2API_SITE_INTENT_KEY);
+    window.sessionStorage.removeItem(SETTINGS_SUB2API_SITE_INTENT_KEY);
+    const target: SettingsModelProviderTarget = {
+      ...(providerId?.trim() ? { providerId: providerId.trim() } : {}),
+      ...(relaySiteId?.trim() ? { relaySiteId: relaySiteId.trim() } : {}),
     };
+    return target.providerId || target.relaySiteId ? target : undefined;
   } catch {
     // 忽略浏览器存储异常，不影响主流程。
     return undefined;
+  }
+}
+
+/**
+ * 只预置模型设置页的定位目标、不指定分区：footer 齿轮等通用设置入口使用——
+ * 设置页按「上次停留分区」打开，用户切到模型设置分区时再消费该目标完成跟随。
+ * 目标为 undefined 时清除既有目标（回到模型设置页默认回退）。
+ */
+export function setPendingModelProviderTarget(
+  target: SettingsModelProviderTarget | undefined,
+): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    if (target?.providerId?.trim()) {
+      window.sessionStorage.setItem(
+        SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY,
+        target.providerId.trim(),
+      );
+    } else {
+      window.sessionStorage.removeItem(SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY);
+    }
+    if (target?.relaySiteId?.trim()) {
+      window.sessionStorage.setItem(SETTINGS_SUB2API_SITE_INTENT_KEY, target.relaySiteId.trim());
+    } else {
+      window.sessionStorage.removeItem(SETTINGS_SUB2API_SITE_INTENT_KEY);
+    }
+  } catch {
+    // 忽略浏览器存储异常，不影响主流程。
   }
 }
 
