@@ -163,6 +163,7 @@ function RootInner({
   preferDirectoryBrowser,
   supportsEmbeddedBrowser: explicitSupportsEmbeddedBrowser,
   allowRemoteWorkspace = true,
+  isRemoteSession,
   initialWorkspaceLoadingFallback,
 }: RootProps) {
   useEffect(() => {
@@ -1082,11 +1083,15 @@ function RootInner({
           resetKeys={[workspaceShellIdentity?.trim() || workspaceShellPath]}
           variant="silent"
         >
-          <OnboardingDialog
-            workspacePath={workspaceShellPath || undefined}
-            workspaceIdentity={workspaceShellIdentity}
-            isDesktop={isDesktop}
-          />
+          {/* 远程会话（spec §21.5）：onboardingRecord 是本地服务，远控下记录未加载会先闪三步弹窗
+              再消失；远控页由桌面端控制、不承载本机引导，整体跳过。 */}
+          {isRemoteSession ? null : (
+            <OnboardingDialog
+              workspacePath={workspaceShellPath || undefined}
+              workspaceIdentity={workspaceShellIdentity}
+              isDesktop={isDesktop}
+            />
+          )}
         </ScopedErrorBoundary>
       </OccupationOnboarding>
     </RootShell>
