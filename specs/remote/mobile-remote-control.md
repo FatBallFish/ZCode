@@ -457,6 +457,7 @@ class RemoteControlSocket /* 实现 ISocket, 下游接现有 connectViaWebSocket
 - 手机端：浏览器原生 `RTCPeerConnection` + `createDataChannel`（ordered/reliable）。
 - 桌面端：**隐藏 `BrowserWindow`（show:false）+ 最小 preload RTC 桥**，经 IPC 由 `remoteControlService` 驱动。不引入原生模块（node-datachannel），规避跨平台打包/签名负担。窗口常驻内存开销 ~30-50MB，在「开启远控」时才创建。
 - 工具窗口不进系统窗口表面的手段按平台区分：`skipTaskbar: true`（Windows/Linux 选项，macOS 忽略）承担任务栏隐藏；`setHiddenInMissionControl` 为 **macOS 专属 API**，必须以 `process.platform === "darwin"` 守卫——非 macOS 平台 `BrowserWindow` 上不存在该方法，未守卫调用会在窗口创建时同步抛 `TypeError` 崩溃主进程（2026-09-25 Linux amd64 真机：手机点「开始连接」即弹主进程错误框，P2P 协商无法开始）。
+- 工具窗口加载共享 preload 时会随启动发 `WindowControlsOverlayReady`，main 对**发送方窗口**做窗控同步；win32 下对创建时未带 `titleBarOverlay: true` 的窗口调 `setTitleBarOverlay` 会同步抛 `TypeError: Titlebar overlay is not enabled` 崩主进程（2026-09-25 Windows 真机：手机连接成功瞬间弹主进程错误框）。win32 原生 overlay 同步因此改为**登记制**（`desktopWindowTitleBarOverlay.ts`，Electron 41 无 `getTitleBarOverlay()` 查询 API）：仅创建参数带 `titleBarOverlay: true` 并登记的窗口（更新状态窗）允许 `setTitleBarOverlay`，主窗口走自绘窗控分支，其余窗口（RTC 工具窗）一律跳过。
 - STUN：公共 STUN 列表由 relay 持有（运维可配置替换），在手机建立 `/ws/signal` 时经 `rtc_signal(config)` 直接下发，不依赖桌面版本；不部署 TURN——打洞失败即留在中转链路（永久兜底），后续需要时再加 coturn。
 
 ### 9.2 信令通道与信令帧（定死）

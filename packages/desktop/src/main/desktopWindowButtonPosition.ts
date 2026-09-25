@@ -1,12 +1,14 @@
 import { nativeTheme, type BrowserWindow, type Point } from "electron";
 import { PlatformChannels } from "@zcode/shared";
 import { resolveDesktopZoomFactorForLevel } from "./desktopZoom.js";
+import {
+  syncNativeWindowsTitleBarOverlay,
+  WINDOWS_WINDOW_CONTROLS_BASE_RIGHT_PADDING_PX,
+} from "./desktopWindowTitleBarOverlay.js";
 
 export const MACOS_TRAFFIC_LIGHT_BASE_POSITION = { x: 22, y: 23 } as const;
 const MACOS_TRAFFIC_LIGHT_BASE_LEFT_PADDING_PX = 96;
 const MACOS_TRAFFIC_LIGHT_POSITION_MOVEMENT_GAIN = 1.5;
-export const WINDOWS_WINDOW_CONTROLS_BASE_RIGHT_PADDING_PX = 136;
-export const WINDOWS_TITLE_BAR_HEIGHT_PX = 48;
 const MACOS_TRAFFIC_LIGHT_MIN_POSITION_PX = 4;
 const customWindowsControls = new WeakSet<BrowserWindow>();
 
@@ -42,31 +44,6 @@ function resolveMacOSWindowControlsOverlayMetricsForZoomLevel(zoomLevel: number)
   };
 }
 
-function resolveWindowsTitleBarOverlayHeightForZoomLevel(zoomLevel: number) {
-  return Math.round(WINDOWS_TITLE_BAR_HEIGHT_PX * resolveDesktopZoomFactorForLevel(zoomLevel));
-}
-
-function resolveWindowsWindowControlsOverlayMetricsForZoomLevel(zoomLevel: number) {
-  return {
-    // 原生按钮宽度不随页面缩放；固定 CSS 边距只适用于下面的自绘窗控分支。
-    rightPaddingPx: Math.round(
-      WINDOWS_WINDOW_CONTROLS_BASE_RIGHT_PADDING_PX / resolveDesktopZoomFactorForLevel(zoomLevel),
-    ),
-    titleBarHeightPx: resolveWindowsTitleBarOverlayHeightForZoomLevel(zoomLevel),
-  };
-}
-
-export function buildWindowsTitleBarOverlayForZoomLevel(
-  zoomLevel: number,
-  theme: "light" | "dark",
-) {
-  return {
-    color: "#00000000",
-    symbolColor: theme === "dark" ? "#f5f5f5" : "#1f1f1f",
-    height: resolveWindowsTitleBarOverlayHeightForZoomLevel(zoomLevel),
-  };
-}
-
 export function syncWindowControlsOverlayForZoomLevel(
   targetWindow: BrowserWindow | null | undefined,
   zoomLevel: number,
@@ -94,19 +71,17 @@ export function syncWindowControlsOverlayForZoomLevel(
       });
       return;
     }
-    // Windows titleBarOverlay 的原生窗控不会跟 renderer 页面缩放自动同步。
-    // 只同步高度会让右上角按钮和标题栏垂直尺寸一致，但固定 136px 安全区会被页面 zoom 一起放大，
-    // 导致左侧按钮组和右侧窗控越拉越远；缩小时如果高度还被基线钳住，窗控也会提前停止变化。
-    // 这里同时同步 overlay.height，并把 renderer 的右侧安全区按 zoomFactor 反向补偿，让两侧布局继续同频缩放。
-    targetWindow.setTitleBarOverlay(
-      buildWindowsTitleBarOverlayForZoomLevel(
-        zoomLevel,
-        nativeTheme.shouldUseDarkColors ? "dark" : "light",
-      ),
-    );
-    targetWindow.webContents.send(
-      PlatformChannels.WindowControlsOverlayChanged,
-      resolveWindowsWindowControlsOverlayMetricsForZoomLevel(zoomLevel),
+    // Windows titleBarOverlay 的原生窗控不会跟 renderer 页面缩放自动同步，需要同时同步
+    // overlay.height 并把 renderer 的右侧安全区按 zoomFactor 反向补偿，让两侧布局同频缩放
+    //（尺寸推导见 desktopWindowTitleBarOverlay.ts）。
+    // 同步走登记制：只有创建时带 titleBarOverlay:true 并登记过的窗口（更新状态窗）才会
+    // 调 setTitleBarOverlay；未登记的工具窗口（远控 RTC about:blank 窗）直接跳过，否则
+    // Electron 对未启用 overlay 的窗口同步抛 "Titlebar overlay is not enabled"，崩主进程
+    //（2026-09-25 Windows 真机：手机连接成功瞬间弹主进程错误框，根因链见模块文件头）。
+    syncNativeWindowsTitleBarOverlay(
+      targetWindow,
+      zoomLevel,
+      nativeTheme.shouldUseDarkColors ? "dark" : "light",
     );
   }
 }

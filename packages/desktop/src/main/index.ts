@@ -131,6 +131,7 @@ import {
   updateZCodeStdioTapDevMenuState,
 } from "./desktopApplicationMenu.js";
 import { applyAppIcon } from "./desktopWindowChrome.js";
+import { registerNativeWindowsTitleBarOverlay } from "./desktopWindowTitleBarOverlay.js";
 import { resolveWindowsAppUserModelIdForFlavor } from "../../scripts/desktop-product-identity.mjs";
 import type { DesktopWindowSize } from "./desktopWindowSize.js";
 import { maybeWarnArchitectureMismatch } from "./desktopArchitectureGuard.js";
@@ -1641,6 +1642,12 @@ function openUpdateStatusWindow() {
   win.setFullScreenable(false);
   if (process.platform === "darwin") {
     syncUpdateStatusWindowChrome(win);
+  }
+  if (process.platform === "win32") {
+    // 本窗口创建参数带 titleBarOverlay:true，登记后 main 才会对它做原生 overlay
+    // 尺寸同步（preload 启动即发 WindowControlsOverlayReady）；未登记窗口一律跳过，
+    // 防止 setTitleBarOverlay 抛 "Titlebar overlay is not enabled" 崩主进程。
+    registerNativeWindowsTitleBarOverlay(win);
   }
   syncUpdateStatusWindowClosePolicy(win);
   syncUpdateStatusWindowLayout(win);

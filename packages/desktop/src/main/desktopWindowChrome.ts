@@ -19,12 +19,12 @@ import {
 } from "@zcode/shared";
 import { loadWindow, type WindowBootstrapOptions } from "./desktopHostProcess.js";
 import {
-  buildWindowsTitleBarOverlayForZoomLevel,
   hasCustomWindowsControls,
   registerCustomWindowsControls,
   MACOS_TRAFFIC_LIGHT_BASE_POSITION,
   syncWindowControlsOverlayForZoomLevel,
 } from "./desktopWindowButtonPosition.js";
+import { syncNativeWindowsTitleBarOverlay } from "./desktopWindowTitleBarOverlay.js";
 import {
   clampDesktopZoomLevel,
   resolveDesktopZoomFactorForLevel,
@@ -219,9 +219,10 @@ export function applyWindowsTitleBarTheme(
 
   const resolvedTheme = theme === "system" ? getWindowOverlayTheme() : theme;
   const zoomLevel = resolveDesktopZoomLevelFromFactor(targetWindow.webContents.getZoomFactor());
-  targetWindow.setTitleBarOverlay(
-    buildWindowsTitleBarOverlayForZoomLevel(zoomLevel, resolvedTheme),
-  );
+  // 走登记制同步：未登记原生 overlay 的窗口（远控 RTC 工具窗等）安全跳过，避免
+  // setTitleBarOverlay 抛 "Titlebar overlay is not enabled" 崩主进程
+  //（2026-09-25 Windows 真机，根因链见 desktopWindowTitleBarOverlay.ts 文件头）。
+  syncNativeWindowsTitleBarOverlay(targetWindow, zoomLevel, resolvedTheme);
 }
 
 function attachWindowsWindowRepaint(targetWindow: BrowserWindow) {
