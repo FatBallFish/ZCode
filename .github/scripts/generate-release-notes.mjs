@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
-// Release Notes 生成器：按 conventional commit 前缀把历史提交归类为 Features / BugFix / Optimize。
-// 范围规则：上一个 v* tag..当前 tag；首个版本（无更早 tag）取该 tag 可达的全部历史。
+// Release Notes 生成器：按 conventional commit 前缀把提交归类为 Features / BugFix / Optimize。
+// 范围规则：版本倒序中第一个「当前 tag 真实祖先」的 tag..当前 tag——历史被 rebase 改写后
+// 旧 tag 不再可达，直接拿它当基线会让 range 排除不掉任何提交、全量历史灌进 Notes
+// （2026-09-25 v1.0.2 教训：v1.0.1 指向改写前旧提交，23/25 条进了 Notes）。
+// 无祖先 tag（首个版本或全部历史已改写）时取该 tag 可达的全部历史。
 // 分类为空时省略整节（“若无则空着”）；docs/ci/test/chore 等杂项不进入 Notes。
 // 用法：node generate-release-notes.mjs <tag>
 
@@ -15,6 +18,16 @@ if (!tag) {
 
 function git(args) {
   return execFileSync("git", args, { encoding: "utf8" }).trim();
+}
+
+function isAncestor(base, tip) {
+  // merge-base --is-ancestor：base 是 tip 的祖先时退出码 0，否则 1。
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", base, tip], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function listPreviousTags() {
@@ -31,7 +44,8 @@ if (currentIndex === -1) {
   console.error(`generate-release-notes: tag ${tag} 不存在（先推 tag 再跑本脚本）`);
   process.exit(1);
 }
-const range = currentIndex + 1 < tags.length ? `${tags[currentIndex + 1]}..${tag}` : tag;
+const baseTag = tags.slice(currentIndex + 1).find((candidate) => isAncestor(candidate, tag));
+const range = baseTag ? `${baseTag}..${tag}` : tag;
 
 const subjects = git(["log", range, "--no-merges", "--pretty=format:%s"])
   .split("\n")
