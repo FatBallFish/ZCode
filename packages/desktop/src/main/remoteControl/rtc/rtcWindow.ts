@@ -2,6 +2,7 @@ import { BrowserWindow } from "electron";
 import { PlatformChannels } from "@zcode/shared";
 import type { RemoteControlRtcCommand, RemoteControlRtcEvent } from "@zcode/shared/remote-control";
 import type { RtcWindowHandle } from "./rtcController.js";
+import { hideRtcWindowFromMacDesktopSurfaces } from "./macWindowSurfaces.js";
 
 /**
  * 隐藏 RTC 窗口（spec §9.1）：Chromium 完整 WebRTC 栈，不引入原生模块。
@@ -263,16 +264,7 @@ export function createRtcBrowserWindow(
       sandbox: false,
     },
   });
-  // macOS：从 Mission Control / App Exposé / Dock 窗口列表中隐藏（Electron ≥ 25）。
-  // 该 API 要求窗口 ready 后调用才稳定生效，ready-to-show 再补一次。
-  win.setHiddenInMissionControl(true);
-  win.once("ready-to-show", () => {
-    try {
-      win.setHiddenInMissionControl(true);
-    } catch {
-      // 窗口可能已被销毁。
-    }
-  });
+  hideRtcWindowFromMacDesktopSurfaces(win);
   // 用户从 Mission Control/窗口列表手动关闭本窗口时，合成 dc-closed 让控制器
   // 拆除 p2p attachment 并通知 service 转 waiting——否则残留 p2pActive 会永久
   // 拒绝后续协商（2026-09-24 真机：手动关窗后回不到直连）。
