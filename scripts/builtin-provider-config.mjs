@@ -42,7 +42,10 @@ export async function resolveBuiltinProviderBuildEnvironment({
 export async function loadBuiltinProviderConfig({ root = repositoryRoot, env = process.env } = {}) {
   const environment = await resolveBuiltinProviderBuildEnvironment({ root, env });
   const filename = environment === "production" ? "zcode-builtin.json" : "zcode-builtin.test.json";
-  const sourcePath = resolve(root, "config/provider", filename);
+  const sourcePath = resolve(
+    root,
+    env.MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE?.trim() || `config/provider/${filename}`,
+  );
   try {
     const content = await readFile(sourcePath, "utf8");
     // 构建期复用运行时的完整 Release 校验，避免打包成功后才发现 Schema 不兼容。

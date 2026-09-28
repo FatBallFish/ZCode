@@ -12,14 +12,14 @@ import { pathToFileURL } from "node:url";
 
 const exec = promisify(execFile);
 const archive = process.argv[2];
-assert.ok(archive, "Usage: node scripts/zcode-distribution-smoke.mjs <archive.tar.gz>");
+assert.ok(archive, "Usage: node scripts/mikiko-distribution-smoke.mjs <archive.tar.gz>");
 const directory = await realpath(await mkdtemp(join(tmpdir(), "zcode-release-smoke-")));
 const root = join(directory, "zcode");
-const runner = join(root, "bin/zcode.mjs");
+const runner = join(root, "bin/mikiko.mjs");
 const workspace = join(directory, "workspace");
 const env = {
   ...process.env,
-  ZCODE_DATA_BASE_DIR: join(directory, "data"),
+  MIKIKO_DATA_BASE_DIR: join(directory, "data"),
   NODE_PATH: "",
   NODE_OPTIONS: "",
   TERM: "xterm-256color",

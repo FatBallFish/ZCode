@@ -92,8 +92,6 @@ export function pickProductEndpointEnv(
   env: Record<string, string | undefined>,
 ): Record<string, string> {
   const keys = [
-    "ZCODE_BASE_URL",
-    "ZCODE_ENDPOINT_ORIGIN",
     "MIKIKO_BASE_URL",
     "MIKIKO_ENDPOINT_ORIGIN",
     "BIGMODEL_API_BASE_URL",
@@ -175,11 +173,7 @@ export interface ZCodeEndpointUrls {
 export interface RuntimeZCodeEndpointEnv {
   [key: string]: string | undefined;
   ZCODE_ENV?: string;
-  ZCODE_BASE_URL?: string;
-  ZCODE_ENDPOINT_ORIGIN?: string;
-  ZCODE_TEST_BASE_URL?: string;
-  ZCODE_PRODUCTION_BASE_URL?: string;
-  /** MIKIKO_ 前缀优先于 ZCODE_ 旧名（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5）。 */
+  /** MIKIKO_ 前缀（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5）；ZCODE_ 旧名已移除读取。 */
   MIKIKO_BASE_URL?: string;
   MIKIKO_ENDPOINT_ORIGIN?: string;
 }
@@ -308,21 +302,14 @@ export function resolveRuntimeZCodeEndpointOrigin(
   options?: { overrideOrigin?: string | null },
 ): string {
   const zcodeEnv = resolveRuntimeZCodeEnv(env);
-  const scopedBaseOrigin =
-    zcodeEnv === "production"
-      ? readRuntimeEnvValue(env, "ZCODE_PRODUCTION_BASE_URL")
-      : readRuntimeEnvValue(env, "ZCODE_TEST_BASE_URL");
 
   return resolveZCodeEndpointOrigin({
     env: zcodeEnv,
-    // MIKIKO_ 前缀优先（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5 渐进迁移），
-    // ZCODE_ 旧名回退兼容一个版本期。
+    // MIKIKO_ 前缀（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5）；ZCODE_ 旧名已移除读取。
     envBaseOrigin:
       readRuntimeEnvValue(env, "MIKIKO_BASE_URL") ??
-      readRuntimeEnvValue(env, "MIKIKO_ENDPOINT_ORIGIN") ??
-      readRuntimeEnvValue(env, "ZCODE_BASE_URL") ??
-      readRuntimeEnvValue(env, "ZCODE_ENDPOINT_ORIGIN") ??
-      scopedBaseOrigin,
+      readRuntimeEnvValue(env, "MIKIKO_ENDPOINT_ORIGIN"),
+
     overrideOrigin: options?.overrideOrigin,
   });
 }

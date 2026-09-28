@@ -9,24 +9,24 @@ import {
   copyRuntimeNodeModules,
   patchNodePtyPrebuilds,
   stageTuiRuntime,
-} from "./zcode-distribution/assets.mjs";
-import { installScriptSource } from "./zcode-distribution/installer.mjs";
+} from "./mikiko-distribution/assets.mjs";
+import { installScriptSource } from "./mikiko-distribution/installer.mjs";
 
 const root = resolve(import.meta.dirname, "..");
-const defaultOutDir = resolve(root, "dist", "zcode");
-const defaultBaseUrl = (await loadEndpointEnv()).ZCODE_DIST_BASE_URL?.trim() || "";
-const packageDirName = "zcode";
+const defaultOutDir = resolve(root, "dist", "mikiko");
+const defaultBaseUrl = (await loadEndpointEnv()).MIKIKO_DIST_BASE_URL?.trim() || "";
+const packageDirName = "mikiko";
 const usage = `Usage:
-  pnpm build:zcode
-  node scripts/build-zcode.mjs --skip-build
-  node scripts/build-zcode.mjs --version 3.3.3-dev.1
-  node scripts/build-zcode.mjs --out-dir dist/zcode
-  node scripts/build-zcode.mjs --base-url http://host/zcode/deps/zcode/
+  pnpm build:mikiko
+  node scripts/build-mikiko.mjs --skip-build
+  node scripts/build-mikiko.mjs --version 3.3.3-dev.1
+  node scripts/build-mikiko.mjs --out-dir dist/mikiko
+  node scripts/build-mikiko.mjs --base-url http://host/mikiko/deps/mikiko/
 
 Options:
   --skip-build        Reuse existing web/server/agent build outputs.
   --version <text>    Release version. Defaults to root package.json version.
-  --out-dir <path>    Output directory. Defaults to dist/zcode.
+  --out-dir <path>    Output directory. Defaults to dist/mikiko.
   --base-url <url>    Default install.sh download base URL.
   --help, -h          Show this help.
 `;
@@ -99,7 +99,7 @@ function commandText(command, args) {
 }
 
 function run(command, args, options = {}) {
-  console.log(`[zcode] ${commandText(command, args)}`);
+  console.log(`[mikiko] ${commandText(command, args)}`);
   const result = spawnSync(command, args, {
     cwd: root,
     stdio: "inherit",
@@ -141,7 +141,7 @@ async function assertDirectory(directory, label) {
 
 async function buildOutputs(skipBuild) {
   if (skipBuild) {
-    console.log("[zcode] skipping build; reusing existing outputs");
+    console.log("[mikiko] skipping build; reusing existing outputs");
     return;
   }
 
@@ -199,15 +199,15 @@ async function stageZCodePackage({ packageRoot, version }) {
   await mkdir(resolve(packageRoot, "bin"), {
     recursive: true,
   });
-  const runner = resolve(packageRoot, "bin", "zcode.mjs");
-  await cp(resolve(root, "scripts/zcode-distribution/runner.mjs"), runner);
+  const runner = resolve(packageRoot, "bin", "mikiko.mjs");
+  await cp(resolve(root, "scripts/mikiko-distribution/runner.mjs"), runner);
   await chmod(runner, 0o755);
 
   await writeFile(
     resolve(packageRoot, "package.json"),
     JSON.stringify(
       {
-        name: "zcode-runtime",
+        name: "mikiko-runtime",
         private: true,
         type: "module",
         version,
@@ -233,7 +233,7 @@ async function createTarball({ packageParent, releaseDir, tarballName }) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (!options.help && !options.baseUrl)
-    throw new Error("Configure ZCODE_DIST_BASE_URL in .env or pass --base-url");
+    throw new Error("Configure MIKIKO_DIST_BASE_URL in .env or pass --base-url");
   if (options.help) {
     console.log(usage);
     return;
@@ -276,7 +276,7 @@ async function main() {
       {
         baseUrl: options.baseUrl,
         createdAt: new Date().toISOString(),
-        name: "zcode",
+        name: "mikiko",
         sha256,
         tarball: tarballName,
         version,
@@ -293,9 +293,9 @@ async function main() {
     recursive: true,
   });
 
-  console.log(`[zcode] release directory: ${outDir}`);
-  console.log(`[zcode] tarball: ${tarball}`);
-  console.log(`[zcode] sha256: ${sha256}`);
+  console.log(`[mikiko] release directory: ${outDir}`);
+  console.log(`[mikiko] tarball: ${tarball}`);
+  console.log(`[mikiko] sha256: ${sha256}`);
 }
 
 await main();

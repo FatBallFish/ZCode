@@ -22,7 +22,7 @@ import { logger } from "./logger.js";
 import { ManifestUpdateProvider, getElectronReleasePlatform } from "./manifestUpdateProvider.js";
 
 export const CHECK_FOR_UPDATE_MENU_ID = "check-for-update";
-const AUTO_UPDATE_POLL_INTERVAL_MS = 15 * 60 * 1000;
+const AUTO_UPDATE_POLL_INTERVAL_MS = 60 * 60 * 1000;
 const AUTO_UPDATE_VISIBLE_POLL_INTERVAL_MS = 2 * 60 * 1000;
 const UPDATE_FEED_URL_ENV = "ZCODE_UPDATE_FEED_URL";
 const UPDATE_FEED_URL_SWITCH = "--zcode-update-feed-url";
@@ -734,10 +734,7 @@ export function resolveUpdateFeedSourceFromStartupConfig(
   const argv = options.argv ?? process.argv;
   const env = options.env ?? process.env;
   const feedUrl =
-    readSwitchValue(argv, UPDATE_FEED_URL_SWITCH) ??
-    // MIKIKO_ 前缀优先（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5），ZCODE_ 旧名回退。
-    env["MIKIKO_UPDATE_FEED_URL"]?.trim() ??
-    env[UPDATE_FEED_URL_ENV]?.trim();
+    readSwitchValue(argv, UPDATE_FEED_URL_SWITCH) ?? env["MIKIKO_UPDATE_FEED_URL"]?.trim();
   if (!feedUrl) {
     return undefined;
   }

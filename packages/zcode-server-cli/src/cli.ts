@@ -203,7 +203,7 @@ async function runServe(
           stdio: "ignore",
           env: {
             ...process.env,
-            ZCODE_DATA_BASE_DIR: layout.dataBaseDir,
+            MIKIKO_DATA_BASE_DIR: layout.dataBaseDir,
             ZCODE_SERVER_ROOT: layout.serverRoot,
           },
         },
@@ -254,7 +254,7 @@ async function runServe(
           : process.execPath;
         const inheritedEnv = {
           ...process.env,
-          ZCODE_DATA_BASE_DIR: layout.dataBaseDir,
+          MIKIKO_DATA_BASE_DIR: layout.dataBaseDir,
           ZCODE_SERVER_ROOT: layout.serverRoot,
         };
         const releaseWiring = runtimeRoot
