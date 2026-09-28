@@ -143,7 +143,7 @@ async function setupMikikoDownloadButton(button, options = {}) {
     button.classList.add("detected");
     return { os, arch, file, latest };
   }
-  button.href = "/download";
+  button.href = options.fallbackPath ?? "/download";
   button.textContent = (options.prefix ?? "") + "获取下载";
   button.classList.add("undetected");
   return { os: null, arch: null, file: null, latest };

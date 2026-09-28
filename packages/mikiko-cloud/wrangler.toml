@@ -22,7 +22,8 @@ directory = "./public"
 binding = "ASSETS"
 # /api/* 与 /healthz 必须先进 Worker；分享落地页（/cn/share/{code}）由 Worker 改写后走资产；
 # 其余路径（主页、/admin）由静态资产直接服务。
-run_worker_first = ["/api/*", "/healthz", "/cn/share/*", "/share/*"]
+# "/" 进 Worker 做地域语言分流（其余路径 assets 直出；Worker 内非 "/" 路径透传 assets）。
+run_worker_first = ["/api/*", "/healthz", "/cn/share/*", "/share/*", "/"]
 
 [[kv_namespaces]]
 binding = "MIKIKO_BUILTIN_CONFIG"
