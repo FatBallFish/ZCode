@@ -5,6 +5,13 @@ import type {
   FeedbackTicketType,
 } from "@zcode/shared";
 
+/**
+ * 反馈功能总开关（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4，暂时关闭）：
+ * false 时所有入口（quickpick、帮助按钮、错误上下文按钮、远控失败页）统一失效，
+ * openSubmit/openTickets 等 no-op，反馈弹窗不再出现；服务层代码保留，恢复改回 true。
+ */
+export const FEEDBACK_ENTRY_ENABLED = false;
+
 type FeedbackTab = "submit" | "tickets";
 
 export interface FeedbackAttachmentDraft {
@@ -55,7 +62,9 @@ export const useFeedbackStore = create<FeedbackUiState>((set) => ({
   submitDraft: null,
   submissionJobId: null,
   selectedTicketId: null,
-  openSubmit: (draft) =>
+  // 入口关闭期间保持状态恒为关闭（外部仍可能调用 openSubmit 等入口方法）。
+  openSubmit: (draft) => {
+    if (!FEEDBACK_ENTRY_ENABLED) return;
     set({
       // “问题上报”是新建入口，不能隐式续接上一次仍在上传的 job，
       // 否则新表单会继承旧 job 的 submitting 状态并阻止用户继续提交。
@@ -65,8 +74,10 @@ export const useFeedbackStore = create<FeedbackUiState>((set) => ({
       submitDraft: draft ?? null,
       submissionJobId: null,
       selectedTicketId: null,
-    }),
-  openSubmissionJob: (jobId) =>
+    });
+  },
+  openSubmissionJob: (jobId) => {
+    if (!FEEDBACK_ENTRY_ENABLED) return;
     set({
       open: true,
       featureRequestOpen: false,
@@ -74,8 +85,10 @@ export const useFeedbackStore = create<FeedbackUiState>((set) => ({
       submitDraft: null,
       submissionJobId: jobId,
       selectedTicketId: null,
-    }),
-  openFeatureRequest: () =>
+    });
+  },
+  openFeatureRequest: () => {
+    if (!FEEDBACK_ENTRY_ENABLED) return;
     set({
       // 需求反馈和问题上报是两个独立 Dialog，必须互斥打开，避免后台浮层或快捷入口叠出双弹窗。
       open: false,
@@ -83,8 +96,10 @@ export const useFeedbackStore = create<FeedbackUiState>((set) => ({
       submitDraft: null,
       submissionJobId: null,
       selectedTicketId: null,
-    }),
-  openTickets: (ticketId) =>
+    });
+  },
+  openTickets: (ticketId) => {
+    if (!FEEDBACK_ENTRY_ENABLED) return;
     set({
       open: true,
       featureRequestOpen: false,
@@ -92,7 +107,8 @@ export const useFeedbackStore = create<FeedbackUiState>((set) => ({
       submitDraft: null,
       submissionJobId: null,
       selectedTicketId: ticketId ?? null,
-    }),
+    });
+  },
   setTab: (tab) =>
     set({
       tab,

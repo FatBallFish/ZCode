@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu.js";
 import { cn } from "@/components/lib/utils.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
-import { useFeedbackStore } from "@/feedback/feedbackStore.js";
+import { useFeedbackStore, FEEDBACK_ENTRY_ENABLED } from "@/feedback/feedbackStore.js";
 import { useDesktopUpdateMenu } from "@/hooks/useDesktopUpdateMenu.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
 import { useVulnerabilityReportUrl } from "@/hooks/useVulnerabilityReportUrl.js";
@@ -103,11 +103,22 @@ export function WorkspaceHelpMenuButton({
           <UsersIcon className="size-4" />
           {intl.formatMessage({ id: "workspaceHeader.help.community" })}
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={helpMenuActions.openIssueReport}>
-          <MessageSquareIcon className="size-4" />
-          {intl.formatMessage({ id: "workspaceHeader.help.issueReport" })}
-        </DropdownMenuItem>
-        {vulnerabilityReportLoading || vulnerabilityReportUrl ? (
+        {/* 反馈功能暂时关闭（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）：
+            FEEDBACK_ENTRY_ENABLED 恢复为 true 时放回下方两个菜单项。 */}
+        {FEEDBACK_ENTRY_ENABLED ? (
+          <>
+            <DropdownMenuItem onSelect={helpMenuActions.openIssueReport}>
+              <MessageSquareIcon className="size-4" />
+              {intl.formatMessage({ id: "workspaceHeader.help.issueReport" })}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={openFeatureRequest}>
+              <LightbulbIcon className="size-4" />
+              {intl.formatMessage({ id: "workspaceHeader.help.productRequest" })}
+            </DropdownMenuItem>
+          </>
+        ) : null}
+
+        {FEEDBACK_ENTRY_ENABLED && (vulnerabilityReportLoading || vulnerabilityReportUrl) ? (
           <DropdownMenuItem
             disabled={vulnerabilityReportLoading}
             aria-busy={vulnerabilityReportLoading}
@@ -121,10 +132,6 @@ export function WorkspaceHelpMenuButton({
             {intl.formatMessage({ id: "workspaceHeader.help.reportVulnerability" })}
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem onSelect={openFeatureRequest}>
-          <LightbulbIcon className="size-4" />
-          {intl.formatMessage({ id: "workspaceHeader.help.productRequest" })}
-        </DropdownMenuItem>
         {/* Windows/Linux 没有原生菜单栏，自绘标题栏箭头菜单也已下线，
             资源管理器只能从这里进；Web 端没有该窗口，不渲染。 */}
         {isDesktop ? (

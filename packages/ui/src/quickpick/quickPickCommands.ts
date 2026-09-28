@@ -1,3 +1,5 @@
+import { FEEDBACK_ENTRY_ENABLED } from "@/feedback/feedbackStore.js";
+
 export type QuickPickCommandIcon =
   | "book"
   | "browser"
@@ -229,24 +231,28 @@ export function createQuickPickCommands({
     },
   ];
 
-  commands.push({
-    id: "feedback",
-    sectionId: "app",
-    titleId: "quickPick.command.feedback",
-    icon: "feedback",
-    keywords: [
-      "feedback",
-      "issue",
-      "support",
-      "tickets",
-      "问题上报",
-      "问题反馈",
-      "反馈",
-      "我的反馈",
-      "工单",
-    ],
-    run: handlers.openFeedback,
-  });
+  // 反馈功能暂时关闭（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）：
+  // quickpick 不再注册反馈命令，搜索「反馈/问题上报」不再出现该项。
+  if (FEEDBACK_ENTRY_ENABLED) {
+    commands.push({
+      id: "feedback",
+      sectionId: "app",
+      titleId: "quickPick.command.feedback",
+      icon: "feedback",
+      keywords: [
+        "feedback",
+        "issue",
+        "support",
+        "tickets",
+        "问题上报",
+        "问题反馈",
+        "反馈",
+        "我的反馈",
+        "工单",
+      ],
+      run: handlers.openFeedback,
+    });
+  }
 
   if (canOpenCommunity) {
     commands.push({

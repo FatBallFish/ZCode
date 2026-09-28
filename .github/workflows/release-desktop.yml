@@ -239,6 +239,7 @@ jobs:
       - name: Publish manifests and installers
         env:
           UPDATE_PUBLISH_TOKEN: ${{ secrets.UPDATE_PUBLISH_TOKEN }}
+          WEBSITE_PUBLISH_TOKEN: ${{ secrets.WEBSITE_PUBLISH_TOKEN }}
         run: |
           if [ -z "$UPDATE_PUBLISH_TOKEN" ]; then
             echo "::notice::secrets.UPDATE_PUBLISH_TOKEN 未配置，跳过升级 feed 发布（版本仍可在 GitHub Release 下载）"

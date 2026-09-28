@@ -6,7 +6,7 @@ import { cn } from "@/components/lib/utils.js";
 import { Button } from "@/components/ui/button.js";
 import type { RemoteConnectionLogEntry } from "@/hooks/useRemoteConnectionLogs.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import { useFeedbackStore } from "@/feedback/feedbackStore.js";
+import { useFeedbackStore, FEEDBACK_ENTRY_ENABLED } from "@/feedback/feedbackStore.js";
 import {
   isRemoteConnectionLogScrolledToLatest,
   scrollRemoteConnectionLogsToLatestIfFollowing,
@@ -132,17 +132,20 @@ export function RemoteConnectionConnectingStep({
           >
             <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
             <span className="min-w-0 flex-1">{errorMessage}</span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                void handleOpenFeedback();
-              }}
-              className="h-7 shrink-0 border-warning/30 text-warning hover:bg-warning/10"
-            >
-              {intl.formatMessage({ id: "remoteConnection.feedback" })}
-            </Button>
+            {/* 反馈功能暂时关闭（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）。 */}
+            {FEEDBACK_ENTRY_ENABLED ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void handleOpenFeedback();
+                }}
+                className="h-7 shrink-0 border-warning/30 text-warning hover:bg-warning/10"
+              >
+                {intl.formatMessage({ id: "remoteConnection.feedback" })}
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </div>

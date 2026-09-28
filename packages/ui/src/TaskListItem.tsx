@@ -29,7 +29,7 @@ import { getTaskListAttention, getTaskListRowActivity } from "@/v4/taskListRowAc
 import { TaskListItemContextMenu } from "@/TaskListItemContextMenu.js";
 import { TaskInteractionBadge } from "@/TaskInteractionBadge.js";
 import { useTaskListItemContextActions } from "@/useTaskListItemContextActions.js";
-import { useFeedbackStore } from "@/feedback/feedbackStore.js";
+import { useFeedbackStore, FEEDBACK_ENTRY_ENABLED } from "@/feedback/feedbackStore.js";
 import { useModelTrajectoryStore } from "@/store/modelTrajectoryStore.js";
 import { buildTaskFeedbackDescription } from "@/lib/taskFeedbackDraft.js";
 import { toast } from "@/components/ui/toast.js";
@@ -938,6 +938,7 @@ export function TaskListItemContextMenuContent({
       }),
       screenshots: [],
     });
+    if (!FEEDBACK_ENTRY_ENABLED) return;
     toast(intl.formatMessage({ id: "taskList.feedbackOpened" }));
   }, [
     intl,
@@ -982,9 +983,13 @@ export function TaskListItemContextMenuContent({
           : undefined
       }
       openInSplitPaneDisabled={workspaceActionsDisabled || !canOpenInSplitPane}
-      onOpenTaskFeedback={() => {
-        void handleOpenTaskFeedback();
-      }}
+      onOpenTaskFeedback={
+        FEEDBACK_ENTRY_ENABLED
+          ? () => {
+              void handleOpenTaskFeedback();
+            }
+          : undefined
+      }
       onOpenTaskPathInFileManager={
         // 远程会话下钩子不提供处理器：菜单项整体隐藏（spec §21.5）。
         handleOpenTaskPathInFileManager
