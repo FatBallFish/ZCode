@@ -733,12 +733,22 @@ export function resolveUpdateFeedSourceFromStartupConfig(
 ): RuntimeUpdateFeedSource | undefined {
   const argv = options.argv ?? process.argv;
   const env = options.env ?? process.env;
-  const feedUrl = readSwitchValue(argv, UPDATE_FEED_URL_SWITCH) ?? env[UPDATE_FEED_URL_ENV]?.trim();
-  return feedUrl
-    ? {
-        url: feedUrl,
-      }
-    : undefined;
+  const feedUrl =
+    readSwitchValue(argv, UPDATE_FEED_URL_SWITCH) ??
+    // MIKIKO_ 前缀优先（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5），ZCODE_ 旧名回退。
+    env["MIKIKO_UPDATE_FEED_URL"]?.trim() ??
+    env[UPDATE_FEED_URL_ENV]?.trim();
+  if (!feedUrl) {
+    return undefined;
+  }
+  // 更新源覆盖仅供开发构建联调;正式包按 isPackaged 忽略,避免更新请求被环境变量/启动参数改道
+  if (app.isPackaged) {
+    logger.warn(
+      `[auto-update] ignore update feed override in packaged app: ${redactUpdateFeedUrlForLog(feedUrl)}`,
+    );
+    return undefined;
+  }
+  return { url: feedUrl };
 }
 
 async function resolveUpdateReleaseChannel(

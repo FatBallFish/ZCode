@@ -40,6 +40,7 @@
     "@pierre/diffs": "^1.1.22",
     "@types/node": "^25.5.0",
     "@types/yauzl": "^2.10.3",
+    "@zcode/mikiko-cloud": "workspace:*",
     "esbuild": "^0.25.0",
     "typescript": "^6.0.2"
   }

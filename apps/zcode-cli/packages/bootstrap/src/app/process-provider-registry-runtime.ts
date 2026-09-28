@@ -7,16 +7,15 @@ import {
 } from "@zcode/provider";
 import {
   isBuiltinModelProviderId,
+  resolveMikikoBuiltinConfigUrl,
   resolveRuntimeZCodeEndpointOrigin,
-  ZCODE_VERSION,
 } from "@zcode/shared";
 import { dirname, join } from "node:path";
 import {
   NodeModelSelectionConfigRepository,
   NodeProviderRegistryRuntime,
   resolveNodeProviderRuntimePaths,
-  downloadZCodeBuiltinRelease,
-  resolveZCodeBuiltinClientPlatform,
+  fetchMikikoBuiltinConfigRelease,
   ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE_ENV,
   type ZCodeBuiltinRefreshEvent,
 } from "@zcode/provider-node";
@@ -71,14 +70,18 @@ export async function startProcessProviderRegistryRuntime(
               "zcode-builtin-refresh.json",
             ),
             resolveEndpointKey: () => resolveRuntimeZCodeEndpointOrigin(env),
-            fetchRelease: (endpointOrigin, signal) =>
-              downloadZCodeBuiltinRelease({
-                endpointOrigin,
+            // 模型预置规则改走 Mikiko 自建端点（spec specs/mikiko-cloud/
+            // agent-endpoint-plan.md §4.2）：单跳直取，endpointOrigin 仅作缓存标签；
+            // MIKIKO_BUILTIN_CONFIG_URL=disabled/off 时返回 null（无远端，保留打包内置）。
+            fetchRelease: async (_endpointOrigin, signal) => {
+              const url = resolveMikikoBuiltinConfigUrl(env);
+              if (url === null) return null;
+              return fetchMikikoBuiltinConfigRelease({
+                url,
                 signal,
-                appVersion: ZCODE_VERSION,
-                platform: resolveZCodeBuiltinClientPlatform(),
                 request: options.standalone?.request ?? globalThis.fetch,
-              }),
+              });
+            },
             onRefreshResult: options.standalone?.onBuiltinRefreshResult,
           },
         }

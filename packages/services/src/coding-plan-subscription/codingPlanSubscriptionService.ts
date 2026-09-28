@@ -4,16 +4,14 @@ import type { ICodingPlanSubscriptionService } from "./codingPlanSubscription.js
 import { BigModelCodingPlanSubscriptionProvider } from "./bigmodelCodingPlanSubscriptionProvider.js";
 import type { ModelSelectionView } from "@zcode/provider";
 import { ZaiCodingPlanSubscriptionProvider } from "./zaiCodingPlanSubscriptionProvider.js";
+import type { MikikoClientConfigService } from "../model-provider/mikikoClientConfigService.js";
 
 interface CodingPlanSubscriptionServiceDependencies {
   apiClient: ApiClient;
   credentialService: Pick<ICredentialService, "load">;
   resolveOffPeakModelSelectionView?: () => Promise<ModelSelectionView>;
-  /**
-   * 用户在设置里选的动态工作流模式（launch.md「The user's choice」）。只有拥有设置权威的装配
-   * （desktop 本地 Host、web/standalone server）注入；缺省时快照只含服务端的「提供」。
-   */
-  resolveDynamicWorkflowUserMode?: () => Promise<unknown>;
+  /** 动态工作流灰度数据源（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.1）。 */
+  mikikoClientConfigService: MikikoClientConfigService;
 }
 
 /**
@@ -49,15 +47,11 @@ export function createCodingPlanSubscriptionService(
     getManualClaimPlanPreviews: () => bigmodelProvider.getManualClaimPlanPreviews(),
     claimManualPlan: (request) => bigmodelProvider.claimManualPlan(request),
     getOffPeakClientConfig: (options) => bigmodelProvider.getOffPeakClientConfig(options),
-    // 动态工作流灰度：与 client/configs 同源，
-    // 因此和其它平台级配置一样固定走 bigmodel provider，与 family 无关。
-    // 用户选择在这里套到「提供」上，renderer 读到的就是生效值；规则只写在 shared 的
-    // applyDynamicWorkflowUserMode 里，renderer 不自己算。
-    getDynamicWorkflowClientConfig: async (options) => {
-      const offer = await bigmodelProvider.getDynamicWorkflowClientConfig(options);
-      const resolveUserMode = dependencies.resolveDynamicWorkflowUserMode;
-      return resolveUserMode ? applyDynamicWorkflowUserMode(offer, await resolveUserMode()) : offer;
-    },
+    // 动态工作流灰度改走 Mikiko 自建 client/configs（spec specs/mikiko-cloud/agent-endpoint-plan.md
+    // §4.1）：官方 client/configs 收窄为仅 Zai/CodingPlan 数据；「工作流」标签入口保留，
+    // 自建源 fail-open（默认 alwaysOn），本地 env 覆盖仍最高优先。
+    getDynamicWorkflowClientConfig: (options) =>
+      dependencies.mikikoClientConfigService.getDynamicWorkflowClientConfig(options),
     getModelContextBudgetStrategy: () => bigmodelProvider.getModelContextBudgetStrategy(),
     getBillingDiscount: () => bigmodelProvider.getBillingDiscount(),
     getRequestVerificationConfig: () => bigmodelProvider.getRequestVerificationConfig(),

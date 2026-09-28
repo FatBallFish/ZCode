@@ -56,16 +56,19 @@ export const ZCODE_BUILD_COMMIT_ID_ENV = "ZCODE_BUILD_COMMIT_ID" as const;
 export const RUNTIME_ZCODE_DEBUG =
   typeof process !== "undefined" ? process.env.ZCODE_DEBUG : undefined;
 
-// ── 构建期可选能力（见 docs/desktop/build-time-optional-capabilities.md），未注入时一律关闭 ──
-/** ARMS RUM 上报地址；为空时 SDK 以 enable=false 初始化，不产生上报。 */
-export const ZCODE_ARMS_RUM_ENDPOINT: string =
-  typeof __ZCODE_ARMS_RUM_ENDPOINT__ !== "undefined" ? __ZCODE_ARMS_RUM_ENDPOINT__ : "";
-/** 事件上报（数仓）地址；为空时不上报。 */
-export const ZCODE_TELEMETRY_REPORT_ENDPOINT: string =
-  typeof __ZCODE_TELEMETRY_REPORT_ENDPOINT__ !== "undefined"
-    ? __ZCODE_TELEMETRY_REPORT_ENDPOINT__
-    : "";
-/** 桌面自动更新是否启用。 */
+// 遥测暂时关闭（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）：硬关总开关，
+// 含 onboarding 遥测在内的全部上报不再装配与出网。恢复时改回 true 即可（端点检查逻辑保留）。
+export const ZCODE_TELEMETRY_ENABLED: boolean = false;
+
+/** 数仓事件上报端点：由运行时环境变量提供，未配置即停用，构建产物不内嵌。 */
+export const ZCODE_TELEMETRY_REPORT_ENDPOINT =
+  typeof process !== "undefined" ? (process.env.ZCODE_TELEMETRY_REPORT_ENDPOINT ?? "") : "";
+
+/** ARMS RUM 接入端点：由运行时环境变量提供，未配置即停用，构建产物不内嵌。 */
+export const ZCODE_ARMS_RUM_ENDPOINT =
+  typeof process !== "undefined" ? (process.env.ZCODE_ARMS_RUM_ENDPOINT ?? "") : "";
+
+/** 桌面自动更新是否启用（上游构建期宏，desktop index.ts 引用；开源构建默认关闭）。 */
 export const ZCODE_AUTO_UPDATE_ENABLED: boolean =
   typeof __ZCODE_AUTO_UPDATE_ENABLED__ !== "undefined" ? __ZCODE_AUTO_UPDATE_ENABLED__ : false;
 
