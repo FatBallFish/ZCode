@@ -1,0 +1,46 @@
+# Mikiko 自建云端（spec specs/mikiko-cloud/agent-endpoint-plan.md）
+# 域名：agent.mikiko.ai（API + 主页 + 管理页）。安装包下载仍走 agent-dl.mikiko.ai，更新走 agent-update.mikiko.ai。
+#
+# 首次部署步骤：
+#   1. wrangler kv namespace create MIKIKO_BUILTIN_CONFIG   → 将返回的 id 填到下方
+#   2. wrangler kv namespace create MIKIKO_CLIENT_CONFIG    → 同上
+#   3. wrangler secret put MIKIKO_ADMIN_USERNAME
+#      wrangler secret put MIKIKO_ADMIN_PASSWORD
+#      wrangler secret put MIKIKO_ADMIN_SESSION_SECRET     # ≥32 字节随机串（session cookie 签名）
+#   4. node scripts/seed-builtin-config.mjs                # 从官方拉原始规则种子化 KV（spec §4.2 初始化）
+#   5. wrangler deploy
+name = "mikiko-cloud"
+main = "src/worker.ts"
+compatibility_date = "2025-09-01"
+
+routes = [{ pattern = "agent.mikiko.ai", custom_domain = true }]
+
+[assets]
+directory = "./public"
+# binding 必须显式声明：不声明时 Workers runtime 不注入 env.ASSETS，
+# /cn/share/{code} 落地页改写分支会因取不到 share.html 而整体 404（2026-09-28 报障根因）。
+binding = "ASSETS"
+# /api/* 与 /healthz 必须先进 Worker；分享落地页（/cn/share/{code}）由 Worker 改写后走资产；
+# 其余路径（主页、/admin）由静态资产直接服务。
+run_worker_first = ["/api/*", "/healthz", "/cn/share/*", "/share/*"]
+
+[[kv_namespaces]]
+binding = "MIKIKO_BUILTIN_CONFIG"
+id = "4d8dea9cff2f4ca6a9e158898d21c377"
+
+[[kv_namespaces]]
+binding = "MIKIKO_CLIENT_CONFIG"
+id = "b3c11b55190a48af919045b4780b31e7"
+
+# 分享：设备 token / 预发布 / 分享元数据（rows 内联，单值 ≤25MB 覆盖 max_payload 5MB）
+[[kv_namespaces]]
+binding = "MIKIKO_SHARE"
+id = "50760466109348f7a818506697408a87"
+
+# 分享结果物（按 sha256 寻址）
+[[r2_buckets]]
+binding = "SHARE_ARTIFACTS"
+bucket_name = "mikiko-share-artifacts"
+
+[observability]
+enabled = true

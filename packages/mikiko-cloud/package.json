@@ -1,0 +1,20 @@
+{
+  "name": "@zcode/mikiko-cloud",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mikiko 自建云端（Cloudflare Worker）：模型预置规则分发 + 功能配置 + 管理页（spec specs/mikiko-cloud/agent-endpoint-plan.md）",
+  "type": "module",
+  "main": "./src/worker.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --import tsx --test test/*.test.ts --test-force-exit",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250913.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^6.0.2",
+    "wrangler": "^4.0.0"
+  }
+}

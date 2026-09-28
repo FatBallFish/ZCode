@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>更新日志 · Mikiko</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png" />
+    <link rel="apple-touch-icon" href="/icon-128.png" />
+    <link rel="stylesheet" href="/site.css" />
+    <style>
+      /* 更新日志条目内的 markdown 输出。 */
+      .release .md h1,
+      .release .md h2 {
+        font-size: 15px;
+        margin: 14px 0 6px;
+      }
+      .release .md h3 {
+        font-size: 14px;
+        margin: 12px 0 4px;
+      }
+      .release .md p {
+        margin: 6px 0;
+      }
+      .release .md ul,
+      .release .md ol {
+        margin: 4px 0;
+        padding-left: 20px;
+      }
+      .release .md li {
+        margin: 3px 0;
+      }
+      .release .md pre {
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        overflow-x: auto;
+        margin: 8px 0;
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      .release .md code {
+        font-family: var(--mono);
+        font-size: 0.88em;
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0 5px;
+      }
+      .release .md pre code {
+        background: transparent;
+        border: 0;
+        padding: 0;
+      }
+      .release .md blockquote {
+        margin: 8px 0;
+        padding: 2px 12px;
+        border-left: 3px solid var(--border-strong);
+        color: var(--text-muted);
+      }
+      .release .md hr {
+        border: 0;
+        border-top: 1px solid var(--border);
+        margin: 12px 0;
+      }
+      .release-loading {
+        color: var(--text-faint);
+        padding: 40px 0;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="site-nav">
+      <div class="site-nav-inner">
+        <a class="brand" href="/"
+          ><img class="brand-mark" src="/icon-128.png" alt="Mikiko" />Mikiko</a
+        >
+        <div class="nav-links">
+          <a href="/">首页</a>
+          <a href="/docs">文档</a>
+          <a href="/changelog" aria-current="page">更新日志</a>
+          <a
+            class="nav-github"
+            href="https://github.com/FatBallFish/ZCode"
+            target="_blank"
+            rel="noopener"
+            aria-label="GitHub 仓库"
+            title="GitHub 仓库"
+            ><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+              /></svg
+          ></a>
+        </div>
+        <div class="nav-spacer"></div>
+        <a class="btn btn-primary btn-sm" href="/download">下载</a>
+      </div>
+    </nav>
+
+    <main class="page-header">
+      <div class="section-eyebrow">Changelog</div>
+      <h1 class="hero-title" style="font-size: 36px">更新日志</h1>
+      <p class="section-desc">
+        版本历史自动同步自发版流水线（agent-update manifest 与官网 release-notes
+        存储）；应用内「帮助 → 检查更新」可直达最新版。
+      </p>
+
+      <div id="changelog-list"><p class="release-loading">正在加载更新日志…</p></div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>© Mikiko</span><span class="sep">·</span>
+        <a href="/">首页</a>
+        <a href="/docs">文档</a>
+        <a href="/download">下载</a>
+        <div class="footer-links">
+          <a href="https://agent-update.mikiko.ai/healthz" title="服务健康检查">服务状态</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="/markdown.js"></script>
+    <script>
+      "use strict";
+      /* 更新日志实时化（2026-09-28）：顶部条来自 /api/v1/releases/latest（发布即生效，
+       * 不依赖流水线写官网），其余历史来自 /api/v1/releases/notes（发版流水线自动追加），
+       * 两者按版本去重合并后渲染。 */
+      function renderRelease(container, entry, isLatest) {
+        const article = document.createElement("article");
+        article.className = "release" + (isLatest ? " latest" : "");
+        const head = document.createElement("div");
+        head.className = "release-head";
+        const version = document.createElement("span");
+        version.className = "release-version";
+        version.textContent = "v" + entry.version;
+        head.appendChild(version);
+        if (isLatest) {
+          const badge = document.createElement("span");
+          badge.className = "release-badge";
+          badge.textContent = "最新";
+          head.appendChild(badge);
+        }
+        if (entry.date) {
+          const date = document.createElement("span");
+          date.className = "release-date";
+          date.textContent = entry.date.slice(0, 10);
+          head.appendChild(date);
+        }
+        const body = document.createElement("div");
+        body.className = "md";
+        body.innerHTML = window.MikikoMarkdown.renderMarkdown(entry.markdown || "");
+        article.append(head, body);
+        container.appendChild(article);
+      }
+
+      (async () => {
+        const container = document.getElementById("changelog-list");
+        try {
+          const [latestResponse, notesResponse] = await Promise.all([
+            fetch("/api/v1/releases/latest", { credentials: "omit" }).catch(() => null),
+            fetch("/api/v1/releases/notes", { credentials: "omit" }).catch(() => null),
+          ]);
+          const latest = latestResponse && latestResponse.ok ? await latestResponse.json() : null;
+          const notes = notesResponse && notesResponse.ok ? await notesResponse.json() : null;
+          if (!latest && (!notes || (notes.entries || []).length === 0)) {
+            container.innerHTML =
+              '<p class="release-loading">更新日志暂不可用，请稍后重试；也可在 GitHub Releases 查看历史版本。</p>';
+            return;
+          }
+          container.replaceChildren();
+          const seen = new Set();
+          if (latest && typeof latest.version === "string") {
+            seen.add(latest.version);
+            renderRelease(
+              container,
+              {
+                version: latest.version,
+                date: latest.releaseDate || "",
+                markdown: latest.releaseNotesZhCn || "",
+              },
+              true,
+            );
+          }
+          for (const entry of (notes && notes.entries) || []) {
+            if (seen.has(entry.version)) continue;
+            seen.add(entry.version);
+            renderRelease(container, entry, false);
+          }
+        } catch {
+          container.innerHTML = '<p class="release-loading">更新日志加载失败，请稍后重试。</p>';
+        }
+      })();
+    </script>
+  </body>
+</html>

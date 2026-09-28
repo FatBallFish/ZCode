@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png" />
+    <link rel="apple-touch-icon" href="/icon-128.png" />
+    <title>Mikiko Cloud · 配置管理</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: #f5f6f8;
+        color: #1c1e21;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 24px 16px 64px;
+      }
+      h1 {
+        font-size: 20px;
+      }
+      h2 {
+        font-size: 16px;
+        margin-top: 32px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #e2e4e8;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-top: 12px;
+      }
+      input[type="text"],
+      input[type="password"],
+      input[type="number"],
+      select,
+      textarea {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #c9ccd2;
+        border-radius: 6px;
+        font-size: 14px;
+        background: inherit;
+        color: inherit;
+      }
+      input[type="checkbox"] {
+        width: auto;
+      }
+      textarea {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        min-height: 320px;
+        white-space: pre;
+      }
+      button {
+        padding: 8px 18px;
+        border: 0;
+        border-radius: 6px;
+        background: #2f6fed;
+        color: #fff;
+        font-size: 14px;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      button.secondary {
+        background: #56585c;
+      }
+      button.danger {
+        background: #b3261e;
+        padding: 4px 10px;
+        font-size: 12px;
+        margin: 0;
+      }
+      button.link {
+        background: transparent;
+        color: #2f6fed;
+        padding: 4px 8px;
+        font-size: 12px;
+        margin: 0;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: end;
+      }
+      .row > div {
+        flex: 1;
+        min-width: 180px;
+      }
+      .meta {
+        color: #6b6e74;
+        font-size: 13px;
+      }
+      .msg {
+        margin-top: 10px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        display: none;
+      }
+      .msg.ok {
+        display: block;
+        background: #e6f6ea;
+        color: #106b2c;
+      }
+      .msg.err {
+        display: block;
+        background: #fde8e8;
+        color: #a11b1b;
+        white-space: pre-wrap;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      td,
+      th {
+        padding: 6px 8px;
+        border-bottom: 1px solid #eceef1;
+        text-align: left;
+      }
+      #login-view {
+        max-width: 360px;
+        margin: 12vh auto 0;
+      }
+      .mode-tabs {
+        display: inline-flex;
+        border: 1px solid #c9ccd2;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 8px 0;
+      }
+      .mode-tabs button {
+        margin: 0;
+        border-radius: 0;
+        padding: 6px 16px;
+        background: transparent;
+        color: #56585c;
+      }
+      .mode-tabs button.active {
+        background: #2f6fed;
+        color: #fff;
+      }
+      .rule-section {
+        margin-top: 18px;
+      }
+      .rule-section-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .rule-section-head h3 {
+        margin: 0;
+        font-size: 14px;
+        flex: 1;
+      }
+      .rule-card {
+        border: 1px solid #dfe2e7;
+        border-radius: 8px;
+        margin-top: 8px;
+      }
+      .rule-card-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12.5px;
+        background: #f7f8fa;
+        border-radius: 8px;
+      }
+      .rule-card-head .match {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .rule-card-body {
+        padding: 10px 14px 14px;
+        border-top: 1px solid #e8eaee;
+      }
+      .rule-card-body .row {
+        margin-top: 10px;
+      }
+      .field-label {
+        font-size: 12px;
+        color: #6b6e74;
+        display: block;
+        margin-bottom: 3px;
+      }
+      .chips-input {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 6px 8px;
+        border: 1px solid #c9ccd2;
+        border-radius: 6px;
+        min-height: 38px;
+        align-items: center;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: #e8eefc;
+        color: #27489f;
+        border-radius: 999px;
+        padding: 2px 6px 2px 10px;
+        font-size: 12.5px;
+        font-family: ui-monospace, Menlo, monospace;
+      }
+      .chip button {
+        margin: 0;
+        padding: 0 5px;
+        background: transparent;
+        color: #27489f;
+        font-size: 12px;
+        border-radius: 999px;
+      }
+      .chips-add {
+        border: 0;
+        outline: 0;
+        flex: 1;
+        min-width: 90px;
+        font-size: 13px;
+        background: transparent;
+        color: inherit;
+        padding: 3px;
+      }
+      .badge-count {
+        font-size: 12px;
+        color: #6b6e74;
+        background: #eef0f3;
+        border-radius: 999px;
+        padding: 1px 9px;
+      }
+      .json-tools {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #17181b;
+          color: #e6e7e9;
+        }
+        .card {
+          background: #1f2126;
+          border-color: #33363c;
+        }
+        input,
+        select,
+        textarea {
+          border-color: #44474d;
+        }
+        .rule-card {
+          border-color: #33363c;
+        }
+        .rule-card-head {
+          background: #17181b;
+        }
+        .rule-card-body {
+          border-top-color: #2c2f35;
+        }
+        .chips-input {
+          border-color: #44474d;
+        }
+        .chip {
+          background: #26304a;
+          color: #a5b4fc;
+        }
+        .chip button {
+          color: #a5b4fc;
+        }
+        .mode-tabs {
+          border-color: #44474d;
+        }
+        .mode-tabs button {
+          color: #a7aab0;
+        }
+        .msg.ok {
+          background: #12281a;
+          color: #6fd08c;
+        }
+        .msg.err {
+          background: #301414;
+          color: #ff9d9d;
+        }
+        .badge-count {
+          background: #2a2d33;
+          color: #a7aab0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Mikiko Cloud · 配置管理</h1>
+
+      <div id="login-view" class="card">
+        <p class="meta">
+          管理凭据由 Cloudflare secrets 下发（MIKIKO_ADMIN_USERNAME / MIKIKO_ADMIN_PASSWORD）。
+        </p>
+        <div>
+          <label>用户名</label><input id="login-username" type="text" autocomplete="username" />
+        </div>
+        <p></p>
+        <div>
+          <label>密码</label
+          ><input id="login-password" type="password" autocomplete="current-password" />
+        </div>
+        <button id="login-button">登录</button>
+        <p id="login-msg" class="msg err"></p>
+      </div>
+
+      <div id="admin-view" style="display: none">
+        <p class="meta">登录有效期 8 小时。<button class="link" id="logout-button">退出</button></p>
+
+        <h2>模型预置配置（builtin-provider-config）</h2>
+        <div class="card">
+          <p class="meta" id="builtin-meta">加载中…</p>
+          <p class="meta">
+            config 只允许 <code>providerConfigRules</code> 与
+            <code>modelConfigRules</code> 两键；发布后 revision 自动
+            +1，客户端在一个刷新周期内热更。
+          </p>
+
+          <div class="mode-tabs">
+            <button id="mode-form" class="active" type="button">表单配置</button>
+            <button id="mode-json" type="button">高级配置（JSON）</button>
+          </div>
+
+          <div id="builtin-form-view"></div>
+
+          <div id="builtin-json-view" style="display: none">
+            <p class="meta">
+              直接编辑原始 JSON。「应用 JSON
+              到表单」会把解析结果写回表单视图；两侧编辑同一份数据，发布前请先应用 JSON 修改。
+            </p>
+            <textarea id="builtin-config" spellcheck="false"></textarea>
+            <div class="json-tools">
+              <button class="secondary" id="json-apply" type="button">应用 JSON 到表单</button>
+              <button class="secondary" id="json-format" type="button">格式化 / 本地校验</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <button id="builtin-publish">发布新版本</button>
+          </div>
+          <p id="builtin-msg" class="msg"></p>
+
+          <h2 style="margin-top: 24px">发布历史</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>revision</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="builtin-history"></tbody>
+          </table>
+        </div>
+
+        <h2>功能配置（client/configs）</h2>
+        <div class="card">
+          <div class="row">
+            <div>
+              <label>动态工作流灰度</label>
+              <select id="dw-mode">
+                <option value="alwaysOn">alwaysOn（开启）</option>
+                <option value="onDemand">onDemand（按需）</option>
+                <option value="disabled">disabled（关闭）</option>
+              </select>
+            </div>
+            <div>
+              <label>分享发布限流（次/分钟/IP）</label>
+              <input id="share-limit" type="number" min="1" max="60" value="3" />
+            </div>
+          </div>
+          <button id="client-configs-save">保存功能配置</button>
+          <p id="client-configs-msg" class="msg"></p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      "use strict";
+      const $ = (id) => document.getElementById(id);
+
+      /* ════════════════════════════════════════════════════════════
+       * 模型预置配置编辑器：单一数据源同步。
+       *
+       * state.config 是唯一事实：表单视图与 JSON 视图都是它的投影——
+       *  - 表单字段变更 → 即时写回 state.config，并同步刷新 JSON 文本；
+       *  - JSON「应用」→ 解析结果整体替换 state.config，并重渲染表单；
+       *  - 发布成功 → 重新拉取服务端数据，两个视图一并重渲染。
+       * 表单只覆盖它编辑的字段；条目上的其余字段（optionSpecs.map、properties
+       * 其它键等）在写回时从原始条目就地保留，双向切换无损。
+       * ════════════════════════════════════════════════════════════ */
+      const state = {
+        config: null,
+        rawJson: "",
+        jsonDirty: false,
+        expanded: new Set(),
+      };
+
+      const RULE_SECTIONS = [
+        {
+          key: "modelRules",
+          modelKey: "modelRules",
+          title: "模型规则（modelRules）",
+          desc: "按模型 ID 匹配，定义推理档位与模型能力；与 API 格式无关。",
+          withApi: false,
+          withSite: false,
+        },
+        {
+          key: "modelApiRules",
+          modelKey: "modelApiRules",
+          title: "模型 + API 规则（modelApiRules）",
+          desc: "按模型 ID 与 API 格式匹配，定义请求参数映射与档位。",
+          withApi: true,
+          withSite: false,
+        },
+        {
+          key: "providerSiteRules",
+          modelKey: "providerSiteRules",
+          title: "站点规则（providerSiteRules）",
+          desc: "按模型、API 格式与站点 Base URL 匹配（官方端点专属规则）。",
+          withApi: true,
+          withSite: true,
+        },
+      ];
+      const API_TYPES = ["", "anthropic-messages", "openai-chat-completions", "openai-responses"];
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(
+          /[&<>"']/gu,
+          (ch) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[ch],
+        );
+      }
+
+      function modelRulesRoot() {
+        state.config.modelConfigRules ??= {};
+        return state.config.modelConfigRules;
+      }
+      function sectionList(section) {
+        modelRulesRoot()[section.modelKey] ??= [];
+        return modelRulesRoot()[section.modelKey];
+      }
+
+      function renderForm() {
+        const view = $("builtin-form-view");
+        view.replaceChildren();
+
+        for (const section of RULE_SECTIONS) {
+          const list = sectionList(section);
+          const wrap = document.createElement("div");
+          wrap.className = "rule-section";
+
+          const head = document.createElement("div");
+          head.className = "rule-section-head";
+          const title = document.createElement("h3");
+          title.innerHTML =
+            escapeHtml(section.title) + ' <span class="badge-count">' + list.length + "</span>";
+          const desc = document.createElement("span");
+          desc.className = "meta";
+          desc.textContent = section.desc;
+          const addButton = document.createElement("button");
+          addButton.className = "secondary";
+          addButton.style.margin = "0";
+          addButton.type = "button";
+          addButton.textContent = "＋ 新增规则";
+          addButton.addEventListener("click", () => {
+            list.push(section.withSite ? { modelMatch: "", baseUrlMatch: "" } : { modelMatch: "" });
+            renderForm();
+            syncJsonFromState();
+          });
+          head.append(title, desc, addButton);
+          wrap.appendChild(head);
+
+          list.forEach((entry, index) => {
+            wrap.appendChild(renderRuleCard(section, entry, index));
+          });
+          view.appendChild(wrap);
+        }
+
+        const other = document.createElement("div");
+        other.className = "rule-section meta";
+        const counts = [
+          ["templateModelRules", modelRulesRoot().templateModelRules?.length ?? 0],
+          ["builtinProviderModelRules", modelRulesRoot().builtinProviderModelRules?.length ?? 0],
+          [
+            "providerConfigRules.templateRules",
+            state.config.providerConfigRules?.templateRules?.length ?? 0,
+          ],
+          [
+            "providerConfigRules.providerRules",
+            state.config.providerConfigRules?.providerRules?.length ?? 0,
+          ],
+        ];
+        other.textContent =
+          "以下分区绑定 templateId / providerId，表单暂不支持，请用「高级配置（JSON）」编辑：" +
+          counts.map(([name, count]) => name + "（" + count + " 条）").join("、") +
+          "。";
+        view.appendChild(other);
+      }
+
+      function renderRuleCard(section, entry, index) {
+        const cardKey = section.key + ":" + index;
+        const card = document.createElement("div");
+        card.className = "rule-card";
+
+        const head = document.createElement("div");
+        head.className = "rule-card-head";
+        const caret = document.createElement("span");
+        caret.textContent = state.expanded.has(cardKey) ? "▾" : "▸";
+        const match = document.createElement("span");
+        match.className = "match";
+        match.textContent =
+          (entry.modelMatch || "（未命名规则）") +
+          (section.withApi && entry.apiTypeMatch ? " · " + entry.apiTypeMatch : "") +
+          (section.withSite && entry.baseUrlMatch ? " · " + entry.baseUrlMatch : "");
+        const values = document.createElement("span");
+        values.className = "meta";
+        const lv = entry.config?.optionSpecs?.reasoningLevel?.values;
+        if (Array.isArray(lv) && lv.length) values.textContent = lv.join(" / ");
+        head.append(caret, match, values);
+        head.addEventListener("click", () => {
+          if (state.expanded.has(cardKey)) state.expanded.delete(cardKey);
+          else state.expanded.add(cardKey);
+          renderForm();
+        });
+        card.appendChild(head);
+
+        if (!state.expanded.has(cardKey)) return card;
+
+        const body = document.createElement("div");
+        body.className = "rule-card-body";
+
+        const patch = (fn) => {
+          fn(entry);
+          syncJsonFromState();
+        };
+
+        const matchRow = document.createElement("div");
+        matchRow.className = "row";
+        matchRow.appendChild(
+          field("模型匹配（正则）", entry.modelMatch ?? "", (value) =>
+            patch((e) => {
+              e.modelMatch = value;
+            }),
+          ),
+        );
+        if (section.withApi) {
+          matchRow.appendChild(
+            selectField("API 格式", entry.apiTypeMatch ?? "", API_TYPES, (value) =>
+              patch((e) => {
+                if (value) e.apiTypeMatch = value;
+                else delete e.apiTypeMatch;
+              }),
+            ),
+          );
+        }
+        if (section.withSite) {
+          matchRow.appendChild(
+            field("站点 Base URL（正则）", entry.baseUrlMatch ?? "", (value) =>
+              patch((e) => {
+                if (value) e.baseUrlMatch = value;
+                else delete e.baseUrlMatch;
+              }),
+            ),
+          );
+        }
+        body.appendChild(matchRow);
+
+        body.appendChild(
+          chipsField(
+            "推理档位（从低到高，回车添加）",
+            entry.config?.optionSpecs?.reasoningLevel?.values ?? [],
+            (values2) =>
+              patch((e) => {
+                e.config ??= {};
+                e.config.optionSpecs ??= {};
+                e.config.optionSpecs.reasoningLevel ??= {};
+                if (values2.length > 0) e.config.optionSpecs.reasoningLevel.values = values2;
+                else delete e.config.optionSpecs.reasoningLevel.values;
+              }),
+          ),
+        );
+
+        const propRow = document.createElement("div");
+        propRow.className = "row";
+        propRow.appendChild(
+          field("上下文窗口（可选数字）", entry.config?.properties?.contextWindow ?? "", (value) =>
+            patch((e) => {
+              e.config ??= {};
+              e.config.properties ??= {};
+              const parsed = Number(value);
+              if (value !== "" && Number.isInteger(parsed) && parsed > 0)
+                e.config.properties.contextWindow = parsed;
+              else delete e.config.properties.contextWindow;
+              if (Object.keys(e.config.properties).length === 0) delete e.config.properties;
+            }),
+          ),
+        );
+        propRow.appendChild(
+          checkField(
+            "输入格式：图片",
+            entry.config?.properties?.inputFormat?.supportsImage ?? false,
+            (checked) => patch((e) => setCapability(e, "supportsImage", checked)),
+          ),
+        );
+        propRow.appendChild(
+          checkField(
+            "视频",
+            entry.config?.properties?.inputFormat?.supportsVideo ?? false,
+            (checked) => patch((e) => setCapability(e, "supportsVideo", checked)),
+          ),
+        );
+        propRow.appendChild(
+          checkField(
+            "PDF",
+            entry.config?.properties?.inputFormat?.supportsPdf ?? false,
+            (checked) => patch((e) => setCapability(e, "supportsPdf", checked)),
+          ),
+        );
+        body.appendChild(propRow);
+
+        if (section.withApi || section.withSite) {
+          body.appendChild(
+            areaField(
+              "推理参数映射（CEL 表达式，返回 JSON 合并进请求体；留空删除）",
+              entry.config?.optionSpecs?.reasoningLevel?.map ?? "",
+              (value) =>
+                patch((e) => {
+                  e.config ??= {};
+                  e.config.optionSpecs ??= {};
+                  e.config.optionSpecs.reasoningLevel ??= {};
+                  if (value.trim()) e.config.optionSpecs.reasoningLevel.map = value;
+                  else delete e.config.optionSpecs.reasoningLevel.map;
+                }),
+            ),
+          );
+        }
+
+        const actions = document.createElement("div");
+        actions.style.marginTop = "10px";
+        const dupButton = document.createElement("button");
+        dupButton.className = "secondary";
+        dupButton.style.margin = "0";
+        dupButton.type = "button";
+        dupButton.textContent = "复制此规则";
+        dupButton.addEventListener("click", () => {
+          sectionList(section).splice(index + 1, 0, structuredClone(entry));
+          renderForm();
+          syncJsonFromState();
+        });
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "danger";
+        deleteButton.type = "button";
+        deleteButton.textContent = "删除";
+        deleteButton.addEventListener("click", () => {
+          if (!window.confirm("删除这条规则？")) return;
+          sectionList(section).splice(index, 1);
+          state.expanded.delete(cardKey);
+          renderForm();
+          syncJsonFromState();
+        });
+        actions.append(dupButton, document.createTextNode(" "), deleteButton);
+        body.appendChild(actions);
+
+        card.appendChild(body);
+        return card;
+      }
+
+      function setCapability(entry, key, checked) {
+        entry.config ??= {};
+        entry.config.properties ??= {};
+        entry.config.properties.inputFormat ??= {};
+        if (checked) entry.config.properties.inputFormat[key] = true;
+        else delete entry.config.properties.inputFormat[key];
+        if (Object.keys(entry.config.properties.inputFormat).length === 0)
+          delete entry.config.properties.inputFormat;
+      }
+
+      function field(labelText, value, onInput) {
+        const wrap = document.createElement("div");
+        const label = document.createElement("label");
+        label.className = "field-label";
+        label.textContent = labelText;
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = String(value);
+        input.addEventListener("input", () => onInput(input.value));
+        wrap.append(label, input);
+        return wrap;
+      }
+
+      function selectField(labelText, value, options, onChange) {
+        const wrap = document.createElement("div");
+        const label = document.createElement("label");
+        label.className = "field-label";
+        label.textContent = labelText;
+        const select = document.createElement("select");
+        for (const option of options) {
+          const element = document.createElement("option");
+          element.value = option;
+          element.textContent = option === "" ? "（任意）" : option;
+          if (option === value) element.selected = true;
+          select.appendChild(element);
+        }
+        select.addEventListener("change", () => onChange(select.value));
+        wrap.append(label, select);
+        return wrap;
+      }
+
+      function checkField(labelText, checked, onChange) {
+        const wrap = document.createElement("div");
+        const label = document.createElement("label");
+        label.className = "field-label";
+        label.textContent = labelText;
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = checked;
+        input.style.width = "16px";
+        input.style.height = "16px";
+        input.addEventListener("change", () => onChange(input.checked));
+        wrap.append(label, input);
+        return wrap;
+      }
+
+      function areaField(labelText, value, onChange) {
+        const wrap = document.createElement("div");
+        wrap.style.marginTop = "10px";
+        const label = document.createElement("label");
+        label.className = "field-label";
+        label.textContent = labelText;
+        const area = document.createElement("textarea");
+        area.style.minHeight = "120px";
+        area.spellcheck = false;
+        area.value = String(value);
+        area.addEventListener("change", () => onChange(area.value));
+        wrap.append(label, area);
+        return wrap;
+      }
+
+      function chipsField(labelText, values, onChange) {
+        const wrap = document.createElement("div");
+        wrap.style.marginTop = "10px";
+        const label = document.createElement("label");
+        label.className = "field-label";
+        label.textContent = labelText;
+        const box = document.createElement("div");
+        box.className = "chips-input";
+        const current = [...values];
+
+        const rebuild = () => {
+          box.replaceChildren();
+          current.forEach((value, index) => {
+            const chip = document.createElement("span");
+            chip.className = "chip";
+            const text = document.createElement("span");
+            text.textContent = value;
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.textContent = "×";
+            remove.title = "移除";
+            remove.addEventListener("click", () => {
+              current.splice(index, 1);
+              rebuild();
+              onChange([...current]);
+            });
+            chip.append(text, remove);
+            box.appendChild(chip);
+          });
+          const input = document.createElement("input");
+          input.className = "chips-add";
+          input.type = "text";
+          input.placeholder = "输入档位名后回车（如 low）";
+          input.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            const value = input.value.trim();
+            if (!value || current.includes(value)) {
+              input.value = "";
+              return;
+            }
+            current.push(value);
+            rebuild();
+            onChange([...current]);
+          });
+          box.appendChild(input);
+        };
+        rebuild();
+        wrap.append(label, box);
+        return wrap;
+      }
+
+      function syncJsonFromState() {
+        if (state.jsonDirty) return;
+        state.rawJson = JSON.stringify(state.config, null, 2);
+        $("builtin-config").value = state.rawJson;
+      }
+
+      function applyJsonToState() {
+        const text = $("builtin-config").value;
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch (error) {
+          showMsg($("builtin-msg"), "JSON 无效：" + (error.message || error), false);
+          return;
+        }
+        const keys = Object.keys(parsed).sort().join(",");
+        if (keys !== "modelConfigRules,providerConfigRules") {
+          showMsg(
+            $("builtin-msg"),
+            "config 只允许 providerConfigRules 与 modelConfigRules 两键，当前：" + (keys || "空"),
+            false,
+          );
+          return;
+        }
+        state.config = parsed;
+        state.rawJson = JSON.stringify(parsed, null, 2);
+        state.jsonDirty = false;
+        renderForm();
+        showMsg($("builtin-msg"), "JSON 已应用到表单视图（未发布）。", true);
+      }
+
+      function setMode(mode) {
+        if (mode === "form" && state.jsonDirty) {
+          if (!window.confirm("JSON 有未应用的修改，切换将丢弃。继续？")) return;
+          state.jsonDirty = false;
+          syncJsonFromState();
+        }
+        if (mode === "json") {
+          syncJsonFromState();
+          $("builtin-form-view").style.display = "none";
+          $("builtin-json-view").style.display = "block";
+        } else {
+          $("builtin-form-view").style.display = "block";
+          $("builtin-json-view").style.display = "none";
+          renderForm();
+        }
+        $("mode-form").classList.toggle("active", mode === "form");
+        $("mode-json").classList.toggle("active", mode === "json");
+      }
+
+      function showMsg(el, text, ok) {
+        el.textContent = text;
+        el.className = "msg " + (ok ? "ok" : "err");
+      }
+
+      async function api(path, init) {
+        const response = await fetch(path, Object.assign({ credentials: "same-origin" }, init));
+        let body = null;
+        try {
+          body = await response.json();
+        } catch {}
+        if (!response.ok) {
+          const detail =
+            body && (body.detail || body.error)
+              ? body.detail || body.error
+              : "HTTP " + response.status;
+          throw new Error(detail);
+        }
+        return body;
+      }
+
+      async function loadAdmin() {
+        const [builtin, clientConfigs, history] = await Promise.all([
+          api("/api/v1/admin/builtin-config"),
+          api("/api/v1/admin/client-configs"),
+          api("/api/v1/admin/builtin-config/history"),
+        ]);
+        if (!builtin.initialized) {
+          $("builtin-meta").textContent =
+            "尚未初始化：请先执行 scripts/seed-builtin-config.mjs（spec §4.2）。";
+          state.config = emptyConfig();
+        } else {
+          $("builtin-meta").textContent =
+            "当前 revision " + builtin.revision + " · 更新于 " + builtin.updatedAt;
+          state.config = structuredClone(builtin.config);
+        }
+        state.jsonDirty = false;
+        renderForm();
+        syncJsonFromState();
+
+        $("dw-mode").value = (clientConfigs.dynamicWorkflow || {}).mode || "alwaysOn";
+        $("share-limit").value = (clientConfigs.share || {}).publishPerMinutePerIp || 3;
+
+        const tbody = $("builtin-history");
+        tbody.textContent = "";
+        for (const entry of history.entries || []) {
+          const row = document.createElement("tr");
+          const revisionCell = document.createElement("td");
+          revisionCell.textContent =
+            "r" + entry.revision + (entry.revision === history.currentRevision ? "（当前）" : "");
+          const actionCell = document.createElement("td");
+          const restoreButton = document.createElement("button");
+          restoreButton.className = "secondary";
+          restoreButton.style.marginTop = "0";
+          restoreButton.textContent = "恢复此版本";
+          restoreButton.disabled = entry.revision === history.currentRevision;
+          restoreButton.addEventListener("click", async () => {
+            if (!window.confirm("将 r" + entry.revision + " 恢复为新的当前版本？")) return;
+            try {
+              const result = await api("/api/v1/admin/builtin-config", {
+                method: "PUT",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ restoreRevision: entry.revision }),
+              });
+              showMsg(
+                $("builtin-msg"),
+                "已恢复为新 revision " + result.revision + "，表单与 JSON 已同步刷新。",
+                true,
+              );
+              await loadAdmin();
+            } catch (error) {
+              showMsg($("builtin-msg"), String(error.message || error), false);
+            }
+          });
+          actionCell.appendChild(restoreButton);
+          row.append(revisionCell, actionCell);
+          tbody.appendChild(row);
+        }
+      }
+
+      function emptyConfig() {
+        return {
+          providerConfigRules: { templateRules: [], providerRules: [] },
+          modelConfigRules: {
+            modelRules: [],
+            modelApiRules: [],
+            providerSiteRules: [],
+            templateModelRules: [],
+            builtinProviderModelRules: [],
+          },
+        };
+      }
+
+      $("login-button").addEventListener("click", async () => {
+        try {
+          await api("/api/v1/admin/login", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              username: $("login-username").value,
+              password: $("login-password").value,
+            }),
+          });
+          $("login-view").style.display = "none";
+          $("admin-view").style.display = "block";
+          await loadAdmin();
+        } catch (error) {
+          showMsg($("login-msg"), "登录失败：" + (error.message || error), false);
+        }
+      });
+      $("login-password").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") $("login-button").click();
+      });
+
+      $("logout-button").addEventListener("click", () => {
+        location.reload();
+      });
+
+      $("mode-form").addEventListener("click", () => setMode("form"));
+      $("mode-json").addEventListener("click", () => setMode("json"));
+
+      $("builtin-config").addEventListener("input", () => {
+        state.jsonDirty = $("builtin-config").value !== state.rawJson;
+      });
+
+      $("json-format").addEventListener("click", () => {
+        try {
+          const parsed = JSON.parse($("builtin-config").value);
+          $("builtin-config").value = JSON.stringify(parsed, null, 2);
+          state.jsonDirty = $("builtin-config").value !== state.rawJson;
+          showMsg($("builtin-msg"), "本地校验通过（服务端发布时还会做结构与大小校验）", true);
+        } catch (error) {
+          showMsg($("builtin-msg"), "JSON 无效：" + (error.message || error), false);
+        }
+      });
+
+      $("json-apply").addEventListener("click", applyJsonToState);
+
+      $("builtin-publish").addEventListener("click", async () => {
+        if (state.jsonDirty) {
+          showMsg(
+            $("builtin-msg"),
+            "JSON 视图有未应用的修改：请先点「应用 JSON 到表单」或切回表单模式确认。",
+            false,
+          );
+          return;
+        }
+        if (!window.confirm("发布后 revision 自动 +1，客户端将在一个刷新周期内热更。确认发布？"))
+          return;
+        try {
+          const result = await api("/api/v1/admin/builtin-config", {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ config: state.config }),
+          });
+          showMsg(
+            $("builtin-msg"),
+            "已发布 revision " + result.revision + "，表单与 JSON 已从服务端同步刷新。",
+            true,
+          );
+          await loadAdmin();
+        } catch (error) {
+          showMsg($("builtin-msg"), "发布失败：" + (error.message || error), false);
+        }
+      });
+
+      $("client-configs-save").addEventListener("click", async () => {
+        try {
+          const result = await api("/api/v1/admin/client-configs", {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              dynamicWorkflow: { mode: $("dw-mode").value },
+              share: { publishPerMinutePerIp: Number($("share-limit").value) },
+            }),
+          });
+          showMsg($("client-configs-msg"), "已保存：" + JSON.stringify(result.configs), true);
+        } catch (error) {
+          showMsg($("client-configs-msg"), "保存失败：" + (error.message || error), false);
+        }
+      });
+
+      (async () => {
+        try {
+          await api("/api/v1/admin/builtin-config");
+          $("login-view").style.display = "none";
+          $("admin-view").style.display = "block";
+          await loadAdmin();
+        } catch {}
+      })();
+    </script>
+  </body>
+</html>

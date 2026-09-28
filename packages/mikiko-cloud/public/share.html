@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mikiko · 对话分享</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png" />
+    <link rel="apple-touch-icon" href="/icon-128.png" />
+    <style>
+      /* 分享落地页为亮色主题（与官网暗色区分：分享内容以阅读为主，浅底更接近文档）。
+         样式独立自持，不引入 /site.css，避免其暗色变量与 body 背景渗入。 */
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fa;
+        --bg-panel: #ffffff;
+        --bg-code: #f0f1f4;
+        --border: #e4e6eb;
+        --border-strong: #cfd3da;
+        --text: #1c1e21;
+        --text-muted: #5f636e;
+        --text-faint: #8a8f99;
+        --accent: #4f6bef;
+        --accent-2: #7c5cf0;
+        --accent-text: #3b5bdb;
+        --success: #16a34a;
+        --danger: #dc2626;
+        --mono:
+          ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        --sans:
+          -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: var(--accent-text);
+        text-decoration: none;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 0.9em;
+        background: var(--bg-code);
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+      .share-page {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 32px 20px 80px;
+      }
+      .share-title {
+        font-size: 22px;
+        word-break: break-all;
+        margin: 0 0 4px;
+        letter-spacing: -0.01em;
+      }
+      .share-meta {
+        color: var(--text-muted);
+        font-size: 13px;
+        margin-bottom: 16px;
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 8px;
+        font-size: 14px;
+        padding: 9px 20px;
+        cursor: pointer;
+        border: 1px solid transparent;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff;
+        font-weight: 600;
+      }
+      .btn-primary:hover {
+        filter: brightness(1.06);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--text);
+        border-color: var(--border-strong);
+      }
+      .btn-ghost:hover {
+        border-color: var(--accent);
+      }
+      .btn-sm {
+        padding: 6px 14px;
+        font-size: 13px;
+      }
+      .share-actions {
+        margin: 16px 0 4px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .msg {
+        margin: 14px 0;
+      }
+      .msg-user {
+        background: #eef2ff;
+        border: 1px solid #dbe3ff;
+        color: var(--text);
+        border-radius: 14px 14px 4px 14px;
+        padding: 12px 16px;
+        margin-left: 12%;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 14.5px;
+      }
+      .msg-assistant {
+        font-size: 14.5px;
+      }
+      .role-tag {
+        font-size: 11px;
+        color: var(--text-faint);
+        letter-spacing: 0.08em;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .role-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+      .role-user .role-dot {
+        background: #60a5fa;
+      }
+      .role-agent .role-dot {
+        background: var(--accent-2);
+      }
+      .md {
+        line-height: 1.75;
+        word-break: break-word;
+      }
+      .md h1,
+      .md h2,
+      .md h3 {
+        font-size: 15.5px;
+        margin: 14px 0 6px;
+      }
+      .md h1 {
+        font-size: 17px;
+      }
+      .md h2 {
+        font-size: 16px;
+      }
+      .md p {
+        margin: 8px 0;
+      }
+      .md ul,
+      .md ol {
+        margin: 6px 0;
+        padding-left: 22px;
+      }
+      .md li {
+        margin: 3px 0;
+      }
+      .md blockquote {
+        margin: 8px 0;
+        padding: 2px 12px;
+        border-left: 3px solid var(--border-strong);
+        color: var(--text-muted);
+      }
+      .md pre {
+        background: var(--bg-code);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        overflow-x: auto;
+        margin: 10px 0;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        line-height: 1.6;
+      }
+      .md pre code {
+        background: transparent;
+        padding: 0;
+      }
+      .md table {
+        border-collapse: collapse;
+        margin: 10px 0;
+        font-size: 13px;
+        display: block;
+        overflow-x: auto;
+      }
+      .md th,
+      .md td {
+        border: 1px solid var(--border-strong);
+        padding: 5px 10px;
+        text-align: left;
+      }
+      .md hr {
+        border: 0;
+        border-top: 1px solid var(--border);
+        margin: 14px 0;
+      }
+      .tool-item {
+        margin: 5px 0;
+      }
+      .tool-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        cursor: pointer;
+        user-select: none;
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 12px;
+        font-size: 12.5px;
+        color: var(--text-muted);
+      }
+      .tool-head:hover {
+        border-color: var(--border-strong);
+      }
+      .tool-status {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex: none;
+        background: var(--success);
+      }
+      .tool-status.failed {
+        background: var(--danger);
+      }
+      .tool-name {
+        font-family: var(--mono);
+        color: var(--text);
+        font-weight: 600;
+        flex: none;
+      }
+      .tool-summary {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--text-faint);
+      }
+      .tool-caret {
+        flex: none;
+        color: var(--text-faint);
+      }
+      .tool-body {
+        display: none;
+        margin-top: 4px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-code);
+        padding: 10px 12px;
+        max-height: 320px;
+        overflow: auto;
+      }
+      .tool-item.open .tool-body {
+        display: block;
+      }
+      .tool-body pre {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: var(--text-muted);
+      }
+      .turn-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 26px 0 14px;
+        color: var(--text-faint);
+        font-size: 11.5px;
+      }
+      .turn-divider::before,
+      .turn-divider::after {
+        content: "";
+        flex: 1;
+        border-top: 1px solid var(--border);
+      }
+      .msg-placeholder {
+        color: var(--text-faint);
+        padding: 40px 16px;
+        text-align: center;
+      }
+      .share-artifacts {
+        margin-top: 18px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .share-artifacts a {
+        display: inline-flex;
+        padding: 8px 14px;
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        font-size: 13px;
+        text-decoration: none;
+        color: inherit;
+      }
+      .share-artifacts a:hover {
+        border-color: var(--accent);
+      }
+      /* 口令门：缺失提示输入 / 错误提示密钥不对。 */
+      .pwd-gate {
+        max-width: 380px;
+        margin: 12vh auto 0;
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 28px 26px;
+        text-align: center;
+        box-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
+      }
+      .pwd-gate h1 {
+        font-size: 17px;
+        margin: 0 0 6px;
+      }
+      .pwd-gate p {
+        color: var(--text-muted);
+        font-size: 13.5px;
+        margin: 0 0 16px;
+      }
+      .pwd-gate input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        font-size: 15px;
+        font-family: var(--mono);
+        letter-spacing: 0.12em;
+        text-align: center;
+        text-transform: lowercase;
+      }
+      .pwd-gate input:focus {
+        outline: 2px solid rgba(79, 107, 239, 0.35);
+        border-color: var(--accent);
+      }
+      .pwd-gate .pwd-error {
+        color: var(--danger);
+        font-size: 13px;
+        min-height: 20px;
+        margin: 8px 0 4px;
+      }
+      .pwd-gate .btn {
+        width: 100%;
+        justify-content: center;
+        margin-top: 6px;
+      }
+      .share-footer {
+        border-top: 1px solid var(--border);
+        margin-top: 40px;
+      }
+      .share-footer-inner {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 22px 20px;
+        color: var(--text-faint);
+        font-size: 13px;
+        display: flex;
+        gap: 16px;
+        align-items: center;
+      }
+      .share-footer-inner .links {
+        margin-left: auto;
+        display: flex;
+        gap: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="share-page">
+      <div id="app" class="msg-placeholder">正在加载分享内容…</div>
+    </main>
+    <footer class="share-footer">
+      <div class="share-footer-inner">
+        <span>© Mikiko</span>
+        <a href="/">了解 Mikiko</a>
+        <div class="links"><a href="/download">下载客户端</a></div>
+      </div>
+    </footer>
+    <script src="/markdown.js"></script>
+    <script>
+      "use strict";
+      const app = document.getElementById("app");
+
+      function parseShareCode() {
+        const match = /^\/(?:cn\/)?share\/([^/?]+)\/?$/.exec(location.pathname);
+        return match ? decodeURIComponent(match[1]) : null;
+      }
+      function urlPwd() {
+        return new URLSearchParams(location.search).get("pwd")?.trim() || "";
+      }
+
+      function inlineMarkdown(text) {
+        return text
+          .replace(/`([^`]+)`/gu, "<code>$1</code>")
+          .replace(/\*\*([^*]+)\*\*/gu, "<strong>$1</strong>")
+          .replace(/(^|[^*])\*([^*\n]+)\*/gu, "$1<em>$2</em>")
+          .replace(
+            /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gu,
+            '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+          );
+      }
+
+      function roleTag(kind, label) {
+        const div = document.createElement("div");
+        div.className = "role-tag role-" + kind;
+        const dot = document.createElement("span");
+        dot.className = "role-dot";
+        div.append(dot, document.createTextNode(label));
+        return div;
+      }
+
+      function toolSummary(row) {
+        const source = row.inputText ?? "";
+        try {
+          const parsed = JSON.parse(source);
+          const first = Object.values(parsed).find((value) => typeof value === "string" && value);
+          if (first) return first;
+        } catch {
+          /* 非 JSON 输入直接展示原文 */
+        }
+        return source;
+      }
+
+      function renderToolCall(row) {
+        const item = document.createElement("div");
+        item.className = "tool-item";
+        const head = document.createElement("div");
+        head.className = "tool-head";
+        const status = document.createElement("span");
+        status.className = "tool-status" + (row.status === "failed" ? " failed" : "");
+        status.title = row.status ?? "";
+        const name = document.createElement("span");
+        name.className = "tool-name";
+        name.textContent = row.toolName ?? "tool";
+        const summary = document.createElement("span");
+        summary.className = "tool-summary";
+        summary.textContent = toolSummary(row);
+        const caret = document.createElement("span");
+        caret.className = "tool-caret";
+        caret.textContent = "▸";
+        head.append(status, name, summary, caret);
+        head.addEventListener("click", () => {
+          item.classList.toggle("open");
+          caret.textContent = item.classList.contains("open") ? "▾" : "▸";
+        });
+        const body = document.createElement("div");
+        body.className = "tool-body";
+        const pre = document.createElement("pre");
+        const inputText = row.inputText ? `▶ 输入\n${row.inputText}\n\n` : "";
+        const outputText = row.output?.text ?? "";
+        pre.textContent = inputText + `▶ 输出\n${outputText || "（无输出）"}`;
+        body.appendChild(pre);
+        item.append(head, body);
+        return item;
+      }
+
+      function renderRow(row, container) {
+        if (row.kind === "turnHeader") {
+          const divider = document.createElement("div");
+          divider.className = "turn-divider";
+          divider.textContent =
+            "第 " +
+            (container.dataset.turn = String(Number(container.dataset.turn || 0) + 1)) +
+            " 轮";
+          container.appendChild(divider);
+          return;
+        }
+        if (row.kind === "userInput") {
+          const wrap = document.createElement("div");
+          wrap.className = "msg";
+          wrap.appendChild(roleTag("user", "用户"));
+          const bubble = document.createElement("div");
+          bubble.className = "msg-user";
+          bubble.textContent = row.text ?? "";
+          wrap.appendChild(bubble);
+          container.appendChild(wrap);
+          return;
+        }
+        if (row.kind === "assistantText" || row.kind === "reasoning") {
+          const wrap = document.createElement("div");
+          wrap.className = "msg msg-assistant";
+          wrap.appendChild(roleTag("agent", row.kind === "reasoning" ? "推理过程" : "Mikiko"));
+          const content = document.createElement("div");
+          content.className = "md";
+          if (row.kind === "reasoning") content.style.color = "var(--text-muted)";
+          content.innerHTML = renderMarkdown(row.text ?? "");
+          wrap.appendChild(content);
+          container.appendChild(wrap);
+          return;
+        }
+        if (row.kind === "toolCall" || row.kind === "toolResult") {
+          const wrap = document.createElement("div");
+          wrap.className = "msg";
+          wrap.appendChild(renderToolCall(row));
+          container.appendChild(wrap);
+          return;
+        }
+        if (row.kind === "artifact") {
+          const wrap = document.createElement("div");
+          wrap.className = "msg";
+          const link = document.createElement("a");
+          link.href = "#";
+          link.textContent = "📄 " + (row.displayName ?? row.logicalArtifactKey ?? "结果物");
+          wrap.appendChild(link);
+          container.appendChild(wrap);
+        }
+      }
+
+      /* 口令门：缺失 → 输入框；错误 → 提示密钥不对。验证通过后渲染正文。 */
+      function renderPwdGate(shareCode, initialError) {
+        app.className = "";
+        app.replaceChildren();
+        const gate = document.createElement("div");
+        gate.className = "pwd-gate";
+        const title = document.createElement("h1");
+        title.textContent = "此分享已加密";
+        const desc = document.createElement("p");
+        desc.textContent = "请输入分享口令查看内容（口令包含在分享链接中）。";
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "分享口令";
+        input.autocomplete = "off";
+        input.autofocus = true;
+        const error = document.createElement("div");
+        error.className = "pwd-error";
+        error.textContent = initialError ?? "";
+        const button = document.createElement("button");
+        button.className = "btn btn-primary";
+        button.type = "button";
+        button.textContent = "查看内容";
+        const submit = async () => {
+          const pwd = input.value.trim();
+          if (!pwd) {
+            error.textContent = "请输入口令";
+            return;
+          }
+          try {
+            const response = await fetch(
+              `/api/v1/shares/${encodeURIComponent(shareCode)}/preview?pwd=${encodeURIComponent(pwd)}`,
+              { credentials: "omit" },
+            );
+            const envelope = await response.json();
+            if (response.ok && envelope.code === 0) {
+              history.replaceState(null, "", `?pwd=${encodeURIComponent(pwd)}`);
+              renderShare(shareCode, envelope.data, pwd);
+              return;
+            }
+            if (envelope.msg === "password_mismatch") {
+              error.textContent = "密钥不对，请确认后重试。";
+              return;
+            }
+            if (envelope.msg === "password_required") {
+              error.textContent = "请输入口令。";
+              return;
+            }
+            app.className = "msg-placeholder";
+            app.textContent =
+              envelope.msg === "share_not_found_or_expired"
+                ? "分享不存在或已过期。"
+                : `分享加载失败（${envelope.msg || response.status}）。`;
+            return;
+          } catch {
+            error.textContent = "网络异常，请稍后重试。";
+          }
+        };
+        button.addEventListener("click", submit);
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") submit();
+        });
+        gate.append(title, desc, input, error, button);
+        app.appendChild(gate);
+        input.focus();
+      }
+
+      function renderShare(shareCode, data, pwd) {
+        const rows = data.rows ?? [];
+        const toolCount = rows.filter((row) => row.kind === "toolCall").length;
+        const turnCount = rows.filter((row) => row.kind === "turnHeader").length;
+        const expires = data.share?.expires_at
+          ? new Date(data.share.expires_at).toLocaleString()
+          : "";
+
+        app.className = "";
+        app.replaceChildren();
+
+        const title = document.createElement("h1");
+        title.className = "share-title";
+        title.textContent = data.share?.title || "对话分享";
+        app.appendChild(title);
+
+        const meta = document.createElement("div");
+        meta.className = "share-meta";
+        const stats = document.createElement("span");
+        stats.textContent = `${turnCount} 轮对话 · ${toolCount} 次工具调用`;
+        const expiresTag = document.createElement("span");
+        expiresTag.textContent = expires ? `${expires} 前有效` : "";
+        const accessTag = document.createElement("span");
+        accessTag.textContent = pwd ? "🔒 口令保护" : "";
+        meta.append(stats, expiresTag, accessTag);
+        app.appendChild(meta);
+
+        if (data.share?.access_mode === "public_importable") {
+          const actions = document.createElement("div");
+          actions.className = "share-actions";
+          const importButton = document.createElement("a");
+          importButton.className = "btn btn-primary";
+          importButton.href = `zcode://share/import?code=${encodeURIComponent(shareCode)}`;
+          importButton.textContent = "导入到 Mikiko 继续对话";
+          const home = document.createElement("a");
+          home.className = "btn btn-ghost";
+          home.href = "/";
+          home.textContent = "了解 Mikiko";
+          actions.append(importButton, home);
+          app.appendChild(actions);
+        }
+
+        if (toolCount > 0) {
+          const toggle = document.createElement("div");
+          toggle.style.margin = "4px 0 8px";
+          const expandAll = document.createElement("button");
+          expandAll.className = "btn btn-ghost btn-sm";
+          expandAll.type = "button";
+          expandAll.textContent = "展开全部工具调用";
+          expandAll.addEventListener("click", () => {
+            const items = app.querySelectorAll(".tool-item");
+            const anyClosed = [...items].some((item) => !item.classList.contains("open"));
+            items.forEach((item) => {
+              item.classList.toggle("open", anyClosed);
+              const caret = item.querySelector(".tool-caret");
+              if (caret) caret.textContent = anyClosed ? "▾" : "▸";
+            });
+            expandAll.textContent = anyClosed ? "收起全部工具调用" : "展开全部工具调用";
+          });
+          toggle.appendChild(expandAll);
+          app.appendChild(toggle);
+        }
+
+        const stream = document.createElement("div");
+        stream.dataset.turn = "0";
+        for (const row of rows) renderRow(row, stream);
+        if (stream.children.length === 0) {
+          const empty = document.createElement("p");
+          empty.className = "msg-placeholder";
+          empty.textContent = "分享内容为空。";
+          stream.appendChild(empty);
+        }
+        app.appendChild(stream);
+
+        if (Array.isArray(data.artifacts) && data.artifacts.length > 0) {
+          const wrap = document.createElement("div");
+          wrap.className = "share-artifacts";
+          for (const artifact of data.artifacts) {
+            const link = document.createElement("a");
+            link.href = artifact.url || artifact.download_url;
+            link.textContent = `📄 ${artifact.display_name || artifact.artifact_id}`;
+            wrap.appendChild(link);
+          }
+          app.appendChild(wrap);
+        }
+      }
+
+      (async () => {
+        const shareCode = parseShareCode();
+        if (!shareCode) {
+          app.textContent = "分享链接无效。";
+          app.className = "msg-placeholder";
+          return;
+        }
+        const pwd = urlPwd();
+        const query = pwd ? `?pwd=${encodeURIComponent(pwd)}` : "";
+        try {
+          const response = await fetch(
+            `/api/v1/shares/${encodeURIComponent(shareCode)}/preview${query}`,
+            { credentials: "omit" },
+          );
+          const envelope = await response.json();
+          if (response.ok && envelope.code === 0) {
+            renderShare(shareCode, envelope.data, pwd);
+            return;
+          }
+          if (envelope.msg === "password_required") {
+            renderPwdGate(shareCode, "");
+            return;
+          }
+          if (envelope.msg === "password_mismatch") {
+            renderPwdGate(shareCode, "密钥不对，请确认后重试。");
+            return;
+          }
+          app.className = "msg-placeholder";
+          app.textContent =
+            envelope.msg === "share_not_found_or_expired"
+              ? "分享不存在或已过期。"
+              : `分享加载失败（${envelope.msg || response.status}）。`;
+        } catch {
+          app.className = "msg-placeholder";
+          app.textContent = "分享加载失败，请稍后重试。";
+        }
+      })();
+    </script>
+  </body>
+</html>
