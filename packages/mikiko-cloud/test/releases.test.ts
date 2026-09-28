@@ -37,11 +37,20 @@ releaseNotesByLocale:
 const realFetch = globalThis.fetch;
 const requestedUrls: string[] = [];
 
+const ARCH_ASSETS = new Set<string>(["Mikiko-1.0.5-mac-arm64.dmg", "Mikiko-1.0.5-mac-arm64.zip"]);
+
 function mockManifestFetch() {
   requestedUrls.length = 0;
-  globalThis.fetch = (async (input: unknown) => {
+  globalThis.fetch = (async (input: unknown, init?: { method?: string }) => {
     const url = new URL(String(input));
     requestedUrls.push(url.pathname + url.search);
+    if (url.hostname === "agent-dl.mikiko.ai" && init?.method === "HEAD") {
+      const name = url.pathname.split("/").pop() ?? "";
+      if (ARCH_ASSETS.has(name)) {
+        return new Response(null, { status: 200, headers: { "content-length": "190000000" } });
+      }
+      return new Response(null, { status: 404 });
+    }
     if (url.pathname !== "/api/v1/releases/electron/manifest") {
       return new Response("not found", { status: 404 });
     }
@@ -134,12 +143,27 @@ describe("GET /api/v1/releases/latest（manifest 聚合）", () => {
     assert.match(body.releaseNotesZhCn, /mac 修复/u);
     assert.match(body.releaseNotesZhCn, /xattr -rc \/Applications\/Mikiko\.app/u);
     const kinds = body.files.map((file) => file.kind).sort();
-    assert.deepEqual(kinds, ["appimage", "deb", "macos-dmg", "windows-exe"]);
+    // mac arm64 dmg/zip 经 HEAD 验证存在而加入；win-arm64（mock 中不存在）不出现。
+    assert.deepEqual(kinds, [
+      "appimage",
+      "deb",
+      "macos-arm64-dmg",
+      "macos-arm64-zip",
+      "macos-dmg",
+      "windows-exe",
+    ]);
+    const armDmg = body.files.find((file) => file.kind === "macos-arm64-dmg");
+    assert.match(armDmg?.url ?? "", /Mikiko-1\.0\.5-mac-arm64\.dmg$/u);
+    assert.equal(armDmg?.sizeBytes, 190000000);
     const dmg = body.files.find((file) => file.kind === "macos-dmg");
     assert.match(dmg?.url ?? "", /Mikiko-1\.0\.5-mac-x64\.dmg$/u);
     assert.equal(dmg?.sizeBytes, 185175089);
-    // 三平台 manifest 都被拉取。
-    assert.equal(requestedUrls.length, 3);
+    // 三平台 manifest 都被拉取（另有 agent-dl 的 HEAD 验证请求，不在此计数）。
+    assert.equal(
+      requestedUrls.filter((value) => value.startsWith("/api/v1/releases/electron/manifest"))
+        .length,
+      3,
+    );
   });
 
   it("上游不可用返回 503（无缓存时）", async () => {
