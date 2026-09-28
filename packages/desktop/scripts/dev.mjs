@@ -5,7 +5,7 @@ import { request } from "node:http";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { prepareDevElectronAppBundle } from "./devElectronAppBundle.mjs";
+import { DEV_ELECTRON_APP_NAME, prepareDevElectronAppBundle } from "./devElectronAppBundle.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const mainBundle = resolve(root, "out/main/index.js");
@@ -126,7 +126,7 @@ if (process.platform === "darwin" && existsSync(electronBinary)) {
     arch: process.arch,
   });
   electronCommand = devBundle.executablePath;
-  console.log(`[dev] Prepared macOS ZCode Dev bundle: ${devBundle.appPath}`);
+  console.log(`[dev] Prepared macOS ${DEV_ELECTRON_APP_NAME} bundle: ${devBundle.appPath}`);
 }
 
 const electron = spawn(electronCommand, ["."], {
