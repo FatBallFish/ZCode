@@ -22,7 +22,7 @@ done
 
 if [ -n "$first" ]; then
   encoded=$(/usr/bin/osascript -l JavaScript -e 'function run(argv) { return encodeURIComponent(argv[0]); }' "$first")
-  /usr/bin/open "zcode://workspace/open?path=\${encoded}"
+  /usr/bin/open "mikiko://workspace/open?path=\${encoded}"
 fi
 `;
 

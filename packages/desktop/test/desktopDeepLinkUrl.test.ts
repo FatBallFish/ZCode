@@ -227,5 +227,51 @@ describe("desktop deep link url helpers", () => {
         "/f",
       ],
     });
+
+describe("深链双 scheme 解析（zcode:// 与 mikiko:// 同一套 host 分发）", () => {
+  it("分享导入：两种 scheme 均可识别并提取 code", async () => {
+    const { isShareImportUrl, extractShareImportCode } = await import(
+      "../src/main/desktopDeepLinkUrl.js"
+    );
+    for (const scheme of ["zcode", "mikiko"]) {
+      const url = new URL(`${scheme}://share/import?code=abc123`);
+      expect(isShareImportUrl(url), scheme).toBe(true);
+      expect(extractShareImportCode(url), scheme).toBe("abc123");
+    }
+    expect(isShareImportUrl(new URL("https://share/import?code=x"))).toBe(false);
+  });
+
+  it("工作区打开：两种 scheme 均可识别并提取 path", async () => {
+    const { isWorkspaceOpenUrl, extractWorkspaceOpenPath } = await import(
+      "../src/main/desktopDeepLinkUrl.js"
+    );
+    for (const scheme of ["zcode", "mikiko"]) {
+      const url = new URL(`${scheme}://workspace/open?path=${encodeURIComponent("/tmp/p a")}`);
+      expect(isWorkspaceOpenUrl(url), scheme).toBe(true);
+      expect(extractWorkspaceOpenPath(url), scheme).toBe("/tmp/p a");
+    }
+  });
+
+  it("OAuth / 支付回调：zcode:// 保留（智谱三方链路），mikiko:// 同样可解析兜底", async () => {
+    const { isOAuthCallbackUrl, isPaymentCallbackUrl } = await import(
+      "../src/main/desktopDeepLinkUrl.js"
+    );
+    expect(isOAuthCallbackUrl(new URL("zcode://oauth/callback?code=1"))).toBe(true);
+    expect(isOAuthCallbackUrl(new URL("mikiko://oauth/callback?code=1"))).toBe(true);
+    expect(isPaymentCallbackUrl(new URL("zcode://payment/callback?token=t"))).toBe(true);
+    expect(isPaymentCallbackUrl(new URL("mikiko://payment/callback?token=t"))).toBe(true);
+    expect(isOAuthCallbackUrl(new URL("https://oauth/callback"))).toBe(false);
+  });
+
+  it("参数提取正则同时匹配两种 scheme", async () => {
+    const { extractDeepLinkUrlFromArgs } = await import("../src/main/desktopDeepLinkUrl.js");
+    expect(extractDeepLinkUrlFromArgs(["app", "mikiko://share/import?code=x"])).toBe(
+      "mikiko://share/import?code=x",
+    );
+    expect(extractDeepLinkUrlFromArgs(["app", "zcode://share/import?code=y"])).toBe(
+      "zcode://share/import?code=y",
+    );
+  });
+});
   });
 });
