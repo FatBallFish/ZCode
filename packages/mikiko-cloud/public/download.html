@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>下载 · Mikiko</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png" />
+    <link rel="apple-touch-icon" href="/icon-128.png" />
+    <link rel="stylesheet" href="/site.css" />
+  </head>
+  <body>
+    <nav class="site-nav">
+      <div class="site-nav-inner">
+        <a class="brand" href="/"
+          ><img class="brand-mark" src="/icon-128.png" alt="Mikiko" />Mikiko</a
+        >
+        <div class="nav-links">
+          <a href="/">首页</a>
+          <a href="/docs">文档</a>
+          <a href="/changelog">更新日志</a>
+          <a
+            class="nav-github"
+            href="https://github.com/FatBallFish/ZCode"
+            target="_blank"
+            rel="noopener"
+            aria-label="GitHub 仓库"
+            title="GitHub 仓库"
+            ><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+              /></svg
+          ></a>
+        </div>
+        <div class="nav-spacer"></div>
+        <a class="btn btn-primary btn-sm" href="/download" aria-current="page">下载</a>
+      </div>
+    </nav>
+
+    <main class="download-main">
+      <div>
+        <div class="section-eyebrow">Downloads</div>
+        <h1 class="hero-title" style="font-size: clamp(30px, 4vw, 42px)">下载 Mikiko</h1>
+        <p class="section-desc" style="margin-bottom: 0" id="download-version">
+          v1.0.4 全平台安装包 · 安装后应用内自动更新（更新服务自托管）。
+        </p>
+        <div class="detect-hint" id="detect-hint">
+          <span class="dot"></span><span id="detect-text">正在识别你的操作系统…</span>
+        </div>
+
+        <div class="os-grid">
+          <a
+            class="os-card"
+            id="os-macos"
+            href="https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-mac-x64.dmg"
+            download
+          >
+            <span class="os-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 28" fill="currentColor">
+                <path
+                  d="M17.6 14.7c0-3.2 2.6-4.7 2.7-4.8-1.5-2.1-3.7-2.4-4.5-2.5-1.9-.2-3.7 1.1-4.6 1.1-1 0-2.4-1.1-4-1-2 0-4 1.2-5 3.1-2.1 3.7-.5 9.1 1.5 12.1 1 1.4 2.2 3 3.8 3 1.5-.1 2.1-1 4-1s2.4 1 4 .9c1.7 0 2.7-1.5 3.7-2.9 1.1-1.6 1.6-3.2 1.6-3.3-.1 0-3.2-1.2-3.2-4.7zM14.4 5.4c.8-1 1.4-2.4 1.2-3.9-1.2.1-2.6.8-3.4 1.8-.8.9-1.4 2.3-1.2 3.7 1.3.1 2.6-.7 3.4-1.6z"
+                />
+              </svg>
+            </span>
+            <h3>macOS</h3>
+            <p class="os-desc">通用安装包，Apple Silicon 与 Intel 通用 · macOS 12+</p>
+            <span class="os-action">下载 .dmg（约 185 MB）</span>
+          </a>
+
+          <a
+            class="os-card"
+            id="os-windows"
+            href="https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-win-x64.exe"
+            download
+          >
+            <span class="os-icon" aria-hidden="true">
+              <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8">
+                <rect x="3" y="3" width="10" height="10" rx="1.5" />
+                <rect x="15" y="3" width="10" height="10" rx="1.5" />
+                <rect x="3" y="15" width="10" height="10" rx="1.5" />
+                <rect x="15" y="15" width="10" height="10" rx="1.5" />
+              </svg>
+            </span>
+            <h3>Windows</h3>
+            <p class="os-desc">x64 安装程序 · Windows 10 1809+</p>
+            <span class="os-action">下载 .exe（约 120 MB）</span>
+          </a>
+
+          <button class="os-card" id="os-linux" type="button">
+            <span class="os-icon" aria-hidden="true">
+              <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8">
+                <rect x="2.5" y="4" width="23" height="20" rx="3" />
+                <path d="M6.5 10l4 4M10.5 10l-4 4" stroke-linecap="round" />
+                <path d="M14.5 20h7" stroke-linecap="round" />
+              </svg>
+            </span>
+            <h3>Linux</h3>
+            <p class="os-desc">按发行版选择安装包 · x64</p>
+            <span class="os-action">选择你的发行版</span>
+          </button>
+        </div>
+
+        <div class="download-extra">
+          <span>AppImage 首次启动：<code>chmod +x Mikiko-*.AppImage</code></span>
+          <span
+            >macOS 未签名包如遇 Gatekeeper：<code>xattr -cr /Applications/Mikiko.app</code></span
+          >
+          <a href="/changelog">历史版本与更新日志</a>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>© Mikiko</span><span class="sep">·</span>
+        <a href="/">首页</a>
+        <a href="/docs">文档</a>
+        <a href="/changelog">更新日志</a>
+        <div class="footer-links">
+          <a href="https://agent-update.mikiko.ai/healthz" title="服务健康检查">服务状态</a>
+        </div>
+      </div>
+    </footer>
+
+    <div
+      class="spec-modal"
+      id="spec-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="选择 Linux 安装包"
+    >
+      <div class="spec-sheet">
+        <h3>选择 Linux 安装包</h3>
+        <p class="meta">按发行版选择对应格式；不确定时选 AppImage（免安装、任意发行版可用）。</p>
+        <a
+          class="spec-option"
+          download
+          data-kind="deb"
+          href="https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-linux-amd64.deb"
+        >
+          <span class="spec-icon">U</span>
+          <span
+            ><span class="spec-name">Ubuntu / Debian</span><br /><span class="spec-file"
+              >Mikiko-1.0.4-linux-amd64.deb</span
+            ></span
+          >
+          <span class="spec-arrow">→</span>
+        </a>
+        <a
+          class="spec-option"
+          download
+          data-kind="rpm"
+          href="https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-linux-x86_64.rpm"
+        >
+          <span class="spec-icon">C</span>
+          <span
+            ><span class="spec-name">CentOS / RHEL / Fedora</span><br /><span class="spec-file"
+              >Mikiko-1.0.4-linux-x86_64.rpm</span
+            ></span
+          >
+          <span class="spec-arrow">→</span>
+        </a>
+        <a
+          class="spec-option"
+          download
+          data-kind="arch"
+          href="https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-linux-x64.pkg.tar.zst"
+        >
+          <span class="spec-icon">A</span>
+          <span
+            ><span class="spec-name">Arch / Manjaro</span><br /><span class="spec-file"
+              >Mikiko-1.0.4-linux-x64.pkg.tar.zst</span
+            ></span
+          >
+          <span class="spec-arrow">→</span>
+        </a>
+        <a
+          class="spec-option"
+          download
+          data-kind="appimage"
+          href="https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-linux-x86_64.AppImage"
+        >
+          <span class="spec-icon">◇</span>
+          <span
+            ><span class="spec-name">通用（AppImage）</span><br /><span class="spec-file"
+              >Mikiko-1.0.4-linux-x86_64.AppImage</span
+            ></span
+          >
+          <span class="spec-arrow">→</span>
+        </a>
+        <button class="spec-close btn btn-ghost" id="spec-close" type="button">取消</button>
+      </div>
+    </div>
+
+    <script src="/download-detect.js"></script>
+    <script>
+      "use strict";
+      (function () {
+        const hint = document.getElementById("detect-hint");
+        const hintText = document.getElementById("detect-text");
+        const os = detectMikikoPlatform();
+        const names = { macos: "macOS", windows: "Windows", linux: "Linux" };
+        if (os && names[os]) {
+          hintText.textContent = "已识别你的系统：" + names[os] + "，推荐下方对应安装包。";
+          document.getElementById("os-" + os)?.classList.add("recommended");
+          const tag = document.createElement("span");
+          tag.className = "recommended-tag";
+          tag.textContent = "推荐";
+          document.getElementById("os-" + os)?.appendChild(tag);
+        } else {
+          hint.classList.add("unknown");
+          hintText.textContent = "未识别到桌面系统，请手动选择安装包。";
+        }
+
+        // 版本与直链实时化（2026-09-28）：从 /api/v1/releases/latest 聚合端点取真实值，
+        // HTML 内写死的 v1.0.4 直链仅作接口失败时的兜底。
+        (async () => {
+          try {
+            const response = await fetch("/api/v1/releases/latest", { credentials: "omit" });
+            if (!response.ok) return;
+            const latest = await response.json();
+            if (!latest || typeof latest.version !== "string") return;
+            const byKind = {};
+            for (const file of latest.files || []) byKind[file.kind] = file;
+            const versionDesc = document.getElementById("download-version");
+            if (versionDesc) {
+              const size = byKind["macos-dmg"]?.sizeBytes;
+              const sizeText = size ? "（主包约 " + Math.round(size / 1024 / 1024) + " MB）" : "";
+              versionDesc.textContent =
+                "v" +
+                latest.version +
+                " 全平台安装包" +
+                sizeText +
+                " · 安装后应用内自动更新（更新服务自托管）。";
+            }
+            const mac = document.getElementById("os-macos");
+            if (mac && byKind["macos-dmg"]?.url) mac.href = byKind["macos-dmg"].url;
+            const win = document.getElementById("os-windows");
+            if (win && byKind["windows-exe"]?.url) win.href = byKind["windows-exe"].url;
+            document.querySelectorAll(".spec-option[data-kind]").forEach((option) => {
+              const file = byKind[option.dataset.kind];
+              if (file?.url) option.href = file.url;
+            });
+          } catch {
+            // 接口异常保持静态兜底直链。
+          }
+        })();
+
+        const modal = document.getElementById("spec-modal");
+        document
+          .getElementById("os-linux")
+          .addEventListener("click", () => modal.classList.add("open"));
+        document
+          .getElementById("spec-close")
+          .addEventListener("click", () => modal.classList.remove("open"));
+        modal.addEventListener("click", (event) => {
+          if (event.target === modal) modal.classList.remove("open");
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") modal.classList.remove("open");
+        });
+        modal.querySelectorAll(".spec-option").forEach((option) => {
+          option.addEventListener("click", () => modal.classList.remove("open"));
+        });
+      })();
+    </script>
+  </body>
+</html>
