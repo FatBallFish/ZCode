@@ -12,7 +12,7 @@
  *     [--release-notes release-notes.md]
  *   环境变量：UPDATE_PUBLISH_TOKEN（必须）；--release-notes 为 markdown 文件，
  *   注入 latest*.yml 的 releaseNotesByLocale 作为客户端更新日志，并（配置
- *   WEBSITE_PUBLISH_TOKEN 时）自动追加到 agent.mikiko.ai 官网更新日志。
+ *   MIKIKO_RELEASE_PUBLISH_TOKEN 时，与 Worker 侧 secret 同名）自动追加到 agent.mikiko.ai 官网更新日志。
  */
 
 import { createHash } from "node:crypto";
@@ -180,11 +180,11 @@ async function main() {
   if (!releaseNotesMarkdown) {
     console.log("未提供 --release-notes，跳过官网更新日志。");
   } else {
-    const websiteToken = process.env.WEBSITE_PUBLISH_TOKEN;
+    const websiteToken = process.env.MIKIKO_RELEASE_PUBLISH_TOKEN;
     const websiteEndpoint = readArg("website-endpoint") ?? "https://agent.mikiko.ai";
     if (!websiteToken) {
       console.warn(
-        "WEBSITE_PUBLISH_TOKEN 未配置，跳过官网更新日志（版本与下载链接仍会经 manifest 聚合自动更新）。",
+        "MIKIKO_RELEASE_PUBLISH_TOKEN 未配置，跳过官网更新日志（版本与下载链接仍会经 manifest 聚合自动更新）。",
       );
     } else {
       const response = await fetchWithRetry(
