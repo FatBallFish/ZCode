@@ -71,3 +71,5 @@ packages/desktop/.e2e-artifacts/
 packages/desktop/.e2e-cache/
 packages/desktop/.e2e-network-capture/
 .zcode-runtime/
+packages/mikiko-cloud/seed-builtin.json
+packages/mikiko-cloud/.admin-credentials.local

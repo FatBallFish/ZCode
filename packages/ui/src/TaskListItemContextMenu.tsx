@@ -48,7 +48,8 @@ export function TaskListItemContextMenu({
   onOpenInSplitPane?: () => void;
   /** 叶子数达上限且该 session 未在任何 pane 时禁用。 */
   openInSplitPaneDisabled?: boolean;
-  onOpenTaskFeedback: () => void;
+  /** 反馈功能关闭期间不注入：菜单项整体隐藏（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）。 */
+  onOpenTaskFeedback?: () => void;
   /** 远程会话下不注入：Finder 菜单项整体隐藏（spec §21.5）。 */
   onOpenTaskPathInFileManager?: () => void;
   onCopyWorkspacePath: () => void;

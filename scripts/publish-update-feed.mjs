@@ -11,7 +11,8 @@
  *     --channel stable [--endpoint https://agent-update.mikiko.ai] [--download-origin https://agent-dl.mikiko.ai] \
  *     [--release-notes release-notes.md]
  *   环境变量：UPDATE_PUBLISH_TOKEN（必须）；--release-notes 为 markdown 文件，
- *   注入 latest*.yml 的 releaseNotesByLocale 作为客户端更新日志。
+ *   注入 latest*.yml 的 releaseNotesByLocale 作为客户端更新日志，并（配置
+ *   WEBSITE_PUBLISH_TOKEN 时）自动追加到 agent.mikiko.ai 官网更新日志。
  */
 
 import { createHash } from "node:crypto";
@@ -172,6 +173,35 @@ async function main() {
       "application/x-yaml",
       key,
     );
+  }
+  // 3. 官网更新日志（2026-09-28 全自动发版）：同一份 release notes 推到
+  //    agent.mikiko.ai（/api/v1/admin/release-notes，X-Publish-Token 鉴权）。
+  //    未配置令牌时仅提示跳过——官网日志缺失不阻塞升级发布。
+  if (!releaseNotesMarkdown) {
+    console.log("未提供 --release-notes，跳过官网更新日志。");
+  } else {
+    const websiteToken = process.env.WEBSITE_PUBLISH_TOKEN;
+    const websiteEndpoint = readArg("website-endpoint") ?? "https://agent.mikiko.ai";
+    if (!websiteToken) {
+      console.warn(
+        "WEBSITE_PUBLISH_TOKEN 未配置，跳过官网更新日志（版本与下载链接仍会经 manifest 聚合自动更新）。",
+      );
+    } else {
+      const response = await fetchWithRetry(
+        `${websiteEndpoint}/api/v1/admin/release-notes`,
+        {
+          method: "PUT",
+          headers: { "x-publish-token": websiteToken, "content-type": "application/json" },
+          body: JSON.stringify({ version, markdown: releaseNotesMarkdown }),
+        },
+        "官网更新日志",
+      );
+      if (!response.ok) {
+        console.warn(`官网更新日志发布失败: ${response.status} ${await response.text()}`);
+      } else {
+        console.log(`官网更新日志已发布（v${version}）。`);
+      }
+    }
   }
   console.log("完成。");
 }

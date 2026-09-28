@@ -24,7 +24,7 @@ import { getTaskChangeSummary } from "@/lib/taskChangeSummary.js";
 import { buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
 import { buildTaskFeedbackDescription } from "@/lib/taskFeedbackDraft.js";
 import { useTaskListItemContextActions } from "@/useTaskListItemContextActions.js";
-import { useFeedbackStore } from "@/feedback/feedbackStore.js";
+import { useFeedbackStore, FEEDBACK_ENTRY_ENABLED } from "@/feedback/feedbackStore.js";
 import { getTaskListAttention, getTaskListRowActivity } from "@/v4/taskListRowActivity.js";
 import { GroupedTaskContextMenuContent } from "@/workspace-grouped-tasks/task-context-menu-content.js";
 import { TaskRowActionButton } from "@/workspace-grouped-tasks/task-row-action-button.js";
@@ -521,7 +521,9 @@ function GroupedTaskRowComponent({
               : undefined
           }
           onCopyText={(label, text) => void handleCopyText(label, text)}
-          onOpenTaskFeedback={() => void handleOpenTaskFeedback()}
+          onOpenTaskFeedback={
+            FEEDBACK_ENTRY_ENABLED ? () => void handleOpenTaskFeedback() : undefined
+          }
           disabledReason={workspaceActionsDisabledReason}
         />
       ) : null}

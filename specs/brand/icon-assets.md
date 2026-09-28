@@ -11,6 +11,7 @@
 - `brand/mikiko/master-icon-1024.png` 是 Windows、Linux 和 Web 的透明便携母版。
 - `brand/mikiko/master-icon-macos-1024.png` 是 macOS 专用透明母版。
 - `packages/desktop/build`、`packages/web/public` 与 `public/logo/icons` 中的文件都是派生产物，不得手工单独修改。
+- `packages/mikiko-cloud/public/icon-*.png`（512/128/32/16）是官网（agent.mikiko.ai）派生产物：由 `packages/desktop/build/icon.png`（Windows/Linux/Web 便携母版的合规派生）确定性缩放而来，仅用于站点 favicon、导航标识与 og:image；重生成命令与尺寸约束记录在下方「官网派生」。
 
 ## 产品规则
 
@@ -43,3 +44,15 @@
 3. Windows 任务栏、开始菜单和安装器图标四角透明，16/32px 图标仍可辨认。
 4. Linux AppImage、deb、rpm、pacman 的 hicolor 图标尺寸正确且四角透明。
 5. Chrome、Safari、Firefox 标签页 favicon 无白色方形背景。
+
+## 官网派生（mikiko-cloud）
+
+```bash
+# 从合规母版派生官网尺寸（仅缩放，不改像素内容；重跑结果应字节一致）
+for size in 512 128 32 16; do
+  sips -z $size $size packages/desktop/build/icon.png --out packages/mikiko-cloud/public/icon-$size.png
+done
+```
+
+- 导航标识使用 `icon-128.png`（26px 显示，2x+ 屏仍清晰）；favicon 使用 32/16 两档；`icon-512.png` 兼作 og:image。
+- 官网页面不得再用 CSS 手绘标识替代本节派生图。

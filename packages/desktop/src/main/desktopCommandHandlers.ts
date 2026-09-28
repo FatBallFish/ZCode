@@ -23,7 +23,7 @@ import {
 import { readZCodeStdioTapDevState, setZCodeStdioTapDevEnabled } from "@zcode/services/node";
 import { showAboutDialog } from "./about.js";
 import { checkForUpdateMenuClick } from "./autoUpdater.js";
-import { DESKTOP_RELEASES_DOWNLOAD_URL } from "./desktopExternalLinks.js";
+import { MIKIKO_CHANGELOG_URL } from "./desktopExternalLinks.js";
 import { exportLogs } from "./exportLogs.js";
 import { openResourceManager } from "./resourceManagerWindow.js";
 import { resolveCuaOsSupport } from "./cuaOsSupport.js";
@@ -450,12 +450,13 @@ function resolveChangelogUrl(
   locale: Locale,
   endpointOrigin = DEFAULT_ZCODE_ENDPOINT_ORIGIN,
 ): string {
-  // 帮助菜单里的外链以前只有固定英文地址，切到中文界面后仍会落到英文 changelog。
-  // 这里统一收口到主进程按当前应用语言分流，避免菜单模板里手写分支后续再出现多处不一致。
-  // Mikiko 阶段发布页/changelog/下载统一指向 GitHub Releases，与架构不匹配弹窗共用同一常量。
+  // 帮助菜单里的外链统一收口到主进程，避免菜单模板手写分支出现多处不一致。
+  // 2026-09-28 改：更新日志指向自建官网 https://agent.mikiko.ai/changelog
+  // （specs/mikiko-cloud/agent-endpoint-plan.md 官网站点）；GitHub Releases
+  // 仍作为安装包分发页由 DESKTOP_RELEASES_DOWNLOAD_URL 承担。
   void locale;
   void endpointOrigin;
-  return DESKTOP_RELEASES_DOWNLOAD_URL;
+  return MIKIKO_CHANGELOG_URL;
 }
 
 export async function openChangelog(

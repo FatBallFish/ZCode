@@ -45,7 +45,8 @@ export function GroupedTaskContextMenuContent({
   /** 远程会话下不注入：Finder 菜单项整体隐藏（spec §21.5）。 */
   onOpenTaskPathInFileManager?: () => void;
   onCopyText: (label: string, text: string | null) => void;
-  onOpenTaskFeedback: () => void;
+  /** 反馈功能关闭期间不注入：菜单项整体隐藏（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）。 */
+  onOpenTaskFeedback?: () => void;
   disabledReason?: string;
 }) {
   return (
@@ -177,9 +178,11 @@ export function GroupedTaskContextMenuContent({
         {intl.formatMessage({ id: "appHeader.copySessionId" })}
       </ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem onSelect={onOpenTaskFeedback}>
-        {intl.formatMessage({ id: "taskList.feedback" })}
-      </ContextMenuItem>
+      {onOpenTaskFeedback ? (
+        <ContextMenuItem onSelect={onOpenTaskFeedback}>
+          {intl.formatMessage({ id: "taskList.feedback" })}
+        </ContextMenuItem>
+      ) : null}
     </ContextMenuContent>
   );
 }

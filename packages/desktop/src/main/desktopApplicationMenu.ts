@@ -337,10 +337,13 @@ function buildApplicationMenuTemplate(options: {
           click: () => void options.executeDesktopCommand(DesktopCommandIds.OpenResourceManager),
         },
         { type: "separator" as const },
-        {
-          label: getLabel(desktopMenuMessageIds.helpFeedback),
-          click: () => void options.executeDesktopCommand(DesktopCommandIds.OpenFeedback),
-        },
+        // 反馈功能暂时关闭（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）：
+        // 以隐藏入口方式摘除，DesktopCommandIds.OpenFeedback 与反馈服务代码保留，
+        // 恢复时把下方注释的菜单项放回即可。
+        // {
+        //   label: getLabel(desktopMenuMessageIds.helpFeedback),
+        //   click: () => void options.executeDesktopCommand(DesktopCommandIds.OpenFeedback),
+        // },
         {
           label: getLabel(desktopMenuMessageIds.helpExportLogs),
           click: () => void options.executeDesktopCommand(DesktopCommandIds.ExportLogs),
