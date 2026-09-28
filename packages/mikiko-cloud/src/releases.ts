@@ -15,7 +15,17 @@ const RELEASE_NOTES_PREFIX = "rn:";
 const LATEST_CACHE_TTL_MS = 60_000;
 
 interface ManifestFile {
-  readonly kind: "macos-dmg" | "macos-zip" | "windows-exe" | "appimage" | "deb" | "rpm" | "arch";
+  readonly kind:
+    | "macos-dmg"
+    | "macos-zip"
+    | "macos-arm64-dmg"
+    | "macos-arm64-zip"
+    | "windows-exe"
+    | "windows-arm64-exe"
+    | "appimage"
+    | "deb"
+    | "rpm"
+    | "arch";
   readonly url: string;
   readonly sizeBytes: number;
 }
@@ -134,6 +144,37 @@ function classifyManifestFile(url: string): ManifestFile["kind"] | null {
   return null;
 }
 
+const DOWNLOAD_ORIGIN = "https://agent-dl.mikiko.ai";
+
+/** 按命名规则推导 arm64 安装包直链，HEAD agent-dl 验证存在才返回。 */
+async function deriveArchFiles(version: string): Promise<ManifestFile[]> {
+  const candidates: Array<{ kind: ManifestFile["kind"]; name: string }> = [
+    { kind: "macos-arm64-dmg", name: `Mikiko-${version}-mac-arm64.dmg` },
+    { kind: "macos-arm64-zip", name: `Mikiko-${version}-mac-arm64.zip` },
+    { kind: "windows-arm64-exe", name: `Mikiko-${version}-win-arm64.exe` },
+  ];
+  const results = await Promise.all(
+    candidates.map(async (candidate) => {
+      try {
+        const response = await fetch(`${DOWNLOAD_ORIGIN}/files/${version}/${candidate.name}`, {
+          method: "HEAD",
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (!response.ok) return null;
+        const sizeHeader = response.headers.get("content-length");
+        return {
+          kind: candidate.kind,
+          url: `${DOWNLOAD_ORIGIN}/files/${version}/${candidate.name}`,
+          sizeBytes: sizeHeader ? Number.parseInt(sizeHeader, 10) || 0 : 0,
+        } satisfies ManifestFile;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return results.filter((file): file is ManifestFile => file !== null);
+}
+
 /* ── latest 聚合（内存缓存 60s） ── */
 
 let latestCache: { at: number; payload: LatestReleasePayload } | null = null;
@@ -195,6 +236,14 @@ function latestResponse(): Promise<Response> {
       .map((file) => ({ ...file, kind: classifyManifestFile(file.url) }))
       .filter((file): file is ManifestFile & { url: string } => file.kind !== null)
       .map(({ kind, url, sizeBytes }) => ({ kind, url, sizeBytes }));
+    // 架构专属直链推导（2026-09-29 官网分架构下载）：manifest（electron-updater 通道）
+    // 只登记 x64 主链，arm64 安装包按构建命名规则（Mikiko-{v}-{mac|win}-arm64.*）生成
+    // agent-dl 直链，HEAD 验证存在才输出——产物随发版上传 R2，缺失的版本自动不出现。
+    const archKinds = await deriveArchFiles(primary.version);
+    const knownKinds = new Set(files.map((file) => file.kind));
+    for (const derived of archKinds) {
+      if (!knownKinds.has(derived.kind)) files.push(derived);
+    }
     const payload: LatestReleasePayload = {
       version: primary.version,
       releaseDate: primary.releaseDate,

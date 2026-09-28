@@ -49,12 +49,7 @@
         </div>
 
         <div class="os-grid">
-          <a
-            class="os-card"
-            id="os-macos"
-            href="https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-mac-x64.dmg"
-            download
-          >
+          <button class="os-card" id="os-macos" type="button">
             <span class="os-icon" aria-hidden="true">
               <svg viewBox="0 0 24 28" fill="currentColor">
                 <path
@@ -63,16 +58,11 @@
               </svg>
             </span>
             <h3>macOS</h3>
-            <p class="os-desc">通用安装包，Apple Silicon 与 Intel 通用 · macOS 12+</p>
-            <span class="os-action">下载 .dmg（约 185 MB）</span>
-          </a>
+            <p class="os-desc">macOS 12+ · 自动识别芯片架构，或手动选择</p>
+            <span class="os-action">下载 macOS 版</span>
+          </button>
 
-          <a
-            class="os-card"
-            id="os-windows"
-            href="https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-win-x64.exe"
-            download
-          >
+          <button class="os-card" id="os-windows" type="button">
             <span class="os-icon" aria-hidden="true">
               <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8">
                 <rect x="3" y="3" width="10" height="10" rx="1.5" />
@@ -82,9 +72,9 @@
               </svg>
             </span>
             <h3>Windows</h3>
-            <p class="os-desc">x64 安装程序 · Windows 10 1809+</p>
-            <span class="os-action">下载 .exe（约 120 MB）</span>
-          </a>
+            <p class="os-desc">Windows 10 1809+ · 自动识别架构，或手动选择</p>
+            <span class="os-action">下载 Windows 版</span>
+          </button>
 
           <button class="os-card" id="os-linux" type="button">
             <span class="os-icon" aria-hidden="true">
@@ -121,6 +111,86 @@
         </div>
       </div>
     </footer>
+
+    <div
+      class="spec-modal"
+      id="mac-arch-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="选择 macOS 芯片架构"
+    >
+      <div class="spec-sheet">
+        <h3>选择 macOS 芯片架构</h3>
+        <p class="meta">
+          Apple 芯片（M1–M4）选 arm64；Intel 芯片选 x64。不确定时点左上角苹果菜单「关于本机」查看。
+        </p>
+        <a
+          class="spec-option"
+          id="mac-arm-option"
+          download
+          hidden
+          data-kind="macos-arm64-dmg"
+          href="#"
+        >
+          <span class="spec-icon"></span>
+          <span
+            ><span class="spec-name">Apple 芯片（arm64）</span><br /><span class="spec-file"
+              >mac-arm64.dmg</span
+            ></span
+          >
+          <span class="spec-arrow">→</span>
+        </a>
+        <a class="spec-option" id="mac-intel-option" download data-kind="macos-dmg" href="#">
+          <span class="spec-icon"></span>
+          <span
+            ><span class="spec-name">Intel 芯片（x64）</span><br /><span class="spec-file"
+              >mac-x64.dmg</span
+            ></span
+          >
+          <span class="spec-arrow">→</span>
+        </a>
+        <button class="spec-close btn btn-ghost" id="mac-arch-close" type="button">取消</button>
+      </div>
+    </div>
+
+    <div
+      class="spec-modal"
+      id="win-arch-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="选择 Windows 架构"
+    >
+      <div class="spec-sheet">
+        <h3>选择 Windows 架构</h3>
+        <p class="meta">绝大多数 PC 是 x64（Intel/AMD）；Surface 等 ARM 机型选 arm64。</p>
+        <a class="spec-option" id="win-x64-option" download data-kind="windows-exe" href="#">
+          <span class="spec-icon"></span>
+          <span
+            ><span class="spec-name">x64（Intel / AMD）</span><br /><span class="spec-file"
+              >win-x64.exe</span
+            ></span
+          >
+          <span class="spec-arrow">→</span>
+        </a>
+        <a
+          class="spec-option"
+          id="win-arm-option"
+          download
+          hidden
+          data-kind="windows-arm64-exe"
+          href="#"
+        >
+          <span class="spec-icon"></span>
+          <span
+            ><span class="spec-name">arm64（Windows on ARM）</span><br /><span class="spec-file"
+              >win-arm64.exe</span
+            ></span
+          >
+          <span class="spec-arrow">→</span>
+        </a>
+        <button class="spec-close btn btn-ghost" id="win-arch-close" type="button">取消</button>
+      </div>
+    </div>
 
     <div
       class="spec-modal"
@@ -212,39 +282,94 @@
           hintText.textContent = "未识别到桌面系统，请手动选择安装包。";
         }
 
-        // 版本与直链实时化（2026-09-28）：从 /api/v1/releases/latest 聚合端点取真实值，
-        // HTML 内写死的 v1.0.4 直链仅作接口失败时的兜底。
-        (async () => {
+        // 版本/架构直链实时化（2026-09-29 分架构下载）：latest 聚合端点含 HEAD 验证过的
+        // 架构专属直链；mac/win 卡片自动识别架构直接下载，识别不了弹层手选；写死直链兜底。
+        const latestRelease = (async () => {
           try {
             const response = await fetch("/api/v1/releases/latest", { credentials: "omit" });
-            if (!response.ok) return;
+            if (!response.ok) return null;
             const latest = await response.json();
-            if (!latest || typeof latest.version !== "string") return;
-            const byKind = {};
-            for (const file of latest.files || []) byKind[file.kind] = file;
-            const versionDesc = document.getElementById("download-version");
-            if (versionDesc) {
-              const size = byKind["macos-dmg"]?.sizeBytes;
-              const sizeText = size ? "（主包约 " + Math.round(size / 1024 / 1024) + " MB）" : "";
-              versionDesc.textContent =
-                "v" +
-                latest.version +
-                " 全平台安装包" +
-                sizeText +
-                " · 安装后应用内自动更新（更新服务自托管）。";
-            }
-            const mac = document.getElementById("os-macos");
-            if (mac && byKind["macos-dmg"]?.url) mac.href = byKind["macos-dmg"].url;
-            const win = document.getElementById("os-windows");
-            if (win && byKind["windows-exe"]?.url) win.href = byKind["windows-exe"].url;
-            document.querySelectorAll(".spec-option[data-kind]").forEach((option) => {
-              const file = byKind[option.dataset.kind];
-              if (file?.url) option.href = file.url;
-            });
+            return latest && typeof latest.version === "string" ? latest : null;
           } catch {
-            // 接口异常保持静态兜底直链。
+            return null;
           }
         })();
+
+        (async () => {
+          const latest = await latestRelease;
+          if (!latest) return;
+          const byKind = {};
+          for (const file of latest.files || []) byKind[file.kind] = file;
+          const versionDesc = document.getElementById("download-version");
+          if (versionDesc) {
+            const size = byKind["macos-dmg"]?.sizeBytes;
+            const sizeText = size ? "（主包约 " + Math.round(size / 1024 / 1024) + " MB）" : "";
+            versionDesc.textContent =
+              "v" +
+              latest.version +
+              " 全平台安装包" +
+              sizeText +
+              " · 安装后应用内自动更新（更新服务自托管）。";
+          }
+          // 架构选择弹层直链填充（arm64 产物缺失的版本对应选项保持隐藏）。
+          for (const [optionId, kind] of [
+            ["mac-arm-option", "macos-arm64-dmg"],
+            ["mac-intel-option", "macos-dmg"],
+            ["win-x64-option", "windows-exe"],
+            ["win-arm-option", "windows-arm64-exe"],
+          ]) {
+            const option = document.getElementById(optionId);
+            const file = byKind[kind];
+            if (option && file?.url) {
+              option.href = file.url;
+              option.hidden = false;
+              const label = option.querySelector(".spec-file");
+              if (label) label.textContent = file.url.split("/").pop();
+            }
+          }
+          document.querySelectorAll("#spec-modal .spec-option[data-kind]").forEach((option) => {
+            const file = byKind[option.dataset.kind];
+            if (file?.url) option.href = file.url;
+          });
+        })();
+
+        function bindArchCard(modalId, closeId, cardId, os) {
+          const modal = document.getElementById(modalId);
+          const close = document.getElementById(closeId);
+          const card = document.getElementById(cardId);
+          const closeModal = () => modal.classList.remove("open");
+          if (card) {
+            card.addEventListener("click", async () => {
+              const arch = await window.MikikoDownload.detectMikikoArch(os);
+              const latest = await latestRelease;
+              const available = new Set((latest?.files ?? []).map((file) => file.kind));
+              const kind = window.MikikoDownload.resolveDownloadKind(os, arch, available);
+              const file = (latest?.files ?? []).find((entry) => entry.kind === kind);
+              // 架构识别成功且直链存在 → 直接开始下载；识别不了弹层手选。
+              if (arch && file?.url) {
+                const anchor = document.createElement("a");
+                anchor.href = file.url;
+                anchor.download = "";
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                return;
+              }
+              modal.classList.add("open");
+            });
+          }
+          if (close) close.addEventListener("click", closeModal);
+          if (modal) {
+            modal.addEventListener("click", (event) => {
+              if (event.target === modal) closeModal();
+            });
+            modal.querySelectorAll(".spec-option").forEach((option) => {
+              option.addEventListener("click", closeModal);
+            });
+          }
+        }
+        bindArchCard("mac-arch-modal", "mac-arch-close", "os-macos", "macos");
+        bindArchCard("win-arch-modal", "win-arch-close", "os-windows", "windows");
 
         const modal = document.getElementById("spec-modal");
         document

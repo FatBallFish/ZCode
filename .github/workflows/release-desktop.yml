@@ -30,6 +30,11 @@ jobs:
           - runner: windows-latest
             target: win
             arch: x64
+          # Windows on ARM 原生包（2026-09-29 官网分架构下载）：无签名流程，arm64 nsis
+          # 可交叉产出；官网聚合按命名规则自动发现，更新通道仍以 x64 manifest 为准。
+          - runner: windows-latest
+            target: win
+            arch: arm64
           - runner: ubuntu-latest
             target: linux
             arch: x64
