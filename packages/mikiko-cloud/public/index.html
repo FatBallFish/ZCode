@@ -58,9 +58,8 @@
             <a class="btn btn-ghost" href="/docs">查看文档</a>
           </div>
           <p class="hero-meta">
-            当前版本 v1.0.4 · macOS / Windows / Linux · 应用内自动更新 ·<span
-              id="hero-detect-note"
-            ></span>
+            当前版本 <span id="hero-version">v1.0.4</span> · macOS / Windows / Linux ·
+            应用内自动更新 ·<span id="hero-detect-note"></span>
           </p>
         </div>
         <div class="terminal">
@@ -147,16 +146,18 @@
         const button = document.getElementById("hero-download");
         const alt = document.getElementById("hero-download-alt");
         const note = document.getElementById("hero-detect-note");
+        const versionLabel = document.getElementById("hero-version");
         const { os, file, latest } = await setupMikikoDownloadButton(button);
+        // 版本号整段替换（此前只在行尾追加，静态占位 v1.0.4 与动态值同屏出现）。
+        if (latest?.version && versionLabel) {
+          versionLabel.textContent = "v" + latest.version;
+        }
         if (os === "linux") {
           // Linux 主按钮直下 AppImage；deb/rpm/Arch 等格式引导到下载页。
           alt.hidden = false;
           note.textContent = " 已为你匹配 AppImage 通用包";
         } else if (file) {
           note.textContent = " 已为你匹配 " + file.note;
-          if (latest?.version) {
-            note.textContent += "（v" + latest.version + "）";
-          }
         } else {
           note.textContent = " 请在下载页选择安装包";
         }
