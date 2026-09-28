@@ -95,6 +95,27 @@ function buildIco(sizes) {
     size,
     readFileSync(join(ROOT, "png", `${size}x${size}.png`)),
   ]);
+  // RGBA 守卫（2026-09-29 favicon 白底回归）：sips 在个别批次会静默输出 colortype 2
+  // 的无 alpha PNG，打进 ICO 表现为白底方块；此处断言帧为 RGBA 且四角透明，直接炸构建。
+  for (const [size, image] of entries) {
+    if (image.readUInt8(25) !== 6) {
+      throw new Error(
+        `png/${size}x${size} 丢失 alpha（colortype ${image.readUInt8(25)}），拒绝生成 ICO`,
+      );
+    }
+    const png = PNG.sync.read(image);
+    for (const [cx, cy] of [
+      [0, 0],
+      [size - 1, 0],
+      [0, size - 1],
+      [size - 1, size - 1],
+    ]) {
+      const alpha = png.data[(cy * size + cx) * 4 + 3];
+      if (alpha !== 0) {
+        throw new Error(`png/${size}x${size} 角(${cx},${cy}) alpha=${alpha}，角不透明`);
+      }
+    }
+  }
   const header = Buffer.alloc(6);
   header.writeUInt16LE(1, 2);
   header.writeUInt16LE(entries.length, 4);
