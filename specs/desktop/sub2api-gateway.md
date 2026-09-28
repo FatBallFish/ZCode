@@ -49,12 +49,13 @@
 - `syncProviders` 按站点互斥（`syncInFlight`），login 内置自动同步，UI 不重复触发。
 - 差量更新：已有供应商的 api.type 以当前生效值为准（用户手动改过不回退）；同步清单外的用户手动模型保留；孤儿供应商按名称前缀认领或清理。
 - 模型 API 类型推断：anthropic → anthropic-messages；openai 且全量 gpt- 前缀 → openai-responses；其余 openai-chat-completions。虚拟模型（SUB2API_VIRTUAL_MODEL_IDS）不进清单。
+- **退出登录（2026-09-28 语义修订）**：`logout` 清账号态之外，与 `removeSite` 同语义级联清理——删除该站点全部密钥的个人供应商（连模型配置一并删除，`deleteExactForProvider`）、品牌前缀（`"{brand} · "`）兜底清扫孤儿供应商、清空 `providerBindings`/`keyModels`/`activeKeyId`/`providerId` 与该站点前缀的 `modelConfigs` 覆盖；站点记录本身保留（MikikoCC 为内置站点不可删，重登即按当前规则全新同步）。动机：MikikoCC 只能退出不能删除，旧语义下其模型配置永远无法经「退出重登」重新初始化；且换账号登录会复用上一账号的供应商与密钥配置。供应商删除失败时与删除站点一致地抛错重试，不静默留幽灵。
 
 ## 模型推荐配置（智能配置落盘）
 
 - 推荐规则目录（`zcode-builtin`）的 provider-site 规则全部绑定官方端点 baseUrl，中转站网关常规 resolve 匹配不到任何 properties（输入类型/能力/推理等级为空的根因）。
-- 同步投影时按「模型 ID + API 格式」**忽略 baseUrl** 匹配推荐规则（`ModelConfigRules.resolveForRelayModel`）：model-api 规则全部叠加，provider-site 规则取 modelMatch 最具体的一条，结果作为推荐配置快照随模型条目落盘（`useRecommendedConfig=true`，未设置字段仍跟随推荐更新）。
+- 同步投影时的推荐解析（`ModelConfigRules.resolveForRelayModel`，2026-09-28 语义修订）与「手动添加/编辑模型」的 `resolve()` 口径对齐：**provider-site 规则不再参与**（中转网关 baseUrl 永远不匹配官方站点规则，编辑框语义下该层本就不生效；此前强行复用「最具体站点规则」会把官方站的 `.*` 通配能力错误安到中转模型上，表现为输入类型被统一改为图/视频）。叠加顺序：model-api 规则（按 API 格式匹配，全部叠加）→ modelRules（与格式无关，后叠加）——即 **modelRules 命中字段优先，未命中的字段降级沿用 modelApiRules**。provider 的 API 格式（`api.type`）仍由 `inferApiType` 按 platform/模型前缀推断，不来自规则。结果作为推荐配置快照随模型条目落盘（`useRecommendedConfig=true`，未设置字段仍跟随推荐更新）。
 - 用户在 `modelConfigs` 里手动覆盖过的模型不落快照，完全以用户配置为准。
 - 历史已同步、个人配置为空（未落推荐且用户未改过）的模型在下一次同步时通过 `savePersonalModelDraft` 补写快照；revision 冲突时本轮跳过、下次重试。
 - 推荐解析按「apiType::modelId」会话级缓存（null 表示已解析且无推荐），多密钥同模型与重复同步不重复解析。
-- **验收**（`packages/services/test/sub2apiModelRecommendation.test.ts`）：relay baseUrl 常规 resolve 为空而 `resolveForRelayModel` 命中；新模型 addPersonalModel 携带推荐快照；历史空配置模型补写；同实例二次同步零重复解析。
+- **验收**（`packages/services/test/sub2apiModelRecommendation.test.ts`）：modelRules 命中字段优先于 modelApiRules、未命中字段降级；provider-site 规则不参与 relay 解析；新模型 addPersonalModel 携带推荐快照；历史空配置模型补写；同实例二次同步零重复解析。

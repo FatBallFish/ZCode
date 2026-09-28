@@ -423,27 +423,16 @@ export class ModelConfigRules {
   }
 
   /**
-   * 中转站（Sub2API relay）投影供应商的模型推荐解析：relay 网关转发的是与官方端点
-   * 相同的上游模型，但 provider-site 推荐规则全部绑定官方 baseUrl，常规 resolve()
-   * 对站点网关一个都匹配不上（表现为同步模型的输入类型/能力/上下文为空）。
-   * 这里按「模型 ID + API 格式」匹配并忽略 baseUrl：model-api 规则全部叠加，
-   * provider-site 规则只取 modelMatch 最具体的一条，避免多个站点的同名规则互相覆盖。
+   * 中转站（Sub2API relay）投影供应商的模型推荐解析（2026-09-28 语义修订，
+   * spec specs/desktop/sub2api-gateway.md「模型推荐配置」）：与「手动添加/编辑模型」的
+   * resolve() 口径对齐——provider-site 规则不参与（中转网关 baseUrl 永远不匹配官方
+   * 站点规则，编辑框语义下该层本就不生效；此前强行复用「最具体站点规则」会把官方站的
+   * `.*` 通配能力错安到中转模型上，表现为输入类型被统一改为图/视频）。
+   * 叠加顺序：model-api（按 API 格式匹配，全部叠加）→ model（与格式无关，后叠加），
+   * 即 modelRules 命中字段优先，未命中的字段降级沿用 modelApiRules。
    */
   resolveForRelayModel(input: { modelId: string; apiType?: string }): ModelConfig {
     let result = ModelConfig.empty();
-    let bestSiteRule: ProviderSiteMatchConfigRule | undefined;
-    for (const rule of this.#rules) {
-      if (rule.type !== "provider-site") continue;
-      if (!matchesRule(rule.modelMatch, input.modelId, true)) continue;
-      if (
-        rule.apiTypeMatch !== undefined &&
-        (input.apiType == null || !matchesRule(rule.apiTypeMatch, input.apiType))
-      )
-        continue;
-      if (!bestSiteRule || rule.modelMatch.length > bestSiteRule.modelMatch.length) {
-        bestSiteRule = rule;
-      }
-    }
     for (const rule of this.#rules) {
       if (rule.type !== "model-api") continue;
       if (!matchesRule(rule.modelMatch, input.modelId, true)) continue;
@@ -454,8 +443,10 @@ export class ModelConfigRules {
         continue;
       result = result.overlay(rule.config);
     }
-    if (bestSiteRule) {
-      result = result.overlay(bestSiteRule.config);
+    for (const rule of this.#rules) {
+      if (rule.type !== "model") continue;
+      if (!matchesRule(rule.modelMatch, input.modelId, true)) continue;
+      result = result.overlay(rule.config);
     }
     return result;
   }

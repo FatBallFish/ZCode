@@ -18,62 +18,83 @@ function envelope(data: unknown): Response {
   });
 }
 
-test("resolveForRelayModel：忽略 baseUrl 匹配推荐规则并取最具体站点规则", () => {
+test("resolveForRelayModel：modelRules 命中字段优先，未命中降级 modelApiRules，站点规则不参与", () => {
   const rules = new ModelConfigRules([
     {
+      // modelApiRules：请求映射与档位（与 API 格式绑定）。
       type: "model-api",
       modelMatch: ".*",
       apiTypeMatch: "anthropic-messages",
       config: ModelConfig.fromData({
-        optionSpecs: { reasoningLevel: { values: ["low", "high"] } },
+        optionSpecs: {
+          reasoningLevel: {
+            values: ["low", "high"],
+            map: '{ "thinking": { "type": "enabled" } }',
+          },
+        },
+        properties: { contextWindow: 200000 },
       }),
     },
     {
+      // modelRules：模型本体属性（与格式无关）。命中字段必须压过 modelApiRules。
+      type: "model",
+      modelMatch: ".*gpt-5\\.5.*",
+      config: ModelConfig.fromData({
+        optionSpecs: { reasoningLevel: { values: ["low", "medium", "high", "xhigh", "max"] } },
+        properties: { contextWindow: 400000, inputFormat: { supportsImage: false } },
+      }),
+    },
+    {
+      // provider-site：官方端点专属规则（含历史上会被强行复用的 .* 通配能力）。
       type: "provider-site",
       baseUrlMatch: "https://api\\.z\\.ai/api/anthropic/?",
       modelMatch: ".*",
-      config: ModelConfig.fromData({ properties: { contextWindow: 200000 } }),
-    },
-    {
-      type: "provider-site",
-      baseUrlMatch: "(?:https://api\\.anthropic\\.com/v1)",
-      modelMatch: ".*claude-.*",
-      config: ModelConfig.fromData({ properties: { contextWindow: 1000000 } }),
-    },
-    {
-      type: "provider-site",
-      baseUrlMatch: "(?:https://api\\.anthropic\\.com/v1)",
-      modelMatch: ".*claude-opus-4.*",
-      config: ModelConfig.fromData({ properties: { contextWindow: 500000 } }),
+      config: ModelConfig.fromData({
+        properties: { inputFormat: { supportsImage: true, supportsVideo: true } },
+      }),
     },
   ]);
 
-  // 常规 resolve 对 relay 网关 baseUrl 一个站点规则都匹配不上（用户报障根因）。
-  const legacy = rules.resolve({
-    providerId: "personal-relay",
-    modelId: "claude-opus-4",
-    apiType: "anthropic-messages",
-    baseUrl: "https://relay.example/v1",
-  });
-  assert.equal(legacy.toJSON().properties, undefined);
-
-  // relay 解析：忽略 baseUrl，取 modelMatch 最具体的站点规则 + 全部 model-api 规则。
+  // modelRules 命中的模型：values/contextWindow/inputFormat 用 modelRules 值，
+  // modelRules 未给的 map 从 modelApiRules 降级保留；站点规则的 image/video 不再混入。
   const resolved = rules
+    .resolveForRelayModel({ modelId: "gpt-5.5", apiType: "anthropic-messages" })
+    .toJSON();
+  assert.deepEqual(resolved.optionSpecs?.reasoningLevel?.values, [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+  ]);
+  assert.equal(resolved.optionSpecs?.reasoningLevel?.map, '{ "thinking": { "type": "enabled" } }');
+  assert.equal(resolved.properties?.contextWindow, 400000);
+  assert.equal(resolved.properties?.inputFormat?.supportsImage, false);
+  assert.equal(resolved.properties?.inputFormat?.supportsVideo, undefined);
+
+  // modelRules 未命中的模型：全部字段降级走 modelApiRules，同样不吃站点通配。
+  const fallback = rules
     .resolveForRelayModel({ modelId: "claude-opus-4", apiType: "anthropic-messages" })
     .toJSON();
-  assert.equal(resolved.properties?.contextWindow, 500000);
-  assert.deepEqual(resolved.optionSpecs?.reasoningLevel?.values, ["low", "high"]);
+  assert.deepEqual(fallback.optionSpecs?.reasoningLevel?.values, ["low", "high"]);
+  assert.equal(fallback.properties?.contextWindow, 200000);
+  assert.equal(fallback.properties?.inputFormat, undefined);
 
-  // 无 apiType 时带 apiTypeMatch 的 model-api 规则跳过，无 apiTypeMatch 的站点规则仍生效。
-  const noApiType = rules.resolveForRelayModel({ modelId: "glm-5.3" }).toJSON();
-  assert.equal(noApiType.properties?.contextWindow, 200000);
-  assert.equal(noApiType.optionSpecs, undefined);
+  // 无 apiType 时带 apiTypeMatch 的 model-api 规则跳过；modelRules 与格式无关仍生效。
+  const noApiType = rules.resolveForRelayModel({ modelId: "gpt-5.5" }).toJSON();
+  assert.deepEqual(noApiType.optionSpecs?.reasoningLevel?.values, [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+  ]);
+  assert.equal(noApiType.optionSpecs?.reasoningLevel?.map, undefined);
 
-  // 完全不匹配的模型返回空配置（rules 里含 .* 兜底规则，另用受限规则集验证）。
+  // 完全不匹配的模型返回空配置。
   const specificOnly = new ModelConfigRules([
     {
-      type: "provider-site",
-      baseUrlMatch: "(?:https://api\\.anthropic\\.com/v1)",
+      type: "model",
       modelMatch: "gpt-.*",
       config: ModelConfig.fromData({ properties: { contextWindow: 1 } }),
     },

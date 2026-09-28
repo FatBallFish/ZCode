@@ -453,6 +453,50 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
     }
   }
 
+  /**
+   * 级联清理站点全部密钥供应商（含模型配置）+ 品牌前缀兜底清扫（2026-09-24）。
+   * removeSite 与 logout 共用（2026-09-28 logout 语义修订：退出登录同样清空供应商，
+   * MikikoCC 内置站点不可删、只能退出，旧语义下其模型配置永远无法经退出重登重新初始化，
+   * 且换账号登录会复用上一账号的配置）。供应商删除失败重试一次后抛错，不留幽灵。
+   */
+  async function cascadeRemoveSiteProviders(
+    config: StoredConfigV2,
+    site: StoredSite,
+  ): Promise<void> {
+    for (const binding of site.providerBindings ?? []) {
+      let deleted = false;
+      for (let attempt = 0; attempt < 2 && !deleted; attempt += 1) {
+        try {
+          await deps.providerSettingsService.deletePersonalProvider(binding.providerId);
+          deleted = true;
+        } catch {
+          // 首次失败重试一次；两次都失败在下方检查中抛错。
+        }
+      }
+      if (!deleted) {
+        throw new Error(`删除密钥供应商失败（${binding.keyName}），请重试`);
+      }
+    }
+    // 品牌前缀兜底清扫：bindings 只反映当前记录，历史同步竞态/失败可能留下未登记的
+    // 供应商；按 "{brand} · " 前缀全部删除，避免重登后按重名规则生成副本。
+    try {
+      const brand = site.kind === "mikikocc" ? "MikikoCC" : site.siteName || "Sub2api";
+      const prefix = `${brand} · `.toLowerCase();
+      const view = await deps.providerSettingsService.getView();
+      const ghosts = view.providers.filter((provider) => {
+        const name = provider.providerName?.trim().toLowerCase();
+        return name != null && name.startsWith(prefix);
+      });
+      for (const ghost of ghosts) {
+        await deps.providerSettingsService
+          .deletePersonalProvider(ghost.providerId)
+          .catch(() => undefined);
+      }
+    } catch {
+      // 兜底清扫失败不阻断主路径（bindings 主删除已执行）。
+    }
+  }
+
   function modelConfigKey(siteId: string, keyId: string, model: string): string {
     return `${siteId}:${keyId}:${model}`;
   }
@@ -776,42 +820,8 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       if (site.kind === "mikikocc") {
         throw new Error("MikikoCC 为内置站点，不能删除");
       }
-      // 级联删除该站点全部密钥对应的个人供应商。删除失败时重试一次；
-      // 重试仍失败则明确抛错（而不是静默吞掉留下「自定义供应商」幽灵）。
-      for (const binding of site.providerBindings ?? []) {
-        let deleted = false;
-        for (let attempt = 0; attempt < 2 && !deleted; attempt += 1) {
-          try {
-            await deps.providerSettingsService.deletePersonalProvider(binding.providerId);
-            deleted = true;
-          } catch {
-            // 首次失败重试一次；两次都失败在下方检查中抛错。
-          }
-        }
-        if (!deleted) {
-          // provider 删除失败会导致自定义供应商列表出现幽灵——宁可让删除站点操作报错重试。
-          throw new Error(`删除密钥供应商失败（${binding.keyName}），请重试`);
-        }
-      }
-      // 品牌前缀兜底清扫（2026-09-24 修复重登重复供应商）：bindings 只反映删站点那一刻的
-      // 记录，历史上同步竞态/失败可能留下未登记的供应商；重加站点登录会按重名规则生成
-      // "Claude 2" 这类副本。这里把该站点品牌前缀（"{brand} · "）开头的个人供应商全部删除。
-      try {
-        const brand = site.siteName || "Sub2api";
-        const prefix = `${brand} · `.toLowerCase();
-        const view = await deps.providerSettingsService.getView();
-        const ghosts = view.providers.filter((provider) => {
-          const name = provider.providerName?.trim().toLowerCase();
-          return name != null && name.startsWith(prefix);
-        });
-        for (const ghost of ghosts) {
-          await deps.providerSettingsService
-            .deletePersonalProvider(ghost.providerId)
-            .catch(() => undefined);
-        }
-      } catch {
-        // 兜底清扫失败不阻断删除（bindings 主路径已执行）。
-      }
+      // 级联删除（含品牌兜底清扫）与 logout 共用同一实现，见 cascadeRemoveSiteProviders。
+      await cascadeRemoveSiteProviders(config, site);
       const next = { ...config, sites: config.sites.filter((entry) => entry.id !== siteId) };
       await saveConfig(next);
       return toSitesState(next);
@@ -914,8 +924,24 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
     },
     async logout(siteId) {
       const { config, site } = await findSite(siteId);
+      // 2026-09-28 语义修订（spec specs/desktop/sub2api-gateway.md「同步语义」）：
+      // 退出登录不仅清账号态，还级联删除该站点全部密钥供应商与模型配置——
+      // MikikoCC 为内置站点不可删除、只能退出，旧语义下其模型配置永远无法经
+      // 「退出重登」重新初始化（脏配置只能越积越多）；且换账号登录会按品牌前缀
+      // 复用上一账号的供应商与密钥配置。站点记录本身保留，重登即全新同步。
+      await cascadeRemoveSiteProviders(config, site);
       site.account = null;
       site.legacyKeys = [];
+      site.providerBindings = [];
+      site.keyModels = {};
+      site.activeKeyId = undefined;
+      site.providerId = undefined;
+      // 该站点前缀的模型覆盖（${siteId}:keyId:model）随密钥一并清空，避免孤儿积累。
+      for (const key of Object.keys(config.modelConfigs)) {
+        if (key.startsWith(`${siteId}:`)) {
+          delete config.modelConfigs[key];
+        }
+      }
       await saveConfig({ ...config, sites: config.sites });
       return toSiteState(site);
     },
