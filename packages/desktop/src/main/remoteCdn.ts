@@ -22,7 +22,9 @@ function normalizeBaseUrl(value: string): string {
 export function resolveRemoteCdnBaseUrls(options: ResolveRemoteCdnOptions = {}): string[] {
   const override = options.overrideBaseUrl?.trim();
   if (override) return [normalizeBaseUrl(override)];
+  // MIKIKO_ 前缀优先（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5），ZCODE_ 旧名回退。
   const baseUrl =
+    process.env.MIKIKO_CDN_BASE_URL?.trim() ||
     process.env.ZCODE_CDN_BASE_URL?.trim() ||
     (typeof __ZCODE_CDN_BASE_URL__ === "undefined" ? "" : __ZCODE_CDN_BASE_URL__) ||
     DEFAULT_CDN_BASE_URL;

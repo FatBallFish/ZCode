@@ -1,6 +1,7 @@
 export * from "./zcode-builtin-provider-config-source.js";
 export * from "./zcode-builtin-release.js";
 export * from "./zcode-builtin-download.js";
+export * from "./mikiko-builtin-config-client.js";
 export * from "./zcode-builtin-remote-synchronizer.js";
 export * from "./zcode-builtin-cache-paths.js";
 export * from "./endpoint-scoped-zcode-builtin-source.js";

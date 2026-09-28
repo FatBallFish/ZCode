@@ -207,6 +207,11 @@ export {
 export { createFsVolumeProbe } from "./storage/adapters/volumeProbe.js";
 export { runStorageScan } from "./storage/adapters/inProcessScanRunner.js";
 export { createCodingPlanSubscriptionService } from "./coding-plan-subscription/codingPlanSubscriptionService.js";
+export { createMikikoClientConfigService } from "./model-provider/mikikoClientConfigService.js";
+export type { MikikoClientConfigService } from "./model-provider/mikikoClientConfigService.js";
+export { resolveMikikoShareDeviceToken } from "./conversation-share/mikikoShareDeviceToken.js";
+export { invalidateAndReacquireMikikoShareDeviceToken } from "./conversation-share/mikikoShareDeviceToken.js";
+export { createUnsupportedConversationShareService } from "./conversation-share/conversationShare.js";
 export { createClientConfigService } from "./client-config/clientConfigService.js";
 export { createClientScenesService } from "./client-scenes/clientScenesService.js";
 export { createSkillsService } from "./skills/skillsService.js";
@@ -372,7 +377,12 @@ import { bindAccountProviderInvalidation } from "./model-provider/accountProvide
 import { AccountProviderApiClient } from "./model-provider/accountProviderApiClient.js";
 import { AccountProviderApiKeyResolver } from "./model-provider/accountProviderApiKeyResolver.js";
 import { createProviderConfigRuntime } from "./model-provider/providerConfigRuntime.js";
-import { fetchZCodeBuiltinRemoteRelease } from "./model-provider/zcodeBuiltinRemoteConfig.js";
+import { fetchMikikoBuiltinRemoteRelease } from "./model-provider/mikikoBuiltinRemoteConfig.js";
+import { createMikikoClientConfigService } from "./model-provider/mikikoClientConfigService.js";
+import {
+  invalidateAndReacquireMikikoShareDeviceToken,
+  resolveMikikoShareDeviceToken,
+} from "./conversation-share/mikikoShareDeviceToken.js";
 import {
   createProviderRuntimeFromConfigRuntime,
   type ProviderRuntime,
@@ -527,6 +537,7 @@ import {
   ZCODE_VERSION,
   ZCODE_ENV,
   buildRuntimeZCodeApiUrl,
+  resolveMikikoShareApiBase,
 } from "@zcode/shared";
 
 // 这些 conversation-share 实现依赖 Node 文件系统；仅通过 @zcode/services/node 暴露，
@@ -1530,13 +1541,13 @@ export function createLocalServices(options: {
           providerConfigLog.info(undefined, "ZCode Built-in CDN 配置已更新", event);
         else providerConfigLog.debug(undefined, "ZCode Built-in 刷新检查", event);
       },
-      fetchRelease: (endpointOrigin, signal) =>
-        fetchZCodeBuiltinRemoteRelease({
+      // 模型预置规则改走 Mikiko 自建端点（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.2）：
+      // 官方 client/configs 的 builtin_provider_config_json 字段不再消费；endpointOrigin
+      // 参数仅作为同步器缓存目录标签保留，实际下载地址由 MIKIKO_BUILTIN_CONFIG_URL 解析。
+      fetchRelease: (_endpointOrigin, signal) =>
+        fetchMikikoBuiltinRemoteRelease({
           apiClient,
-          endpointOrigin,
           signal,
-          appVersion: ZCODE_VERSION,
-          platform: clientConfigPlatform,
         }),
     },
     onZCodeBuiltinRefreshError: (error) => {
@@ -2068,6 +2079,8 @@ export function createLocalServices(options: {
   const codingPlanSubscriptionService = createCodingPlanSubscriptionService({
     apiClient,
     credentialService,
+    // 动态工作流灰度等自建功能配置（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.1）。
+    mikikoClientConfigService: createMikikoClientConfigService({ apiClient }),
     resolveOffPeakModelSelectionView: async () => {
       await providerRuntime.start();
       return buildOffPeakModelSelectionView(providerRuntime.registryService.getView());
@@ -2406,30 +2419,34 @@ export function createLocalServices(options: {
     authorizeLocalMediaPreviewPath: options?.authorizeLocalMediaPreviewPath,
     createLocalMediaPreviewUrl: buildLocalMediaPreviewUrl,
   });
+  // 分享 API 改走 Mikiko 自建服务（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.3，
+  // 彻底移除官方分享链路）：base 为 MIKIKO_SHARE_API_BASE（默认 agent.mikiko.ai/api/v1）；
+  // 发布鉴权从 Zai OAuth token 换为设备级 token（sha256(deviceMid) 注册，凭据持久化）。
+  // MIKIKO_SHARE_API_BASE=disabled/off 显式禁用时**不回退官方**——分享功能整体降级为
+  // unavailable，守住「官方分享域名零请求」的验收红线（review B3）。
+  const mikikoShareApiBase = resolveMikikoShareApiBase();
   const conversationShareClient = new ConversationShareHttpClient({
-    // 分享运行时始终走真实 API；测试/Mock 场景应在 service 单测或 Web fixture 中显式注入，
-    // 不能让开发环境默认生成仅存在于进程内存的 mock-share 链接。
+    // 测试/Mock 场景用 MIKIKO_SHARE_API_BASE 指向本地 fixture。
     apiClient,
-    baseUrl: buildRuntimeZCodeApiUrl(process.env, "/api/v1"),
-    tokenProvider: async (): Promise<string | null> => {
-      const activeProvider = await oauthCredentialRepo.getActiveProvider();
-      if (!activeProvider) {
-        return null;
-      }
-      const tokenSet = await oauthCredentialRepo.loadTokenSet(activeProvider);
-      return tokenSet?.zcodeJwtToken ?? tokenSet?.accessToken ?? null;
-    },
+    baseUrl: mikikoShareApiBase ?? "https://share.invalid.mikiko.ai/api/v1",
+    tokenProvider: () => resolveMikikoShareDeviceToken({ apiClient, credentialService }),
+    // 3201 自愈：设备 token 被服务端重注册顶掉时清缓存重注册并重试一次（构造选项注释）。
+    reacquireToken: () =>
+      invalidateAndReacquireMikikoShareDeviceToken({ apiClient, credentialService }),
   });
-  const conversationShareService: IConversationShareServiceType = isDesktopAttachedRemote
-    ? createUnsupportedConversationShareService({
-        message: "Conversation publishing is not available for remote workspaces",
-      })
-    : new ConversationShareService({
-        zcodeAgentService,
-        zcodeSessionService,
-        client: conversationShareClient,
-        artifactSource: createLocalConversationShareArtifactSource(),
-      });
+  const conversationShareService: IConversationShareServiceType =
+    isDesktopAttachedRemote || mikikoShareApiBase === null
+      ? createUnsupportedConversationShareService({
+          message: isDesktopAttachedRemote
+            ? "Conversation publishing is not available for remote workspaces"
+            : "Conversation sharing is disabled (MIKIKO_SHARE_API_BASE=disabled)",
+        })
+      : new ConversationShareService({
+          zcodeAgentService,
+          zcodeSessionService,
+          client: conversationShareClient,
+          artifactSource: createLocalConversationShareArtifactSource(),
+        });
   // 注册链上的懒工厂（如 OffPeak）会各自创建 tasks-index sqlite repo；先收集到本数组，
   // services 集合建好后在 return 前统一登记进 sharedSqliteRepos 侧表
   const sqliteReposToClose: Array<{ close(): void }> = [];

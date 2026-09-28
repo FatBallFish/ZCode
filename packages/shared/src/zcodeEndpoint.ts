@@ -13,6 +13,67 @@ export const DEFAULT_ZAI_OAUTH_ORIGIN = "https://chat.z.ai";
 export const DEFAULT_ZAI_BUSINESS_BASE_URL = "https://api.z.ai";
 export const DEFAULT_ZAI_OAUTH_CLIENT_ID = "client_P8X5CMWmlaRO9gyO-KSqtg";
 
+/**
+ * Mikiko 自建云端（spec specs/mikiko-cloud/agent-endpoint-plan.md）：模型预置规则与功能配置。
+ * 与 ZCode 官方端点分离——官方 client/configs 仍承载 Zai/CodingPlan 数据，此处只下发自管配置。
+ */
+export const DEFAULT_MIKIKO_CLOUD_ORIGIN = "https://agent.mikiko.ai";
+export const DEFAULT_MIKIKO_BUILTIN_CONFIG_URL = `${DEFAULT_MIKIKO_CLOUD_ORIGIN}/api/v1/builtin-provider-config`;
+export const DEFAULT_MIKIKO_CLIENT_CONFIG_URL = `${DEFAULT_MIKIKO_CLOUD_ORIGIN}/api/v1/client/configs`;
+export const DEFAULT_MIKIKO_SHARE_API_BASE = `${DEFAULT_MIKIKO_CLOUD_ORIGIN}/api/v1`;
+export const DEFAULT_MIKIKO_SHARE_WEB_URL = `${DEFAULT_MIKIKO_CLOUD_ORIGIN}/cn/share`;
+
+export interface RuntimeMikikoCloudEnv {
+  [key: string]: string | undefined;
+  MIKIKO_BUILTIN_CONFIG_URL?: string;
+  MIKIKO_CLIENT_CONFIG_URL?: string;
+  MIKIKO_SHARE_API_BASE?: string;
+  MIKIKO_SHARE_WEB_URL?: string;
+}
+
+/**
+ * 解析自建模型预置规则 URL。显式 "disabled"/"off" 返回 null（离线/测试环境跳过远端刷新），
+ * 未设置或空串回落默认地址——与构建注入 pickProductEndpointEnv 过滤空值的语义保持一致。
+ */
+export function resolveMikikoBuiltinConfigUrl(
+  env: RuntimeMikikoCloudEnv = readProductEndpointEnv(),
+): string | null {
+  return resolveMikikoCloudUrl(env.MIKIKO_BUILTIN_CONFIG_URL, DEFAULT_MIKIKO_BUILTIN_CONFIG_URL);
+}
+
+/** 解析自建功能配置（dynamicWorkflow 灰度、分享限流）URL；禁用语义同上。 */
+export function resolveMikikoClientConfigUrl(
+  env: RuntimeMikikoCloudEnv = readProductEndpointEnv(),
+): string | null {
+  return resolveMikikoCloudUrl(env.MIKIKO_CLIENT_CONFIG_URL, DEFAULT_MIKIKO_CLIENT_CONFIG_URL);
+}
+
+/** 自建对话分享 API base（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.3）。 */
+export function resolveMikikoShareApiBase(
+  env: RuntimeMikikoCloudEnv = readProductEndpointEnv(),
+): string | null {
+  return resolveMikikoCloudUrl(env.MIKIKO_SHARE_API_BASE, DEFAULT_MIKIKO_SHARE_API_BASE);
+}
+
+/** 自建分享落地页前缀（无尾斜杠；拼接 code 时由调用方补 /）。 */
+export function resolveMikikoShareWebUrl(
+  env: RuntimeMikikoCloudEnv = readProductEndpointEnv(),
+): string | null {
+  return resolveMikikoCloudUrl(env.MIKIKO_SHARE_WEB_URL, DEFAULT_MIKIKO_SHARE_WEB_URL);
+}
+
+function resolveMikikoCloudUrl(raw: string | undefined, defaultUrl: string): string | null {
+  const value = raw?.trim();
+  if (value === undefined || value === "") {
+    return defaultUrl;
+  }
+  const lowered = value.toLowerCase();
+  if (lowered === "disabled" || lowered === "off") {
+    return null;
+  }
+  return value;
+}
+
 // 构建仅注入公开链接；Node 调用方仍可显式传 env，避免读取另一进程的配置。
 declare const __ZCODE_ENDPOINT_ENV__: Record<string, string | undefined> | undefined;
 export function pickProductEndpointEnv(
@@ -21,11 +82,17 @@ export function pickProductEndpointEnv(
   const keys = [
     "ZCODE_BASE_URL",
     "ZCODE_ENDPOINT_ORIGIN",
+    "MIKIKO_BASE_URL",
+    "MIKIKO_ENDPOINT_ORIGIN",
     "BIGMODEL_API_BASE_URL",
     "ZAI_OAUTH_ORIGIN",
     "ZAI_BUSINESS_BASE_URL",
     "ZAI_OAUTH_CLIENT_ID",
     "ZAI_OAUTH_APP_ID",
+    "MIKIKO_BUILTIN_CONFIG_URL",
+    "MIKIKO_CLIENT_CONFIG_URL",
+    "MIKIKO_SHARE_API_BASE",
+    "MIKIKO_SHARE_WEB_URL",
   ];
   return Object.fromEntries(
     keys.flatMap((key) => (env[key]?.trim() ? [[key, env[key]!.trim()]] : [])),
@@ -53,6 +120,9 @@ export interface RuntimeZCodeEndpointEnv {
   ZCODE_ENV?: string;
   ZCODE_BASE_URL?: string;
   ZCODE_ENDPOINT_ORIGIN?: string;
+  /** MIKIKO_ 前缀优先于 ZCODE_ 旧名（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5）。 */
+  MIKIKO_BASE_URL?: string;
+  MIKIKO_ENDPOINT_ORIGIN?: string;
 }
 
 export interface RuntimeBigModelApiEnv {
@@ -151,7 +221,11 @@ export function resolveRuntimeZCodeEndpointOrigin(
   options?: { overrideOrigin?: string | null },
 ): string {
   return resolveZCodeEndpointOrigin({
+    // MIKIKO_ 前缀优先（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5 渐进迁移），
+    // ZCODE_ 旧名回退兼容一个版本期。
     envBaseOrigin:
+      readRuntimeEnvValue(env, "MIKIKO_BASE_URL") ??
+      readRuntimeEnvValue(env, "MIKIKO_ENDPOINT_ORIGIN") ??
       readRuntimeEnvValue(env, "ZCODE_BASE_URL") ??
       readRuntimeEnvValue(env, "ZCODE_ENDPOINT_ORIGIN"),
     overrideOrigin: options?.overrideOrigin,

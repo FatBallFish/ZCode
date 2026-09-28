@@ -49,7 +49,6 @@ import type {
   EnterpriseCodingPlanProjectContext,
   StartPlanPreviewConfig,
   ZCodeModelContextBudgetStrategy,
-  DynamicWorkflowClientConfig,
 } from "@zcode/shared";
 import type { ModelSelectionView } from "@zcode/provider";
 import type { OffPeakClientConfig } from "./codingPlanSubscription.js";
@@ -64,11 +63,6 @@ import {
   ZAI_PROVIDER_ID,
   ZCODE_VERSION,
   DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
-  createDynamicWorkflowClientConfig,
-  normalizeDynamicWorkflowMode,
-  resolveDynamicWorkflowClientConfig,
-  DEFAULT_DYNAMIC_WORKFLOW_MODE,
-  ZCODE_DYNAMIC_WORKFLOW_MODE_ENV,
 } from "@zcode/shared";
 import type { ICredentialService } from "../credential/credential.js";
 import { readApiJson } from "../providers/api/apiJson.js";
@@ -106,16 +100,10 @@ interface ZCodeClientConfigEnvelope {
       codingPlanStaticTeamProducts?: CodingPlanStaticTeamProductsConfig;
       startPlanPreview?: StartPlanPreviewConfig | null;
       // 闲时任务灰度（服务端）：内层字段服务端为 snake_case，与外层 camelCase 混排。
+      // dynamicWorkflow 已迁 Mikiko 自建 client/configs（spec specs/mikiko-cloud/
+      // agent-endpoint-plan.md §2.2/§4.1），官方源不再消费该字段。
       offPeak?: {
         enable_offpeak_task?: boolean;
-      } | null;
-      modelContextBudget?: {
-        strategy?: unknown;
-      } | null;
-      // 动态工作流灰度：mode 的取值域由
-      // shared 的 normalizeDynamicWorkflowMode 裁决，这里保持 unknown，不在类型层假设服务端合法。
-      dynamicWorkflow?: {
-        mode?: unknown;
       } | null;
     } | null;
   } | null;
@@ -235,38 +223,10 @@ export class BigModelCodingPlanSubscriptionProvider {
   }
 
   /**
-   * 动态工作流灰度快照：与闲时任务同走
-   * client/configs，零新增请求。三条边界：
-   *   1. 本地覆盖（ZCODE_DYNAMIC_WORKFLOW_MODE）在任何网络动作之前裁决，命中即返回——
-   *      preview 构建和开发者手测因此不受 1h 快照与首次 Host 竞态影响；
-   *   2. forceRefresh 与 Off-Peak 同义，清掉快照后重拉（灰度翻转最长 1h 不可见）；
-   *   3. 请求失败 fail-closed：返回 default（disabled）并 warn，绝不把异常抛给调用方——
-   *      调用方在 session create/client 就绪路径上，灰度读失败不能阻断普通聊天。
+   * 动态工作流灰度已迁至 MikikoClientConfigService（spec specs/mikiko-cloud/
+   * agent-endpoint-plan.md §4.1，agent.mikiko.ai 自建 client/configs）。
+   * 官方 client/configs 收窄为仅 Zai/CodingPlan 字段，本 provider 不再读取 dynamicWorkflow。
    */
-  async getDynamicWorkflowClientConfig(options?: {
-    forceRefresh?: boolean;
-  }): Promise<DynamicWorkflowClientConfig> {
-    // 覆盖合法即短路：判据（normalize）与快照构造（resolve）都留在 shared，这里不复述取值域。
-    if (normalizeDynamicWorkflowMode(process.env[ZCODE_DYNAMIC_WORKFLOW_MODE_ENV])) {
-      return resolveDynamicWorkflowClientConfig({ remote: undefined, env: process.env });
-    }
-    if (options?.forceRefresh) {
-      this.clientConfigSnapshot = null;
-      this.clientConfigSnapshotExpiresAt = 0;
-    }
-    try {
-      const payload = await this.getClientConfigs();
-      return resolveDynamicWorkflowClientConfig({
-        remote: payload.data?.configs?.dynamicWorkflow,
-        env: process.env,
-      });
-    } catch (error) {
-      log.warn(undefined, "动态工作流灰度配置读取失败，按关闭处理", {
-        errorMessage: error instanceof Error ? error.message : String(error),
-      });
-      return createDynamicWorkflowClientConfig(DEFAULT_DYNAMIC_WORKFLOW_MODE, "default");
-    }
-  }
 
   async getModelContextBudgetStrategy(): Promise<ZCodeModelContextBudgetStrategy> {
     // 3.12.2：预算统一为 preflight-v1；保留兼容方法，但不能再为每次建会话等待远端配置。

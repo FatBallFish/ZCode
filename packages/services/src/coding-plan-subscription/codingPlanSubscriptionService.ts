@@ -4,11 +4,14 @@ import type { ICodingPlanSubscriptionService } from "./codingPlanSubscription.js
 import { BigModelCodingPlanSubscriptionProvider } from "./bigmodelCodingPlanSubscriptionProvider.js";
 import type { ModelSelectionView } from "@zcode/provider";
 import { ZaiCodingPlanSubscriptionProvider } from "./zaiCodingPlanSubscriptionProvider.js";
+import type { MikikoClientConfigService } from "../model-provider/mikikoClientConfigService.js";
 
 interface CodingPlanSubscriptionServiceDependencies {
   apiClient: ApiClient;
   credentialService: Pick<ICredentialService, "load">;
   resolveOffPeakModelSelectionView?: () => Promise<ModelSelectionView>;
+  /** 动态工作流灰度数据源（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.1）。 */
+  mikikoClientConfigService: MikikoClientConfigService;
 }
 
 /**
@@ -42,10 +45,11 @@ export function createCodingPlanSubscriptionService(
     getStaticTeamProducts: () => bigmodelProvider.getStaticTeamProducts(),
     getStartPlanPreview: () => bigmodelProvider.getStartPlanPreview(),
     getOffPeakClientConfig: (options) => bigmodelProvider.getOffPeakClientConfig(options),
-    // 动态工作流灰度：与 client/configs 同源，
-    // 因此和其它平台级配置一样固定走 bigmodel provider，与 family 无关。
+    // 动态工作流灰度改走 Mikiko 自建 client/configs（spec specs/mikiko-cloud/agent-endpoint-plan.md
+    // §4.1）：官方 client/configs 收窄为仅 Zai/CodingPlan 数据；「工作流」标签入口保留，
+    // 自建源 fail-open（默认 alwaysOn），本地 env 覆盖仍最高优先。
     getDynamicWorkflowClientConfig: (options) =>
-      bigmodelProvider.getDynamicWorkflowClientConfig(options),
+      dependencies.mikikoClientConfigService.getDynamicWorkflowClientConfig(options),
     getModelContextBudgetStrategy: () => bigmodelProvider.getModelContextBudgetStrategy(),
     getForceUpdateConfig: () => bigmodelProvider.getForceUpdateConfig(),
     productInfo: (request) => bigmodelProvider.productInfo(request),

@@ -60,10 +60,14 @@ import {
   createMediaPreviewService,
   createCodingPlanSubscriptionService,
   createClientScenesService,
+  createMikikoClientConfigService,
+  resolveMikikoShareDeviceToken,
+  invalidateAndReacquireMikikoShareDeviceToken,
   createServiceLogger,
   createSubagentsService,
   createMemoryService,
   createRemoteConversationShareArtifactSource,
+  createUnsupportedConversationShareService,
   OAuthCredentialRepo,
 } from "@zcode/services/node";
 import {
@@ -71,6 +75,7 @@ import {
   buildRuntimeZCodeApiUrl,
   DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
   type ProviderFamilyDomain,
+  resolveMikikoShareApiBase,
   type ZCodeSessionRuntimePreferencesResult,
   ZAI_PROVIDER_ID,
 } from "@zcode/shared";
@@ -81,7 +86,6 @@ import {
 } from "./remoteProviderProvisioningService.js";
 
 const runtimePreferencesLogger = createServiceLogger("remote-runtime-preferences");
-const ZCODE_JWT_TOKEN_KEY = "zcodejwttoken";
 
 export function createRemoteWorkspaceServiceCollection(params: {
   clientConfigService: IClientConfigService;
@@ -175,24 +179,43 @@ export function createRemoteWorkspaceServiceCollection(params: {
   const localCodingPlanSubscriptionService = createCodingPlanSubscriptionService({
     apiClient: localApiClient,
     credentialService: localCredentialService,
+    mikikoClientConfigService: createMikikoClientConfigService({ apiClient: localApiClient }),
   });
   handleOAuthProviderLogout = createOAuthProviderLogoutHandler({
     accountProviderCredentialStore: localAccountProviderCredentialStore,
   });
+  // 分享 API 改走 Mikiko 自建服务（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.3）：
+  // 远端 workspace 的分享也必须使用真实自建 API；本地 Mock 仅用于单测。
+  // MIKIKO_SHARE_API_BASE=disabled/off 显式禁用时**不回退官方**（review B3），
+  // 分享服务降级为 unsupported，守住官方分享域名零请求。
+  const mikikoShareApiBase = resolveMikikoShareApiBase();
   const conversationShareClient = new ConversationShareHttpClient({
-    // 远端 workspace 的分享也必须使用真实 API；本地 Mock 仅用于单测，不生成无法跨进程访问的链接。
     apiClient: localApiClient,
-    baseUrl: buildRuntimeZCodeApiUrl(process.env, "/api/v1"),
-    tokenProvider: async () =>
-      (await localCredentialService.load(ZCODE_JWT_TOKEN_KEY))?.trim() || null,
+    baseUrl: mikikoShareApiBase ?? "https://share.invalid.mikiko.ai/api/v1",
+    tokenProvider: () =>
+      resolveMikikoShareDeviceToken({
+        apiClient: localApiClient,
+        credentialService: localCredentialService,
+      }),
+    // 3201 自愈：设备 token 被服务端重注册顶掉时清缓存重注册并重试一次。
+    reacquireToken: () =>
+      invalidateAndReacquireMikikoShareDeviceToken({
+        apiClient: localApiClient,
+        credentialService: localCredentialService,
+      }),
   });
-  const conversationShareService = new ConversationShareService({
-    zcodeAgentService: params.connectionServices.zcodeAgentService,
-    client: conversationShareClient,
-    artifactSource: createRemoteConversationShareArtifactSource(
-      params.connectionServices.fileService,
-    ),
-  });
+  const conversationShareService =
+    mikikoShareApiBase === null
+      ? createUnsupportedConversationShareService({
+          message: "Conversation sharing is disabled (MIKIKO_SHARE_API_BASE=disabled)",
+        })
+      : new ConversationShareService({
+          zcodeAgentService: params.connectionServices.zcodeAgentService,
+          client: conversationShareClient,
+          artifactSource: createRemoteConversationShareArtifactSource(
+            params.connectionServices.fileService,
+          ),
+        });
   const reportingRemoteZCodeTaskService = params.createReportingRemoteZCodeTaskService(
     params.connectionServices.zcodeTaskService,
   );

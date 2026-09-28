@@ -53,9 +53,9 @@ export const ZCODE_BUILD_COMMIT_ID_ENV = "ZCODE_BUILD_COMMIT_ID" as const;
 export const RUNTIME_ZCODE_DEBUG =
   typeof process !== "undefined" ? process.env.ZCODE_DEBUG : undefined;
 
-// 恢复原因：写死 false 会让运行时已配置的数仓/ARMS 永远空转。
-// 功能保持可用；实际出网由各出口的运行时端点检查决定，未配置不上报。
-export const ZCODE_TELEMETRY_ENABLED: boolean = true;
+// 遥测暂时关闭（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）：硬关总开关，
+// 含 onboarding 遥测在内的全部上报不再装配与出网。恢复时改回 true 即可（端点检查逻辑保留）。
+export const ZCODE_TELEMETRY_ENABLED: boolean = false;
 
 /** 数仓事件上报端点：由运行时环境变量提供，未配置即停用，构建产物不内嵌。 */
 export const ZCODE_TELEMETRY_REPORT_ENDPOINT =

@@ -698,7 +698,11 @@ export function resolveUpdateFeedSourceFromStartupConfig(
 ): RuntimeUpdateFeedSource | undefined {
   const argv = options.argv ?? process.argv;
   const env = options.env ?? process.env;
-  const feedUrl = readSwitchValue(argv, UPDATE_FEED_URL_SWITCH) ?? env[UPDATE_FEED_URL_ENV]?.trim();
+  const feedUrl =
+    readSwitchValue(argv, UPDATE_FEED_URL_SWITCH) ??
+    // MIKIKO_ 前缀优先（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5），ZCODE_ 旧名回退。
+    env["MIKIKO_UPDATE_FEED_URL"]?.trim() ??
+    env[UPDATE_FEED_URL_ENV]?.trim();
   if (!feedUrl) {
     return undefined;
   }
