@@ -19,10 +19,29 @@ const SERVICE_VERSION = "1.0.0";
 
 const PLATFORM_TO_MANIFEST: Record<string, string> = {
   "darwin-aarch64": "latest-mac.yml",
+  // 桌面端 mapElectronReleaseArch 输出 arm64（非 aarch64）——此前旧表不认识该取值，
+  // arm Mac 的更新检查一直 400 unsupported_platform（2026-09-29 per-arch 改造时发现）。
+  "darwin-arm64": "latest-mac.yml",
   "darwin-x86_64": "latest-mac.yml",
   "windows-x86_64": "latest.yml",
+  "windows-arm64": "latest.yml",
   "linux-x86_64": "latest-linux.yml",
   // 兼容 electron-updater 旧式的 platform 取值（含 .exe 后缀等）交由调用方规范化。
+};
+
+/**
+ * per-arch manifest 优先键（2026-09-29 应用内更新适配 arm64）：
+ * 发布流水线按构建架构归档各一份 yml（latest-mac-arm64/latest-mac-x64/latest-arm64），
+ * 请求按真实架构优先取专属清单；缺失（存量版本只上传过合并前的单份 x64 清单）时
+ * 回退到历史共用键，保证老版本用户的更新路径不因本次改造中断。
+ */
+const PLATFORM_ARCH_MANIFEST_KEYS: Record<string, string[]> = {
+  "darwin-aarch64": ["latest-mac-arm64.yml", "latest-mac.yml"],
+  "darwin-arm64": ["latest-mac-arm64.yml", "latest-mac.yml"],
+  "darwin-x86_64": ["latest-mac-x64.yml", "latest-mac.yml"],
+  "windows-arm64": ["latest-arm64.yml", "latest.yml"],
+  "windows-x86_64": ["latest.yml"],
+  "linux-x86_64": ["latest-linux.yml"],
 };
 
 const DEFAULT_CLIENT_CONFIGS = {
@@ -57,8 +76,12 @@ async function handleManifest(env: Env, url: URL): Promise<Response> {
       400,
     );
   }
-  const key = `channels/${channel}/${manifestFile}`;
-  const object = await env.RELEASES.get(key);
+  const manifestKeys = PLATFORM_ARCH_MANIFEST_KEYS[platform] ?? [manifestFile];
+  let object: R2ObjectBody | null = null;
+  for (const manifestKey of manifestKeys) {
+    object = await env.RELEASES.get(`channels/${channel}/${manifestKey}`);
+    if (object != null) break;
+  }
   if (object == null) {
     // 无可用版本（如首个版本发布前）：对 electron-updater 表现为“暂无更新”。
     return jsonResponse({ error: "no_release", channel, platform }, 404);

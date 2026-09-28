@@ -228,9 +228,12 @@ jobs:
       - name: Download installers
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: packages/desktop/dist
           pattern: installers-*
-          merge-multiple: true
+          # 不合并（2026-09-29 per-arch manifest）：各架构的 latest*.yml 同名，
+          # merge 会互相覆盖只剩一份；按 installers-{target}-{arch}/ 子目录保留，
+          # 由 publish 脚本归档为 latest-mac-{arm64,x64}.yml / latest-arm64.yml 等。
+          merge-multiple: false
 
       - name: Export release notes
         # 更新日志与 GitHub Release 正文同源（release job 先行生成）；注入 latest*.yml 的
@@ -251,8 +254,6 @@ jobs:
             echo "::notice::secrets.UPDATE_PUBLISH_TOKEN 未配置，跳过升级 feed 发布（版本仍可在 GitHub Release 下载）"
             exit 78
           fi
-          mkdir -p packages/desktop/dist
-          cp artifacts/* packages/desktop/dist/ 2>/dev/null || true
           node scripts/publish-update-feed.mjs \
             --dist packages/desktop/dist --version "${GITHUB_REF_NAME#v}" --channel stable \
             --release-notes release-notes.md

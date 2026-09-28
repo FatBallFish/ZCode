@@ -132,13 +132,42 @@ async function fetchWithRetry(url, init, label, attempts = 3) {
   throw lastError;
 }
 
+async function statFileOrNull(filePath) {
+  try {
+    return await stat(filePath);
+  } catch {
+    return null;
+  }
+}
+
+async function rewriteManifest(filePath, version, origin, releaseNotesYaml) {
+  const raw = await readFile(filePath, "utf8");
+  return (
+    raw.replace(/^( *- )url: (?!https?:)(\S+)$/gm, `$1url: ${origin}/files/${version}/$2`) +
+    releaseNotesYaml
+  );
+}
+
 async function main() {
-  const files = await readdir(distDir);
+  const entries = await readdir(distDir, { withFileTypes: true });
+  const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
   // 1. 安装包 + blockmap（同名文件按平台清单引用）。
   const assetPattern = /\.(dmg|zip|exe|AppImage|deb|rpm|pkg\.tar\.zst|blockmap)$/;
-  const assets = files.filter((name) => assetPattern.test(name));
-  for (const name of assets) {
-    const filePath = join(distDir, name);
+  // CI 布局下安装包分散在 installers-{target}-{arch}/ 子目录（文件名含架构不冲突）。
+  const assets = [];
+  for (const name of files.filter((name) => assetPattern.test(name))) {
+    assets.push({ name, base: distDir });
+  }
+  for (const dir of archDirs) {
+    const dirFiles = (await readdir(join(distDir, dir.name))).filter((name) =>
+      assetPattern.test(name),
+    );
+    for (const name of dirFiles) {
+      assets.push({ name, base: join(distDir, dir.name) });
+    }
+  }
+  for (const { name, base } of assets) {
+    const filePath = join(base, name);
     const info = await stat(filePath);
     const contentType = name.endsWith(".exe")
       ? "application/x-msdownload"
@@ -157,22 +186,70 @@ async function main() {
     ? (await readFile(releaseNotesPath, "utf8")).replace(/\r\n/g, "\n").trim()
     : "";
   const releaseNotesYaml = buildReleaseNotesYaml(releaseNotesMarkdown, version);
-  const manifests = files.filter((name) => /^latest(-mac|-linux)?\.yml$/.test(name));
-  for (const name of manifests) {
-    const raw = await readFile(join(distDir, name), "utf8");
-    const rewritten =
-      raw.replace(
-        /^( *- )url: (?!https?:)(\S+)$/gm,
-        `$1url: ${downloadOrigin}/files/${version}/$2`,
-      ) + releaseNotesYaml;
-    const key = `channels/${channel}/${name}`;
-    console.log(`发布清单 ${name} → ${key}${releaseNotesYaml ? "（含更新日志）" : ""}`);
-    await publishBytes(
-      `/admin/channel/${channel}/${name}`,
-      new TextEncoder().encode(rewritten),
-      "application/x-yaml",
-      key,
-    );
+
+  /**
+   * per-arch 清单归档（2026-09-29 应用内更新适配 arm64）：
+   * CI 自 v1.0.7 起 download-artifact 不再 merge，dist 下按 `installers-{target}-{arch}/`
+   * 分目录存放各架构产物；同名 latest*.yml 不再互相覆盖。归档规则：
+   *   mac-arm64 → latest-mac-arm64.yml；mac-x64 → latest-mac-x64.yml + 兼容键 latest-mac.yml
+   *   win-x64 → latest.yml（历史键）；win-arm64 → latest-arm64.yml；linux-x64 → latest-linux.yml
+   * 兼容键（x64 双写）保证只升级过 update-service、还没发新版时的回退路径完整。
+   * 本地扁平 dist（无子目录）时按旧逻辑发布原文件名。
+   */
+  const archDirs = entries.filter(
+    (entry) => entry.isDirectory() && /^installers-/.test(entry.name),
+  );
+  if (archDirs.length > 0) {
+    const keyMap = [
+      { dir: "installers-mac-arm64", file: "latest-mac.yml", keys: ["latest-mac-arm64.yml"] },
+      {
+        dir: "installers-mac-x64",
+        file: "latest-mac.yml",
+        keys: ["latest-mac-x64.yml", "latest-mac.yml"],
+      },
+      { dir: "installers-win-x64", file: "latest.yml", keys: ["latest.yml"] },
+      { dir: "installers-win-arm64", file: "latest.yml", keys: ["latest-arm64.yml"] },
+      {
+        dir: "installers-linux-x64",
+        file: "latest-linux.yml",
+        keys: ["latest-linux.yml"],
+      },
+    ];
+    for (const { dir, file, keys } of keyMap) {
+      const filePath = join(distDir, dir, file);
+      if (!(await statFileOrNull(filePath))) continue;
+      const rewritten = await rewriteManifest(filePath, version, downloadOrigin, releaseNotesYaml);
+      for (const key of keys) {
+        const channelKey = `channels/${channel}/${key}`;
+        console.log(
+          `发布清单 ${dir}/${file} → ${channelKey}${releaseNotesYaml ? "（含更新日志）" : ""}`,
+        );
+        await publishBytes(
+          `/admin/channel/${channel}/${key}`,
+          new TextEncoder().encode(rewritten),
+          "application/x-yaml",
+          channelKey,
+        );
+      }
+    }
+  } else {
+    const manifests = files.filter((name) => /^latest(-mac|-linux)?\.yml$/.test(name));
+    for (const name of manifests) {
+      const raw = await readFile(join(distDir, name), "utf8");
+      const rewritten =
+        raw.replace(
+          /^( *- )url: (?!https?:)(\S+)$/gm,
+          `$1url: ${downloadOrigin}/files/${version}/$2`,
+        ) + releaseNotesYaml;
+      const key = `channels/${channel}/${name}`;
+      console.log(`发布清单 ${name} → ${key}${releaseNotesYaml ? "（含更新日志）" : ""}`);
+      await publishBytes(
+        `/admin/channel/${channel}/${name}`,
+        new TextEncoder().encode(rewritten),
+        "application/x-yaml",
+        key,
+      );
+    }
   }
   // 3. 官网更新日志（2026-09-28 全自动发版）：同一份 release notes 推到
   //    agent.mikiko.ai（/api/v1/admin/release-notes，X-Publish-Token 鉴权）。
