@@ -8,7 +8,7 @@ import {
   resolveZCodeBuiltinCachePaths,
   resolveZCodeBuiltinClientPlatform,
   ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE_ENV,
-  ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
+  MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
   ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV,
   type ZCodeBuiltinRefreshEvent,
 } from "@zcode/provider-node";
@@ -55,14 +55,14 @@ export async function prepareCliProviderRuntimeEnv(
 ): Promise<Record<string, string>> {
   if (!requiresProviderRuntime(options.argv)) return {};
 
-  const explicitZCodeBuiltin = options.env[ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]?.trim();
+  const explicitZCodeBuiltin = options.env[MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]?.trim();
   const explicitPersonal = options.env[ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]?.trim();
-  const rawDataBaseDir = options.dataBaseDir ?? options.env.ZCODE_DATA_BASE_DIR?.trim() ?? homedir();
+  const rawDataBaseDir = options.dataBaseDir ?? options.env.MIKIKO_DATA_BASE_DIR?.trim() ?? homedir();
   // 宿主可能传入已含 .mikiko 的完整数据根；再拼后缀会产生 ~/.mikiko/.mikiko 双嵌套。
   const dataBaseDir = rawDataBaseDir.replace(/\/\.mikiko$/, "");
   if (explicitZCodeBuiltin && explicitPersonal) {
     return {
-      [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: explicitZCodeBuiltin,
+      [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: explicitZCodeBuiltin,
       [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: explicitPersonal,
     };
   }
@@ -98,7 +98,7 @@ export async function prepareCliProviderRuntimeEnv(
   }
 
   return {
-    [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: cachePaths.activeFilePath,
+    [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: cachePaths.activeFilePath,
     [ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
     [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: personalFilePath,
   };

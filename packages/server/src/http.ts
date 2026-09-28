@@ -157,7 +157,7 @@ function resolveServerWorkspaces(options: HttpServerOptions): ServerRemoteWorksp
   if (options.workspaces) {
     return options.workspaces;
   }
-  const workspacePath = readTrimmedEnv("ZCODE_SERVER_WORKSPACE") || process.cwd();
+  const workspacePath = readTrimmedEnv("MIKIKO_SERVER_WORKSPACE") || process.cwd();
   return [
     {
       path: workspacePath,

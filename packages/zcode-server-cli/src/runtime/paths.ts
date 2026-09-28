@@ -21,7 +21,7 @@ export interface ServerLayout {
 }
 
 function getDefaultServerDataRoot(): string {
-  const configured = process.env.ZCODE_DATA_BASE_DIR?.trim();
+  const configured = process.env.MIKIKO_DATA_BASE_DIR?.trim();
   return join(configured || homedir(), ".mikiko", "server");
 }
 

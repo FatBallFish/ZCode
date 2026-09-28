@@ -19,7 +19,6 @@
     "verify:pre-push": "pnpm run lint && pnpm run architecture:check -- --changed",
     "build": "pnpm -r build",
     "build:desktop-agent:bytecode": "node scripts/build-desktop-agent-bytecode.mjs",
-    "build:zcode": "node scripts/build-zcode.mjs",
     "build:bootstrap": "pnpm -r --filter \"./packages/*\" --filter \"!@zcode/desktop\" build && pnpm --filter @zcode/desktop build:no-runtime-assets",
     "build:sea": "pnpm --dir apps/zcode-cli build:sea",
     "build:sea:all": "pnpm install && pnpm --dir apps/zcode-cli build:sea",
@@ -44,7 +43,8 @@
     "architecture:check": "node scripts/architecture/architecture-check.mjs check",
     "architecture:report": "node scripts/architecture/architecture-check.mjs report",
     "architecture:baseline:update": "node scripts/architecture/architecture-check.mjs baseline:update",
-    "architecture:context": "node scripts/architecture/architecture-check.mjs context"
+    "architecture:context": "node scripts/architecture/architecture-check.mjs context",
+    "build:mikiko": "node scripts/build-mikiko.mjs"
   },
   "dependencies": {
     "border-beam": "^1.0.1",

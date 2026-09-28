@@ -45,7 +45,7 @@ export async function loadBuiltinProviderConfig({ root = repositoryRoot, env = p
   const environment = await resolveBuiltinProviderBuildEnvironment({ root, env });
   const sourcePath = resolve(
     root,
-    env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE?.trim() || "config/provider/zcode-builtin.json",
+    env.MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE?.trim() || "config/provider/zcode-builtin.json",
   );
   try {
     const content = await readFile(sourcePath, "utf8");

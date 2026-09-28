@@ -11,7 +11,7 @@ import {
 } from "@zcode/provider";
 import {
   NodeZCodeBuiltinProviderConfigSource,
-  ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
+  MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
 } from "@zcode/provider-node";
 import type { ProviderFamilyDomain } from "@zcode/shared";
 
@@ -48,9 +48,9 @@ async function readStandaloneCodingPlanCatalog(
           : [];
       }),
     };
-  const filePath = env[ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]?.trim();
+  const filePath = env[MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]?.trim();
   if (!filePath) {
-    throw new Error(`${ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV} is required for login`);
+    throw new Error(`${MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV} is required for login`);
   }
   const source = new NodeZCodeBuiltinProviderConfigSource({
     bundledFilePath: filePath,

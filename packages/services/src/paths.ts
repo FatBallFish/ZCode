@@ -8,7 +8,7 @@ import { DATA_BASE_DIR_FORBIDDEN_WINDOWS_INSTALL_DIR_ERROR_CODE } from "@zcode/s
 
 let _dataBaseDir: string | null = null;
 export const ZCODE_WINDOWS_APP_INSTALL_DIR_ENV = "ZCODE_WINDOWS_APP_INSTALL_DIR";
-const envDataBaseDir = process.env.ZCODE_DATA_BASE_DIR?.trim() || null;
+const envDataBaseDir = process.env.MIKIKO_DATA_BASE_DIR?.trim() || null;
 const defaultDataBaseDir = process.env.HOME?.trim() || homedir();
 
 interface DataBaseDirTargetValidationOptions {
@@ -30,7 +30,7 @@ export function setDataBaseDir(dir: string | null): void {
   _dataBaseDir = dir?.trim() || null;
 }
 
-/** Get the current base directory. Priority: setDataBaseDir() > env ZCODE_DATA_BASE_DIR > homedir(). */
+/** Get the current base directory. Priority: setDataBaseDir() > env MIKIKO_DATA_BASE_DIR > homedir(). */
 export function getDataBaseDir(): string {
   if (_dataBaseDir) return _dataBaseDir;
   // 宿主可能传入已含 .mikiko 的完整数据根；再拼后缀会产生 ~/.mikiko/.mikiko 双嵌套。

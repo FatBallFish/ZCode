@@ -7,7 +7,7 @@ export function resolveZCodeBuiltinProviderConfigFilePath(options?: {
   readonly isPackaged?: boolean;
   readonly resourcesPath?: string;
 }): string {
-  const explicitPath = (options?.env ?? process.env)["ZCODE_BUILTIN_PROVIDER_CONFIG_FILE"]?.trim();
+  const explicitPath = (options?.env ?? process.env)["MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE"]?.trim();
   if (explicitPath) return explicitPath;
   if (options?.isPackaged ?? app.isPackaged) {
     return join(

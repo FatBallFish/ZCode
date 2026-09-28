@@ -1,4 +1,4 @@
-export const ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV = "ZCODE_BUILTIN_PROVIDER_CONFIG_FILE";
+export const MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV = "MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE";
 export const ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE_ENV =
   "ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE";
 export const ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV = "ZCODE_PERSONAL_PROVIDER_CONFIG_FILE";
@@ -13,7 +13,7 @@ export function createNodeProviderRuntimePathEnv(
   paths: NodeProviderRuntimePaths,
 ): Record<string, string> {
   return {
-    [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: paths.zcodeBuiltinFilePath,
+    [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: paths.zcodeBuiltinFilePath,
     [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: paths.personalFilePath,
   };
 }
@@ -21,7 +21,7 @@ export function createNodeProviderRuntimePathEnv(
 export function resolveNodeProviderRuntimePaths(
   env: Readonly<Record<string, string | undefined>>,
 ): NodeProviderRuntimePaths | null {
-  const zcodeBuiltinFilePath = env[ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]?.trim();
+  const zcodeBuiltinFilePath = env[MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]?.trim();
   const personalFilePath = env[ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]?.trim();
   if (!zcodeBuiltinFilePath && !personalFilePath) return null;
   if (!zcodeBuiltinFilePath || !personalFilePath) {

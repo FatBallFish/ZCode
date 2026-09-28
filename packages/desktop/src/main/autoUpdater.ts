@@ -23,7 +23,6 @@ const { autoUpdater } = pkg;
 
 export const CHECK_FOR_UPDATE_MENU_ID = "check-for-update";
 const AUTO_UPDATE_POLL_INTERVAL_MS = 60 * 60 * 1000;
-const UPDATE_FEED_URL_ENV = "ZCODE_UPDATE_FEED_URL";
 const UPDATE_FEED_URL_SWITCH = "--zcode-update-feed-url";
 const DEV_AUTO_UPDATE_ENV = "ZCODE_AUTO_UPDATE_DEV";
 const DEV_AUTO_UPDATE_SWITCH = "--zcode-auto-update-dev";
@@ -699,10 +698,7 @@ export function resolveUpdateFeedSourceFromStartupConfig(
   const argv = options.argv ?? process.argv;
   const env = options.env ?? process.env;
   const feedUrl =
-    readSwitchValue(argv, UPDATE_FEED_URL_SWITCH) ??
-    // MIKIKO_ 前缀优先（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5），ZCODE_ 旧名回退。
-    env["MIKIKO_UPDATE_FEED_URL"]?.trim() ??
-    env[UPDATE_FEED_URL_ENV]?.trim();
+    readSwitchValue(argv, UPDATE_FEED_URL_SWITCH) ?? env["MIKIKO_UPDATE_FEED_URL"]?.trim();
   if (!feedUrl) {
     return undefined;
   }

@@ -54,10 +54,10 @@ pnpm dev:desktop:test
 
 `pnpm dev:desktop` 默认等同于 `pnpm dev:desktop:prod`，使用生产服务配置。启动脚本会准备本地运行资源、构建桌面 Agent，再启动 Electron 和源码监听。
 
-需要独立开发数据目录时，可设置 `ZCODE_DATA_BASE_DIR`。例如在 macOS / Linux 中：
+需要独立开发数据目录时，可设置 `MIKIKO_DATA_BASE_DIR`。例如在 macOS / Linux 中：
 
 ```bash
-ZCODE_DATA_BASE_DIR="$HOME/.zcode-dev-home" pnpm dev:desktop:test
+MIKIKO_DATA_BASE_DIR="$HOME/.mikiko-dev-home" pnpm dev:desktop:test
 ```
 
 ### 远程功能（SSH/WSL）
@@ -72,7 +72,7 @@ ZCODE_DATA_BASE_DIR="$HOME/.zcode-dev-home" pnpm dev:desktop:test
 pnpm dev:web
 
 # 指定后端工作区（macOS / Linux）
-ZCODE_SERVER_WORKSPACE=/path/to/project pnpm dev:web
+MIKIKO_SERVER_WORKSPACE=/path/to/project pnpm dev:web
 ```
 
 该命令同时启动 Web 开发服务器（默认 `http://localhost:5173`）和后端（默认 `http://localhost:3030`）；浏览器访问前者。`/ws` 和一般 `/api` 请求代理到本地后端，`/api/v1/oauth/token` 单独代理到当前配置的产品服务。
@@ -81,28 +81,28 @@ Agent 源码修改后，执行 `pnpm --filter @zcode/cli... build` 并重启服�
 
 ### Mikiko 命令行版
 
-命令行发行包包含 TUI、Web 和 Agent，统一使用 `zcode` 启动：无参数进入 TUI；第一个参数为 `--web` 时启动 Web；其他参数交给现有 Agent CLI 处理。两种模式都在本机运行，无需 Electron。
+命令行发行包包含 TUI、Web 和 Agent，统一使用 `mikiko` 启动：无参数进入 TUI；第一个参数为 `--web` 时启动 Web；其他参数交给现有 Agent CLI 处理。两种模式都在本机运行，无需 Electron。
 
 ```bash
 # 默认进入终端交互界面
-zcode
+mikiko
 
 # 启动 Web 界面
-zcode --web
+mikiko --web
 
 # 指定项目和端口，不自动打开浏览器
-zcode --web --workspace /path/to/project --port 3030 --no-open
+mikiko --web --workspace /path/to/project --port 3030 --no-open
 
 # 查看 CLI 或 Web 参数
-zcode --help
-zcode --web --help
+mikiko --help
+mikiko --web --help
 ```
 
 Web 模式默认工作目录为当前目录，监听 `127.0.0.1`，默认不启用访问令牌，自动选择空闲端口并打开浏览器。访问终端输出的地址，按 `Ctrl+C` 停止服务。局域网访问可使用 `--host 0.0.0.0`；监听非本机地址时默认生成访问令牌，使用终端输出的带令牌链接。可通过 `--token` 指定令牌或 `--no-token` 关闭令牌认证。
 
-直接启动通用 Web 服务的 HTTP 入口时，通过 `ZCODE_SERVER_AUTH_TOKEN` 配置 API／WebSocket 认证；通过程序接口创建服务时，使用 `authToken` 选项。
+直接启动通用 Web 服务的 HTTP 入口时，通过 `MIKIKO_SERVER_AUTH_TOKEN` 配置 API／WebSocket 认证；通过程序接口创建服务时，使用 `authToken` 选项。
 
-构建方式见下方打包章节。`pnpm build:zcode` 只生成发行包，不会替换 `PATH` 中已有的 `zcode`。如果命令仍指向旧安装或其他源码目录，macOS / Linux 可用 `command -v zcode` 检查，Windows 可用 `where.exe zcode` 检查。
+构建方式见下方打包章节。`pnpm build:mikiko` 只生成发行包，不会替换 `PATH` 中已有的 `mikiko`。如果命令仍指向旧安装或其他源码目录，macOS / Linux 可用 `command -v mikiko` 检查，Windows 可用 `where.exe mikiko` 检查。
 
 ### CLI 源码开发
 
@@ -114,21 +114,21 @@ pnpm --filter @zcode/cli dev
 
 # 构建 CLI 及其 workspace 依赖
 pnpm --filter @zcode/cli... build
-node apps/zcode-cli/packages/cli/dist/zcode.cjs --help
+node apps/zcode-cli/packages/cli/dist/mikiko.cjs --help
 ```
 
-这个入口直接运行 Agent CLI，不经过发行包的 `--web` 分流。开发 Web 用 `pnpm dev:web`；验证统一的 `zcode` 命令，用下方解压后的 `bin/zcode.mjs`。
+这个入口直接运行 Agent CLI，不经过发行包的 `--web` 分流。开发 Web 用 `pnpm dev:web`；验证统一的 `mikiko` 命令，用下方解压后的 `bin/mikiko.mjs`。
 
 ## 配置
 
 根目录 [.env.example](.env.example) 提供服务地址与构建配置示例，可按需复制到 `.env`，本地覆盖放入 `.env.local`。Desktop 的开发环境通过 `dev:desktop:test` / `dev:desktop:prod` 选择。
 
-| 配置                                 | 用途                                             |
-| ------------------------------------ | ------------------------------------------------ |
-| `ZCODE_DATA_BASE_DIR`                | 应用数据基目录，数据写入其下的 `.zcode/`         |
-| `ZCODE_SERVER_WORKSPACE`             | Web 后端的工作区路径                             |
-| `ZCODE_BUILTIN_PROVIDER_CONFIG_FILE` | 本地 Provider 配置文件路径；未设置时使用内置配置 |
-| `ZCODE_DIST_BASE_URL`                | 命令行安装脚本使用的下载根地址                   |
+| 配置                                  | 用途                                             |
+| ------------------------------------- | ------------------------------------------------ |
+| `MIKIKO_DATA_BASE_DIR`                | 应用数据基目录，数据写入其下的 `.mikiko/`        |
+| `MIKIKO_SERVER_WORKSPACE`             | Web 后端的工作区路径                             |
+| `MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE` | 本地 Provider 配置文件路径；未设置时使用内置配置 |
+| `MIKIKO_DIST_BASE_URL`                | 命令行安装脚本使用的下载根地址                   |
 
 运行时变量可在启动命令的环境中显式设置。随客户端发布的默认配置见 [config/README.md](config/README.md)。
 
@@ -157,45 +157,45 @@ sudo xattr -rd com.apple.quarantine /Applications/ZCode.app
 
 ### Mikiko 命令行版
 
-构建入口为 `pnpm build:zcode`。脚本会依次构建 CLI/TUI、后端和 Web，收集 TUI 的原生库、worker 与运行时依赖，再组装发行包；运行发行包仍需要 Node.js，版本以 `mise.toml` 为准。
+构建入口为 `pnpm build:mikiko`。脚本会依次构建 CLI/TUI、后端和 Web，收集 TUI 的原生库、worker 与运行时依赖，再组装发行包；运行发行包仍需要 Node.js，版本以 `mise.toml` 为准。
 
-打包前必须设置下载根地址 `ZCODE_DIST_BASE_URL`（可放在 `.env`、`.env.local` 或环境变量中），也可以通过 `--base-url` 传入。以下地址是占位示例，发布时替换为实际托管地址：
+打包前必须设置下载根地址 `MIKIKO_DIST_BASE_URL`（可放在 `.env`、`.env.local` 或环境变量中），也可以通过 `--base-url` 传入。以下地址是占位示例，发布时替换为实际托管地址：
 
 ```bash
-pnpm build:zcode --base-url https://downloads.example.com/zcode/
+pnpm build:mikiko --base-url https://downloads.example.com/mikiko/
 
-# 已配置 ZCODE_DIST_BASE_URL 时
-pnpm build:zcode
+# 已配置 MIKIKO_DIST_BASE_URL 时
+pnpm build:mikiko
 
 # 仅重新组包，复用已有的 Agent、后端和 Web 构建产物
-pnpm build:zcode --skip-build
+pnpm build:mikiko --skip-build
 
 # 查看版本、输出目录等可选参数
-pnpm build:zcode --help
+pnpm build:mikiko --help
 ```
 
-默认版本取根目录 `package.json`，输出目录为 `dist/zcode/`：
+默认版本取根目录 `package.json`，输出目录为 `dist/mikiko/`：
 
-- `releases/<version>/zcode-<version>.tar.gz`：运行包。
+- `releases/<version>/mikiko-<version>.tar.gz`：运行包。
 - `releases/<version>/sha256.txt`：校验摘要。
 - `latest.json`、`install.sh`：版本索引和安装脚本。
 
-完整目录可上传到配置的下载根地址。安装脚本从该地址下载运行包，默认安装到 `~/.zcode/runtime`，并在 `~/.local/bin` 创建 `zcode` 命令。安装目录可通过 `ZCODE_DIST_HOME` 修改，命令目录可通过 `ZCODE_DIST_BIN_DIR` 修改。
+完整目录可上传到配置的下载根地址。安装脚本从该地址下载运行包，默认安装到 `~/.mikiko/runtime`，并在 `~/.local/bin` 创建 `mikiko` 命令。安装目录可通过 `MIKIKO_DIST_HOME` 修改，命令目录可通过 `MIKIKO_DIST_BIN_DIR` 修改。
 
 旧 Lite 用户需要改用上述构建命令、环境变量和新的安装脚本。新安装不会删除旧 Lite 目录，也不会迁移或删除已有会话数据。
 
 本地调试打包产物时，可直接解压运行，无需上传或安装：
 
 ```bash
-zcode_version=$(node -p "require('./dist/zcode/latest.json').version")
-mkdir -p dist/zcode/debug
-tar -xzf "dist/zcode/releases/$zcode_version/zcode-$zcode_version.tar.gz" \
-  -C dist/zcode/debug
+mikiko_version=$(node -p "require('./dist/mikiko/latest.json').version")
+mkdir -p dist/mikiko/debug
+tar -xzf "dist/mikiko/releases/$mikiko_version/mikiko-$mikiko_version.tar.gz" \
+  -C dist/mikiko/debug
 # 默认启动 TUI
-node dist/zcode/debug/zcode/bin/zcode.mjs
+node dist/mikiko/debug/mikiko/bin/mikiko.mjs
 
 # 启动 Web
-node dist/zcode/debug/zcode/bin/zcode.mjs --web \
+node dist/mikiko/debug/mikiko/bin/mikiko.mjs --web \
   --workspace "$PWD" --port 3030 --no-open
 ```
 
