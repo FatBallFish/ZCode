@@ -2369,7 +2369,7 @@ app.on("browser-window-created", (_, win) => {
     windowWorkspaceMap.delete(win.id);
     windowTaskRealtimeHostIdMap.delete(win.id);
     if (windowUnreadCountMap.delete(win.id)) {
-      syncApplicationUnreadBadge(windowUnreadCountMap);
+      syncApplicationUnreadBadge(windowUnreadCountMap, windowWorkspaceMap);
     }
     // Electron 进入 closed 回调时，win.webContents 可能已经被销毁。
     // 之前这里现取 win.webContents.id，会在关窗收尾阶段抛出 "Object has been destroyed"。

@@ -258,6 +258,7 @@ export function registerPlatformIpcHandlers(options: {
       payload,
       options.windowUnreadCountMap,
       options.logger,
+      options.windowWorkspaceMap,
     );
   });
   registerCuaPipActiveSessionIpc({

@@ -314,10 +314,13 @@ export function focusWorkspaceInExistingWindow(
   return { activated: false };
 }
 
-export function syncApplicationUnreadBadge(windowUnreadCountMap: Map<number, number>) {
+export function syncApplicationUnreadBadge(
+  windowUnreadCountMap: Map<number, number>,
+  windowWorkspaceMap?: ReadonlyMap<number, ReadonlySet<string>>,
+) {
   syncAppUnreadBadge({
     platform: process.platform,
-    totalUnreadCount: sumWindowUnreadCounts(windowUnreadCountMap),
+    totalUnreadCount: sumWindowUnreadCounts(windowUnreadCountMap, windowWorkspaceMap),
     setBadgeCount: (count) => {
       app.setBadgeCount(count);
     },
@@ -329,6 +332,7 @@ export function handleWindowUnreadCountSync(
   payload: unknown,
   windowUnreadCountMap: Map<number, number>,
   logger: { warn: (...args: unknown[]) => void },
+  windowWorkspaceMap?: ReadonlyMap<number, ReadonlySet<string>>,
 ) {
   const unreadCount = parseWindowUnreadCount(payload);
   if (unreadCount == null) {
@@ -345,7 +349,7 @@ export function handleWindowUnreadCountSync(
   } else {
     windowUnreadCountMap.set(win.id, unreadCount);
   }
-  syncApplicationUnreadBadge(windowUnreadCountMap);
+  syncApplicationUnreadBadge(windowUnreadCountMap, windowWorkspaceMap);
   return true;
 }
 

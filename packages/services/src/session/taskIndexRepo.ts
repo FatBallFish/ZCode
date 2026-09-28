@@ -928,7 +928,7 @@ export class TaskIndexRepo {
 
     const archiveTask = this.getDatabase().prepare(
       `UPDATE tasks
-      SET archived = 1
+      SET archived = 1, unread_at = NULL
       WHERE workspace_key = ? AND task_id = ?`,
     );
     this.getDatabase().exec("BEGIN IMMEDIATE");

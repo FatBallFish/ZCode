@@ -1051,5 +1051,48 @@ export function createWorkspaceSlice(set: SetFn) {
         ),
       );
     },
+    /**
+     * 远端 workspace 断连/移除后清除其内存未读（2026-09-28 Dock badge 排障）：
+     * 远端任务不落本机 sqlite，未读只存在于内存桶（path key 与 identity key 双桶并存）；
+     * 断连/移除后任务列表不可达，没有任何入口能把它们标记已读，Dock badge 会永久挂住。
+     * workspaceKeys 同时匹配两种桶 key；顺带清掉桶内 optimistic meta 的 unreadAt。
+     */
+    clearWorkspaceUnreadState: (workspaceKeys: readonly string[]) => {
+      if (workspaceKeys.length === 0) {
+        return;
+      }
+      const keySet = new Set(
+        workspaceKeys.map((key) => key.trim()).filter((key) => key.length > 0),
+      );
+      set((state) => ({
+        workspaces: Object.fromEntries(
+          Object.entries(state.workspaces).map(([bucketKey, workspace]) => {
+            if (!keySet.has(bucketKey)) {
+              return [bucketKey, workspace];
+            }
+            const hasUnread =
+              Object.keys(workspace.taskUnreadByTaskId ?? {}).length > 0 ||
+              Object.values(workspace.optimisticTaskListByTaskId ?? {}).some(
+                (task) => task.unreadAt !== undefined,
+              );
+            if (!hasUnread) {
+              return [bucketKey, workspace];
+            }
+            return [
+              bucketKey,
+              {
+                ...workspace,
+                taskUnreadByTaskId: {},
+                optimisticTaskListByTaskId: Object.fromEntries(
+                  Object.entries(workspace.optimisticTaskListByTaskId ?? {}).map(
+                    ([taskId, task]) => [taskId, { ...task, unreadAt: undefined }],
+                  ),
+                ),
+              },
+            ];
+          }),
+        ),
+      }));
+    },
   };
 }

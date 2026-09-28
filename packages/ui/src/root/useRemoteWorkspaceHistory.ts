@@ -1109,6 +1109,19 @@ export function useRemoteWorkspaceHistory({
     ],
   );
 
+  // 断连清理未读的辅助：把 tab 的 path/identity 归一为桶 key 集合后清空对应内存未读。
+  const clearRemoteUnreadForTabs = useCallback(
+    (tabs: readonly import("@/store/tabStore.js").WorkspaceTabState[]) => {
+      const keys = new Set<string>();
+      for (const tab of tabs) {
+        keys.add(tab.workspaceIdentity?.trim() || tab.workspacePath);
+        keys.add(tab.workspacePath);
+      }
+      useZCodeSessionStore.getState().clearWorkspaceUnreadState([...keys]);
+    },
+    [],
+  );
+
   const handleRemoteWorkspaceSessionClosed = useCallback(
     async (event: RemoteSessionClosedEvent) => {
       const sessionId = event.sessionId.trim();
@@ -1137,6 +1150,9 @@ export function useRemoteWorkspaceHistory({
             : tab,
         ),
       }));
+      // 断连即清内存未读（2026-09-28 Dock badge 挂死修复）：断连后任务列表不可达，
+      // 残留未读没有任何清除入口；重连后任务若有新终态会重新标未读，不损失语义。
+      clearRemoteUnreadForTabs(matchedTabs);
       unregisterRemoteWorkspaceSession(sessionId);
 
       const matchedWorkspaceKeys = [
@@ -1344,6 +1360,8 @@ export function useRemoteWorkspaceHistory({
         // remoteWorkspaceSessionsRef 仍被持久化补丁合并回 setting.json，
         // 所以下次启动又会恢复同一个断连项。这里把显式移除视为删除远程历史，
         // 同时清理该历史独占的 SSH 凭据，避免留下不可达的 credential key。
+        // 显式移除远程历史时同步清内存未读（2026-09-28 Dock badge 挂死修复）。
+        useZCodeSessionStore.getState().clearWorkspaceUnreadState([...workspaceKeySet]);
         await syncPersistedWorkspaceSession(removal.nextRemoteSessions);
         for (const credentialKey of removal.credentialKeysToDelete) {
           try {

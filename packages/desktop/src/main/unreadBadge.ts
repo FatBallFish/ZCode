@@ -8,10 +8,27 @@ export function parseWindowUnreadCount(payload: unknown): number | null {
   return payload;
 }
 
-export function sumWindowUnreadCounts(windowUnreadCountMap: ReadonlyMap<number, number>): number {
-  let totalUnreadCount = 0;
+/**
+ * 窗口未读求和（2026-09-28 语义修订）：每个窗口上报的都是「其可见 workspace 集合内
+ * 的全局未读总数」——workspace 集合相同的多个窗口共享同一批任务数据，直接求和会把
+ * 同一批未读按窗口数翻倍。相同集合（排序后签名一致）的窗口只计一次（取最大值，
+ * 覆盖集合相同但计数瞬时不一致的竞态）；未上报集合的窗口按窗口独立计。
+ */
+export function sumWindowUnreadCounts(
+  windowUnreadCountMap: ReadonlyMap<number, number>,
+  windowWorkspaceMap?: ReadonlyMap<number, ReadonlySet<string>>,
+): number {
+  const maxByScope = new Map<string, number>();
 
-  for (const unreadCount of windowUnreadCountMap.values()) {
+  for (const [windowId, unreadCount] of windowUnreadCountMap) {
+    const workspaces = windowWorkspaceMap?.get(windowId);
+    const scopeKey =
+      workspaces && workspaces.size > 0 ? [...workspaces].sort().join("\n") : `window:${windowId}`;
+    maxByScope.set(scopeKey, Math.max(maxByScope.get(scopeKey) ?? 0, unreadCount));
+  }
+
+  let totalUnreadCount = 0;
+  for (const unreadCount of maxByScope.values()) {
     totalUnreadCount += unreadCount;
   }
 

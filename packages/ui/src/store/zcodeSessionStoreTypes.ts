@@ -221,6 +221,8 @@ export interface ZCodeSessionStoreState {
   getWorkspaceState: (workspacePath: string, workspaceIdentity?: string) => WorkspaceZCodeUIState;
 
   setActiveTaskId: (workspacePath: string, id: string | null, workspaceIdentity?: string) => void;
+  /** 远端 workspace 断连/移除后清除其内存未读（Dock badge 挂死修复）。 */
+  clearWorkspaceUnreadState: (workspaceKeys: readonly string[]) => void;
   promoteGroupedDraftTask: (
     workspacePath: string,
     taskId: string,

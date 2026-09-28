@@ -32,10 +32,16 @@ export function countAllUnreadTasks(workspaces: Record<string, WorkspaceUnreadSt
       continue;
     }
 
-    // remote workspace 会同时保留 path key 和 workspaceIdentity key 的兼容状态。
-    // 这里按 workspaceKey + taskId 去重，并跳过相同对象引用，避免窗口未读角标把同一个远端 task 算两次。
+    // remote workspace 会同时保留 path key 和 workspaceIdentity key 的兼容状态
+    // （identity 桶由 path 桶一次性迁移种子派生，未读 map 会双份）。
+    // 去重键必须与主分支同一归一规则：优先取任务 meta 自带的 workspaceIdentity，
+    // 取不到才退 workspaceKey——此前直接用 workspaceKey，同一远端 task 在两个桶
+    // 里各计一次（2026-09-28 Dock badge 82 排障定位的重复计数根因）。
     for (const taskId of Object.keys(workspace.taskUnreadByTaskId ?? {})) {
-      countedTaskKeys.add(`${workspaceKey}::${taskId}`);
+      const identity =
+        workspace.optimisticTaskListByTaskId?.[taskId]?.workspaceIdentity?.trim() ||
+        workspace.taskListCache?.find((task) => task.taskId === taskId)?.workspaceIdentity?.trim();
+      countedTaskKeys.add(`${identity || workspaceKey}::${taskId}`);
     }
   }
 
