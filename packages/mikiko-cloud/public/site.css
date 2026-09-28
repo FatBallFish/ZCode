@@ -732,3 +732,22 @@ footer.site-footer {
   width: 17px;
   height: 17px;
 }
+
+/* 导航语言切换（多语言站点 /cn ↔ /en）。 */
+.nav-lang {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.nav-lang:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  text-decoration: none;
+}

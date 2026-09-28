@@ -90,10 +90,30 @@ function jsonResponse(body: unknown, status = 200, headers?: Record<string, stri
   });
 }
 
+/**
+ * 根路径语言路由（2026-09-29 多语言站点）：仅中国大陆与港澳台（CN/HK/MO/TW）进 /cn，
+ * 其余地区统一 /en。用户手动访问另一语言路径时不覆盖（仅根路径按地域分流一次）。
+ */
+const CN_GEO_COUNTRIES = new Set(["CN", "HK", "MO", "TW"]);
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     try {
+      // 根路径按地域重定向到语言首页；无地域信息（如本地 wrangler dev）默认英文。
+      if (url.pathname === "/" && request.method === "GET") {
+        const country =
+          (request as Request & { cf?: { country?: string } }).cf?.country?.toUpperCase() ?? "";
+        const target = CN_GEO_COUNTRIES.has(country) ? "/cn/" : "/en/";
+        return Response.redirect(new URL(target + url.search, url.origin).toString(), 308);
+      }
+      // /cn 与 /en 精确路径规范化到目录形式（assets 自动服务其下 index.html）。
+      if ((url.pathname === "/cn" || url.pathname === "/en") && request.method === "GET") {
+        return Response.redirect(
+          new URL(url.pathname + "/" + url.search, url.origin).toString(),
+          308,
+        );
+      }
       if (url.pathname === "/healthz") {
         return jsonResponse({ ok: true, version: SERVICE_VERSION });
       }
@@ -139,7 +159,9 @@ export default {
         }
         return handleAdminApi(request, env, url.pathname);
       }
-      // 其余路径交给静态资产（wrangler assets binding）；资产未命中时明确 404。
+      // run_worker_first 含 "/"（根路径地域分流）后所有页面请求都会进 Worker：
+      // 非 API/落地页路径在此透传 assets（保持 html_handling 漂亮路径行为），未命中 404。
+      if (env.ASSETS) return env.ASSETS.fetch(request);
       return new Response("Not Found", { status: 404 });
     } catch {
       // 不把异常细节透出给公网调用方；客户端按状态码退避。信封带 msg 字段，

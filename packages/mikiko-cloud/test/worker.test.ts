@@ -78,6 +78,36 @@ const VALID_CONFIG = {
 };
 
 describe("公开端点", () => {
+  it("根路径按地域语言分流：CN/HK/MO/TW→/cn/，其余/未知→/en/", async () => {
+    const env = createEnv();
+    const request = (country: string | undefined) => {
+      const req = new Request("https://agent.mikiko.ai/?utm=x");
+      if (country !== undefined) {
+        Object.defineProperty(req, "cf", { value: { country } });
+      }
+      return req;
+    };
+    for (const country of ["CN", "HK", "MO", "TW"]) {
+      const response = await worker.fetch(request(country), env);
+      assert.equal(response.status, 308);
+      assert.match(response.headers.get("location") ?? "", /\/cn\/\?utm=x$/u);
+    }
+    for (const country of ["US", "JP", "SG", undefined]) {
+      const response = await worker.fetch(request(country), env);
+      assert.equal(response.status, 308);
+      assert.match(response.headers.get("location") ?? "", /\/en\/\?utm=x$/u);
+    }
+  });
+
+  it("/cn 与 /en 精确路径 308 到目录形式", async () => {
+    const env = createEnv();
+    for (const path of ["/cn", "/en"]) {
+      const response = await worker.fetch(new Request(`https://agent.mikiko.ai${path}`), env);
+      assert.equal(response.status, 308);
+      assert.match(response.headers.get("location") ?? "", new RegExp(`${path}/$`));
+    }
+  });
+
   it("分享落地页 /cn/share/{code} 经 Worker 改写并跟随 html_handling 重定向返回页面", async () => {
     const env = createEnv();
     const zh = await call(env, "/cn/share/abc123");
