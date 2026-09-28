@@ -1,11 +1,13 @@
 import { access, cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-export const DEV_ELECTRON_PROTOCOL_SCHEME = "zcode";
+// 双 scheme 注册（与正式版 electron-builder 保持一致）：
+// zcode:// 承载智谱 OAuth 回调，mikiko:// 承接自有深链（分享导入/工作区打开）。
+export const DEV_ELECTRON_PROTOCOL_SCHEMES = ["zcode", "mikiko"];
 export const DEV_ELECTRON_APP_NAME = "Mikiko Dev";
 export const DEV_ELECTRON_APP_BUNDLE_ID = "dev.mikiko.app.development";
 // 副本布局版本，见 prepareDevElectronAppBundle 中的指纹说明。
-export const DEV_ELECTRON_BUNDLE_FORMAT = 2;
+export const DEV_ELECTRON_BUNDLE_FORMAT = 3;
 
 function escapeXml(value) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
@@ -23,7 +25,7 @@ function replacePlistString(plist, key, value) {
 }
 
 function appendProtocolDeclaration(plist) {
-  if (plist.includes(`<string>${DEV_ELECTRON_PROTOCOL_SCHEME}</string>`)) {
+  if (plist.includes(`<string>${DEV_ELECTRON_PROTOCOL_SCHEMES[0]}</string>`)) {
     return plist;
   }
 
@@ -32,7 +34,10 @@ function appendProtocolDeclaration(plist) {
     throw new Error("Dev Electron Info.plist is missing its root dict");
   }
 
-  const protocolDeclaration = `\n\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>${DEV_ELECTRON_APP_NAME}</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>${DEV_ELECTRON_PROTOCOL_SCHEME}</string>\n\t\t\t</array>\n\t\t</dict>\n\t</array>\n`;
+  const schemeTags = DEV_ELECTRON_PROTOCOL_SCHEMES.map(
+    (scheme) => `\n\t\t\t\t<string>${scheme}</string>`,
+  ).join("");
+  const protocolDeclaration = `\n\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>${DEV_ELECTRON_APP_NAME}</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>${schemeTags}\n\t\t\t</array>\n\t\t</dict>\n\t</array>\n`;
   return `${plist.slice(0, closingDictIndex)}${protocolDeclaration}${plist.slice(closingDictIndex)}`;
 }
 

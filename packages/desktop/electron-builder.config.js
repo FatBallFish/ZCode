@@ -663,7 +663,9 @@ export default {
       // 协议处理器的展示名之前使用小写 scheme，打包产物里的协议描述无法体现产品名。
       // 展示名跟随安装包身份；scheme 仍保持 zcode，因此两个应用中最后注册者会成为默认 handler。
       name: desktopProductIdentity.productName,
-      schemes: ["zcode"],
+      // 双注册（2026-09-28，MIKIKO-REBRAND-PLAN.md §4.2/D2）：zcode:// 保留承载
+      // 智谱 OAuth/支付回调等三方链路，mikiko:// 承接分享导入、工作区打开等自有链路。
+      schemes: ["zcode", "mikiko"],
     },
   ],
   mac: {

@@ -1,5 +1,12 @@
-const DEEP_LINK_SCHEME = "zcode";
-const DEEP_LINK_RE = /\bzcode:(?:\/\/|\/)?[^\s"'<>]+/i;
+// 双 scheme 解析（2026-09-28，MIKIKO-REBRAND-PLAN.md §4.2/D2）：zcode:// 保留承载
+// 智谱 OAuth/支付回调等三方链路（老版本唯一注册的协议），mikiko:// 承接分享导入、
+// 工作区打开等自有链路——两种 scheme 走同一套 host 分发。
+const DEEP_LINK_SCHEMES = new Set(["zcode", "mikiko"]);
+const DEEP_LINK_RE = /\b(?:zcode|mikiko):(?:\/\/|\/)?[^\s"'<>]+/i;
+
+function isDeepLinkProtocol(protocol: string): boolean {
+  return DEEP_LINK_SCHEMES.has(protocol.replace(/:$/u, "").toLowerCase());
+}
 const OAUTH_CALLBACK_HOSTS = new Set(["oauth"]);
 const PAYMENT_CALLBACK_HOST = "payment";
 const WORKSPACE_OPEN_HOST = "workspace";
@@ -15,7 +22,7 @@ function normalizeOAuthCallbackPath(pathname: string): string {
 }
 
 export function isOAuthCallbackUrl(parsedUrl: URL): boolean {
-  if (parsedUrl.protocol !== `${DEEP_LINK_SCHEME}:`) {
+  if (!isDeepLinkProtocol(parsedUrl.protocol)) {
     return false;
   }
 
@@ -35,7 +42,7 @@ export function isOAuthCallbackUrl(parsedUrl: URL): boolean {
 }
 
 export function isPaymentCallbackUrl(parsedUrl: URL): boolean {
-  if (parsedUrl.protocol !== `${DEEP_LINK_SCHEME}:`) {
+  if (!isDeepLinkProtocol(parsedUrl.protocol)) {
     return false;
   }
 
@@ -53,7 +60,7 @@ export function isPaymentCallbackUrl(parsedUrl: URL): boolean {
 }
 
 export function isWorkspaceOpenUrl(parsedUrl: URL): boolean {
-  if (parsedUrl.protocol !== `${DEEP_LINK_SCHEME}:`) {
+  if (!isDeepLinkProtocol(parsedUrl.protocol)) {
     return false;
   }
 
@@ -81,7 +88,7 @@ export function extractWorkspaceOpenPath(parsedUrl: URL): string | null {
 
 export function isShareImportUrl(parsedUrl: URL): boolean {
   return (
-    parsedUrl.protocol === `${DEEP_LINK_SCHEME}:` &&
+    isDeepLinkProtocol(parsedUrl.protocol) &&
     parsedUrl.hostname === SHARE_IMPORT_HOST &&
     normalizeOAuthCallbackPath(parsedUrl.pathname) === "/import"
   );

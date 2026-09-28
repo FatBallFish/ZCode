@@ -10,6 +10,7 @@ import {
 
 const LINUX_DEEP_LINK_DESKTOP_FILE = "zcode.desktop";
 const LINUX_DEEP_LINK_MIME_TYPE = "x-scheme-handler/zcode";
+const MIKIKO_DEEP_LINK_MIME_TYPE = "x-scheme-handler/mikiko";
 // 归属标记：用于识别用户级 zcode.desktop 是否由本应用写入（历史所有版本都带这行 Comment）。
 const LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=ZCode Desktop App";
 
@@ -124,7 +125,7 @@ function createLinuxDeepLinkDesktopEntry(params: {
     "Type=Application",
     `Icon=${iconName}`,
     "Categories=Development;",
-    `MimeType=${LINUX_DEEP_LINK_MIME_TYPE};`,
+    `MimeType=${LINUX_DEEP_LINK_MIME_TYPE};${MIKIKO_DEEP_LINK_MIME_TYPE};`,
     `StartupWMClass=${productName}`,
     "",
   ].join("\n");
