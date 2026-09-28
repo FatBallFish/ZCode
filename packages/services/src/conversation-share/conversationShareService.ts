@@ -21,7 +21,8 @@ import {
   extractConversationPreviewFileReferences,
   type ConversationPreviewArtifactCandidate,
   localizeConversationShareUrl,
-  resolveRuntimeZCodeEndpointOrigin,
+  resolveMikikoShareWebUrl,
+  DEFAULT_MIKIKO_SHARE_WEB_URL,
 } from "@zcode/shared";
 import type { ConversationRow } from "@zcode/shared/zcode-protocol-v4";
 import {
@@ -718,14 +719,15 @@ export class ConversationShareService implements IConversationShareService {
     this.downloadTimeoutMs = options.downloadTimeoutMs ?? DOWNLOAD_TIMEOUT_MS;
     this.conversationWorkspaceRoot =
       options.conversationWorkspaceRoot ?? getConversationWorkspaceDir();
-    // 兜底写死生产站 https://zcode.z.ai/cn/share，于是测试环境（API base 走
-    // 配置的 ZCode origin）导入后回链仍指向生产站，点分割线打开的是另一个环境的分享。
-    // 改用与 API base 同一个环境解析器（buildRuntimeZCodeApiUrl 也走它），保证同环境。
-    // 优先级不变：显式 option > ZCODE_CONVERSATION_SHARE_WEB_URL > 按环境推导。
+    // 分享落地页改走 Mikiko 自建站（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.3，
+    // 彻底移除官方分享）：优先级 显式 option > MIKIKO_SHARE_WEB_URL > 自建默认
+    // agent.mikiko.ai/cn/share。旧 ZCODE_CONVERSATION_SHARE_WEB_URL 不再读取。
+    // 统一走 resolver（review S5）：直读 env 会让 "disabled/off" 字面量进链接生成
+    // `disabled/<code>`。disabled 语义下分享 API 侧已整体降级，这里回落自建默认即可。
     this.shareWebUrl = (
       options.shareWebUrl ??
-      process.env.ZCODE_CONVERSATION_SHARE_WEB_URL ??
-      `${resolveRuntimeZCodeEndpointOrigin(process.env)}/cn/share`
+      resolveMikikoShareWebUrl() ??
+      DEFAULT_MIKIKO_SHARE_WEB_URL
     ).replace(/\/+$/u, "");
     this.importIndexPath = join(this.conversationWorkspaceRoot, ".mikiko-share-imports.json");
     this.logger = options.logger ?? createServiceLogger("conversation-share");

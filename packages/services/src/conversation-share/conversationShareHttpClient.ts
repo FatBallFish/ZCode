@@ -211,6 +211,12 @@ interface ConversationShareHttpClientOptions {
   apiClient: ApiClient;
   baseUrl: string;
   tokenProvider: () => Promise<string | null>;
+  /**
+   * 3201 自愈钩子（2026-09-28 分享全线 401 报障）：携带 token 的请求被服务端以
+   * authentication_required 拒绝时调用一次，返回新 token 则原请求重试一次。
+   * 用于设备 token 被服务端重注册顶掉后的自动恢复；不配置则维持旧行为。
+   */
+  reacquireToken?: () => Promise<string | null>;
   timeoutMs?: number;
   /** confirm 单次请求超时；缺省 2min。 */
   confirmTimeoutMs?: number;
@@ -228,6 +234,7 @@ export class ConversationShareHttpClient {
   private readonly apiClient: ApiClient;
   private readonly baseUrl: string;
   private readonly tokenProvider: () => Promise<string | null>;
+  private readonly reacquireToken: (() => Promise<string | null>) | undefined;
   private readonly timeoutMs: number;
   private readonly confirmTimeoutMs: number;
 
@@ -235,8 +242,50 @@ export class ConversationShareHttpClient {
     this.apiClient = options.apiClient;
     this.baseUrl = options.baseUrl;
     this.tokenProvider = options.tokenProvider;
+    this.reacquireToken = options.reacquireToken;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.confirmTimeoutMs = options.confirmTimeoutMs ?? CONFIRM_TIMEOUT_MS;
+  }
+
+  /** 鉴权失败单次自愈：带 token 被拒 → 重取 token → 原请求重试一次（见构造选项注释）。 */
+  async requestData<T>(
+    path: string,
+    init: ApiRequestInit,
+    dataSchema: z.ZodType<T>,
+    auth: "required" | "optional",
+    timeoutMsOverride?: number,
+  ): Promise<T> {
+    const token = (await this.tokenProvider())?.trim() || null;
+    try {
+      return await this.requestDataWithToken(
+        token,
+        path,
+        init,
+        dataSchema,
+        auth,
+        timeoutMsOverride,
+      );
+    } catch (error) {
+      if (
+        error instanceof ConversationShareClientError &&
+        error.kind === "authentication_required" &&
+        token !== null &&
+        this.reacquireToken !== undefined
+      ) {
+        const freshToken = (await this.reacquireToken())?.trim() || null;
+        if (freshToken && freshToken !== token) {
+          return await this.requestDataWithToken(
+            freshToken,
+            path,
+            init,
+            dataSchema,
+            auth,
+            timeoutMsOverride,
+          );
+        }
+      }
+      throw error;
+    }
   }
 
   async getCapabilities(): Promise<ConversationShareCapabilities> {
@@ -401,14 +450,14 @@ export class ConversationShareHttpClient {
     };
   }
 
-  private async requestData<T>(
+  private async requestDataWithToken<T>(
+    token: string | null,
     path: string,
     init: ApiRequestInit,
     dataSchema: z.ZodType<T>,
     auth: "required" | "optional",
     timeoutMsOverride?: number,
   ): Promise<T> {
-    const token = (await this.tokenProvider())?.trim() || null;
     if (auth === "required" && !token) {
       throw new ConversationShareClientError({
         kind: "authentication_required",
