@@ -158,6 +158,7 @@
         const versionLabel = document.getElementById("hero-version");
         const { os, arch, file, latest } = await setupMikikoDownloadButton(button, {
           fallbackPath: "/en/download",
+          locale: "en",
         });
         if (latest?.version && versionLabel) {
           versionLabel.textContent = "v" + latest.version;

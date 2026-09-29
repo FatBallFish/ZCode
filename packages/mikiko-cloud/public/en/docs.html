@@ -17,22 +17,21 @@
         >
         <div class="nav-links">
           <a href="/en/">Home</a>
-          <a href="/en/docs" aria-current="page" aria-current="page">Docs</a>
+          <a href="/en/docs" aria-current="page">Docs</a>
           <a href="/en/changelog">Changelog</a>
           <a
             class="nav-github"
             href="https://github.com/FatBallFish/ZCode"
             target="_blank"
             rel="noopener"
-            aria-label="GitHub 仓库"
-            title="GitHub 仓库"
+            aria-label="GitHub repository"
+            title="GitHub repository"
             ><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
               <path
                 d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"
               /></svg
           ></a>
-
-          <a class="nav-lang" href="/en/docs">EN</a>
+          <a class="nav-lang" href="/cn/docs">中文</a>
         </div>
         <div class="nav-spacer"></div>
         <a class="btn btn-primary btn-sm" href="/en/download">Download</a>
@@ -49,11 +48,11 @@
       <div class="docs-layout">
         <nav class="docs-toc">
           <a href="#quickstart" class="active">Quick start</a>
-          <a href="#models">Models & providers</a>
-          <a href="#automation">Workflows & automation</a>
+          <a href="#models">Models &amp; providers</a>
+          <a href="#automation">Workflows &amp; automation</a>
           <a href="#remote">Mobile remote control</a>
           <a href="#share">Conversation sharing</a>
-          <a href="#update">Updates & maintenance</a>
+          <a href="#update">Updates &amp; maintenance</a>
           <a href="#faq">FAQ</a>
         </nav>
 
@@ -62,61 +61,70 @@
             <h2>Quick start</h2>
             <ol class="steps">
               <li>
-                <strong>安装</strong>：从<a href="/en/download">Download页</a
-                >获取对应平台安装包。Linux AppImage 需 <code>chmod +x</code> 后运行；macOS
-                首次打开未签名包如遇 Gatekeeper 拦截，执行
-                <code>xattr -cr /Applications/Mikiko.app</code>。
+                <strong>Install</strong>: grab the installer for your platform from the
+                <a href="/en/download">download page</a>. The Linux AppImage needs
+                <code>chmod +x</code> before running; unsigned macOS builds blocked by Gatekeeper
+                need <code>xattr -cr /Applications/Mikiko.app</code>.
               </li>
               <li>
-                <strong>登录账号</strong>：首次启动按引导登录 MikikoCC 账号（或在设置 → Mikiko
-                网关绑定自建 Sub2API 站点），API 密钥与模型列表会自动同步。
+                <strong>Sign in</strong>: follow the onboarding to sign in to your MikikoCC account
+                (or bind a self-hosted Sub2API site under Settings → Mikiko Gateway); API keys and
+                model lists sync automatically.
               </li>
               <li>
-                <strong>选择模型</strong
-                >：在会话输入框的模型选择器里挑选模型与推理档位；模型能力（上下文窗口、支持档位）由智能配置自动对齐，也可在设置中手动覆盖。
+                <strong>Pick a model</strong>: choose a model and reasoning level from the
+                composer's model selector; capabilities (context window, supported levels) align
+                automatically via smart config and can be overridden in settings.
               </li>
               <li>
-                <strong>开始任务</strong>：直接描述需求，或把项目文件夹拖入窗口建立工作区。Agent
-                会在授权范围内读写文件、执行命令并汇报进度。
+                <strong>Start a task</strong>: describe what you need, or drop a project folder into
+                the window to create a workspace. The agent reads and writes files, runs commands
+                and reports progress within granted permissions.
               </li>
             </ol>
           </section>
 
           <section class="doc-section" id="models">
-            <h2>Models & providers</h2>
+            <h2>Models &amp; providers</h2>
             <p>The model system has three layers:</p>
             <ul>
               <li>
-                <strong>账号套餐</strong>：MikikoCC / Sub2API 站点登录后自动为每个 API
-                密钥投影一个个人供应商，密钥、模型清单与额度自动同步。
+                <strong>Account plans</strong>: signing in to a MikikoCC / Sub2API site
+                automatically projects a personal provider per API key, with keys, model lists and
+                quotas kept in sync.
               </li>
               <li>
-                <strong>自定义供应商</strong>：任意 OpenAI / Anthropic 兼容端点，可配置 API
-                格式（chat-completions / responses / anthropic-messages）、Base URL 与密钥。
+                <strong>Custom providers</strong>: any OpenAI / Anthropic compatible endpoint, with
+                configurable API format (chat-completions / responses / anthropic-messages), base
+                URL and key.
               </li>
               <li>
-                <strong>智能配置</strong>：按「模型 ID + API
-                格式」自动匹配推荐配置（上下文窗口、输入格式、推理档位与请求参数映射），推荐由
-                Mikiko 云端持续更新；手动修改过的字段转为手动管理，不再被覆盖。
+                <strong>Smart config</strong>: recommended capabilities (context window, input
+                formats, reasoning levels and request parameter mappings) match automatically by
+                model ID + API format and keep updating from the Mikiko cloud; fields you edit
+                manually switch to manual management and are never overwritten.
               </li>
             </ul>
             <p>
-              推理档位按模型实际支持情况提供
-              <code>low / medium / high / xhigh / max</code>
-              或开关型两档；在模型编辑页可查看与调整档位列表和参数映射表达式。
+              Reasoning levels provide <code>low / medium / high / xhigh / max</code> or a two-state
+              toggle depending on what the model actually supports; the level list and parameter
+              mapping expression are editable per model.
             </p>
           </section>
 
           <section class="doc-section" id="automation">
-            <h2>Workflows & automation</h2>
+            <h2>Workflows &amp; automation</h2>
             <ul>
               <li>
-                <strong>动态工作流</strong>：在「工作流」标签用自然语言描述多步流程，Agent
-                会编排执行并在 GUI 中呈现每步状态，可中途介入调整。
+                <strong>Dynamic workflows</strong>: describe a multi-step flow in natural language
+                on the Workflows tab; the agent orchestrates execution with per-step status in the
+                GUI and you can intervene and adjust midway.
               </li>
               <li>
-                <strong>闲时任务</strong
-                >：适合额度敏感的重活（大批量重构、依赖升级、巡检）。任务进入闲时队列，在计划时段自动执行，完成后桌面与手机都会收到结果通知。
+                <strong>Off-peak tasks</strong>: built for quota-sensitive heavy jobs (mass
+                refactors, dependency upgrades, routine sweeps). Tasks enter the off-peak queue and
+                run automatically in the scheduled window; both desktop and phone receive result
+                notifications.
               </li>
             </ul>
           </section>
@@ -125,45 +133,48 @@
             <h2>Mobile remote control</h2>
             <p>
               After signing in on desktop, open the pairing link in a phone browser to attach to the
-              live session: follow progress, approve file edits and commands, keep chatting.
-              Realtime and replayable links are separate; sessions survive network drops.
+              current session: follow task progress, approve file edits and command execution, keep
+              chatting. The realtime link (desktop online) and the replayable recovery link
+              (reconnect after drops) are separate by design, so sessions survive network jitter.
             </p>
             <p>
-              Remote control can be toggled in a config file; connect and disconnect both give clear
-              sub-second terminal feedback.
+              Remote control can be toggled as a whole via a config file; connect and disconnect
+              both give clear, sub-second terminal feedback.
             </p>
           </section>
 
           <section class="doc-section" id="share">
             <h2>Conversation sharing</h2>
-            <p>Right-click a session → Share and pick an access mode:</p>
+            <p>Right-click a session → Share, then pick an access mode:</p>
             <ul>
               <li><strong>Public read-only</strong>: anyone with the link can view.</li>
               <li>
-                <strong>公开可导入</strong
-                >：接收方在本地导入并继续对话（续聊发生在导入者本地，原始会话不受影响）。
+                <strong>Public importable</strong>: recipients import locally and continue the
+                conversation (the continuation happens on the importer's machine; the original
+                session is untouched).
               </li>
             </ul>
             <p>
-              分享服务运行在自托管的 agent.mikiko.ai 上；附件（Docs、图片等）随分享一起托管，7
-              天后自动过期。
+              The share service runs on self-hosted agent.mikiko.ai; artifacts (documents, images
+              and more) are hosted together with the share and expire automatically after 7 days.
             </p>
           </section>
 
           <section class="doc-section" id="update">
-            <h2>Updates & maintenance</h2>
+            <h2>Updates &amp; maintenance</h2>
             <ul>
               <li>
-                <strong>自动更新</strong>：默认开启，清单与安装包均来自自建更新服务（agent-update /
-                agent-dl），可在设置中检查更新或切换 stable / preview 通道。
+                <strong>Auto updates</strong>: on by default; manifests and installers both come
+                from the self-hosted update service (agent-update / agent-dl). Check for updates or
+                switch between the stable / preview channels in settings.
               </li>
               <li>
-                <strong>强更保障</strong
-                >：重大不兼容版本会通过强更配置提示升级，避免旧版本连接异常。
+                <strong>Force updates</strong>: breaking releases prompt an upgrade via the
+                force-update config so old versions never end up in a broken connection state.
               </li>
               <li>
-                <strong>数据位置</strong>：本地数据位于 <code>~/.mikiko/v2</code>；「帮助 →
-                导出日志」可一键收集排障材料。
+                <strong>Data location</strong>: local data lives under <code>~/.mikiko/v2</code>;
+                Help → Export Logs collects troubleshooting material in one click.
               </li>
             </ul>
           </section>
@@ -172,24 +183,24 @@
             <h2>FAQ</h2>
             <ul>
               <li>
-                <strong>Model request says "unsupported reasoning level"?</strong
-                >该模型的档位配置与上游实际支持不一致。在设置 →
-                模型供应商中编辑该模型，把档位调整为上游支持的取值（如
-                low/medium/high），或等待智能配置热更。
+                <strong>Model request says "unsupported reasoning level"?</strong> The level config
+                disagrees with what the upstream accepts. Edit the model under Settings → Model
+                Providers and set the levels the upstream supports (e.g. low/medium/high), or wait
+                for smart config to hot-update.
               </li>
               <li>
-                <strong>macOS says "cannot verify developer"?</strong>安装包未做公证签名，执行
-                <code>xattr -cr /Applications/Mikiko.app</code> 后重新打开。
+                <strong>macOS says "cannot verify developer"?</strong> The build is not notarized or
+                signed; run <code>xattr -cr /Applications/Mikiko.app</code> and reopen.
               </li>
               <li>
-                <strong>Phone remote control cannot connect?</strong>Make sure the desktop is online
-                with remote control enabled; both sides need access to the relay (same LAN not
-                required).
+                <strong>Phone remote control cannot connect?</strong> Make sure the desktop is
+                online and remote control is enabled; the two sides do not need to be on the same
+                LAN, but both need access to the relay service.
               </li>
               <li>
-                <strong>Fully offline usage?</strong>Model requests go straight to provider
-                endpoints; smart config and update checks fall back to bundled local data when
-                offline.
+                <strong>Fully offline usage?</strong> Model requests go straight to provider
+                endpoints; smart config and update checks fall back to bundled local data when the
+                network is unavailable, so daily usage is unaffected.
               </li>
             </ul>
           </section>
@@ -202,8 +213,9 @@
         <span>© Mikiko</span><span class="sep">·</span>
         <a href="/en/">Home</a>
         <a href="/en/changelog">Changelog</a>
+        <a href="/en/download">Download</a>
         <div class="footer-links">
-          <a href="https://agent-update.mikiko.ai/healthz" title="服务健康检查">Status</a>
+          <a href="https://agent-update.mikiko.ai/healthz" title="Service health check">Status</a>
         </div>
       </div>
     </footer>
