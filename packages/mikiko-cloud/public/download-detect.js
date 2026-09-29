@@ -1,43 +1,61 @@
-/* Mikiko 下载入口共享逻辑：按浏览器识别操作系统，返回推荐下载项。
+/* Mikiko 下载入口共享逻辑：按浏览器识别操作系统与架构，返回推荐下载项。
  * 版本与安装包直链优先取 /api/v1/releases/latest（agent-update manifest 聚合，
- * 发版自动跟进）；接口失败时回落下方写死的静态值（保证官网永不挂空链接）。 */
+ * 发版自动跟进）；接口失败时回落下方写死的静态值（保证官网永不挂空链接）。
+ * 文案双语（LABELS.zh / LABELS.en），页面经 options.locale 选择，缺省中文。 */
 "use strict";
 
-/** 静态兜底（发版后若接口异常仍能下载上一版；正常情况被 latest 接口覆盖）。 */
+const LABELS = {
+  zh: {
+    macos: { label: "下载 macOS 版", note: "通用安装包 · Apple Silicon / Intel" },
+    windows: { label: "下载 Windows 版", note: "x64 安装程序" },
+    linux: { label: "下载 Linux 版（AppImage）", note: "免安装通用包 · 其他格式见下载页" },
+    fallback: "获取下载",
+    arch: {
+      arm64: "arm64（Apple 芯片 / Windows on ARM）",
+      x64: "x64（Intel / AMD）",
+      unknown: "通用安装包 · Apple Silicon / Intel",
+    },
+  },
+  en: {
+    macos: { label: "Download for macOS", note: "Universal build · Apple Silicon / Intel" },
+    windows: { label: "Download for Windows", note: "x64 installer" },
+    linux: {
+      label: "Download for Linux (AppImage)",
+      note: "portable universal package · other formats on the download page",
+    },
+    fallback: "Get downloads",
+    arch: {
+      arm64: "arm64 (Apple silicon / Windows on ARM)",
+      x64: "x64 (Intel / AMD)",
+      unknown: "Universal build · Apple Silicon / Intel",
+    },
+  },
+};
+
+function labelsFor(locale) {
+  return locale === "en" ? LABELS.en : LABELS.zh;
+}
+
+/** 静态兜底（latest 接口失败时；正常情况被动态直链覆盖）。 */
 const MIKIKO_FALLBACK = {
-  macos: {
-    label: "下载 macOS 版",
-    url: "https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-mac-x64.dmg",
-    note: "通用安装包 · Apple Silicon / Intel",
-  },
-  windows: {
-    label: "下载 Windows 版",
-    url: "https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-win-x64.exe",
-    note: "x64 安装程序",
-  },
-  linux: {
-    label: "下载 Linux 版（AppImage）",
-    url: "https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-linux-x86_64.AppImage",
-    note: "免安装通用包 · 其他格式见下载页",
-  },
+  macos: { url: "https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-mac-x64.dmg" },
+  windows: { url: "https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-win-x64.exe" },
+  linux: { url: "https://agent-dl.mikiko.ai/files/1.0.4/Mikiko-1.0.4-linux-x86_64.AppImage" },
 };
 
 let latestReleasePromise = null;
 
-/** 拉取聚合版本数据（60s 边缘缓存）；失败返回 null，调用方回落静态值。 */
+/** 拉取聚合版本数据（60s 边缘缓存）；失败返回 null 并清缓存供下次重试。 */
 function fetchLatestRelease() {
   if (!latestReleasePromise) {
     latestReleasePromise = fetch("/api/v1/releases/latest", { credentials: "omit" })
       .then((response) => (response.ok ? response.json() : null))
-      .catch(() => null)
-      .finally(() => {
-        // 失败不缓存失败态：下次调用重试。
-        latestReleasePromise
-          .then((value) => {
-            if (!value) latestReleasePromise = null;
-          })
-          .catch(() => undefined);
-      });
+      .catch(() => null);
+    latestReleasePromise
+      .then((value) => {
+        if (!value) latestReleasePromise = null;
+      })
+      .catch(() => undefined);
   }
   return latestReleasePromise;
 }
@@ -65,9 +83,9 @@ function detectMikikoPlatform() {
   return null;
 }
 
-/** 架构探测：返回 "arm64" | "x64" | null（null=未知，走手动选择）。
+/** 架构探测：返回 "arm64" | "x64" | null（null=未知，回落通用包/手动选择）。
  *  优先 UA-CH 高熵 architecture（Chromium/Edge）；Safari 无 UA-CH 时用
- *  WebGL 渲染器字符串兜底（Apple Silicon 的统一 GPU 标识为 "Apple M*" / "Apple GPU"）。 */
+ *  WebGL 渲染器字符串兜底（Apple Silicon 统一 GPU 标识 "Apple M*" / "Apple GPU"）。 */
 async function detectMikikoArch(os) {
   try {
     const uad = navigator.userAgentData;
@@ -111,8 +129,7 @@ function resolveDownloadKind(os, arch, availableKinds) {
 
 /**
  * 装配一个下载按钮（<a>）：识别到系统则直连对应安装包（点击即下载），
- * 识别失败回落到 /download 让用户手动选择。返回 Promise<{os, file, latest}>：
- * latest 为聚合版本数据（可能为 null=使用静态兜底），latest.version 供页面显示版本号。
+ * 识别失败回落到下载页让用户手动选择。返回 Promise<{os, arch, file, latest}>。
  */
 async function setupMikikoDownloadButton(button, options = {}) {
   const t = labelsFor(options.locale);
