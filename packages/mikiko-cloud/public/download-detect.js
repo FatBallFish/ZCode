@@ -114,13 +114,8 @@ function resolveDownloadKind(os, arch, availableKinds) {
  * 识别失败回落到 /download 让用户手动选择。返回 Promise<{os, file, latest}>：
  * latest 为聚合版本数据（可能为 null=使用静态兜底），latest.version 供页面显示版本号。
  */
-const ARCH_NOTES = {
-  arm64: "arm64（Apple 芯片 / Windows on ARM）",
-  x64: "x64（Intel / AMD）",
-  unknown: "通用安装包 · Apple Silicon / Intel",
-};
-
 async function setupMikikoDownloadButton(button, options = {}) {
+  const t = labelsFor(options.locale);
   const os = detectMikikoPlatform();
   const latest = await fetchLatestRelease();
   if (os && MIKIKO_FALLBACK[os]) {
@@ -135,8 +130,13 @@ async function setupMikikoDownloadButton(button, options = {}) {
           : "appimage";
     const dynamicUrl = latest ? fileUrlByKind(latest, kind) : null;
     const base = MIKIKO_FALLBACK[os];
-    const note = os === "linux" ? base.note : arch ? ARCH_NOTES[arch] : ARCH_NOTES.unknown;
-    const file = dynamicUrl ? { ...base, url: dynamicUrl, note } : { ...base, note };
+    const note = os === "linux" ? t.linux.note : arch ? t.arch[arch] : t.arch.unknown;
+    const file = {
+      ...base,
+      ...(dynamicUrl ? { url: dynamicUrl } : {}),
+      note,
+      label: t[os].label,
+    };
     button.href = file.url;
     button.setAttribute("download", "");
     button.textContent = (options.prefix ?? "") + file.label;
@@ -144,13 +144,14 @@ async function setupMikikoDownloadButton(button, options = {}) {
     return { os, arch, file, latest };
   }
   button.href = options.fallbackPath ?? "/download";
-  button.textContent = (options.prefix ?? "") + "获取下载";
+  button.textContent = (options.prefix ?? "") + t.fallback;
   button.classList.add("undetected");
   return { os: null, arch: null, file: null, latest };
 }
 
 // 供下载页弹层逻辑复用（window.MikikoDownload 命名空间）。
 window.MikikoDownload = {
+  labelsFor,
   detectMikikoPlatform,
   detectMikikoArch,
   resolveDownloadKind,

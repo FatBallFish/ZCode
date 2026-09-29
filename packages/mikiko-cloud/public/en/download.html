@@ -24,8 +24,8 @@
             href="https://github.com/FatBallFish/ZCode"
             target="_blank"
             rel="noopener"
-            aria-label="GitHub 仓库"
-            title="GitHub 仓库"
+            aria-label="GitHub repository"
+            title="GitHub repository"
             ><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
               <path
                 d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"
@@ -94,13 +94,13 @@
         </div>
 
         <div class="download-extra">
-          <span>AppImage 首次启动：<code>chmod +x Mikiko-*.AppImage</code></span>
+          <span>AppImage first launch: <code>chmod +x Mikiko-*.AppImage</code></span>
           <span
-            >macOS 未签名包if blocked by Gatekeeper:<code
+            >Unsigned macOS builds — if blocked by Gatekeeper:<code
               >xattr -cr /Applications/Mikiko.app</code
             ></span
           >
-          <a href="/en/changelog">历史版本与更新日志</a>
+          <a href="/en/changelog">History &amp; changelog</a>
         </div>
       </div>
     </main>
@@ -108,11 +108,11 @@
     <footer class="site-footer">
       <div class="footer-inner">
         <span>© Mikiko</span><span class="sep">·</span>
-        <a href="/en/">首页</a>
-        <a href="/en/docs">文档</a>
-        <a href="/en/changelog">更新日志</a>
+        <a href="/en/">Home</a>
+        <a href="/en/docs">Docs</a>
+        <a href="/en/changelog">Changelog</a>
         <div class="footer-links">
-          <a href="https://agent-update.mikiko.ai/healthz" title="服务健康检查">服务状态</a>
+          <a href="https://agent-update.mikiko.ai/healthz" title="Service health check">Status</a>
         </div>
       </div>
     </footer>
@@ -266,7 +266,7 @@
           >
           <span class="spec-arrow">→</span>
         </a>
-        <button class="spec-close btn btn-ghost" id="spec-close" type="button">取消</button>
+        <button class="spec-close btn btn-ghost" id="spec-close" type="button">Cancel</button>
       </div>
     </div>
 
@@ -284,7 +284,7 @@
           document.getElementById("os-" + os)?.classList.add("recommended");
           const tag = document.createElement("span");
           tag.className = "recommended-tag";
-          tag.textContent = "推荐";
+          tag.textContent = "Recommended";
           document.getElementById("os-" + os)?.appendChild(tag);
         } else {
           hint.classList.add("unknown");
@@ -312,7 +312,9 @@
           const versionDesc = document.getElementById("download-version");
           if (versionDesc) {
             const size = byKind["macos-dmg"]?.sizeBytes;
-            const sizeText = size ? "（主包约 " + Math.round(size / 1024 / 1024) + " MB）" : "";
+            const sizeText = size
+              ? " (main package ~" + Math.round(size / 1024 / 1024) + " MB)"
+              : "";
             versionDesc.textContent =
               "v" +
               latest.version +
