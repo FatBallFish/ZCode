@@ -11,6 +11,8 @@ import { workflowRunStepCounts } from "@zcode/shared/zcode-protocol-v4";
 import { extractPlanToolCallContent, getPlanDirectoryTitle } from "@/lib/planToolCall.js";
 
 export interface ConversationStatusPanelGitModel {
+  /** 注册的 Mikiko 工作树会话：Git 工具区常显并带工作树标识（specs/desktop/worktrees.md）。 */
+  isWorktree: boolean;
   branchName: string | null;
   headRefType: GitRepositorySummary["headRefType"];
   dirtyFileCount: number;
@@ -122,6 +124,8 @@ interface BuildConversationStatusPanelModelInput {
   gitSummary?: GitRepositorySummary | null;
   gitDirtyFileCount?: number;
   gitWorktreeChangeSummary?: { added: number; removed: number } | null;
+  /** 当前 workspace 是注册的 git worktree 时，无行级变更也保留 Git 工具区。 */
+  isWorktreeWorkspace?: boolean;
   goal?: GoalState | null;
   sessionPlans?: readonly ToolCallRow[];
   workspacePath?: string;
@@ -135,9 +139,10 @@ function buildGitModel({
   gitSummary,
   gitDirtyFileCount = 0,
   gitWorktreeChangeSummary,
+  isWorktreeWorkspace = false,
 }: Pick<
   BuildConversationStatusPanelModelInput,
-  "gitSummary" | "gitDirtyFileCount" | "gitWorktreeChangeSummary"
+  "gitSummary" | "gitDirtyFileCount" | "gitWorktreeChangeSummary" | "isWorktreeWorkspace"
 >): ConversationStatusPanelGitModel | null {
   if (!gitSummary?.isGitAvailable || !gitSummary.isRepository) {
     return null;
@@ -146,7 +151,8 @@ function buildGitModel({
   const removed = gitWorktreeChangeSummary?.removed ?? 0;
   // v4 之前只要是 Git repository 就创建 Git model，导致 clean repo
   // 也挂出右上角状态卡；旧 ChatView 只在 worktree 有行级变化时展示 Git Tools。
-  if (added + removed <= 0) {
+  // 例外：注册的 Mikiko worktree 会话常显——工作树身份本身就是要常驻的信息。
+  if (added + removed <= 0 && !isWorktreeWorkspace) {
     return null;
   }
   const isClean =
@@ -157,6 +163,7 @@ function buildGitModel({
     gitSummary.ahead === 0;
 
   return {
+    isWorktree: isWorktreeWorkspace,
     branchName: gitSummary.branchName,
     headRefType: gitSummary.headRefType,
     dirtyFileCount: gitDirtyFileCount,

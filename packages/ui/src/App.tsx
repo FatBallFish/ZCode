@@ -13,6 +13,7 @@ import { usePlatform } from "@/hooks/usePlatform.js";
 import { useWorkspaceActiveTaskState } from "@/hooks/useWorkspaceActiveTaskState.js";
 import { useEnsureWorkspaceMcpLoaded } from "@/hooks/useEnsureWorkspaceMcpLoaded.js";
 import { useTabStore } from "@/store/TabStoreProvider.js";
+import { useWorktreeStore } from "@/store/worktreeStore.js";
 import { isWorkspaceReadOnly, isWorkspaceTab } from "@/store/tabStore.js";
 import type { TaskChatMessage as TestChatMessage } from "@/lib/taskChatMessageTypes.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
@@ -145,6 +146,12 @@ export function App({
     });
     return () => memoryDiagnosticsLogger.stop();
   }, [reportRendererHeapSample]);
+  // Worktree 注册表只读缓存：挂载时拉一次（后续在设置页打开、创建/删除 RPC 返回后刷新；
+  // 渲染层缓存不作真值，specs/desktop/worktrees.md）。
+  const refreshWorktreeRegistry = useWorktreeStore((state) => state.refreshRegistry);
+  useEffect(() => {
+    void refreshWorktreeRegistry(services.worktreeService);
+  }, [refreshWorktreeRegistry, services.worktreeService]);
   const activeWorkspaceRpcTarget = useTabStore(
     useShallow((state) => {
       if (!state.activeTabId) {

@@ -1563,6 +1563,126 @@ export class TaskIndexRepo {
     });
   }
 
+  /**
+   * 删除 workspace 下全部 task（worktree 删除链路，D1）。
+   *
+   * 与 deleteArchivedTask 同语义：写 deleted tombstone 而非物理删行，
+   * 否则 sessions-index 的下一次 upsert 会让会话在 UI 复活；
+   * 同事务清理 task 分组引用。返回 tombstone 化的条数。
+   */
+  async deleteWorkspaceTasks(params: {
+    workspacePath: string;
+    workspaceIdentity?: string;
+  }): Promise<number> {
+    await this.ensureReady();
+    // taskId 用 "*" 占位让链式 key 独立于单 task 写；真正的一致性由 BEGIN IMMEDIATE 保证。
+    return this.enqueueWrite({ ...params, taskId: "*" }, () => {
+      const database = this.getDatabase();
+      database.exec("BEGIN IMMEDIATE");
+      try {
+        const workspaceKeyValue = workspaceKey(params);
+        const rows = database
+          .prepare(`SELECT * FROM tasks WHERE workspace_key = ? AND deleted = 0`)
+          .all(workspaceKeyValue) as unknown as TaskIndexRow[];
+        for (const row of rows) {
+          this.writeRecord({
+            meta: rowToMeta(row),
+            pinned: row.pinned === 1,
+            archived: row.archived === 1,
+            deleted: true,
+            titleOverridden: row.title_overridden === 1,
+          });
+          this.deleteTaskGroupingReferencesReady(row.workspace_key, row.task_id);
+        }
+        database.exec("COMMIT");
+        return rows.length;
+      } catch (error) {
+        database.exec("ROLLBACK");
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * 跨 workspace 的已归档任务（设置页「已归档」总览）。
+   * 与 queryTaskList(kind=archived) 的差别：不限定 workspaceScopes，
+   * 一次拉全量（updated_at 倒序，限量防大库拖垮设置页）。
+   */
+  async listAllArchivedTasks(params: {
+    provider?: ZCodeProvider;
+    limit?: number;
+  }): Promise<ZCodeTaskMeta[]> {
+    await this.ensureReady();
+    const where = ["deleted = 0", "archived = 1"];
+    const args: Array<string | number> = [];
+    if (params.provider) {
+      appendZCodeAgentIndexedProviderFilter(where, args, params.provider);
+    }
+    const limit = Math.max(1, Math.min(params.limit ?? 1000, 5000));
+    args.push(limit);
+    const rows = this.getDatabase()
+      .prepare(
+        `SELECT
+          workspace_key,
+          workspace_path,
+          workspace_identity,
+          task_id,
+          title,
+          task_status,
+          provider,
+          mode,
+          model,
+          migration_source,
+          forked_from_task_id,
+          cron_automation_id,
+          off_peak_task_id,
+          created_at,
+          updated_at,
+          unread_at,
+          pinned,
+          archived,
+          deleted,
+          title_overridden,
+          meta_json
+        FROM tasks
+        WHERE ${where.join(" AND ")}
+        ORDER BY updated_at DESC, created_at DESC, task_id DESC
+        LIMIT ?`,
+      )
+      .all(...args) as unknown as TaskIndexRow[];
+    return rows.map(rowToMeta);
+  }
+
+  /** worktree 强制删除前安全检查：该 workspace 是否有 running 状态的任务在执行。 */
+  async hasRunningTasks(params: {
+    workspacePath: string;
+    workspaceIdentity?: string;
+  }): Promise<boolean> {
+    await this.ensureReady();
+    const row = this.getDatabase()
+      .prepare(
+        `SELECT COUNT(*) AS count FROM tasks
+         WHERE workspace_key = ? AND deleted = 0 AND task_status = 'running'`,
+      )
+      .get(workspaceKey(params)) as { count: number } | undefined;
+    return (row?.count ?? 0) > 0;
+  }
+
+  /** worktree 自动清理资格（D4）：该 workspace 是否存在置顶或未读会话。 */
+  async hasPinnedOrUnreadTasks(params: {
+    workspacePath: string;
+    workspaceIdentity?: string;
+  }): Promise<boolean> {
+    await this.ensureReady();
+    const row = this.getDatabase()
+      .prepare(
+        `SELECT COUNT(*) AS count FROM tasks
+         WHERE workspace_key = ? AND deleted = 0 AND (pinned = 1 OR unread_at IS NOT NULL)`,
+      )
+      .get(workspaceKey(params)) as { count: number } | undefined;
+    return (row?.count ?? 0) > 0;
+  }
+
   async updateTaskState(params: {
     workspacePath: string;
     workspaceIdentity?: string;

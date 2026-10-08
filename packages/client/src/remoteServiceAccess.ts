@@ -4,6 +4,7 @@ import {
   IMediaPreviewService,
   IGitService,
   IGitCheckpointService,
+  IWorktreeService,
   ISystemService,
   ITerminalService,
   ISettingService,
@@ -54,6 +55,10 @@ export class RemoteServiceAccess implements IServiceAccessor {
   readonly mediaPreviewService: IMediaPreviewService;
   readonly gitService: IGitService;
   readonly gitCheckpointService: IGitCheckpointService;
+  // worktreeService 在 IServiceAccessor 上可选（远程 workspace 集合不提供），
+  // 但本地 host（桌面/手机 attachment/stdio server）都经 createLocalServices 注册。
+  // getChannel 是惰性代理，构造不抛错；UI 按 list() 是否成功决定分区展示。
+  readonly worktreeService: IWorktreeService;
   readonly systemService: ISystemService;
   readonly terminalService: ITerminalService;
   readonly settingService: ISettingService;
@@ -109,6 +114,9 @@ export class RemoteServiceAccess implements IServiceAccessor {
     );
     this.gitCheckpointService = ProxyChannel.toService<IGitCheckpointService>(
       channelClient.getChannel(IGitCheckpointService.channelName),
+    );
+    this.worktreeService = ProxyChannel.toService<IWorktreeService>(
+      channelClient.getChannel(IWorktreeService.channelName),
     );
     this.systemService = ProxyChannel.toService<ISystemService>(
       channelClient.getChannel(ISystemService.channelName),

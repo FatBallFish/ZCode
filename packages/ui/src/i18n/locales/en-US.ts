@@ -2062,6 +2062,48 @@ const enUS: Record<string, string> = {
   "settings.sidebar.group.basics": "Basics",
   "settings.sidebar.group.agentCapabilities": "Agent capabilities",
   "settings.sidebar.group.dataAndStats": "Data and statistics",
+    "The owning worktree no longer exists; this record can only be deleted.",
+  "settings.worktrees.title": "Worktrees",
+  "settings.worktrees.unavailable": "Worktree management is unavailable",
+  "settings.worktrees.unavailableHint": "Requires the local Mikiko host worktree service.",
+  "settings.worktrees.rootDir": "Worktree root directory",
+  "settings.worktrees.rootDirHint":
+    "New worktrees are created under this directory as <repo>-<hash>/<random-id>.",
+  "settings.worktrees.chooseDir": "Choose directory",
+  "settings.worktrees.fetchBeforeCreate": "Fetch upstream before creating",
+  "settings.worktrees.fetchBeforeCreateHint":
+    "Run git fetch before creating a worktree (skipped when no remote exists).",
+  "settings.worktrees.autoPrune": "Auto-remove old worktrees",
+  "settings.worktrees.autoPruneHint":
+    "Remove least-recently-used worktrees above the per-project limit; only clean worktrees without running sessions or pinned/unread chats are removed.",
+  "settings.worktrees.autoPruneLimitSuffix": "per project",
+  "settings.worktrees.staleHostWarning":
+    "The background host process is outdated. Fully restart the app for changes to take effect.",
+  "settings.worktrees.hostOutdated":
+    "The background host has not loaded the worktree service (outdated build). Fully quit and restart the app (re-run pnpm dev:desktop in dev); reloading the window alone is not enough.",
+  "settings.worktrees.loading": "Loading worktrees…",
+  "settings.worktrees.empty":
+    'No worktrees created by Mikiko yet. Pick "New local worktree" in the new-chat work location to create one.',
+  "settings.worktrees.refresh": "Refresh worktree list",
+  "settings.worktrees.dirty": "{count} uncommitted change(s)",
+  "settings.worktrees.clean": "Clean",
+  "settings.worktrees.missing": "Directory missing",
+  "settings.worktrees.pruned": "Removed by git",
+  "settings.worktrees.noSessions": "No sessions",
+  "settings.worktrees.startChat": "New chat in this worktree",
+  "settings.worktrees.remove": "Remove worktree",
+  "settings.worktrees.confirmRemove": "Confirm removal",
+  "settings.worktrees.forceRemove": "Force remove",
+  "settings.worktrees.removed": "Worktree removed (with {count} session(s))",
+  "settings.worktrees.removeDirty":
+    'The worktree has uncommitted changes. Click "Force remove" to discard them.',
+  "settings.worktrees.removeRunningIdle":
+    "An idle session process is still attached to this worktree; force remove will stop it first.",
+  "settings.worktrees.removeRunningTask":
+    "A task is still running in this worktree. Wait for it to finish before removing.",
+  "settings.worktrees.removeRunning":
+    "A session process is still running in this worktree. Close it first.",
+  "settings.worktrees.removeFailed": "Failed to remove",
   "settings.nav.generalDescription": "Language and current window experience",
   "settings.pet.title": "Pet",
   "settings.nav.petDescription": "Desktop pet and pet market",
@@ -5941,6 +5983,18 @@ const enUS: Record<string, string> = {
   "chat.mention.sessions.empty": "No recent sessions match",
   "chat.mention.sessions.searchHint": "Type to search recent sessions",
   "chat.slash.title": "Commands and capabilities",
+  "chat.workLocation.newWorktree": "New local worktree",
+  "chat.workLocation.existingWorktree": "Existing worktree",
+  "chat.workLocation.remoteDefault": "Remote default branch",
+  "chat.workLocation.refPrefix": "From",
+  "chat.workLocation.firstSendFailed":
+    "The first message was not delivered to the worktree session; text restored to the composer",
+  "chat.workLocation.firstSendFailedDetail":
+    "Automatic send did not complete. You can resend from the composer.",
+  "chat.workLocation.attachmentsUnsupported":
+    "Attachments are not yet supported for the first message in a worktree session; send text first or use local mode",
+  "chat.workLocation.unavailable": "Starting a session in a worktree is unavailable here",
+  "chat.slash.app.new.description": "New chat (keeps current project and work location)",
   "chat.slash.searchHint": "Type to search commands, skills, or agents",
   "chat.slash.app.side.description": "Open a new side conversation",
   "chat.slash.commands.title": "Commands",

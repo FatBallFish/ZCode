@@ -103,6 +103,8 @@ import { useDraftModelReadinessGate } from "@/v4/composer/useDraftModelReadiness
 import { useSettings } from "@/hooks/useSettingService.js";
 import { useZCodeStoreWithDefault } from "@/store/StoreProvider.js";
 import { useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
+import { useWorktreeStore } from "@/store/worktreeStore.js";
+import { useTabStoreApi } from "@/store/TabStoreProvider.js";
 import {
   DEFAULT_CONVERSATION_SHARE_ACCESS_MODE,
   DEFAULT_CONVERSATION_SHARE_DOCK_STATE,
@@ -554,8 +556,9 @@ export function SessionPane({
     fileRewindPreview,
   } = useV4Conversation();
   const platform = useOptionalPlatform();
+  const services = useServices();
   const { conversationShareService, modelSelectionService, zcodeSessionService, zcodeTaskService } =
-    useServices();
+    services;
   const { intl, locale } = useZCodeIntl();
   const slashCommands = useSlashCommands(workspacePath, workspaceIdentity);
   const baseWorkspaceServices = useBaseWorkspaceServices();
@@ -2066,36 +2069,59 @@ export function SessionPane({
     [cliSlashCommandNames],
   );
 
+  // `/new` App 层斜杠命令：跳到当前项目的新建会话。worktree 会话的新草稿天然
+  // 落在当前工作树（workspacePath 即 worktree 路径），工作位置/分支 chips 由注册表
+  // 命中自动锁定展示；本地会话的新草稿回到根项目原分支 chip（specs/desktop/worktrees.md）。
+  const handleStartNewChatFromSession = useCallback(() => {
+    useZCodeSessionStore
+      .getState()
+      .startDraft(workspacePath, undefined, workspaceIdentity, { createSource: "project" });
+  }, [workspaceIdentity, workspacePath]);
+
   // `/side` App 层斜杠命令。命令目录仍以 CLI catalog 为权威，这里只在渲染层
   // 按门禁注入"选中即打开辅助对话"的本地命令；草稿态（无父 session 可挂 child）、
   // 辅助对话自身、只读与手机 viewport 均不提供。
   const appSlashCommands = useMemo<AppSlashCommand[] | undefined>(() => {
+    if (!sessionId || readOnly) {
+      return undefined;
+    }
+    const commands: AppSlashCommand[] = [];
+    if (!cliSlashCommandNames.has("new")) {
+      commands.push({
+        value: "new",
+        description: intl.formatMessage({ id: "chat.slash.app.new.description" }),
+        // 关键词同时包含中英文别名，任一 locale 下输入 new / 新会话 都能搜到。
+        keywords: ["new", "new chat", "新会话", "新建会话", "新建"],
+        run: handleStartNewChatFromSession,
+      });
+    }
     if (
-      !sessionId ||
-      !onOpenSelectionSideChat ||
-      !shouldOfferSideSlashCommand({
+      onOpenSelectionSideChat &&
+      shouldOfferSideSlashCommand({
         isDraft: sessionId === null,
         selectionSideChat,
         readOnly,
         isMobileViewport: false,
       })
     ) {
-      return undefined;
+      const openNewSelectionSideChat = () => {
+        void handleOpenSelectionSideConversation(undefined, true);
+      };
+      // 关键词固定同时包含中英文别名，任一 locale 下输入 side / btw / 辅助 都能搜到。
+      // `/btw` 是 `/side` 的等价别名，适配不同用户输入习惯，面板中各自独立展示。
+      const sharedKeywords = ["side", "btw", "side chat", "auxiliary", "辅助对话", "辅助", "侧边"];
+      const description = intl.formatMessage({ id: "chat.slash.app.side.description" });
+      commands.push(
+        { value: "side", description, keywords: sharedKeywords, run: openNewSelectionSideChat },
+        { value: "btw", description, keywords: sharedKeywords, run: openNewSelectionSideChat },
+      );
     }
-    const openNewSelectionSideChat = () => {
-      void handleOpenSelectionSideConversation(undefined, true);
-    };
-    // 关键词固定同时包含中英文别名，任一 locale 下输入 side / btw / 辅助 都能搜到。
-    // `/btw` 是 `/side` 的等价别名，适配不同用户输入习惯，面板中各自独立展示。
-    const sharedKeywords = ["side", "btw", "side chat", "auxiliary", "辅助对话", "辅助", "侧边"];
-    const description = intl.formatMessage({ id: "chat.slash.app.side.description" });
-    return [
-      { value: "side", description, keywords: sharedKeywords, run: openNewSelectionSideChat },
-      { value: "btw", description, keywords: sharedKeywords, run: openNewSelectionSideChat },
-    ].filter((command) => !cliSlashCommandNames.has(command.value));
+    const filtered = commands.filter((command) => !cliSlashCommandNames.has(command.value));
+    return filtered.length > 0 ? filtered : undefined;
   }, [
     cliSlashCommandNames,
     handleOpenSelectionSideConversation,
+    handleStartNewChatFromSession,
     intl,
     onOpenSelectionSideChat,
     readOnly,
@@ -2279,8 +2305,14 @@ export function SessionPane({
   // ── 草稿态 v4 draft session 预热（m5）──
   // pane 未绑定会话时后台建 phase=draft 会话作预热载体：配置写 CAS 直达、首发复用。
   // 对外绑定语义不变（shell activeTaskId 仍 null），预热会话只是 pane 内部 effective 订阅目标。
+  // 工作位置 ≠ 本地时停用预热：首发会被重定向进 worktree workspace，预热会话
+  // 只会留在根 workspace（specs/desktop/worktrees.md）。
+  const draftWorkLocationMode = useWorktreeStore(
+    (state) => state.draftLocationByRootKey[workspaceKey]?.mode ?? "local",
+  );
+  const tabStoreApi = useTabStoreApi();
   const { binding: prewarmBinding } = useDraftSessionPrewarm({
-    enabled: sessionId === null && draftAgentStartupAllowed,
+    enabled: sessionId === null && draftAgentStartupAllowed && draftWorkLocationMode === "local",
     workspaceKey,
     paneId,
     invalidationVersion: draftRuntimeInvalidationVersion,
@@ -2960,11 +2992,103 @@ export function SessionPane({
     timelineScrollToBottomRef.current?.();
   }, []);
 
+  // 工作位置首发分流（specs/desktop/worktrees.md）：new-worktree 先建 detached 工作树，
+  // existing-worktree 直接复用；随后把首条文本作为 createSession.firstInput 一次性发出
+  // （协议原生语义：携带 firstInput 即建会话并立即执行首轮）。
+  // 修复史：曾把待发文本交给 worktree pane 的挂载 effect 自动发送，pane 重挂载/StrictMode
+  // 双挂载会在途并发多条 dispatch，一次操作创建出多个会话——改为本处单条 RPC 原子完成后，
+  // 再切 tab 并选中该会话，pane 侧不再有任何投递循环。
+  // 返回 true 表示已重定向（composer 清空按已发送处理）；失败抛错走既有错误横幅，草稿保留。
+  const maybeRedirectWorktreeFirstSend = useCallback(
+    async (text: string, options?: ConversationComposerSendOptions): Promise<boolean> => {
+      const worktreeStore = useWorktreeStore.getState();
+      const location = worktreeStore.getDraftLocation(workspaceKey);
+      if (location.mode === "local") {
+        return false;
+      }
+      if (options?.attachments && options.attachments.length > 0) {
+        throw new Error(intl.formatMessage({ id: "chat.workLocation.attachmentsUnsupported" }));
+      }
+      const worktreeService = services.worktreeService ?? baseWorkspaceServices?.worktreeService;
+      if (!worktreeService) {
+        throw new Error(intl.formatMessage({ id: "chat.workLocation.unavailable" }));
+      }
+      let targetWorktreePath: string;
+      if (location.mode === "new-worktree") {
+        const entry = await worktreeService.create({
+          rootWorkspacePath: workspacePath,
+          ...(location.ref ? { ref: location.ref } : {}),
+        });
+        targetWorktreePath = entry.worktreePath;
+        void worktreeStore.refreshRegistry(worktreeService);
+      } else {
+        if (!location.worktreePath) {
+          worktreeStore.setDraftLocation(workspaceKey, { mode: "local" });
+          return false;
+        }
+        targetWorktreePath = location.worktreePath;
+        void worktreeService.touch({ worktreePath: targetWorktreePath }).catch(() => undefined);
+      }
+      const modelSelection = options?.submission?.modelSelection;
+      const envelope = createCommandEnvelope({
+        type: "createSession",
+        sessionId: null,
+        payload: {
+          // worktree workspace 无 identity，workspaceId 即目录路径。
+          workspaceId: targetWorktreePath,
+          firstInput: {
+            text,
+            ...(modelSelection ? { modelSelection } : {}),
+          },
+        },
+      });
+      const ack = await services.zcodeAgentService.sendConversationCommandV4({
+        workspacePath: targetWorktreePath,
+        envelope,
+      });
+      if (ack.status !== "accepted") {
+        throw new Error(ack.reasonCode ?? "createSession 被拒绝");
+      }
+      const sessionId = ack.result?.type === "createSession" ? ack.result.sessionId : null;
+      if (!sessionId) {
+        throw new Error("createSession 缺少 sessionId");
+      }
+      // 重置根项目草稿的工作位置，下次新建默认本地。
+      worktreeStore.setDraftLocation(workspaceKey, { mode: "local" });
+      useZCodeSessionStore.getState().setActiveTaskId(targetWorktreePath, sessionId);
+      tabStoreApi.getState().ensureWorkspaceTab(targetWorktreePath);
+      tabStoreApi.getState().activateTabByPath(targetWorktreePath);
+      logger.info("[v4-worktree] 首发已直接建会话并重定向", {
+        rootWorkspacePath: workspacePath,
+        worktreePath: targetWorktreePath,
+        sessionId,
+        mode: location.mode,
+      });
+      return true;
+    },
+    [
+      baseWorkspaceServices,
+      intl,
+      services.worktreeService,
+      services.zcodeAgentService,
+      tabStoreApi,
+      workspaceIdentity,
+      workspaceKey,
+      workspacePath,
+    ],
+  );
+
   const handleSendText = useCallback(
     async (
       text: string,
       options?: ConversationComposerSendOptions,
     ): Promise<ConversationComposerSendResult> => {
+      if (sessionId === null) {
+        // 工作位置重定向必须在任何 admission 之前完成（预热已被门禁停用）。
+        if (await maybeRedirectWorktreeFirstSend(text, options)) {
+          return "sent";
+        }
+      }
       // 发送前冻结本次 admission 预期：command ACK 回来时 projection 可能已经切到 running，
       // 不能用更新后的 enqueue mode 反推刚提交的 prompt 是否原本立即发送。
       const shouldFocusLatest = shouldFocusTimelineAfterComposerSend({
@@ -3000,7 +3124,7 @@ export function SessionPane({
         throw error;
       }
     },
-    [dispatchSendText, focusTimelineToLatest, intl, sessionId],
+    [dispatchSendText, focusTimelineToLatest, intl, maybeRedirectWorktreeFirstSend, sessionId],
   );
 
   const handleComposerDraftStateChange = useCallback(
@@ -3829,11 +3953,16 @@ export function SessionPane({
     return () => setSelectionSideChatBlocked(sessionId, false);
   }, [blockingInteractionId, selectionSideChat, sessionId]);
   const isOfficeMode = useIsOfficeMode();
+  // 注册的 Mikiko worktree 会话：Git 工具区常显并标识工作树身份（specs/desktop/worktrees.md）。
+  const isWorktreeWorkspace = useWorktreeStore((state) =>
+    state.registryEntries.some((entry) => entry.worktreePath === workspacePath),
+  );
   const statusPanelModel = useMemo(
     () =>
       buildConversationStatusPanelModel({
         isOfficeMode,
         workspacePath,
+        isWorktreeWorkspace,
         gitSummary,
         gitDirtyFileCount,
         gitWorktreeChangeSummary,
@@ -3849,6 +3978,7 @@ export function SessionPane({
       gitDirtyFileCount,
       gitSummary,
       gitWorktreeChangeSummary,
+      isWorktreeWorkspace,
       snapshot?.backgroundWorks,
       snapshot?.goal,
       snapshot?.plan,

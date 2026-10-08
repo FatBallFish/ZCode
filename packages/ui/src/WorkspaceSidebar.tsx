@@ -91,6 +91,8 @@ import {
 } from "@/lib/sidebarPurposeSectionPreferences.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 import { setPendingSettingsSectionIntent } from "@/lib/settingsNavigation.js";
+import { useWorktreeStore } from "@/store/worktreeStore.js";
+import { compareZCodeTaskListItems } from "@/lib/taskListOrdering.js";
 import { buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
 import {
   increaseWorkspaceTaskVisibleLimit,
@@ -636,16 +638,72 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
     visibleLimitByWorkspaceKey: workspaceTaskVisibleLimitByKey,
     defaultVisibleLimit: WORKSPACE_TASK_PAGE_SIZE,
   });
-  const workspaceTaskGroupByKey = useMemo(
-    () =>
-      new Map(
-        workspaceTaskLists.groups.map((group) => [
-          buildTaskWorkspaceKey(group.workspacePath, group.workspaceIdentity),
-          group,
-        ]),
-      ),
-    [workspaceTaskLists.groups],
-  );
+  const worktreeRegistryEntries = useWorktreeStore((state) => state.registryEntries);
+  const workspaceTaskGroupByKey = useMemo(() => {
+    const map = new Map(
+      workspaceTaskLists.groups.map((group) => [
+        buildTaskWorkspaceKey(group.workspacePath, group.workspaceIdentity),
+        group,
+      ]),
+    );
+    // D3 并入：worktree 分组的会话并入根项目分组（仅展示层合并；task 实体键、
+    // 查询缓存与行级路由仍用 worktree 真实 workspaceKey，specs/desktop/worktrees.md）。
+    const worktreeGroupsByRootKey = new Map<string, typeof workspaceTaskLists.groups>();
+    for (const group of workspaceTaskLists.groups) {
+      const entry = worktreeRegistryEntries.find(
+        (item) => item.worktreePath === group.workspacePath,
+      );
+      if (!entry) {
+        continue;
+      }
+      const rootKey = entry.rootWorkspacePath;
+      const groupKey = buildTaskWorkspaceKey(group.workspacePath, group.workspaceIdentity);
+      if (!map.has(rootKey) || rootKey === groupKey) {
+        continue;
+      }
+      const bucket = worktreeGroupsByRootKey.get(rootKey) ?? [];
+      bucket.push(group);
+      worktreeGroupsByRootKey.set(rootKey, bucket);
+    }
+    for (const [rootKey, worktreeGroups] of worktreeGroupsByRootKey) {
+      const rootGroup = map.get(rootKey);
+      if (!rootGroup) {
+        continue;
+      }
+      const mergedItems = [
+        ...rootGroup.items,
+        ...worktreeGroups.flatMap((group) => group.items),
+      ].sort((left, right) => compareZCodeTaskListItems(left, right, taskSortBy));
+      map.set(rootKey, {
+        ...rootGroup,
+        items: mergedItems,
+        total: rootGroup.total + worktreeGroups.reduce((sum, group) => sum + group.total, 0),
+        hasMore: rootGroup.hasMore || worktreeGroups.some((group) => group.hasMore),
+        hasUnread: rootGroup.hasUnread || worktreeGroups.some((group) => group.hasUnread),
+        liveWorkflowCount:
+          rootGroup.liveWorkflowCount +
+          worktreeGroups.reduce((sum, group) => sum + group.liveWorkflowCount, 0),
+      });
+    }
+    return map;
+  }, [taskSortBy, worktreeRegistryEntries, workspaceTaskLists.groups]);
+
+  // D3 行去重：根项目 tab 打开时，其 worktree workspace 不再单独渲染项目行
+  // （会话已并入根组；worktree tab 仍可经会话点击/项目菜单进入）。
+  const sidebarProjectTabs = useMemo(() => {
+    const localRootPaths = new Set(
+      projectWorkspaceTabs
+        .filter((tab) => !tab.workspaceIdentity && !tab.remoteSessionId)
+        .map((tab) => tab.workspacePath),
+    );
+    return projectWorkspaceTabs.filter((tab) => {
+      if (tab.workspaceIdentity || tab.remoteSessionId) {
+        return true;
+      }
+      const entry = worktreeRegistryEntries.find((item) => item.worktreePath === tab.workspacePath);
+      return !entry || !localRootPaths.has(entry.rootWorkspacePath);
+    });
+  }, [projectWorkspaceTabs, worktreeRegistryEntries]);
   const handleShowMoreWorkspaceTasks = useCallback((workspaceKey: string) => {
     setWorkspaceTaskVisibleLimitByKey((current) =>
       increaseWorkspaceTaskVisibleLimit(current, workspaceKey),
@@ -1508,11 +1566,11 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
                                   onDragCancel={handleWorkspaceDragCancel}
                                 >
                                   <SortableContext
-                                    items={projectWorkspaceTabs.map((tab) => tab.id)}
+                                    items={sidebarProjectTabs.map((tab) => tab.id)}
                                     strategy={workspaceVerticalListSortingStrategy}
                                   >
                                     <ul data-testid={TID_WORKSPACE_LIST} className="space-y-2 pb-4">
-                                      {projectWorkspaceTabs.map((tab) => {
+                                      {sidebarProjectTabs.map((tab) => {
                                         const workspaceKey = buildTaskWorkspaceKey(
                                           tab.workspacePath,
                                           tab.workspaceIdentity,

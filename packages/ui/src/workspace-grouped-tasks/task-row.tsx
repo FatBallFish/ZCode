@@ -4,7 +4,17 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type { UniqueIdentifier } from "@dnd-kit/core";
 import { isCronTask, isOffPeakTask, type ZCodeTaskMeta } from "@zcode/shared";
-import { ArrowUpToLine, Clock, Cloud, Folder, ListTree, LoaderIcon, Moon, X } from "lucide-react";
+import {
+  ArrowUpToLine,
+  Clock,
+  Cloud,
+  Folder,
+  GitBranch,
+  ListTree,
+  LoaderIcon,
+  Moon,
+  X,
+} from "lucide-react";
 import { cn } from "@/components/lib/utils.js";
 import { Badge } from "@/components/ui/badge.js";
 import { toast } from "@/components/ui/toast.js";
@@ -38,6 +48,7 @@ import {
 import { TaskWorkflowRunLines } from "@/components/workflow-run-line/TaskWorkflowRunLines.js";
 import { useTaskInteractionAutoResolutionSnooze } from "@/hooks/useTaskInteractionAutoResolutionSnooze.js";
 import { useOptionalTabStore } from "@/store/TabStoreProvider.js";
+import { useWorktreeStore } from "@/store/worktreeStore.js";
 import { isWorkspaceReadOnly } from "@/store/tabStore.js";
 import { TaskTitleOverflowText } from "@/components/TaskTitleOverflowText.js";
 
@@ -120,6 +131,10 @@ function GroupedTaskRowComponent({
         )
       : taskAttentionLabel;
   const leadingIndicator = deriveTaskLeadingIndicator(task, taskActivity);
+  // worktree 会话：分组视图行内以分支 icon 标识（specs/desktop/worktrees.md FR-5）。
+  const isWorktreeSession = useWorktreeStore((state) =>
+    state.registryEntries.some((entry) => entry.worktreePath === task.workspacePath),
+  );
   const taskTitle =
     task.title ||
     intl.formatMessage({
@@ -476,6 +491,8 @@ function GroupedTaskRowComponent({
             <TooltipContent side="right" align="center" sideOffset={6}>
               {remoteSessionId ? (
                 <Cloud aria-hidden="true" className="size-3.5 shrink-0" />
+              ) : isWorktreeSession ? (
+                <GitBranch aria-hidden="true" className="size-3.5 shrink-0" />
               ) : (
                 <Folder aria-hidden="true" className="size-3.5 shrink-0" />
               )}

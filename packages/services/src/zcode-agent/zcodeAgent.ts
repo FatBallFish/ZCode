@@ -583,6 +583,8 @@ export interface IZCodeAgentService {
   getWorkspaceRuntimeIdentity(
     params: ZCodeAgentWorkspaceTarget,
   ): Promise<ZCodeAgentWorkspaceRuntimeIdentity>;
+  /** 只读探活：workspace 是否仍有存活 Agent 进程（worktree 删除资格校验等被动观察者）。 */
+  hasLiveRuntimeClient(params: ZCodeAgentWorkspaceTarget): boolean;
   createSession(params: ZCodeAgentCreateSessionParams): Promise<ZCodeSessionStateSnapshot>;
   resumeSession(params: ZCodeAgentResumeSessionParams): Promise<ZCodeSessionStateSnapshot>;
   listSessions(params: ZCodeAgentListSessionsParams): Promise<ZCodeSessionInfo[]>;

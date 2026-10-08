@@ -81,6 +81,8 @@ export const ServiceChannels = {
   /** Git 服务 */
   Git: "git",
   /** Git checkpoint 服务 */
+  /** Git worktree 管理（创建/删除/列表；仅本地 host，不进远程契约） */
+  Worktree: "worktree",
   GitCheckpoint: "git-checkpoint",
   Setting: "setting",
   /** 凭据管理（从 main IPC 迁移到 host RPC） */

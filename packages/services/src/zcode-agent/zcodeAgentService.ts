@@ -3419,6 +3419,10 @@ export function createZCodeAgentService(
       await getReadOnlyClient(params, "existing-only");
       return await processManager.getRuntimeIdentity(params);
     },
+      // worktree 删除资格（D4）需要只读探活；绝不能经 getClient 隐式拉起进程。
+      return processManager.getExistingClient(params) !== undefined;
+    },
+
 
     async createSession(params: ZCodeAgentCreateSessionParams) {
       const startedAt = Date.now();

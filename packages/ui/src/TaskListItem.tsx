@@ -9,8 +9,10 @@ import {
   Moon,
   Pin,
   Smartphone,
+  GitBranch,
 } from "lucide-react";
 import { isCronTask, isOffPeakTask, type ZCodeTaskMeta } from "@zcode/shared";
+import { useWorktreeStore } from "@/store/worktreeStore.js";
 import { TID_TASK_ARCHIVE, TID_TASK_ITEM, testId } from "@zcode/shared";
 import { Badge } from "@/components/ui/badge.js";
 import { Button } from "@/components/ui/button.js";
@@ -362,6 +364,11 @@ export const MemoTaskItem = memo(function TaskListItem({
     () => deriveTaskLeadingIndicator(task, taskActivity),
     [task, taskActivity],
   );
+  // worktree 会话默认在左侧槽位展示分支 icon（FR-5）；hover 时让位给置顶按钮
+  //（与 pin 互斥复用同一槽位的既有隐藏逻辑）。
+  const isWorktreeSession = useWorktreeStore((state) =>
+    state.registryEntries.some((entry) => entry.worktreePath === task.workspacePath),
+  );
   const isTaskCron = isCronTask(task);
   // 月亮身份改为持久 meta 标记判断；off-peak store 反查在任务被删除后会丢失
   // 会话溯源，且让每一行多背一个全局 store 订阅。
@@ -578,6 +585,8 @@ export const MemoTaskItem = memo(function TaskListItem({
             />
           ) : leadingIndicator === "loading" ? (
             <LoaderIcon className="size-4 animate-spin text-foreground-subtle" />
+          ) : isWorktreeSession ? (
+            <GitBranch data-worktree-indicator="true" className="size-3.5 text-foreground-subtle" />
           ) : showTimelineIdleIndicator ? (
             <span data-idle-indicator="true" className="h-1.5 w-1.5 rounded-full bg-border" />
           ) : null}

@@ -51,6 +51,7 @@ import {
   buildWorkspaceSessionKey,
   formatRemoteWorkspaceDisplayLabel,
 } from "@/lib/remoteWorkspaceHistory.js";
+import { formatWorktreeWorkspaceLabel, useWorktreeStore } from "@/store/worktreeStore.js";
 import { TaskList } from "@/TaskList.js";
 import { selectWorkspaceZCodeState, useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
 import type { WorkspaceTabState } from "@/store/tabStore.js";
@@ -232,7 +233,15 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
     isDisconnectedRemoteWorkspace && reconnectingRemoteWorkspaceKeys.includes(remoteWorkspaceKey),
   );
   const remoteWorkspaceError = remoteWorkspaceErrorByWorkspaceKey[remoteWorkspaceKey];
-  const workspaceSidebarLabel = formatRemoteWorkspaceDisplayLabel(tab.label, tab.remoteTarget);
+  const worktreeEntryForTab = useWorktreeStore((state) =>
+    tab.workspaceIdentity
+      ? undefined
+      : state.registryEntries.find((entry) => entry.worktreePath === tab.workspacePath),
+  );
+  // worktree workspace 的行标题用「repoName · 短id」（specs/desktop/worktrees.md D3）。
+  const workspaceSidebarLabel = worktreeEntryForTab
+    ? formatWorktreeWorkspaceLabel(tab.workspacePath, worktreeEntryForTab.rootWorkspacePath)
+    : formatRemoteWorkspaceDisplayLabel(tab.label, tab.remoteTarget);
   const sshWorkspaceTooltipDetails = getSshWorkspaceTooltipDetails(tab);
   const reconnectRuntimeLogs =
     reconnectingRemoteWorkspaceLogsByWorkspaceKey[remoteWorkspaceKey] ?? [];
@@ -250,6 +259,25 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
     clientMode: "desktop-continuous" as const,
     hasLocalSourceService: Boolean(baseServices.skillSyncService),
   });
+  // D3 并入：worktree 会话行挂在根项目行下，所有行级操作必须路由到 task 自己的
+  // workspace（选择/改名/置顶/归档/未读），不能误写到根项目（specs/desktop/worktrees.md）。
+  const resolveTaskWorkspaceTarget = useCallback(
+    (taskId: string) => {
+      const task = findCurrentTaskItem(taskId);
+      if (task?.workspacePath && task.workspacePath !== tab.workspacePath) {
+        return {
+          workspacePath: task.workspacePath,
+          workspaceIdentity: task.workspaceIdentity,
+        };
+      }
+      return {
+        workspacePath: tab.workspacePath,
+        workspaceIdentity: tab.workspaceIdentity,
+      };
+    },
+    [findCurrentTaskItem, tab.workspaceIdentity, tab.workspacePath],
+  );
+
   // 远端工作区在“重连中”时，之前只有轻微背景呼吸效果，
   // 在侧边栏高密度列表里不够醒目，用户很难快速判断哪个容器仍在连接。
   // 这里复用 BorderBeam，只在重连进行中激活，让连接态反馈更清晰，
@@ -317,9 +345,10 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
     (taskId: string) => {
       // 性能优化：上层 handleSelectTask 已经会按 workspacePath 激活 tab。
       // 这里重复 activate 会额外触发一轮 tab store 更新，把整列 workspace 行都带着重渲染一次。
-      onSelectTask(tab.workspacePath, taskId, tab.workspaceIdentity);
+      const target = resolveTaskWorkspaceTarget(taskId);
+      onSelectTask(target.workspacePath, taskId, target.workspaceIdentity);
     },
-    [onSelectTask, tab.workspaceIdentity, tab.workspacePath],
+    [onSelectTask, resolveTaskWorkspaceTarget],
   );
 
   const handleActionMouseDown = useCallback((event: MouseEvent<HTMLElement>) => {
@@ -479,10 +508,11 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
         return null;
       }
       const previousTask = findCurrentTaskItem(taskId);
+      const target = resolveTaskWorkspaceTarget(taskId);
       logger.info("[WorkspaceSidebarItem] rename service call start", {
         taskId,
-        workspacePath: tab.workspacePath,
-        workspaceIdentity: tab.workspaceIdentity,
+        workspacePath: target.workspacePath,
+        workspaceIdentity: target.workspaceIdentity,
         previousTitleLength: previousTask?.title.length,
         nextTitleLength: title.length,
       });
@@ -490,27 +520,27 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
       try {
         meta = await zcodeTaskService.renameTask({
           taskId,
-          workspacePath: tab.workspacePath,
+          workspacePath: target.workspacePath,
           title,
-          ...(tab.workspaceIdentity ? { workspaceIdentity: tab.workspaceIdentity } : {}),
+          ...(target.workspaceIdentity ? { workspaceIdentity: target.workspaceIdentity } : {}),
         });
       } catch (error) {
         logger.error("[WorkspaceSidebarItem] rename service call failed", {
           taskId,
-          workspacePath: tab.workspacePath,
-          workspaceIdentity: tab.workspaceIdentity,
+          workspacePath: target.workspacePath,
+          workspaceIdentity: target.workspaceIdentity,
           message: error instanceof Error ? error.message : String(error),
         });
         throw error;
       }
       logger.info("[WorkspaceSidebarItem] rename service call resolved", {
         taskId,
-        workspacePath: tab.workspacePath,
-        workspaceIdentity: tab.workspaceIdentity,
+        workspacePath: target.workspacePath,
+        workspaceIdentity: target.workspaceIdentity,
         resolvedTitleLength: meta.title.length,
       });
-      upsertOptimisticTaskListItem(tab.workspacePath, meta, tab.workspaceIdentity);
-      if (tab.workspaceIdentity) {
+      upsertOptimisticTaskListItem(target.workspacePath, meta, target.workspaceIdentity);
+      if (target.workspaceIdentity) {
         useRemoteTimelineTaskStore.getState().upsertTask(meta);
       }
       applyTaskQueryCacheMutation({
@@ -527,10 +557,9 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
       return meta;
     },
     [
-      tab.workspaceIdentity,
-      tab.workspacePath,
       findCurrentTaskItem,
       readOnlyReason,
+      resolveTaskWorkspaceTarget,
       upsertOptimisticTaskListItem,
       zcodeTaskService,
     ],
@@ -542,6 +571,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
         return null;
       }
       const previousTask = findCurrentTaskItem(taskId);
+      const pinTarget = resolveTaskWorkspaceTarget(taskId);
       if (previousTask) {
         // workspace 内 pin 以前等远端/本地 RPC 返回后才更新全局 pinned 缓存，
         // pin 区会先消失再补回来。这里先乐观同步列表成员关系，失败时回滚。
@@ -567,11 +597,13 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
       try {
         const meta = await zcodeTaskService.setTaskPinned({
           taskId,
-          workspacePath: tab.workspacePath,
+          workspacePath: pinTarget.workspacePath,
           pinned,
-          ...(tab.workspaceIdentity ? { workspaceIdentity: tab.workspaceIdentity } : {}),
+          ...(pinTarget.workspaceIdentity
+            ? { workspaceIdentity: pinTarget.workspaceIdentity }
+            : {}),
         });
-        removeOptimisticTaskListItem(tab.workspacePath, taskId, tab.workspaceIdentity);
+        removeOptimisticTaskListItem(pinTarget.workspacePath, taskId, pinTarget.workspaceIdentity);
         if (tab.workspaceIdentity && pinned) {
           useRemotePinnedTaskStore.getState().upsertTask(meta);
           useRemoteTimelineTaskStore
@@ -618,9 +650,8 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
     [
       removeOptimisticTaskListItem,
       readOnlyReason,
-      tab.workspaceIdentity,
-      tab.workspacePath,
       findCurrentTaskItem,
+      resolveTaskWorkspaceTarget,
       zcodeTaskService,
     ],
   );
@@ -631,12 +662,15 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
         return null;
       }
       const previousTask = findCurrentTaskItem(taskId);
+      const archiveTarget = resolveTaskWorkspaceTarget(taskId);
       const meta = await zcodeTaskService.archiveTask({
         taskId,
-        workspacePath: tab.workspacePath,
-        ...(tab.workspaceIdentity ? { workspaceIdentity: tab.workspaceIdentity } : {}),
+        workspacePath: archiveTarget.workspacePath,
+        ...(archiveTarget.workspaceIdentity
+          ? { workspaceIdentity: archiveTarget.workspaceIdentity }
+          : {}),
       });
-      removeTaskState(tab.workspacePath, taskId, tab.workspaceIdentity);
+      removeTaskState(archiveTarget.workspacePath, taskId, archiveTarget.workspaceIdentity);
       if (tab.workspaceIdentity) {
         useRemoteTimelineTaskStore
           .getState()
@@ -656,9 +690,8 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
     [
       removeTaskState,
       readOnlyReason,
-      tab.workspaceIdentity,
-      tab.workspacePath,
       findCurrentTaskItem,
+      resolveTaskWorkspaceTarget,
       zcodeTaskService,
     ],
   );
@@ -669,14 +702,26 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
         return null;
       }
       const previousTask = findCurrentTaskItem(taskId);
+      const unreadTarget = resolveTaskWorkspaceTarget(taskId);
       const meta = await zcodeTaskService.setTaskUnread({
         taskId,
-        workspacePath: tab.workspacePath,
+        workspacePath: unreadTarget.workspacePath,
         unread,
-        ...(tab.workspaceIdentity ? { workspaceIdentity: tab.workspaceIdentity } : {}),
+        ...(unreadTarget.workspaceIdentity
+          ? { workspaceIdentity: unreadTarget.workspaceIdentity }
+          : {}),
       });
-      setTaskUnreadIndicator(tab.workspacePath, taskId, unread, tab.workspaceIdentity);
-      upsertOptimisticTaskListItem(tab.workspacePath, meta, tab.workspaceIdentity);
+      setTaskUnreadIndicator(
+        unreadTarget.workspacePath,
+        taskId,
+        unread,
+        unreadTarget.workspaceIdentity,
+      );
+      upsertOptimisticTaskListItem(
+        unreadTarget.workspacePath,
+        meta,
+        unreadTarget.workspaceIdentity,
+      );
       if (tab.workspaceIdentity) {
         useRemoteTimelineTaskStore.getState().upsertTask(meta);
       }
@@ -691,9 +736,8 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
     [
       setTaskUnreadIndicator,
       readOnlyReason,
-      tab.workspaceIdentity,
-      tab.workspacePath,
       findCurrentTaskItem,
+      resolveTaskWorkspaceTarget,
       upsertOptimisticTaskListItem,
       zcodeTaskService,
     ],

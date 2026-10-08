@@ -5,6 +5,7 @@ import type { ProviderFamilyConnectionSelectionSettings } from "./provider-famil
 import type { ZCodeProvider } from "./zcode-task-types-core.js";
 import type { WorkspacePurpose } from "./workspacePurpose.js";
 import type { EmbeddedBrowserViewportPreference } from "./browser-use/command-metadata.js";
+import type { WorktreeConfig } from "./worktree.js";
 
 // ── Domain types ──
 
@@ -380,4 +381,9 @@ export interface AppSettings {
   desktopPetId?: string;
   /** 宠物窗口位置（拖拽结束持久化；创建时夹取进屏幕可视区）。 */
   desktopPetPosition?: { x: number; y: number };
+  /**
+   * Git worktree 配置（specs/desktop/worktrees.md）；undefined=全默认。
+   * 唯一消费者是 host 内 WorktreeService（每次操作时现读，无缓存失效问题）。
+   */
+  worktreeConfig?: WorktreeConfig;
 }

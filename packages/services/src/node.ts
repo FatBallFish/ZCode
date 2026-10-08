@@ -337,6 +337,12 @@ import { createFileService } from "./file/fileService.js";
 import { createMediaPreviewService } from "./media-preview/mediaPreview.js";
 import type { WorkspaceFileSearchFilter } from "./file/workspaceFileMentionFilter.js";
 import { createGitService } from "./git/gitService.js";
+import { createGitCliRepo } from "./git/repo/gitCliRepo.js";
+import { createGitWorktreeRepo } from "./git/repo/gitWorktreeRepo.js";
+import { createGitCommandProvider } from "./git/providers/gitCommandProvider.js";
+import { createWorktreeRegistry } from "./git/worktreeRegistry.js";
+import { createWorktreeService } from "./git/worktreeService.js";
+import { IWorktreeService } from "./git/worktree.js";
 import { GitCommitMessageGenerator } from "./git/gitCommitMessageGenerator.js";
 import { createGitCheckpointService } from "./git/gitCheckpointService.js";
 import { createSystemService } from "./system/systemService.js";
@@ -2342,6 +2348,27 @@ export function createLocalServices(options: {
   const gitService = createGitService({
     commitMessageGenerator: gitCommitMessageGenerator,
   });
+  // Worktree 管理（specs/desktop/worktrees.md）：仅本地 host；不进远程集合/legacy 契约。
+  // gitCliRepo 与 commandProvider 各建独立实例（resolveRepository 自带请求去重缓存）。
+  const worktreeGitCliRepo = createGitCliRepo();
+  const worktreeService = createWorktreeService({
+    worktreeRepo: createGitWorktreeRepo({ commandProvider: createGitCommandProvider() }),
+    gitCliRepo: worktreeGitCliRepo,
+    registry: createWorktreeRegistry(),
+    resolveConfig: async () => (await settingService.get()).worktreeConfig,
+    taskIndexRepo,
+    isWorkspaceRuntimeAlive: (workspacePath) =>
+      zcodeAgentService.hasLiveRuntimeClient({ workspacePath }),
+    disposeWorkspaceRuntime: async (workspacePath) => {
+      await zcodeAgentService.disposeWorkspace({ workspacePath });
+    },
+    emitWorkspaceTasksChanged: (workspacePath) =>
+      zcodeTaskIndexSyncer.emitWorkspaceTaskListChanged(
+        { workspacePath },
+        undefined,
+        "task_deleted",
+      ),
+  });
   // task wrapper 由 ZCode task service adapter 提供；核心 session 状态由 ZCode agent server 维护。
   const zcodeTaskService = createZCodeTaskServiceAdapter({
     zcodeAgentService,
@@ -2454,6 +2481,7 @@ export function createLocalServices(options: {
     .register(IFileService, fileService)
     .register(IMediaPreviewService, mediaPreviewService)
     .register(IGitService, gitService)
+    .register(IWorktreeService, worktreeService)
     .register(IGitCheckpointService, gitCheckpointService)
     .register(ISystemService, systemService)
     .register(ITerminalService, createTerminalService({ settingService }))
