@@ -7,7 +7,7 @@
  */
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { basename, isAbsolute, join, resolve, sep } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 import type {
   WorktreeConfig,
   WorktreeCreateInput,
@@ -55,7 +55,11 @@ function expandHomeDir(pathValue: string): string {
   if (pathValue === "~") {
     return homedir();
   }
-  if (pathValue.startsWith("~" + sep)) {
+  // Windows 修复（v1.0.7「新建本地工作树」静默失败根因）：默认 rootDir
+  // "~/.mikiko/worktrees" 是正斜杠写法，而 win32 的 sep 是 "\"，此前按 "~"+sep
+  // 匹配不到，路径被当相对路径解析到 host 进程 CWD（打包后通常是 Program
+  // Files，不可写）→ git worktree add 必败且错误被 UI 吞掉。两种分隔符都识别。
+  if (pathValue.startsWith("~/") || pathValue.startsWith("~\\")) {
     return join(homedir(), pathValue.slice(2));
   }
   return pathValue;
@@ -212,6 +216,68 @@ export function createWorktreeService(options: CreateWorktreeServiceOptions): IW
     }
   }
 
+  /** create 主体；对外 create 统一落失败日志后上抛。 */
+  async function createWorktree(params: WorktreeCreateInput): Promise<WorktreeRegistryEntry> {
+    const config = await resolveWorktreeConfig(options);
+    const normalizedRoot = normalizeFsPath(params.rootWorkspacePath);
+    const resolution = await gitCliRepo.resolveRepository(normalizedRoot);
+    if (!resolution.isGitAvailable || !resolution.isRepository) {
+      // git 缺失与非仓库分开报错：Windows GUI 启动的 host 常拿不到完整 PATH，
+      // 一律报「not a git repository」会把排查引向错误方向（v1.0.7 排查教训）。
+      throw new Error(
+        resolution.isGitAvailable
+          ? `not a git repository: ${normalizedRoot}`
+          : `git executable not found for: ${normalizedRoot}`,
+      );
+    }
+    if (config.fetchBeforeCreate) {
+      try {
+        await worktreeRepo.fetchRemote(resolution.repoRoot);
+      } catch (error) {
+        // fetch 失败（离线等）不阻塞创建：按本地已有 ref 继续，warn 记录。
+        log.warn(undefined, "[Worktree] fetch 上游失败，按本地 ref 继续", {
+          repoRoot: resolution.repoRoot,
+          error,
+        });
+      }
+    }
+    let actualRef = params.ref?.trim();
+    if (!actualRef) {
+      actualRef = (await worktreeRepo.resolveRemoteDefaultBranch(resolution.repoRoot)) ?? "HEAD";
+    }
+    const id = generateWorktreeId();
+    const worktreePath = buildWorktreeDirectoryPath({
+      rootDir: config.rootDir,
+      rootWorkspacePath: normalizedRoot,
+      id,
+    });
+    await worktreeRepo.addDetachedWorktree(resolution.repoRoot, worktreePath, actualRef);
+    const now = new Date().toISOString();
+    const entry: WorktreeRegistryEntry = {
+      id,
+      rootWorkspacePath: normalizedRoot,
+      worktreePath,
+      ref: actualRef,
+      name: null,
+      createdAt: now,
+      lastUsedAt: now,
+    };
+    await registry.mutate((entries) => {
+      entries.push(entry);
+    });
+    log.info(undefined, "[Worktree] 已创建", {
+      worktreePath,
+      rootWorkspacePath: normalizedRoot,
+      ref: actualRef,
+    });
+    await autoPrune({
+      config,
+      rootWorkspacePath: normalizedRoot,
+      excludeWorktreePath: worktreePath,
+    });
+    return entry;
+  }
+
   return {
     async list(): Promise<WorktreeListResult> {
       const entries = await registry.load();
@@ -284,58 +350,18 @@ export function createWorktreeService(options: CreateWorktreeServiceOptions): IW
     },
 
     async create(params: WorktreeCreateInput): Promise<WorktreeRegistryEntry> {
-      const config = await resolveWorktreeConfig(options);
-      const normalizedRoot = normalizeFsPath(params.rootWorkspacePath);
-      const resolution = await gitCliRepo.resolveRepository(normalizedRoot);
-      if (!resolution.isGitAvailable || !resolution.isRepository) {
-        throw new Error(`not a git repository: ${normalizedRoot}`);
+      try {
+        return await createWorktree(params);
+      } catch (error) {
+        // v1.0.7 排查教训：创建失败此前 host 侧零日志（错误只存在于 renderer 的
+        // rejection，还被 UI 吞掉），回查只能靠复现。统一落 error（含根项目路径）
+        // 后上抛，renderer 侧负责横幅与「改用本地模式」兜底。
+        log.error(undefined, "[Worktree] 创建失败", {
+          rootWorkspacePath: params.rootWorkspacePath,
+          error,
+        });
+        throw error;
       }
-      if (config.fetchBeforeCreate) {
-        try {
-          await worktreeRepo.fetchRemote(resolution.repoRoot);
-        } catch (error) {
-          // fetch 失败（离线等）不阻塞创建：按本地已有 ref 继续，warn 记录。
-          log.warn(undefined, "[Worktree] fetch 上游失败，按本地 ref 继续", {
-            repoRoot: resolution.repoRoot,
-            error,
-          });
-        }
-      }
-      let actualRef = params.ref?.trim();
-      if (!actualRef) {
-        actualRef = (await worktreeRepo.resolveRemoteDefaultBranch(resolution.repoRoot)) ?? "HEAD";
-      }
-      const id = generateWorktreeId();
-      const worktreePath = buildWorktreeDirectoryPath({
-        rootDir: config.rootDir,
-        rootWorkspacePath: normalizedRoot,
-        id,
-      });
-      await worktreeRepo.addDetachedWorktree(resolution.repoRoot, worktreePath, actualRef);
-      const now = new Date().toISOString();
-      const entry: WorktreeRegistryEntry = {
-        id,
-        rootWorkspacePath: normalizedRoot,
-        worktreePath,
-        ref: actualRef,
-        name: null,
-        createdAt: now,
-        lastUsedAt: now,
-      };
-      await registry.mutate((entries) => {
-        entries.push(entry);
-      });
-      log.info(undefined, "[Worktree] 已创建", {
-        worktreePath,
-        rootWorkspacePath: normalizedRoot,
-        ref: actualRef,
-      });
-      await autoPrune({
-        config,
-        rootWorkspacePath: normalizedRoot,
-        excludeWorktreePath: worktreePath,
-      });
-      return entry;
     },
 
     async remove(params: WorktreeRemoveInput): Promise<WorktreeRemoveResult> {

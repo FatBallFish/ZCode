@@ -6010,12 +6010,11 @@ const enUS: Record<string, string> = {
   "chat.workLocation.remoteDefault": "Remote default branch",
   "chat.workLocation.refPrefix": "From",
   "chat.workLocation.firstSendFailed":
-    "The first message was not delivered to the worktree session; text restored to the composer",
-  "chat.workLocation.firstSendFailedDetail":
-    "Automatic send did not complete. You can resend from the composer.",
+    "Failed to start the worktree session. You can switch to local mode and retry.",
   "chat.workLocation.attachmentsUnsupported":
     "Attachments are not yet supported for the first message in a worktree session; send text first or use local mode",
   "chat.workLocation.unavailable": "Starting a session in a worktree is unavailable here",
+  "chat.workLocation.fallbackLocal": "Use local mode",
   "chat.slash.app.new.description": "New chat (keeps current project and work location)",
   "chat.slash.app.side.description": "Open a new side conversation",
   "chat.slash.commands.title": "Commands",

@@ -5737,6 +5737,8 @@ const zhCN: Record<string, string> = {
   "chat.workLocation.attachmentsUnsupported":
     "工作树会话的首条消息暂不支持附件，请先发送文本或改用本地模式",
   "chat.workLocation.unavailable": "当前环境不支持在工作树中发起会话",
+  "chat.workLocation.firstSendFailed": "工作树会话发起失败，可切换为本地模式后重试。",
+  "chat.workLocation.fallbackLocal": "改用本地模式",
   "chat.slash.app.new.description": "新建会话（保留当前项目与工作位置）",
   "chat.slash.app.side.description": "新建并打开一个辅助对话",
   "chat.slash.commands.title": "命令",

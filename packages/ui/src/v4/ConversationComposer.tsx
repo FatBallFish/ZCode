@@ -447,6 +447,12 @@ interface ConversationComposerProps {
   /** v4 会话级错误（snapshot.control.lastError），展示在输入框上方。 */
   error?: ZCodeUiError | null;
   onDismissError?: () => void;
+  /**
+   * 错误横幅的恢复动作（如 WORKTREE_FIRST_SEND_FAILED 的「改用本地模式」）。
+   * 仅随特定错误 code 注入；缺省时横幅不渲染该按钮。
+   */
+  onErrorRetry?: () => void;
+  errorRetryLabel?: string;
   /** 无可用模型横幅的恢复动作；由 SessionPane 注入壳层导航，组件不直接操作 tab。 */
   onOpenModelSettings?: () => void;
   onOpenModelUpgrade?: () => void;
@@ -525,6 +531,8 @@ function ConversationComposerImpl({
   onSendCompressionCommand,
   error,
   onDismissError,
+  onErrorRetry,
+  errorRetryLabel,
   onOpenModelSettings,
   onOpenModelUpgrade,
   onOpenCodeViewer,
@@ -2221,6 +2229,8 @@ function ConversationComposerImpl({
           <ChatErrorBanner
             error={visibleError}
             onDismiss={onDismissError}
+            onRetry={onErrorRetry}
+            retryLabel={errorRetryLabel}
             onOpenModelSettings={onOpenModelSettings}
             onOpenUpgrade={onOpenModelUpgrade}
           />

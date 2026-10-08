@@ -3078,6 +3078,15 @@ export function SessionPane({
     ],
   );
 
+  // 工作树首发失败的兜底动作（specs/desktop/worktrees.md 失败语义）：一键把该根
+  // 项目草稿工作位置切回本地并关闭横幅。不自动重发——用户明确要求隔离环境时静默
+  // 降级到主工作区有风险（Agent 会直接改主工作区文件），重发由用户在本地模式下
+  // 手动触发，草稿已由 Composer 原路径保留。
+  const handleFallbackToLocalWorkLocation = useCallback(() => {
+    useWorktreeStore.getState().setDraftLocation(workspaceKey, { mode: "local" });
+    setSendSubmissionError(null);
+  }, [workspaceKey]);
+
   const handleSendText = useCallback(
     async (
       text: string,
@@ -3085,7 +3094,25 @@ export function SessionPane({
     ): Promise<ConversationComposerSendResult> => {
       if (sessionId === null) {
         // 工作位置重定向必须在任何 admission 之前完成（预热已被门禁停用）。
-        if (await maybeRedirectWorktreeFirstSend(text, options)) {
+        // v1.0.7 Windows 静默失败修复：重定向此前在下方 try/catch 之外调用，
+        // worktree 创建/createSession 失败的 rejection 直接冒出，错误横幅设置点
+        // 永远不触发，叠加 renderer 生产日志 no-op，用户只看到发送按钮转圈后恢复。
+        // 这里单独收口为 WORKTREE_FIRST_SEND_FAILED 横幅（标题本地化、git 原始
+        // stderr 进 detail），并保留「改用本地模式」一键兜底（见 composer 传入的
+        // onErrorRetry），草稿仍由 Composer 原路径恢复。
+        let redirected = false;
+        try {
+          redirected = await maybeRedirectWorktreeFirstSend(text, options);
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error);
+          setSendSubmissionError({
+            code: "WORKTREE_FIRST_SEND_FAILED",
+            message: intl.formatMessage({ id: "chat.workLocation.firstSendFailed" }),
+            detail,
+          });
+          throw error;
+        }
+        if (redirected) {
           return "sent";
         }
       }
@@ -4566,6 +4593,16 @@ export function SessionPane({
       onSendCompressionCommand={handleSendCompressionCommand}
       error={composerError}
       onDismissError={handleDismissComposerError}
+      onErrorRetry={
+        composerError?.code === "WORKTREE_FIRST_SEND_FAILED"
+          ? handleFallbackToLocalWorkLocation
+          : undefined
+      }
+      errorRetryLabel={
+        composerError?.code === "WORKTREE_FIRST_SEND_FAILED"
+          ? intl.formatMessage({ id: "chat.workLocation.fallbackLocal" })
+          : undefined
+      }
       onOpenModelSettings={handleOpenModelSettings}
       onOpenModelUpgrade={handleOpenModelUpgrade}
       onOpenCodeViewer={onOpenCodeViewer}
