@@ -449,6 +449,9 @@ export interface IZCodeTaskService {
     workspacePath: string;
     workspaceIdentity?: string;
   }): Promise<ZCodeTaskMeta[]>;
+  /** 跨 workspace 的已归档任务总览（设置页「已归档」；updated_at 倒序限量）。 */
+  listAllArchivedTasks(params?: { limit?: number }): Promise<ZCodeTaskMeta[]>;
+
 
   /** 批量归档超期旧任务；仅归档已完成、无未读、非 pinned 且当前未打开的 task */
   archiveStaleTasks(params: {

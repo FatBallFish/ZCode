@@ -140,6 +140,12 @@ const BASE_SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     icon: GitBranch,
     titleId: "settings.worktrees.title",
     groupId: "basics",
+  // 已归档会话总览：历史数据管理，收在数据与统计组。
+  {
+    id: "archived",
+    icon: Archive,
+    titleId: "settings.archived.title",
+    groupId: "dataAndStats",
   },
   },
   {

@@ -2454,6 +2454,14 @@ export function createZCodeTaskServiceAdapter(
       return tasks.map(rememberIndexedTaskMeta);
     },
 
+    async listAllArchivedTasks(params): Promise<ZCodeTaskMeta[]> {
+      const tasks = await taskIndexRepo.listAllArchivedTasks({
+        provider: GLM_PROVIDER,
+        ...(params?.limit ? { limit: params.limit } : {}),
+      });
+      return tasks.map(rememberIndexedTaskMeta);
+    },
+
     async archiveStaleTasks(params): Promise<ZCodeTaskMeta[]> {
       // stale archive API 和设置页自动归档保持一致，清理全部历史 provider。
       const archivedTasks = await taskIndexRepo.archiveStaleTasks({
