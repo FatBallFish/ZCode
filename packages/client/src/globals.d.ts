@@ -302,6 +302,8 @@ declare global {
       quitAndInstallUpdate(): Promise<void>;
       /** 获取已安装的编辑器/终端列表（含图标） */
       getInstalledEditors(): Promise<EditorInfo[]>;
+      /** 获取与指定文件格式匹配的已安装应用列表（含图标） */
+      getInstalledAppsForFile(path: string): Promise<EditorInfo[]>;
       /** 按兼容 bundle id 或结构化 locator 获取系统应用图标 */
       getApplicationIcon?(
         request: string | ApplicationIconRequest,

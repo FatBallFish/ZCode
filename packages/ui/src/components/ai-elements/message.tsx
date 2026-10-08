@@ -15,7 +15,13 @@ import { createMathPlugin } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
 import type { EditorInfo, FileStat, OpenInEditorOptions } from "@zcode/shared";
 import type { UIMessage } from "ai";
-import { ChevronLeftIcon, ChevronRightIcon, CopyIcon, ExternalLinkIcon } from "lucide-react";
+import {
+  AppWindowIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CopyIcon,
+  ExternalLinkIcon,
+} from "lucide-react";
 import remarkCjkFriendlyGfmStrikethrough from "remark-cjk-friendly-gfm-strikethrough";
 import type {
   ComponentProps,
@@ -71,7 +77,12 @@ import {
 import { STREAMDOWN_CONTROLS } from "@/components/ai-elements/streamdown-controls.js";
 import { resolveMessageLinkOpenTarget } from "@/embeddedBrowserHelpers.js";
 import type { CodeViewerSource } from "@/lib/codeViewer.js";
-import { persistLastSelectedEditorId, readLastSelectedEditorId } from "@/lib/editorPreference.js";
+import { persistLastSelectedEditorId } from "@/lib/editorPreference.js";
+import {
+  isOpenWithDefaultAppModifierEvent,
+  mergeFileOpenApps,
+  openFileWithDefaultApp,
+} from "@/lib/fileOpenMethods.js";
 import {
   FileDisplayIcon,
   FOLDER_FILE_ICON_SRC,
@@ -92,6 +103,7 @@ import { DEFAULT_CODE_PREVIEW_SETTINGS } from "@/lib/codePreviewSettings.js";
 import { useZCodeStore } from "@/store/StoreProvider.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { useOptionalPlatform, usePlatform } from "@/hooks/usePlatform.js";
+import { toast } from "@/components/ui/toast.js";
 import { useFileContextActions } from "@/hooks/useFileContextActions.js";
 import { useWorkspaceOpenInEditorTarget } from "@/hooks/useWorkspaceOpenInEditorTarget.js";
 import { useOptionalServices } from "@/hooks/useServices.js";
@@ -1082,7 +1094,7 @@ function MessageExternalLink({
 interface MessageFileLinkButtonProps extends ComponentProps<"button"> {
   fileIconSrc: string;
   fileLink: MessageFileLinkTarget;
-  onOpen: () => void;
+  onOpen: (event: ReactMouseEvent<HTMLButtonElement>) => void;
 }
 
 const MessageFileLinkButton = forwardRef<HTMLButtonElement, MessageFileLinkButtonProps>(
@@ -1126,6 +1138,11 @@ function MessageFileLink({ className, fileIconSrc, fileLink, onOpen }: MessageFi
   const [editors, setEditors] = useState<EditorInfo[]>([]);
   const [editorsLoaded, setEditorsLoaded] = useState(false);
   const [loadingEditors, setLoadingEditors] = useState(false);
+  // 格式感知应用（WPS/Office/Adobe 等）只对本地文件有意义；远端 workspace 隐藏。
+  const canUseLocalFileApps = !openInEditorContext.isRemoteWorkspace;
+  const [fileApps, setFileApps] = useState<EditorInfo[]>([]);
+  const [fileAppsLoaded, setFileAppsLoaded] = useState(false);
+  const [loadingFileApps, setLoadingFileApps] = useState(false);
   const sortedEditors = useMemo(
     () =>
       openInEditorContext.isRemoteWorkspace && !openInEditorContext.remoteTarget
@@ -1137,12 +1154,11 @@ function MessageFileLink({ className, fileIconSrc, fileLink, onOpen }: MessageFi
           }).availableEditors,
     [editors, openInEditorContext],
   );
-  const selectedEditor = useMemo(() => {
-    const selectedEditorId = readLastSelectedEditorId();
-    return (
-      sortedEditors.find((editor) => editor.id === selectedEditorId) ?? sortedEditors[0] ?? null
-    );
-  }, [sortedEditors]);
+  const mergedOpenApps = useMemo(
+    () => mergeFileOpenApps(fileApps, sortedEditors),
+    [fileApps, sortedEditors],
+  );
+  const canOpenWithDefaultApp = canUseLocalFileApps && Boolean(platform.openExternalFile);
 
   const loadEditors = useCallback(async () => {
     if (editorsLoaded || loadingEditors) {
@@ -1163,6 +1179,25 @@ function MessageFileLink({ className, fileIconSrc, fileLink, onOpen }: MessageFi
       setLoadingEditors(false);
     }
   }, [editorsLoaded, fileLink.path, loadingEditors, platform]);
+
+  const loadFileApps = useCallback(async () => {
+    if (fileAppsLoaded || loadingFileApps || !canUseLocalFileApps) {
+      return;
+    }
+
+    setLoadingFileApps(true);
+    try {
+      setFileApps(await platform.getInstalledAppsForFile(fileLink.path));
+      setFileAppsLoaded(true);
+    } catch (error) {
+      logger.warn("[MessageResponse] 获取 markdown 链接格式打开方式失败", {
+        path: fileLink.path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setLoadingFileApps(false);
+    }
+  }, [canUseLocalFileApps, fileAppsLoaded, fileLink.path, loadingFileApps, platform]);
 
   const handleOpenInEditor = (editor: EditorInfo) => {
     if (!services) {
@@ -1202,14 +1237,50 @@ function MessageFileLink({ className, fileIconSrc, fileLink, onOpen }: MessageFi
       });
   };
 
+  const handleOpenWithDefaultApp = () => {
+    const reportFailure = (error: unknown) => {
+      logger.warn("[MessageResponse] 默认应用打开 markdown 链接文件失败", {
+        path: fileLink.path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      toast(intl.formatMessage({ id: "chat.previewCards.openExternalFailed" }));
+    };
+    void platform
+      .openExternalFile?.(fileLink.path)
+      .then((result) => {
+        if (!result?.success) {
+          reportFailure(result?.error ?? "unknown-error");
+        }
+      })
+      .catch(reportFailure);
+  };
+
+  // Cmd/Ctrl+左键优先系统默认应用（macOS=Cmd，Windows/Linux=Ctrl）；
+  // 无默认应用或失败时回落既有点击链路（内置预览 → 预览侧栏「不支持预览」占位）。
+  const handleButtonClick = async (event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (canUseLocalFileApps && isOpenWithDefaultAppModifierEvent(event)) {
+      if (await openFileWithDefaultApp(platform, fileLink.path)) {
+        return;
+      }
+    }
+    onOpen();
+  };
+
   return (
-    <ContextMenu onOpenChange={(open) => open && void loadEditors()}>
+    <ContextMenu
+      onOpenChange={(open) => {
+        if (open) {
+          void loadEditors();
+          void loadFileApps();
+        }
+      }}
+    >
       <ContextMenuTrigger asChild>
         <MessageFileLinkButton
           className={className}
           fileIconSrc={fileIconSrc}
           fileLink={fileLink}
-          onOpen={onOpen}
+          onOpen={handleButtonClick}
         >
           {fileLink.label}
         </MessageFileLinkButton>
@@ -1219,17 +1290,26 @@ function MessageFileLink({ className, fileIconSrc, fileLink, onOpen }: MessageFi
           {intl.formatMessage({ id: "common.open" })}
         </ContextMenuItem>
         <ContextMenuSeparator />
-        {selectedEditor ? (
-          sortedEditors.map((editor) => (
-            <ContextMenuItem key={editor.id} onSelect={() => handleOpenInEditor(editor)}>
-              <img src={editor.iconDataUrl} alt={editor.name} className="size-4 shrink-0" />
-              <span>{editor.name}</span>
+        {canOpenWithDefaultApp ? (
+          <ContextMenuItem onSelect={handleOpenWithDefaultApp}>
+            <AppWindowIcon className="size-4" />
+            <span>{intl.formatMessage({ id: "chat.previewCards.openWithDefaultApp" })}</span>
+          </ContextMenuItem>
+        ) : null}
+        {mergedOpenApps.length > 0 ? (
+          mergedOpenApps.map((app) => (
+            <ContextMenuItem key={app.id} onSelect={() => handleOpenInEditor(app)}>
+              <img src={app.iconDataUrl} alt={app.name} className="size-4 shrink-0" />
+              <span>{app.name}</span>
             </ContextMenuItem>
           ))
         ) : (
           <ContextMenuItem disabled>
             {intl.formatMessage({
-              id: loadingEditors ? "common.loading" : "chat.previewCards.noOpenApps",
+              id:
+                loadingEditors || loadingFileApps
+                  ? "common.loading"
+                  : "chat.previewCards.noOpenApps",
             })}
           </ContextMenuItem>
         )}

@@ -1,16 +1,46 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { Locale } from "@zcode/shared";
 
-const WORKFLOW_NAME = "Open in ZCode.workflow";
-const WORKFLOW_BUNDLE_ID = "dev.zcode.app.finder-open-workflow";
-const WORKFLOW_VERSION = "5";
-const SERVICES_MENU_LABELS: Record<Locale, string> = {
-  "zh-CN": "在ZCode中打开",
-  "en-US": "Open in ZCode",
+type WorkflowFlavor = "production" | "preview" | "development";
+// 三形态并排安装时 Services 菜单必须互不覆盖：workflow 目录名和 bundle id 都按形态隔离。
+// production 安装时还要清理早期 ZCode 品牌遗留的 workflow，否则 Finder 服务菜单会出现两项。
+const WORKFLOW_IDENTITIES: Record<
+  WorkflowFlavor,
+  { workflowName: string; bundleId: string; productName: string }
+> = {
+  production: {
+    workflowName: "Open in Mikiko.workflow",
+    bundleId: "dev.mikiko.app.finder-open-workflow",
+    productName: "Mikiko",
+  },
+  preview: {
+    workflowName: "Open in Mikiko Preview.workflow",
+    bundleId: "dev.mikiko.app.finder-open-workflow.preview",
+    productName: "Mikiko Preview",
+  },
+  development: {
+    workflowName: "Open in Mikiko Dev.workflow",
+    bundleId: "dev.mikiko.app.finder-open-workflow.dev",
+    productName: "Mikiko Dev",
+  },
 };
+const LEGACY_WORKFLOW_NAMES = ["Open in ZCode.workflow"];
+const WORKFLOW_VERSION = "6";
+
+function workflowFlavor(options: {
+  flavor: "production" | "preview";
+  isPackaged: boolean;
+}): WorkflowFlavor {
+  return options.isPackaged ? options.flavor : "development";
+}
+
+function getServicesMenuLabel(locale: Locale, flavor: WorkflowFlavor): string {
+  const name = WORKFLOW_IDENTITIES[flavor].productName;
+  return locale === "zh-CN" ? `在 ${name} 中打开` : `Open in ${name}`;
+}
 
 const workflowScript = `first=""
 for item in "$@"; do
@@ -35,12 +65,9 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function getServicesMenuLabel(locale: Locale): string {
-  return SERVICES_MENU_LABELS[locale] ?? SERVICES_MENU_LABELS["en-US"];
-}
-
-function buildInfoPlist(locale: Locale): string {
-  const servicesMenuName = escapeXml(getServicesMenuLabel(locale));
+function buildInfoPlist(locale: Locale, flavor: WorkflowFlavor): string {
+  const servicesMenuName = escapeXml(getServicesMenuLabel(locale, flavor));
+  const bundleId = WORKFLOW_IDENTITIES[flavor].bundleId;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -51,7 +78,7 @@ function buildInfoPlist(locale: Locale): string {
   <key>CFBundleExecutable</key>
   <string></string>
   <key>CFBundleIdentifier</key>
-  <string>${WORKFLOW_BUNDLE_ID}</string>
+  <string>${bundleId}</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
@@ -248,6 +275,8 @@ function refreshMacServicesIndex(): void {
 export function installFinderOpenFolderWorkflow(options: {
   platform: NodeJS.Platform;
   locale: Locale;
+  flavor: "production" | "preview";
+  isPackaged: boolean;
   homeDir?: string;
   logger: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void };
   refreshServicesIndex?: () => void;
@@ -256,8 +285,10 @@ export function installFinderOpenFolderWorkflow(options: {
     return;
   }
 
+  const flavor = workflowFlavor(options);
+  const identity = WORKFLOW_IDENTITIES[flavor];
   const servicesDir = join(options.homeDir ?? homedir(), "Library", "Services");
-  const workflowDir = join(servicesDir, WORKFLOW_NAME);
+  const workflowDir = join(servicesDir, identity.workflowName);
   const contentsDir = join(workflowDir, "Contents");
   const resourcesDir = join(contentsDir, "Resources");
   const infoPlistPath = join(contentsDir, "Info.plist");
@@ -265,9 +296,23 @@ export function installFinderOpenFolderWorkflow(options: {
   const resourcesDocumentWorkflowPath = join(resourcesDir, "document.wflow");
 
   try {
+    if (flavor === "production") {
+      // 本 fork 早期版本安装过 “Open in ZCode.workflow”；不清理的话 Services 菜单会出现
+      // ZCode/Mikiko 两项指向同一应用。只在自己形态为 production 时清退，不动其他形态。
+      for (const legacyName of LEGACY_WORKFLOW_NAMES) {
+        const legacyDir = join(servicesDir, legacyName);
+        if (existsSync(legacyDir)) {
+          rmSync(legacyDir, { recursive: true, force: true });
+          options.logger.info("[finder-open-folder] 已清理旧版 Finder 服务", {
+            workflowPath: legacyDir,
+          });
+        }
+      }
+    }
+
     mkdirSync(resourcesDir, { recursive: true });
 
-    const infoChanged = writeFileIfChanged(infoPlistPath, buildInfoPlist(options.locale));
+    const infoChanged = writeFileIfChanged(infoPlistPath, buildInfoPlist(options.locale, flavor));
     const workflowContent = buildDocumentWorkflow();
     const workflowChanged = writeFileIfChanged(documentWorkflowPath, workflowContent);
     // 用户 Automator workflow 通常读取 Contents/document.wflow；
@@ -284,6 +329,7 @@ export function installFinderOpenFolderWorkflow(options: {
       (options.refreshServicesIndex ?? refreshMacServicesIndex)();
       options.logger.info("[finder-open-folder] Finder 服务已安装或更新", {
         locale: options.locale,
+        flavor,
         workflowPath: workflowDir,
       });
     }
