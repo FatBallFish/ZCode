@@ -523,6 +523,16 @@ const appSettingsObjectSchema = z.object({
   webRemoteControlExternalRelayDevice: webRemoteControlExternalRelayDeviceSchema.optional(),
   webRemoteControlLastEnabledContext: webRemoteControlLastEnabledContextSchema.optional(),
   zcodeEndpointOrigin: zcodeEndpointOriginSchema.optional(),
+  // 外部浏览器（external CDP）：instances JSON（schema 见 adapters parseExternalCdpConfiguration）。
+  // undefined=未在设置页配置，按 env/内置默认解析；字符串本身不在 schema 层做业务校验，
+  // 由 main 在推送/落盘前用 parseExternalCdpConfiguration 校验。
+  externalCdpConfig: z.string().optional(),
+  // 手机远控 live 会话能否使用外部浏览器；undefined=true（默认允许，免迁移）。
+  externalCdpRemoteControlEnabled: z.boolean().optional(),
+  // 桌面宠物：开关/当前宠物/窗口位置（specs/desktop/desktop-pet.md）。
+  desktopPetEnabled: z.boolean().optional(),
+  desktopPetId: z.string().optional(),
+  desktopPetPosition: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
 });
 
 export const appSettingsSchema = z.preprocess(
@@ -618,4 +628,14 @@ export const appSettingsPatchSchema = z.object({
   webRemoteControlExternalRelayDevice: webRemoteControlExternalRelayDeviceSchema.optional(),
   webRemoteControlLastEnabledContext: webRemoteControlLastEnabledContextSchema.optional(),
   zcodeEndpointOrigin: zcodeEndpointOriginSchema.optional(),
+  // 外部浏览器（external CDP）：instances JSON（schema 见 adapters parseExternalCdpConfiguration）。
+  // undefined=未在设置页配置，按 env/内置默认解析；字符串本身不在 schema 层做业务校验，
+  // 由 main 在推送/落盘前用 parseExternalCdpConfiguration 校验。
+  externalCdpConfig: z.string().optional(),
+  // 手机远控 live 会话能否使用外部浏览器；undefined=true（默认允许，免迁移）。
+  externalCdpRemoteControlEnabled: z.boolean().optional(),
+  // 桌面宠物：开关/当前宠物/窗口位置（specs/desktop/desktop-pet.md）。
+  desktopPetEnabled: z.boolean().optional(),
+  desktopPetId: z.string().optional(),
+  desktopPetPosition: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
 });

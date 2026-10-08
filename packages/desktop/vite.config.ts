@@ -242,6 +242,8 @@ export default defineConfig(({ mode }) => {
           "cua-permission-panel": resolve(__dirname, "src/renderer/cua-permission-panel.html"),
           // 插件 UI 沙箱的受信 shell，经 zcode-sandbox:// 提供
           "plugin-sandbox": resolve(__dirname, "src/renderer/plugin-sandbox.html"),
+          pet: resolve(__dirname, "src/renderer/pet.html"),
+          "pet-bubble": resolve(__dirname, "src/renderer/pet-bubble.html"), 0f39ca83 (feat(desktop): 桌面宠物（Codex 资源包兼容 + 宠物市场 + 会话状态气泡）)
         },
       },
     },

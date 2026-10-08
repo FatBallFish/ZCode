@@ -311,6 +311,10 @@ export * from "./openrouter-attribution.js";
 export * from "./workspaceSessionRestore.js";
 export * from "./skill-scan-policy.js";
 export * from "./browser-use/index.js";
+export * from "./pets.js";
+export * from "./petWebp.js";
+export * from "./petMarket.js";
+export * from "./petAnimator.js";
 
 export * from "./coding-plan-reset.js";
 export * from "./highspeed.js";
@@ -360,3 +364,5 @@ export {
   isRequestSecurityFailure,
 } from "./request-security-edition/policy.js";
 export * from "./request-security-edition/verification-policy.js";
+
+export * from "./petSessionStatus.js";

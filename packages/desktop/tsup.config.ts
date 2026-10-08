@@ -221,6 +221,7 @@ function createMainDefines() {
 }
 
 const desktopNodeRuntimeExternals = [
+  "playwright-core",
   "electron",
   "node-pty",
   "ssh2",
@@ -265,6 +266,9 @@ export default defineConfig([
       "@zcode/rpc",
       "@zcode/services",
       "@zcode/client",
+      // external CDP 配置解析需要 adapters 的 parseExternalCdpConfiguration；与 host entry
+      // 一致内联，避免打包后 main 留下裸包引用。
+      "@zcode/adapters",
       // Provider Refactor 的 workspace 包导出 TypeScript 源码；Electron 生产运行时没有
       // TS loader，必须随 Desktop bundle 内联，不能留下指向 src/index.ts 的裸包引用。
       "@zcode/provider",
@@ -296,6 +300,8 @@ export default defineConfig([
       "preload/resourceManager": "src/preload/resourceManager.ts",
       "preload/cuaPermissionPanel": "src/preload/cuaPermissionPanel.ts",
       "preload/pluginSandbox": "src/preload/pluginSandbox/index.ts",
+      "preload/desktopPet": "src/preload/desktopPet.ts",
+      "preload/desktopPetBubble": "src/preload/desktopPetBubble.ts", 0f39ca83 (feat(desktop): 桌面宠物（Codex 资源包兼容 + 宠物市场 + 会话状态气泡）)
     },
     outDir: "out",
     format: "cjs",
@@ -349,6 +355,7 @@ export default defineConfig([
     // 这里同样保留为外部依赖，避免 desktop 开发态和打包态 host 进程启动失败。
     external: desktopNodeRuntimeExternals,
     noExternal: [
+      "@zcode/adapters",
       "@zcode/server",
       "@zcode/shared",
       "@zcode/rpc",

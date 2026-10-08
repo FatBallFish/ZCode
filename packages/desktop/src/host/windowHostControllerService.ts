@@ -120,6 +120,10 @@ function sessionOverlay(
         ? { pendingInteractions: summary.pendingInteractionSummary }
         : {}),
       ...(summary.workflowActivity ? { workflowActivity: summary.workflowActivity } : {}),
+      // 宠物会话气泡需要"最后一条助手消息一行"；sessions-index 已有 ≤120 字符预览。
+      ...(summary.lastAssistantPreview
+        ? { lastAssistantPreview: summary.lastAssistantPreview }
+        : {}),
     },
   };
 }
@@ -676,6 +680,8 @@ export function createWindowHostControllerRuntime(options: {
     service,
     createAttachmentService,
     replaceDisconnectedSource,
+    /** 当前全量投影行（含 liveStatus/meta/activity）。宠物会话摘要 reporter 只读消费。 */
+    getTasks: () => projection.getTasks(),
     async resolveTaskAddress(params: {
       taskId: string;
       workspacePath: string;

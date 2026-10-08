@@ -18,6 +18,7 @@ import {
   WandSparkles,
   Keyboard,
   FileSearch,
+  Cat,
 } from "lucide-react";
 import { isSettingsSectionEnabled, type SettingsSectionId } from "@/lib/settingsNavigation.js";
 import type { Theme } from "@/useTheme.js";
@@ -132,6 +133,12 @@ const BASE_SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     id: "browser",
     icon: Globe2,
     titleId: "settings.browser.title",
+    groupId: "basics",
+  },
+  {
+    id: "pet",
+    icon: Cat,
+    titleId: "settings.pet.title",
     groupId: "basics",
   },
   // 电脑控制紧跟「浏览器」：两者都是给 Agent 用的本机操控入口，
