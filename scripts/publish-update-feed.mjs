@@ -151,6 +151,12 @@ async function rewriteManifest(filePath, version, origin, releaseNotesYaml) {
 async function main() {
   const entries = await readdir(distDir, { withFileTypes: true });
   const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
+  // archDirs 必须先于下方第一步资产收集定义（v1.0.7 CI 曾因定义晚于使用触发
+  // TDZ ReferenceError，R2 feed 发布整体失败）：CI 分目录布局的安装包位于
+  // installers-{target}-{arch}/ 子目录，此处统一解析供资产收集与清单归档两处使用。
+  const archDirs = entries.filter(
+    (entry) => entry.isDirectory() && /^installers-/.test(entry.name),
+  );
   // 1. 安装包 + blockmap（同名文件按平台清单引用）。
   const assetPattern = /\.(dmg|zip|exe|AppImage|deb|rpm|pkg\.tar\.zst|blockmap)$/;
   // CI 布局下安装包分散在 installers-{target}-{arch}/ 子目录（文件名含架构不冲突）。
@@ -196,9 +202,6 @@ async function main() {
    * 兼容键（x64 双写）保证只升级过 update-service、还没发新版时的回退路径完整。
    * 本地扁平 dist（无子目录）时按旧逻辑发布原文件名。
    */
-  const archDirs = entries.filter(
-    (entry) => entry.isDirectory() && /^installers-/.test(entry.name),
-  );
   if (archDirs.length > 0) {
     const keyMap = [
       { dir: "installers-mac-arm64", file: "latest-mac.yml", keys: ["latest-mac-arm64.yml"] },
