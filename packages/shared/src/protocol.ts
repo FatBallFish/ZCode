@@ -366,4 +366,18 @@ export interface AppSettings {
   settingsSyncFirstRunPromptHandled?: boolean;
   /** 设置页里的临时 endpoint override；正式/测试默认 base url 由 ZCODE_BASE_URL env 管理。 */
   zcodeEndpointOrigin?: string;
+  /**
+   * 外部浏览器（external CDP）实例配置，instances JSON（与 CLI --browser-instances 同 schema）。
+   * undefined=未在设置页配置，main 按 MIKIKO_EXTERNAL_CDP env → 内置默认（127.0.0.1:9333）解析；
+   * 保存前由 main 用 parseExternalCdpConfiguration 校验；变更后经 host 消息热更新，无需重启。
+   */
+  externalCdpConfig?: string;
+  /** 手机远控 live 会话能否使用外部浏览器；undefined=允许（默认开，免迁移）。cached 回放上下文始终不可用。 */
+  externalCdpRemoteControlEnabled?: boolean;
+  /** 桌面宠物总开关；undefined=关闭（免迁移）。窗口生命周期唯一所有者是 desktop main。 */
+  desktopPetEnabled?: boolean;
+  /** 当前宠物 id（~/.mikiko/v2/pets/<id>）；desktopPetEnabled 时生效。 */
+  desktopPetId?: string;
+  /** 宠物窗口位置（拖拽结束持久化；创建时夹取进屏幕可视区）。 */
+  desktopPetPosition?: { x: number; y: number };
 }

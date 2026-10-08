@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mikiko Pet Sessions</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+        user-select: none;
+        -webkit-user-select: none;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+          sans-serif;
+      }
+      /* 主题跟随 App（nativeTheme 解析后由 main 随载荷下发；data-theme 在 body 上切换）。 */
+      /* 无 box-shadow：透明窗的阴影会被裁进窗口矩形，在浅色壁纸/浅色主题下表现为
+          圆角外的方形底色；卡片直接纯透明四角。 */
+      #card {
+        box-sizing: border-box;
+        height: 100%;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        border-radius: 14px;
+        background: rgba(24, 24, 27, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      body[data-theme="light"] #card {
+        background: rgba(250, 250, 250, 0.95);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .header {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 22px;
+        padding: 0 4px;
+      }
+      .header .label {
+        flex: 1;
+        font-size: 11px;
+        line-height: 16px;
+        color: rgba(161, 161, 170, 0.95);
+      }
+      body[data-theme="light"] .header .label {
+        color: rgba(82, 82, 91, 0.95);
+      }
+      .header-btn {
+        flex: none;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        border: none;
+        padding: 0;
+        background: transparent;
+        cursor: pointer;
+        color: rgba(161, 161, 170, 0.9);
+      }
+      .header-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(244, 244, 245, 0.95);
+      }
+      body[data-theme="light"] .header-btn:hover {
+        background: rgba(0, 0, 0, 0.06);
+        color: rgba(24, 24, 27, 0.95);
+      }
+      .header-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .header-btn svg {
+        width: 13px;
+        height: 13px;
+      }
+      .row-close {
+        flex: none;
+        width: 20px;
+        height: 20px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        border: none;
+        padding: 0;
+        background: transparent;
+        cursor: pointer;
+        color: rgba(161, 161, 170, 0.9);
+      }
+      .row:hover .row-close {
+        display: flex;
+      }
+      .row-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(244, 244, 245, 1);
+      }
+      body[data-theme="light"] .row-close:hover {
+        background: rgba(0, 0, 0, 0.08);
+        color: rgba(24, 24, 27, 1);
+      }
+      .row-close svg {
+        width: 12px;
+        height: 12px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 54px;
+        padding: 6px 8px;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      .row:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+      body[data-theme="light"] .row:hover {
+        background: rgba(0, 0, 0, 0.05);
+      }
+      .icon {
+        flex: none;
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .icon svg {
+        width: 22px;
+        height: 22px;
+      }
+      /* 会话进行中：转圈 loading（止于瞬时的静态缺角圆环没有"进行中"的动感）。 */
+      .icon.spin svg {
+        animation: pet-spin 1.1s linear infinite;
+      }
+      @keyframes pet-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .meta {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .title {
+        font-size: 12px;
+        line-height: 16px;
+        color: rgba(244, 244, 245, 0.95);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      body[data-theme="light"] .title {
+        color: rgba(24, 24, 27, 0.95);
+      }
+      .preview {
+        font-size: 11px;
+        line-height: 15px;
+        color: rgba(161, 161, 170, 0.95);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      body[data-theme="light"] .preview {
+        color: rgba(82, 82, 91, 0.95);
+      }
+      .dot {
+        flex: none;
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: #3b82f6;
+      }
+      .overflow {
+        font-size: 11px;
+        line-height: 30px;
+        text-align: center;
+        color: rgba(161, 161, 170, 0.9);
+      }
+      body[data-theme="light"] .overflow {
+        color: rgba(82, 82, 91, 0.9);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="card"></div>
+    <script type="module" src="./petBubblePage.ts"></script>
+  </body>
+</html>

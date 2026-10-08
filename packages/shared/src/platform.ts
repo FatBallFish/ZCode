@@ -871,6 +871,14 @@ export interface IPlatformService {
 
   /** 注册用户点击系统通知后跳转到对应任务的回调，返回 disposer */
   onTaskNotificationClick(handler: (taskId: string) => void): () => void;
+  /** 宠物气泡点击跳转：携带 workspace 地址直连激活（可选实现，仅桌面端）。 */
+  onOpenPetTask?(
+    handler: (payload: {
+      taskId: string;
+      workspacePath: string;
+      workspaceIdentity?: string;
+    }) => void,
+  ): () => void;
 
   /** 导出日志：打包 ~/.zcode/v2 及外部 agent 日志为 zip 并在系统文件浏览器中显示 */
   exportLogs(): Promise<{ success: boolean; path?: string; error?: string }>;
@@ -923,6 +931,28 @@ export interface IPlatformService {
 
   /** 清理内置浏览器持久化分区；cache 模式保留认证数据，all 模式清理全部站点数据。 */
   clearEmbeddedBrowserData?(mode: "cache" | "all"): Promise<EmbeddedBrowserDataClearResult>;
+
+  /** 桌面宠物：列出已安装宠物（含与远端 manifest 的更新比对）。 */
+  petListInstalled?(): Promise<import("./pets.js").InstalledPetInfo[]>;
+  /** 桌面宠物：获取市场目录。 */
+  petMarketGetCatalog?(options?: {
+    refresh?: boolean;
+  }): Promise<import("./petMarket.js").PetMarketCatalogResult>;
+  /** 桌面宠物：安装/更新市场宠物。 */
+  petMarketInstall?(petId: string, force?: boolean): Promise<{ ok: boolean; error?: string }>;
+  /** 桌面宠物：卸载宠物。 */
+  petMarketUninstall?(petId: string): Promise<{ ok: boolean; error?: string }>;
+  /** 桌面宠物：预览图 data URL（main 代理）。 */
+  petMarketPreview?(petId: string): Promise<{ dataUrl?: string; error?: string }>;
+  /** 桌面宠物：已安装宠物本地图集预览（设置页卡片动图渲染）。 */
+  petGetInstalledPreview?(petId: string): Promise<import("./pets.js").ActivePetView | null>;
+  /** 桌面宠物：只读导入 Codex 宠物目录。 */
+  petImportFromCodex?(): Promise<{
+    imported: string[];
+    skipped: { petId: string; reason: string }[];
+  }>;
+  /** main 请求打开设置页宠物分区（宠物窗口右键菜单）。 */
+  onOpenPetSettings?(callback: () => void): () => void;
 
   /** 注册新版本已下载完毕的回调，参数为新版本号，返回 disposer */
   onUpdateReady(callback: (version: string) => void): () => void;
@@ -987,6 +1017,9 @@ export interface IPlatformService {
 
   /** 获取系统中已安装的编辑器/终端列表（含图标） */
   getInstalledEditors(): Promise<EditorInfo[]>;
+
+  /** 获取与指定文件格式匹配的已安装应用（文档/媒体/Adobe/IDE 等，含图标） */
+  getInstalledAppsForFile(path: string): Promise<EditorInfo[]>;
 
   /** 用指定编辑器打开路径 */
   openInEditor(

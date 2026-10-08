@@ -628,6 +628,21 @@ contextBridge.exposeInMainWorld("zcode", {
     ipcRenderer.on(PlatformChannels.TaskNotificationClick, handler);
     return () => ipcRenderer.removeListener(PlatformChannels.TaskNotificationClick, handler);
   },
+  /** 宠物气泡点击跳转指定会话（携带 workspace 地址直连，不依赖列表缓存命中） */
+  onOpenPetTask: (
+    callback: (payload: {
+      taskId: string;
+      workspacePath: string;
+      workspaceIdentity?: string;
+    }) => void,
+  ): (() => void) => {
+    const handler = (
+      _event: unknown,
+      payload: { taskId: string; workspacePath: string; workspaceIdentity?: string },
+    ) => callback(payload);
+    ipcRenderer.on(PlatformChannels.OpenPetTask, handler);
+    return () => ipcRenderer.removeListener(PlatformChannels.OpenPetTask, handler);
+  },
   /** 打开外部 URL（用于 OAuth 跳转浏览器） */
   openExternal: (url: string) => ipcRenderer.send(PlatformChannels.OpenExternal, url),
   /** 查询当前语言下是否存在可用的用户社群入口 */
@@ -769,9 +784,34 @@ contextBridge.exposeInMainWorld("zcode", {
   /** 清理内置浏览器缓存或全部站点数据。 */
   clearEmbeddedBrowserData: (mode: "cache" | "all") =>
     ipcRenderer.invoke(PlatformChannels.ClearEmbeddedBrowserData, mode),
+  /** 桌面宠物：列出已安装宠物。 */
+  petListInstalled: () => ipcRenderer.invoke(PlatformChannels.PetListInstalled),
+  /** 桌面宠物：获取市场目录（分类+索引）。 */
+  petMarketGetCatalog: (options?: { refresh?: boolean }) =>
+    ipcRenderer.invoke(PlatformChannels.PetMarketGetCatalog, options ?? {}),
+  /** 桌面宠物：从市场安装/更新宠物。 */
+  petMarketInstall: (petId: string, force = false) =>
+    ipcRenderer.invoke(PlatformChannels.PetMarketInstall, { petId, force }),
+  /** 桌面宠物：卸载宠物。 */
+  petMarketUninstall: (petId: string) =>
+    ipcRenderer.invoke(PlatformChannels.PetMarketUninstall, { petId }),
+  /** 桌面宠物：预览图（经 main 代理转 data URL）。 */
+  petMarketPreview: (petId: string) =>
+    ipcRenderer.invoke(PlatformChannels.PetMarketPreview, { petId }),
+  /** 桌面宠物：已安装宠物的本地图集预览（清单 + petpack:// 地址）。 */
+  petGetInstalledPreview: (petId: string) =>
+    ipcRenderer.invoke(PlatformChannels.PetGetInstalledPreview, { petId }),
+  /** 桌面宠物：只读导入 ~/.codex/pets 下的合法包。 */
+  petImportFromCodex: () => ipcRenderer.invoke(PlatformChannels.PetImportFromCodex),
   /** 读取开发态 stdio tap proxy 开关状态 */
   getZCodeStdioTapDevState: (): Promise<ZCodeStdioTapDevState> =>
     ipcRenderer.invoke(PlatformChannels.GetZCodeStdioTapDevState),
+  /** main 请求打开设置页宠物分区（宠物窗口右键菜单）。 */
+  onOpenPetSettings: (callback: () => void): (() => void) => {
+    const handler = () => callback();
+    ipcRenderer.on(PlatformChannels.OpenPetSettings, handler);
+    return () => ipcRenderer.removeListener(PlatformChannels.OpenPetSettings, handler);
+  },
   /** 注册 main 进程修改 settings 后的通知，返回 disposer */
   onSettingsChanged: (callback: () => void): (() => void) => {
     const handler = () => callback();
@@ -849,6 +889,9 @@ contextBridge.exposeInMainWorld("zcode", {
   quitAndInstallUpdate: () => ipcRenderer.invoke(PlatformChannels.QuitAndInstallUpdate),
   /** 获取已安装的编辑器/终端列表（含图标） */
   getInstalledEditors: () => ipcRenderer.invoke(PlatformChannels.GetInstalledEditors),
+  /** 获取与指定文件格式匹配的已安装应用列表（含图标） */
+  getInstalledAppsForFile: (path: string) =>
+    ipcRenderer.invoke(PlatformChannels.GetInstalledAppsForFile, path),
   getApplicationIcon: (request: string | ApplicationIconRequest) =>
     ipcRenderer.invoke(PlatformChannels.GetApplicationIcon, request),
   /** 用指定编辑器打开路径 */

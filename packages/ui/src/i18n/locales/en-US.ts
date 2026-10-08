@@ -2033,6 +2033,7 @@ const enUS: Record<string, string> = {
   "chat.previewCards.video": "Video",
   "chat.previewCards.audio": "Audio",
   "chat.previewCards.openExternal": "Open in browser",
+  "chat.previewCards.openWithDefaultApp": "Open with default app",
   "chat.previewCards.noOpenApps": "No apps found",
   "chat.turnNavigator.label": "Conversation query map",
   "chat.turnNavigator.jumpToQuery": "Jump to query {index}",
@@ -2062,6 +2063,41 @@ const enUS: Record<string, string> = {
   "settings.sidebar.group.agentCapabilities": "Agent capabilities",
   "settings.sidebar.group.dataAndStats": "Data and statistics",
   "settings.nav.generalDescription": "Language and current window experience",
+  "settings.pet.title": "Pet",
+  "settings.nav.petDescription": "Desktop pet and pet market",
+  "settings.pet.desktopOnly": "Desktop pets are available on the desktop app only.",
+  "settings.pet.enabled.title": "Enable desktop pet",
+  "settings.pet.enabled.description":
+    "Shows an always-on-top companion on the desktop; it runs along while the assistant works.",
+  "settings.pet.current.title": "Current pet",
+  "settings.pet.current.none": "No pet selected yet. Install one first, then enable it here.",
+  "settings.pet.manage": "Manage pets",
+  "settings.pet.manage.pageTitle": "Manage pets",
+  "settings.pet.installed.section": "Installed",
+  "settings.pet.installed.empty":
+    "No pets installed yet. Pick one from the market below, or import from Codex.",
+  "settings.pet.use": "Use",
+  "settings.pet.using": "In use",
+  "settings.pet.uninstall": "Uninstall",
+  "settings.pet.update": "Update",
+  "settings.pet.uninstallFailed": "Uninstall failed",
+  "settings.pet.installFailed": "Install failed",
+  "settings.pet.installed.ok": "Pet installed",
+  "settings.pet.fromMarket": "Market",
+  "settings.pet.importCodex": "Import from Codex",
+  "settings.pet.current.default": "default",
+  "settings.pet.fromBuiltin": "Built-in",
+  "settings.pet.importCodex.failed": "Failed to import from Codex. Check logs and retry.",
+  "settings.pet.importCodex.done":
+    "Imported {count} pets{skipped, select, undefined {} other {; skipped {skipped}}}",
+  "settings.pet.market.section": "Pet market",
+  "settings.pet.market.searchPlaceholder": "Search name, tag or author…",
+  "settings.pet.market.allCategories": "All categories",
+  "settings.pet.market.refresh": "Refresh",
+  "settings.pet.market.install": "Install",
+  "settings.pet.market.loadFailed":
+    "Failed to load the market catalog. Check the network and refresh.",
+  "settings.pet.market.more": "{count} more hidden; narrow down with search.",
   "settings.nav.appearanceDescription": "Theme, UI font size, and code presentation",
   "settings.themeCardTitle": "Theme",
   "settings.themeCardDescription": "Use light, dark, or follow the system setting",
@@ -2447,6 +2483,53 @@ const enUS: Record<string, string> = {
   "settings.browser.control.enabledToast": "Built-in browser control enabled",
   "settings.browser.control.disabledToast": "Built-in browser control disabled",
   "settings.browser.security.section": "Security",
+  "settings.externalCdp.section": "External browsers",
+  "settings.externalCdp.remoteControl.title":
+    "Allow mobile remote control to use external browsers",
+  "settings.externalCdp.remoteControl.description":
+    "Live mobile remote sessions may drive external browser instances; cached replay contexts never can.",
+  "settings.externalCdp.instances.title": "External browser instances",
+  "settings.externalCdp.instances.pageTitle": "External browser instances",
+  "settings.externalCdp.instances.defaultHint":
+    "Not customized; using the built-in default (default · http://127.0.0.1:9333).",
+  "settings.externalCdp.instances.configuredHint":
+    "Instances below are configured; changes apply immediately after saving.",
+  "settings.externalCdp.instances.disabledHint":
+    "Instance list is empty; the external browser feature is disabled.",
+  "settings.externalCdp.instances.manage": "Manage instances",
+  "settings.externalCdp.instances.add": "Add instance",
+  "settings.externalCdp.instances.save": "Save",
+  "settings.externalCdp.instances.reset": "Reset to default",
+  "settings.externalCdp.instances.remove": "Remove this instance",
+  "settings.externalCdp.instances.endpoint": "Endpoint",
+  "settings.externalCdp.instances.name": "Display name",
+  "settings.externalCdp.instances.namePlaceholder": "Optional",
+  "settings.externalCdp.instances.browserIdentity": "Identity pin",
+  "settings.externalCdp.instances.browserIdentityPlaceholder": "Optional",
+  "settings.externalCdp.instances.empty":
+    "No instances yet. Add and save to apply immediately; saving an empty list disables the external browser feature.",
+  "settings.externalCdp.instances.help":
+    "Connects Mikiko to a local Chrome/Chromium started with a remote debugging port. The assistant only operates tabs opened during the session; browser logins are kept as they are.",
+  "settings.externalCdp.saved": "External browser configuration saved and applied",
+  "settings.externalCdp.saveFailed": "Failed to save external browser configuration",
+  "settings.externalCdp.resetDone": "External browser configuration reset to default",
+  "settings.externalCdp.instances.idLabel": "ID",
+  "settings.externalCdp.instances.idTooltip":
+    "Unique instance identifier: lowercase letters, digits, - or _, at most 64 characters. Sessions select an instance by its exact cdp:external:<ID>.",
+  "settings.externalCdp.instances.endpointTooltip":
+    "Address of the Chromium remote debugging port; loopback only, e.g. http://127.0.0.1:9333.",
+  "settings.externalCdp.instances.nameTooltip":
+    "Instance name shown in the discovery list; defaults to the ID when empty.",
+  "settings.externalCdp.instances.browserIdentityTooltip":
+    "Pins the target browser identity (UUID) in advance. A replaced browser is rejected to prevent accidental attach; empty records it on first connect.",
+  "settings.externalCdp.staleHost":
+    "Save did not take effect: the background service process is outdated. Fully quit and reopen the app, then try again.",
+  "settings.externalCdp.invalid.instanceId":
+    "Instance id must be lowercase letters/digits/-/_ and at most 64 characters",
+  "settings.externalCdp.invalid.endpoint":
+    "Endpoint must look like http://127.0.0.1:port or http://[::1]:port",
+  "settings.externalCdp.invalid.duplicate": "Duplicate instance id or endpoint",
+  "settings.externalCdp.invalid.expectedBrowserId": "Invalid browser identity pin format",
   "settings.embeddedBrowserAllowInsecureCertificates": "Ignore certificate errors",
   "settings.embeddedBrowserAllowInsecureCertificatesDescription":
     "When enabled, the built-in browser stops verifying HTTPS certificates. Affects the built-in browser only. Restart to take effect.",

@@ -693,6 +693,14 @@ export function App({
     },
     [openSettingsTab],
   );
+  // 宠物窗口右键菜单 → main 广播打开设置页宠物分区。
+  useEffect(
+    () =>
+      platform.onOpenPetSettings?.(() => {
+        handleOpenSettingsSection("pet");
+      }) ?? (() => {}),
+    [handleOpenSettingsSection, platform],
+  );
   const { reloadSessionPending, handleReloadSession } = useWorkspaceSessionReload({
     intl,
     services,

@@ -28,6 +28,8 @@ import { registerHostServiceResourceTelemetry } from "./hostServiceResourceTelem
 import { resolveResourceTelemetryEnvironmentKey } from "./hostResourceTelemetryEnvironment.js";
 import { reportHostSessionCreate } from "./hostSessionCreateTelemetry.js";
 import { createBrowserControlMainBridge } from "./browserControlMainBridge.js";
+import { createDesktopExternalBrowserControl } from "./externalBrowserControl.js";
+import { EXTERNAL_CDP_CONFIGURATION_ENV, EXTERNAL_CDP_REMOTE_CONTROL_ENV } from "@zcode/shared";
 import { materializeBrowserRecordingArtifact } from "./browserRecordingArtifactMaterializer.js";
 import {
   ServiceCollection,
@@ -148,6 +150,7 @@ import {
   type WindowRemoteConnectionHandle,
 } from "./windowRemoteConnectionRegistry.js";
 import { createWindowHostControllerRuntime } from "./windowHostControllerService.js";
+import { mapRowsToPetSummaries } from "@zcode/shared";
 import { resolveAutomationSubmissionModelSelection } from "./automationModelSelection.js";
 import { createRemoteConnectionProgressContext } from "@zcode/server/remote/remoteConnectionProgressContext.js";
 import { startHostSelfResourceTelemetry } from "./hostSelfResourceTelemetry.js";
@@ -260,6 +263,13 @@ const browserControlMainBridge = createBrowserControlMainBridge({
   },
 });
 
+// 外部浏览器（external CDP）：main spawn 时注入已解析的最终配置（含默认 9333 兜底）；
+// 运行期变更经 ExternalBrowserConfigChanged 热重建，见 parentPort 分发。
+const browserControlExecutor = createDesktopExternalBrowserControl(
+  browserControlMainBridge,
+  process.env[EXTERNAL_CDP_CONFIGURATION_ENV],
+  { remoteControlEnabled: process.env[EXTERNAL_CDP_REMOTE_CONTROL_ENV] !== "0" },
+);
 function reportHostLog(level: HostLogLevel, args: unknown[]): void {
   if (!parentPort) {
     return;
@@ -1853,6 +1863,32 @@ const windowHostControllerRuntime = createWindowHostControllerRuntime({
   },
 });
 
+// 宠物会话气泡数据（specs/desktop/desktop-pet.md）：只读聚合 Controller 投影行，
+// 过滤映射后经 parentPort 推 main。renderer 的 Controller 订阅帧（投影变化）实时触发
+// + 3s 兜底轮询；内容不变不重发（payload 串比较）。
+const petSessionSummaryLastPayload: { value: string | null } = { value: null };
+const petSessionSummaryTimer = setInterval(() => void pushPetSessionSummaries(), 3_000);
+function pushPetSessionSummaries(): void {
+  try {
+    const summaries = mapRowsToPetSummaries(windowHostControllerRuntime.getTasks());
+    const payload = JSON.stringify(summaries);
+    if (payload === petSessionSummaryLastPayload.value) return;
+    petSessionSummaryLastPayload.value = payload;
+    parentPort?.postMessage({ type: HostResponseTypes.PetSessionSummaries, summaries });
+  } catch {
+    // 摘要推送是旁路只读链路：读取失败静默跳过，下一轮轮询会重试；不影响业务日志。
+  }
+}
+// 任意 Controller 帧都意味着投影刚更新过（fire 由现存订阅者的 onFrame 驱动；
+// 无订阅者时靠 3s 轮询兜底）。去重由 payload 比较保证。
+const petSessionFrameEvent = windowHostControllerRuntime.service.onDynamicControllerFrame();
+const petSessionFrameSubscription = petSessionFrameEvent(() => pushPetSessionSummaries());
+process.on("exit", () => {
+  clearInterval(petSessionSummaryTimer);
+  petSessionFrameSubscription.dispose();
+});
+pushPetSessionSummaries();
+
 function wireLocalResourceTelemetry(services: ServiceCollection): void {
   activeLocalResourceTelemetry?.dispose();
   activeLocalResourceTelemetry = registerHostServiceResourceTelemetry({
@@ -2180,6 +2216,11 @@ async function disposeHostResources(reason: string): Promise<HostShutdownResult>
               },
             ]
           : []),
+        {
+          name: "external-browser-dispose",
+          run: () => browserControlExecutor.close(),
+          timeoutMs: 5_000,
+        },
       ],
       {
         phaseTimeoutMs: 5_000,
@@ -2301,6 +2342,16 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
 
   const msg = result.data;
   const port = e.ports[0];
+  if (msg.type === HostMessageTypes.ExternalBrowserConfigChanged) {
+    // main 推送的最终配置已校验；applyConfiguration 失败时保留旧 runtime 并记录。
+    try {
+      await browserControlExecutor.applyConfiguration(msg.config, msg.remoteControlEnabled);
+    } catch (error) {
+      logger.error("[external-cdp] apply configuration failed:", error);
+    }
+    return;
+  }
+
   if (msg.type === HostMessageTypes.DatabaseStartupControl) {
     if (msg.control.action === "snapshot") databaseStartup?.coordinator.publish();
     else if (msg.control.action === "retry")
@@ -2874,7 +2925,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
               },
               // browser-use：agent 的 interaction/browserExecute 经 zcodeAgentService 转到这个 executor，
               // 再经 parentPort 到 main 的 WebContentsView+CDP 执行。
-              browserControlExecutor: browserControlMainBridge,
+              browserControlExecutor,
               // CUA 顶部提示属于物理 Windows 桌面投影；非 Windows 和远端 authority 都不得上报。
               cuaOperationStateReporter:
                 process.platform === "win32" ? cuaOperationStateReporter : undefined,

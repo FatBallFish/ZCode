@@ -386,6 +386,14 @@ export const hostFeedbackLogArchiveResultMessageSchema = z.object({
 
 // main → host：定时任务到点派发。会话内 cron 带 targetTaskId 时直接 sendPrompt 到当前会话；
 // 历史未绑定任务才 fallback createTask + sendPrompt 建 session。
+// main → host：外部浏览器（external CDP）配置变更。config 是 main 已解析+校验的最终
+// instances JSON；host 收到后热重建 registry（安全 detach 旧连接，不重启进程）。
+export const hostExternalBrowserConfigChangedMessageSchema = z.object({
+  type: z.literal("external-browser-config-changed"),
+  config: nonEmptyStringSchema,
+  remoteControlEnabled: z.boolean(),
+});
+
 export const hostCronRunMessageSchema = z.object({
   type: z.literal("cron-run"),
   automationId: nonEmptyStringSchema,
@@ -500,6 +508,7 @@ export const hostIncomingMessageSchema = z.discriminatedUnion("type", [
   hostLocalMediaPreviewPathAuthorizeResultMessageSchema,
   hostCuaPipFocusChangedMessageSchema,
   hostProviderProvisioningExecuteMessageSchema,
+  hostExternalBrowserConfigChangedMessageSchema,
 ]);
 
 export const hostRemoteWorkspaceConnectedResponseSchema = z
@@ -753,6 +762,28 @@ export const hostWorkspaceRunningTaskCountChangedResponseSchema = z.object({
   runningTaskCount: z.number().int().nonnegative(),
 });
 
+/** 桌面宠物会话状态摘要（host → main；字段契约见 shared/pets.ts PetSessionSummary）。 */
+export const hostPetSessionSummariesResponseSchema = z.object({
+  type: z.literal("pet-session-summaries"),
+  summaries: z.array(
+    z.object({
+      taskId: nonEmptyStringSchema,
+      workspacePath: nonEmptyStringSchema,
+      workspaceIdentity: nonEmptyStringSchema.optional(),
+      title: z.string(),
+      liveStatus: z.enum(["running", "waiting", "completed", "error"]),
+      lastPreview: z.string().optional(),
+      unread: z.boolean(),
+      pendingKind: z.enum(["permission", "userInput"]).optional(),
+      pendingToolName: z.string().optional(),
+      updatedAt: z.number().finite().nonnegative().optional(),
+    }),
+  ),
+  /** 超过气泡上限（6）被折叠的会话数；host 单独上报时缺省 0（main 合并后重算）。 */
+  overflowCount: z.number().int().nonnegative().default(0),
+});
+export type HostPetSessionSummariesResponse = z.infer<typeof hostPetSessionSummariesResponseSchema>;
+
 export const hostCuaOperationStateResponseSchema = z
   .object({
     type: z.literal("cua-operation-state"),
@@ -1004,6 +1035,7 @@ export const hostResponseMessageSchema = z.discriminatedUnion("type", [
   hostSessionCreateTelemetryResponseSchema,
   hostAgentRunningTaskCountChangedResponseSchema,
   hostWorkspaceRunningTaskCountChangedResponseSchema,
+  hostPetSessionSummariesResponseSchema,
   hostCuaOperationStateResponseSchema,
   hostBroadcastEnvelopeSchema,
   hostBroadcastClaimRequestResponseSchema,
@@ -1227,6 +1259,30 @@ export const zcodeTaskMetaSchema = z.object({
   offPeakTaskId: nonEmptyStringSchema.optional(),
   unreadAt: z.number().int().nonnegative().optional(),
   status: zcodeTaskPersistStatusSchema.optional(),
+  // 持久化的队首阻塞交互（ZCodeTaskMeta.pendingInteraction；宠物气泡等待态用）。
+  // autoResolution 与 ZCodeTaskInteractionAutoResolution 联合对齐。
+  pendingInteraction: z
+    .object({
+      interactionId: nonEmptyStringSchema,
+      kind: z.enum(["permission", "userInput"]),
+      toolName: z.string().optional(),
+      autoResolution: z
+        .union([
+          z.object({
+            state: z.enum(["hiddenGrace", "visibleCountdown"]),
+            startedAt: z.number().finite().nonnegative(),
+            visibleAt: z.number().finite().nonnegative(),
+            deadlineAt: z.number().finite().nonnegative(),
+          }),
+          z.object({
+            state: z.literal("snoozed"),
+            startedAt: z.number().finite().nonnegative(),
+            snoozedAt: z.number().finite().nonnegative(),
+          }),
+        ])
+        .optional(),
+    })
+    .optional(),
   lastError: z
     .object({
       code: z.string().optional(),

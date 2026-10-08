@@ -229,6 +229,8 @@ export default defineConfig(({ mode }) => {
           index: resolve(__dirname, "src/renderer/index.html"),
           "resource-manager": resolve(__dirname, "src/renderer/resource-manager.html"),
           "cua-permission-panel": resolve(__dirname, "src/renderer/cua-permission-panel.html"),
+          pet: resolve(__dirname, "src/renderer/pet.html"),
+          "pet-bubble": resolve(__dirname, "src/renderer/pet-bubble.html"),
         },
       },
     },

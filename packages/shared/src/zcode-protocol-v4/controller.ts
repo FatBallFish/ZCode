@@ -81,6 +81,8 @@ export const windowHostControllerTaskActivitySchema = z
     pendingInteractions: pendingInteractionSummarySchema.optional(),
     // 侧栏工作流运行行；无 run 时缺席。
     workflowActivity: sessionWorkflowActivitySchema.optional(),
+    // 最后一条助手消息预览（≤120 字符，sessions-index 透传）；桌面宠物会话气泡展示用。
+    lastAssistantPreview: z.string().optional(),
   })
   .strict();
 export type WindowHostControllerTaskActivity = z.infer<

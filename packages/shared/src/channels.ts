@@ -431,6 +431,31 @@ export const PlatformChannels = {
   QuitAndInstallUpdate: "zcode:quit-and-install-update",
   /** Renderer → Main：获取系统中已安装的编辑器/终端列表（含图标） */
   GetInstalledEditors: "zcode:get-installed-editors",
+  PetListInstalled: "zcode:pet:list-installed",
+  PetMarketGetCatalog: "zcode:pet:market-catalog",
+  PetMarketInstall: "zcode:pet:market-install",
+  PetMarketUninstall: "zcode:pet:market-uninstall",
+  PetMarketPreview: "zcode:pet:market-preview",
+  PetImportFromCodex: "zcode:pet:import-codex",
+  PetGetActive: "zcode:pet:get-active",
+  PetDragMove: "zcode:pet:drag-move",
+  PetContextMenu: "zcode:pet:context-menu",
+  PetGetInstalledPreview: "zcode:pet:installed-preview",
+  /** 宠物会话气泡（preload/desktopPetBubble）→ Main：点击某条会话，跳转主窗口 */
+  PetBubbleOpenTask: "zcode:pet:bubble-open-task",
+  /** 宠物页 → Main：双击宠物唤起 App 主窗口 */
+  PetOpenApp: "zcode:pet:open-app",
+  /** 气泡（preload/desktopPetBubble）→ Main：关闭某个终态会话行 */
+  PetBubbleDismissTask: "zcode:pet:bubble-dismiss-task",
+  /** 气泡（preload/desktopPetBubble）→ Main：清空全部终态会话行 */
+  PetBubbleClearTerminal: "zcode:pet:bubble-clear-terminal",
+  /** 气泡（preload/desktopPetubble）→ Main：折叠/展开会话列表（窗口高度联动） */
+  PetBubbleSetCollapsed: "zcode:pet:bubble-set-collapsed",
+  /** Main → Renderer：气泡点击跳转指定会话（携带 workspace 地址直连，不依赖列表缓存命中） */
+  OpenPetTask: "zcode:open-pet-task",
+  OpenPetSettings: "zcode:open-pet-settings",
+  /** Renderer → Main：获取与指定文件格式匹配的已安装应用列表（含图标） */
+  GetInstalledAppsForFile: "zcode:get-installed-apps-for-file",
   /** Renderer → Main：按 bundle id 获取系统应用图标 */
   GetApplicationIcon: "zcode:get-application-icon",
   /** Renderer → Main：用指定编辑器打开路径 */
@@ -583,6 +608,8 @@ export const HostMessageTypes = {
   /** main → host：资源管理器请求 Host 采样其后代进程（Agent / MCP / 终端）的 CPU 与内存 */
   ResourceUsageSnapshotRequest: "resource-usage-snapshot-request",
   ResourceUsageSnapshotCancel: "resource-usage-snapshot-cancel",
+  /** main → host：外部浏览器（external CDP）配置变更（main 已解析+校验的最终值）；host 热重建 registry */
+  ExternalBrowserConfigChanged: "external-browser-config-changed",
 } as const;
 
 /** host process → main process 的反馈消息类型 */
@@ -623,6 +650,8 @@ export const HostResponseTypes = {
   AgentRunningTaskCountChanged: "agent-running-task-count-changed",
   /** host 内指定 workspace 当前仍未 terminal 的 task 数量变化 */
   WorkspaceRunningTaskCountChanged: "workspace-running-task-count-changed",
+  /** host → main：桌面宠物会话状态摘要（气泡数据，投影变化 + 兜底轮询推送） */
+  PetSessionSummaries: "pet-session-summaries",
   /** host → main：Windows desktop-local CUA turn 的操作提示状态 */
   CuaOperationState: "cua-operation-state",
   /** host → main：workspace generation 已可安全 attach */
@@ -1194,6 +1223,81 @@ export interface PlatformChannelMap {
   };
   [PlatformChannels.GetInstalledEditors]: {
     request: void;
+    response: EditorInfo[];
+  };
+  [PlatformChannels.PetListInstalled]: {
+    request: void;
+    response: import("./pets.js").InstalledPetInfo[];
+  };
+  [PlatformChannels.PetMarketGetCatalog]: {
+    request: { refresh?: boolean };
+    response: import("./petMarket.js").PetMarketCatalogResult;
+  };
+  [PlatformChannels.PetMarketInstall]: {
+    request: { petId: string; force?: boolean };
+    response: { ok: boolean; error?: string };
+  };
+  [PlatformChannels.PetMarketUninstall]: {
+    request: { petId: string };
+    response: { ok: boolean; error?: string };
+  };
+  [PlatformChannels.PetMarketPreview]: {
+    request: { petId: string };
+    response: { dataUrl?: string; error?: string };
+  };
+  [PlatformChannels.PetImportFromCodex]: {
+    request: void;
+    response: { imported: string[]; skipped: { petId: string; reason: string }[] };
+  };
+  [PlatformChannels.PetGetActive]: {
+    request: void;
+    response: {
+      view: import("./pets.js").ActivePetView;
+      state: import("./pets.js").DesktopPetStateEvent["state"];
+    } | null;
+  };
+  [PlatformChannels.PetDragMove]: {
+    request: { dx: number; dy: number };
+    response: void;
+  };
+  [PlatformChannels.PetContextMenu]: {
+    request: void;
+    response: void;
+  };
+  [PlatformChannels.PetGetInstalledPreview]: {
+    request: { petId: string };
+    response: import("./pets.js").ActivePetView | null;
+  };
+  [PlatformChannels.PetBubbleOpenTask]: {
+    request: import("./pets.js").PetSessionSummary;
+    response: void;
+  };
+  [PlatformChannels.PetOpenApp]: {
+    request: void;
+    response: void;
+  };
+  [PlatformChannels.PetBubbleDismissTask]: {
+    request: import("./pets.js").PetSessionSummary;
+    response: void;
+  };
+  [PlatformChannels.PetBubbleClearTerminal]: {
+    request: void;
+    response: void;
+  };
+  [PlatformChannels.PetBubbleSetCollapsed]: {
+    request: boolean;
+    response: void;
+  };
+  [PlatformChannels.OpenPetTask]: {
+    request: void;
+    response: void;
+  };
+  [PlatformChannels.OpenPetSettings]: {
+    request: void;
+    response: void;
+  };
+  [PlatformChannels.GetInstalledAppsForFile]: {
+    request: string;
     response: EditorInfo[];
   };
   [PlatformChannels.GetApplicationIcon]: {

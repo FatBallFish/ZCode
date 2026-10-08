@@ -38,6 +38,7 @@ import {
   dialog,
   ipcMain,
   nativeImage,
+  nativeTheme,
   net,
   protocol,
   session,
@@ -45,7 +46,8 @@ import {
 } from "electron";
 import type { UtilityProcess as ElectronUtilityProcess } from "electron";
 import { spawn } from "node:child_process";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
+import { existsSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import {
   createCredentialService,
@@ -56,6 +58,7 @@ import {
   createTelemetryAuthorizationLoader,
   buildRuntimeProcessEnvPatch,
   captureLoginShellEnvSnapshot,
+  getAppConfigDir,
   getConversationWorkspaceDir,
   getDataBaseDir,
   getZCodeDataRootDir,
@@ -165,6 +168,11 @@ import {
   shouldUseElectronDefaultUserDataPath,
 } from "./desktopRuntimeEnv.js";
 import {
+  resolveExternalCdpRuntimeConfig,
+  validateExternalCdpConfiguration,
+  type ExternalCdpRuntimeConfig,
+} from "./externalCdpSettings.js";
+import {
   disposeHostProcess,
   disposeHostProcessAndWait,
   listDisposingHostProcesses,
@@ -248,8 +256,19 @@ import {
   WINDOWS_UPDATE_LOCK_RELEASE_GRACE_MS,
 } from "./windowsInstallResourceLocks.js";
 import { mainMemoryDiagnosticsRegistry } from "./mainMemoryDiagnostics.js";
+import {
+  createDesktopPetManager,
+  installPetPackProtocol,
+  registerPetPackScheme,
+  type DesktopPetManager,
+} from "./desktopPetWindow.js";
+import { createPetBubbleWindow } from "./desktopPetBubble.js";
+import { readWebpSize, mergePetSessionSummaries, type PetSessionSummary } from "@zcode/shared";
+import { createPetMarketService } from "./desktopPetMarketService.js";
+import { registerPetMarketIpc } from "./desktopPetIpc.js";
 
 registerLocalMediaPreviewScheme(protocol);
+registerPetPackScheme(protocol);
 const localMediaPreviewPathRegistry = createLocalMediaPreviewPathRegistry();
 
 // e2e 由 Chromedriver 管理远程调试端口；如果这里继续固定到 9229，
@@ -622,6 +641,40 @@ const windowWorkspaceMap = new Map<number, Set<string>>();
 const windowTaskRealtimeHostIdMap = new Map<number, string>();
 const windowUnreadCountMap = new Map<number, number>();
 const windowHostProcessMap = new Map<number, ElectronUtilityProcess>();
+// 桌面宠物管理器：whenReady 内创建；设置同步/agent 运行态回调在模块层经此引用。
+let desktopPetManager: DesktopPetManager | undefined;
+
+// 外部浏览器（external CDP）最终配置缓存：spawn 注入（同步读）与设置变更推送共用。
+// 模块加载时先按 env/内置默认解析；bootstrap 读到设置后在任何 host 启动前刷新。
+let currentExternalCdpRuntime: ExternalCdpRuntimeConfig = resolveExternalCdpRuntimeConfig({});
+
+async function refreshExternalCdpRuntimeForAllHosts(reason: string): Promise<void> {
+  try {
+    const settings = await mainSettingService.get();
+    const previous = currentExternalCdpRuntime;
+    currentExternalCdpRuntime = resolveExternalCdpRuntimeConfig({ settings });
+    if (
+      previous.config === currentExternalCdpRuntime.config &&
+      previous.remoteControlEnabled === currentExternalCdpRuntime.remoteControlEnabled
+    ) {
+      return;
+    }
+    for (const host of windowHostProcessMap.values()) {
+      host.postMessage({
+        type: HostMessageTypes.ExternalBrowserConfigChanged,
+        config: currentExternalCdpRuntime.config,
+        remoteControlEnabled: currentExternalCdpRuntime.remoteControlEnabled,
+      });
+    }
+    logger.info(`[external-cdp] config resolved (${reason})`, {
+      configLength: currentExternalCdpRuntime.config.length,
+      remoteControlEnabled: currentExternalCdpRuntime.remoteControlEnabled,
+      hostCount: windowHostProcessMap.size,
+    });
+  } catch (error) {
+    logger.warn("[external-cdp] refresh failed:", error);
+  }
+}
 const cuaPipFocusRouter = createCuaPipFocusRouter({
   send: (windowId, event) => {
     windowHostProcessMap.get(windowId)?.postMessage({
@@ -631,6 +684,10 @@ const cuaPipFocusRouter = createCuaPipFocusRouter({
   },
 });
 const hostRunningTaskCountMap = new Map<ElectronUtilityProcess, number>();
+/** 宠物会话气泡：各 host 最近一批会话摘要（host 退出以空批清理，见 desktopHostProcess）。 */
+const petSessionSummariesByHost = new Map<ElectronUtilityProcess, PetSessionSummary[]>();
+/** 最近一次合并结果：主题切换时无需等 host 重推即可刷新气泡外观。 */
+let lastMergedPetSummaries: { rows: PetSessionSummary[]; overflowCount: number } | null = null;
 const windowsCuaOperationIndicator = createWindowsCuaOperationIndicator({
   platform: process.platform,
   getLocale: () => currentApplicationLocale,
@@ -758,7 +815,7 @@ function reportRemoteUsageEventForRenderer(rendererId: number, event: TelemetryE
 
 function syncAppTelemetryInteractiveState(): void {
   appTelemetryRuntime.setInteractive(
-    getApplicationWindowsExcludingCuaIndicator().some(
+    getApplicationWindowsExcludingAuxiliary().some(
       (win) => !win.isDestroyed() && win.isVisible() && win.isFocused(),
     ),
   );
@@ -912,7 +969,7 @@ function resolveExternalWorkspaceConfirmationCopy() {
 }
 
 function focusForceUpdateGateWindow() {
-  const gateWindow = getApplicationWindowsExcludingCuaIndicator()[0];
+  const gateWindow = getApplicationWindowsExcludingAuxiliary()[0];
   if (!gateWindow) {
     return;
   }
@@ -927,7 +984,7 @@ function focusForceUpdateGateWindow() {
 }
 
 const primaryWindowCoordinator = createPrimaryWindowCoordinator({
-  listWindows: getApplicationWindowsExcludingCuaIndicator,
+  listWindows: getApplicationWindowsExcludingAuxiliary,
   resolveStartupWindowBootstrap: () => {
     if (startupOpenWorkspaceRequest) {
       const request = startupOpenWorkspaceRequest;
@@ -991,6 +1048,45 @@ function syncCloseToTrayOnWindows(value: unknown) {
 function syncImmediateAppSettings(patch: Partial<AppSettings>) {
   syncCloseToTrayOnWindows(patch.closeToTrayOnWindows);
 
+  if (
+    patch.desktopPetEnabled !== undefined ||
+    patch.desktopPetId !== undefined ||
+    patch.desktopPetPosition !== undefined
+  ) {
+    // 桌面宠物：enabled/petId 变化即时创建/销毁窗口（position 只在窗口不存在时生效）。
+    void mainSettingService
+      .get()
+      .then((settings) =>
+        desktopPetManager?.applySettings({
+          enabled: settings.desktopPetEnabled,
+          petId: settings.desktopPetId,
+          position: settings.desktopPetPosition,
+        }),
+      )
+      .catch((error) =>
+        logger.warn("[desktop-pet] apply settings failed", { error: String(error) }),
+      );
+  }
+
+  if (
+    patch.externalCdpConfig !== undefined ||
+    patch.externalCdpRemoteControlEnabled !== undefined
+  ) {
+    // 外部浏览器配置/远控开关变化：重新解析并热推送到所有存活 host，无需重启。
+    // 配置非法只跳过本次推送（保留旧 runtime），不能 return 跳出——后面还有其他设置处理器。
+    const validated =
+      patch.externalCdpConfig === undefined
+        ? ({ ok: true } as const)
+        : validateExternalCdpConfiguration(patch.externalCdpConfig);
+    if (validated.ok) {
+      void refreshExternalCdpRuntimeForAllHosts("settings changed");
+    } else {
+      logger.warn("[external-cdp] invalid settings config, keeping previous runtime:", {
+        error: validated.error,
+      });
+    }
+  }
+
   if (typeof patch.keepAwakeWhileRunning === "boolean") {
     keepAwakeWhileRunning = patch.keepAwakeWhileRunning;
     reconcileKeepAwakeBlocker();
@@ -1011,7 +1107,7 @@ function syncImmediateAppSettings(patch: Partial<AppSettings>) {
     // 这里重建应用菜单 accelerator，并通知所有窗口刷新设置快照 —— 其他窗口的
     // useAppKeyboard 生效表与设置页跟随更新。先例：setAutoDownloadAndInstallUpdates 的全窗口广播。
     rebuildMenu();
-    for (const win of getApplicationWindowsExcludingCuaIndicator()) {
+    for (const win of getApplicationWindowsExcludingAuxiliary()) {
       if (!win.isDestroyed()) {
         win.webContents.send(PlatformChannels.SettingsChanged);
       }
@@ -1033,7 +1129,7 @@ async function setAutoDownloadAndInstallUpdates(enabled: boolean) {
   syncImmediateAppSettings({
     autoDownloadAndInstallUpdates: enabled,
   });
-  for (const win of getApplicationWindowsExcludingCuaIndicator()) {
+  for (const win of getApplicationWindowsExcludingAuxiliary()) {
     if (!win.isDestroyed()) {
       win.webContents.send(PlatformChannels.SettingsChanged);
     }
@@ -1370,9 +1466,7 @@ function confirmAppQuit(originWindow?: BrowserWindow | null) {
   const targetWindow =
     originWindow && !originWindow.isDestroyed()
       ? originWindow
-      : (BrowserWindow.getFocusedWindow() ??
-        getApplicationWindowsExcludingCuaIndicator()[0] ??
-        null);
+      : (BrowserWindow.getFocusedWindow() ?? getApplicationWindowsExcludingAuxiliary()[0] ?? null);
   const dialogOptions = {
     type: "question" as const,
     buttons: isZh ? ["退出", "取消"] : ["Quit", "Cancel"],
@@ -1493,14 +1587,52 @@ function resolveFocusedDesktopZoomLevel(): number {
   return resolveDesktopZoomLevelFromFactor(focusedWindow.webContents.getZoomFactor());
 }
 
-function getApplicationWindowsExcludingCuaIndicator(): BrowserWindow[] {
+function getApplicationWindowsExcludingAuxiliary(): BrowserWindow[] {
+  // 修复依据：启用宠物后启动时宠物窗口先于主窗口创建（bootstrap applySettings 在
+  // ensurePrimaryWindow 之前），若辅助窗不排除，主窗口协调器会把宠物窗当主窗复用，
+  // App 启动后没有任何主界面。CUA 指示窗与宠物窗都属于辅助窗，一律不参与
+  // 主窗候选、对话框父窗与"还有窗口存活"判定。
   return BrowserWindow.getAllWindows().filter(
-    (win) => !win.isDestroyed() && !windowsCuaOperationIndicator.ownsWindow(win),
+    (win) =>
+      !win.isDestroyed() &&
+      !windowsCuaOperationIndicator.ownsWindow(win) &&
+      !(desktopPetManager?.ownsWindow(win) ?? false),
   );
 }
 
 function getMainApplicationWindows(): BrowserWindow[] {
-  return getApplicationWindowsExcludingCuaIndicator().filter((win) => win !== updateStatusWindow);
+  return getApplicationWindowsExcludingAuxiliary().filter((win) => win !== updateStatusWindow);
+}
+
+/** 启动装配时记录的 Dock 图标路径：dock.show() 会把图标重置为 bundle 默认值（开发态
+ * 是 Electron 原始图标），唤起路径恢复 Dock 后必须重设，否则用户看到图标"变质"。 */
+let currentDockIconPath: string | null = null;
+
+/**
+ * 唤起 App（宠物/气泡/通知路径共用）：无主窗口时先创建（ensurePrimaryWindow），
+ * macOS 先 app.dock.show() 再激活并重设 Dock 图标——若 Dock 图标因故消失
+ * （skipTaskbar 窗口成为唯一窗口等场景），不先恢复 dock 图标的话
+ * app.focus 抢前台后被系统忽略，App 将无法唤起（desktopNotifications 同款顺序）。
+ */
+async function ensureApplicationWindowsVisible(reason: string): Promise<void> {
+  if (getMainApplicationWindows().filter((win) => !win.isDestroyed()).length === 0) {
+    await primaryWindowCoordinator.ensurePrimaryWindow(reason);
+  }
+  const target = getMainApplicationWindows().find((win) => !win.isDestroyed());
+  if (!target) return;
+  if (target.isMinimized()) target.restore();
+  if (!target.isVisible()) target.show();
+  if (process.platform === "darwin") {
+    app.dock?.show();
+    // dock.show() 会重置图标为 bundle 默认；重设回 Mikiko Dev 图标。
+    if (currentDockIconPath) {
+      const dockIcon = nativeImage.createFromPath(currentDockIconPath);
+      if (!dockIcon.isEmpty()) app.dock?.setIcon(dockIcon);
+    }
+    app.show();
+    app.focus({ steal: true });
+  }
+  target.focus();
 }
 
 function isUpdateStatusWindowCloseLocked(state: UpdateStatePayload) {
@@ -1759,6 +1891,21 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
         {
           hostProcessLocalEnv,
           desktopContextPromptEnabled: resolveDesktopContextPromptEnabledForHost,
+          onAgentRunningTotalChanged: (total) => desktopPetManager?.setAgentRunning(total > 0),
+          onPetSessionSummaries: (child, event) => {
+            // 宠物会话气泡聚合：按 host 存最新一批（空批=该 host 无符合条件会话，
+            // host 退出时同样以空批清理），taskKey 去重合并后交给宠物 manager。
+            if (event.summaries.length === 0) {
+              petSessionSummariesByHost.delete(child);
+            } else {
+              petSessionSummariesByHost.set(child, event.summaries);
+            }
+            lastMergedPetSummaries = mergePetSessionSummaries([
+              ...petSessionSummariesByHost.values(),
+            ]);
+            desktopPetManager?.setSessionSummaries(lastMergedPetSummaries);
+          },
+          externalCdpConfiguration: () => currentExternalCdpRuntime,
           logger,
           broadcastHub,
           taskRealtimeBus,
@@ -1919,7 +2066,7 @@ app.on("open-url", (event, url) => {
     focusForceUpdateGateWindow();
     return;
   }
-  if (workspacePath && getApplicationWindowsExcludingCuaIndicator().length === 0) {
+  if (workspacePath && getApplicationWindowsExcludingAuxiliary().length === 0) {
     // macOS 冷启动 Finder Service 会先触发 open-url，再创建首窗。
     // 把目标目录按 deep link 来源记录，首窗 bootstrap 前仍要走确认 gate。
     startupOpenWorkspaceRequest = { path: workspacePath, source: "deep-link" };
@@ -1930,7 +2077,7 @@ app.on("open-url", (event, url) => {
   }
   handleDeepLink(url, logger, {
     confirmationCopy: resolveExternalWorkspaceConfirmationCopy(),
-    resolveApplicationWindow: () => getApplicationWindowsExcludingCuaIndicator()[0] ?? null,
+    resolveApplicationWindow: () => getApplicationWindowsExcludingAuxiliary()[0] ?? null,
   });
 });
 const gotTheLock = app.requestSingleInstanceLock(createDeepLinkSingleInstanceData(process.argv));
@@ -1951,9 +2098,9 @@ app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
           ...options,
           resolveApplicationWindow:
             options?.resolveApplicationWindow ??
-            (() => getApplicationWindowsExcludingCuaIndicator()[0] ?? null),
+            (() => getApplicationWindowsExcludingAuxiliary()[0] ?? null),
         }),
-      resolveApplicationWindow: () => getApplicationWindowsExcludingCuaIndicator()[0] ?? null,
+      resolveApplicationWindow: () => getApplicationWindowsExcludingAuxiliary()[0] ?? null,
       logger,
       workspaceConfirmationCopy: resolveExternalWorkspaceConfirmationCopy(),
     })
@@ -1961,7 +2108,7 @@ app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
     return;
   }
 
-  const win = getApplicationWindowsExcludingCuaIndicator()[0];
+  const win = getApplicationWindowsExcludingAuxiliary()[0];
   if (win) {
     if (win.isMinimized()) {
       win.restore();
@@ -1978,6 +2125,125 @@ app.whenReady().then(async () => {
   installLocalMediaPreviewProtocol(session.defaultSession.protocol, {
     isPathAuthorized: localMediaPreviewPathRegistry.isAuthorized,
   });
+  const petRootDir = () => join(getAppConfigDir(), "pets");
+  installPetPackProtocol(session.defaultSession.protocol, {
+    isPathAllowed: (path) => {
+      // 只放行宠物根目录内的文件（协议层再防一次路径逃逸）。
+      const resolved = resolve(path);
+      return (
+        (resolved.endsWith(".webp") || resolved.endsWith(".json")) &&
+        (resolved === petRootDir() || resolved.startsWith(`${petRootDir()}${sep}`))
+      );
+    },
+  });
+  const petMarket = createPetMarketService({
+    fetchText: (url) =>
+      net.fetch(url).then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.text();
+      }),
+    fetchBytes: async (url) => {
+      const response = await net.fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return new Uint8Array(await response.arrayBuffer());
+    },
+    petRootDir,
+    codexPetsDirs: () => {
+      // 候选顺序：CODEX_HOME → ~/.codex（CLI/官方安装器）→ macOS Codex App 数据目录。
+      const candidates = [
+        process.env["CODEX_HOME"] ? join(process.env["CODEX_HOME"], "pets") : undefined,
+        join(homedir(), ".codex", "pets"),
+        process.platform === "darwin"
+          ? join(homedir(), "Library", "Application Support", "Codex", "pets")
+          : undefined,
+      ];
+      return [...new Set(candidates.filter((dir): dir is string => Boolean(dir)))];
+    },
+    // Electron nativeImage 不解码 WebP（只支持 PNG/JPEG），尺寸用自研容器头解析。
+    readImageSize: (bytes) => {
+      const size = readWebpSize(bytes);
+      if (!size) throw new Error("not a decodable WebP container");
+      return size;
+    },
+    logger,
+  });
+  let petPositionSave: Promise<void> = Promise.resolve();
+  // 会话气泡窗口（specs/desktop/desktop-pet.md）：manager 负责随宠物显隐与内容推送。
+  const petBubble = createPetBubbleWindow({
+    preloadPath: join(import.meta.dirname, "../preload/desktopPetBubble.cjs"),
+    resolveRendererTarget: () => ({
+      devUrl: app.isPackaged ? undefined : process.env["ELECTRON_RENDERER_URL"],
+      rendererDir: join(import.meta.dirname, "../renderer"),
+    }),
+  });
+  // 主题（dark/light/system→实际值）变化时重推气泡：载荷携带主题驱动页面 CSS 切换。
+  nativeTheme.on("updated", () => {
+    if (!lastMergedPetSummaries) return;
+    desktopPetManager?.setSessionSummaries(lastMergedPetSummaries);
+  });
+  desktopPetManager = createDesktopPetManager({
+    petPreloadPath: join(import.meta.dirname, "../preload/desktopPet.cjs"),
+    petRootDir,
+    market: petMarket,
+    logger,
+    bubble: petBubble,
+    onOpenTask: (summary) => {
+      // 气泡点击跳转：无窗口先创建（cmd+w 关闭后宠物是唯一入口），聚焦后广播携带
+      // workspace 地址的 OpenPetTask——renderer 直连激活目标 tab，不依赖任务列表缓存
+      // 命中（用户实测"只唤起不切换"：TaskNotificationClick 反查 taskListCache 未命中即
+      // 静默放弃）。新建窗口的 renderer 需要时间挂监听，补一次延迟广播（重复激活幂等）。
+      void ensureApplicationWindowsVisible("pet-bubble-open-task").then(() => {
+        const broadcast = () => {
+          for (const win of getMainApplicationWindows().filter((w) => !w.isDestroyed())) {
+            win.webContents.send(PlatformChannels.OpenPetTask, {
+              taskId: summary.taskId,
+              workspacePath: summary.workspacePath,
+              ...(summary.workspaceIdentity
+                ? { workspaceIdentity: summary.workspaceIdentity }
+                : {}),
+            });
+          }
+        };
+        broadcast();
+        setTimeout(broadcast, 1_500);
+      });
+    },
+    onOpenApp: () => {
+      // 双击宠物：唤起 App 主窗口（不指定会话）。无窗口（cmd+w 后）先创建再聚焦。
+      void ensureApplicationWindowsVisible("pet-open-app");
+    },
+    getTheme: () => (nativeTheme.shouldUseDarkColors ? "dark" : "light"),
+    savePosition: (position) => {
+      // 串行化位置写盘，避免拖拽期间的并发 update 相互覆盖。
+      petPositionSave = petPositionSave
+        .then(() => mainSettingService.update({ desktopPetPosition: position }))
+        .catch(() => undefined);
+    },
+    hidePet: () => {
+      void mainSettingService
+        .update({ desktopPetEnabled: false })
+        .then(() => syncImmediateAppSettings({ desktopPetEnabled: false }))
+        .catch((error) => logger.warn("[desktop-pet] hide failed", { error: String(error) }));
+    },
+    openPetSettings: () => {
+      // 无窗口时同样先创建主窗口再打开设置分区（宠物右键菜单是隐藏宠物前唯一入口）。
+      void ensureApplicationWindowsVisible("pet-open-settings").then(() => {
+        const target = getMainApplicationWindows().find((win) => !win.isDestroyed());
+        target?.webContents.send(PlatformChannels.OpenPetSettings);
+      });
+    },
+    menuLabels: {
+      manage: currentApplicationLocale === "zh-CN" ? "宠物设置…" : "Pet Settings…",
+      hide: currentApplicationLocale === "zh-CN" ? "隐藏宠物" : "Hide Pet",
+    },
+  });
+  registerPetMarketIpc({ market: petMarket });
+  // 首次使用预置官方内置宠物（本地无任何宠物时才动作；失败静默，不影响启动）。
+  void petMarket
+    .ensureBuiltinPets()
+    .catch((error) =>
+      logger.warn("[desktop-pet] builtin provision failed", { error: String(error) }),
+    );
   // Electron 的 net.request 只能在 app ready 后使用；灰度请求仍是旁路预热，不阻塞首个 Host。
   void desktopContextPromptRollout?.refresh();
   installBrowserRestoreBootstrapProtocol(
@@ -1996,6 +2262,12 @@ app.whenReady().then(async () => {
       currentApplicationLocale = bootstrapSettings.locale;
     }
     closeToTrayOnWindows = bootstrapSettings.closeToTrayOnWindows ?? true;
+    currentExternalCdpRuntime = resolveExternalCdpRuntimeConfig({ settings: bootstrapSettings });
+    desktopPetManager.applySettings({
+      enabled: bootstrapSettings.desktopPetEnabled,
+      petId: bootstrapSettings.desktopPetId,
+      position: bootstrapSettings.desktopPetPosition,
+    });
     keepAwakeWhileRunning = bootstrapSettings.keepAwakeWhileRunning ?? false;
     currentDesktopZoomLevel = clampDesktopZoomLevel(bootstrapSettings.desktopZoomLevel ?? 0);
     currentDesktopWindowSize = bootstrapSettings.desktopWindowSize;
@@ -2033,12 +2305,15 @@ app.whenReady().then(async () => {
   }
 
   applyAppIcon(iconPath);
+  currentDockIconPath = iconPath;
   if (!loadedBootstrapLocale) {
     currentApplicationLocale = resolveSystemApplicationLocale();
   }
   installFinderOpenFolderWorkflow({
     platform: process.platform,
     locale: currentApplicationLocale,
+    flavor: ZCODE_PRODUCT_FLAVOR,
+    isPackaged: app.isPackaged,
     homeDir: app.getPath("home"),
     logger,
   });
@@ -2048,6 +2323,8 @@ app.whenReady().then(async () => {
     argv: process.argv,
     isDefaultApp: Boolean(process.defaultApp),
     locale: currentApplicationLocale,
+    flavor: ZCODE_PRODUCT_FLAVOR,
+    isPackaged: app.isPackaged,
     logger,
   });
   try {
@@ -2151,7 +2428,7 @@ app.whenReady().then(async () => {
       currentApplicationLocale = locale;
       windowsCuaOperationIndicator.refreshContent();
       rebuildMenu();
-      for (const win of getApplicationWindowsExcludingCuaIndicator()) {
+      for (const win of getApplicationWindowsExcludingAuxiliary()) {
         if (!win.isDestroyed()) {
           win.webContents.send(PlatformChannels.ApplicationLocaleChanged, currentApplicationLocale);
         }
@@ -2159,6 +2436,8 @@ app.whenReady().then(async () => {
       installFinderOpenFolderWorkflow({
         platform: process.platform,
         locale: currentApplicationLocale,
+        flavor: ZCODE_PRODUCT_FLAVOR,
+        isPackaged: app.isPackaged,
         homeDir: app.getPath("home"),
         logger,
       });
@@ -2170,6 +2449,8 @@ app.whenReady().then(async () => {
         argv: process.argv,
         isDefaultApp: Boolean(process.defaultApp),
         locale: currentApplicationLocale,
+        flavor: ZCODE_PRODUCT_FLAVOR,
+        isPackaged: app.isPackaged,
         logger,
       });
       configureDockMenu(
@@ -2336,7 +2617,7 @@ app.whenReady().then(async () => {
   logger.info("[startup] 创建主窗口");
   await primaryWindowCoordinator.ensurePrimaryWindow("app-ready");
 
-  const primaryWindow = getApplicationWindowsExcludingCuaIndicator()[0];
+  const primaryWindow = getApplicationWindowsExcludingAuxiliary()[0];
   if (primaryWindow) {
     scheduleReportPerfAppStartAfterMainViewReady(primaryWindow.webContents, logger);
   }
@@ -2346,7 +2627,7 @@ app.whenReady().then(async () => {
   void maybeWarnArchitectureMismatch({
     locale: currentApplicationLocale,
     logger,
-    parentWindow: getApplicationWindowsExcludingCuaIndicator()[0] ?? null,
+    parentWindow: getApplicationWindowsExcludingAuxiliary()[0] ?? null,
     icon: nativeImage.createFromPath(iconPath),
   }).catch((error) => {
     logger.warn("[architecture] 架构检测弹框失败:", error);
@@ -2356,7 +2637,7 @@ app.whenReady().then(async () => {
   if (startupDeepLinkConsumptionGate.shouldHandleReadyProtocolUrl(protocolUrl)) {
     handleDeepLink(protocolUrl, logger, {
       confirmationCopy: resolveExternalWorkspaceConfirmationCopy(),
-      resolveApplicationWindow: () => getApplicationWindowsExcludingCuaIndicator()[0] ?? null,
+      resolveApplicationWindow: () => getApplicationWindowsExcludingAuxiliary()[0] ?? null,
     });
   }
 });
@@ -2408,7 +2689,7 @@ app.on("before-quit", (event) => {
     localMediaPreviewPathRegistry.clear();
     event.preventDefault();
     void prepareAppQuit("app-before-quit").finally(() => {
-      const remainingWindows = getApplicationWindowsExcludingCuaIndicator();
+      const remainingWindows = getApplicationWindowsExcludingAuxiliary();
       logger.info(
         `[app-quit] preparation finished, resuming quit with windows=${remainingWindows.length}`,
       );
@@ -2423,7 +2704,7 @@ app.on("before-quit", (event) => {
 
       let exitRequested = false;
       const exitAfterLastWindowClosed = () => {
-        if (exitRequested || getApplicationWindowsExcludingCuaIndicator().length > 0) {
+        if (exitRequested || getApplicationWindowsExcludingAuxiliary().length > 0) {
           return;
         }
         exitRequested = true;

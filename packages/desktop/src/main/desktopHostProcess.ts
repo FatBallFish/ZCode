@@ -29,11 +29,13 @@ import {
   LAUNCH_MARKS_QUERY_KEY,
   RUNTIME_ZCODE_DEBUG,
   serializeLaunchMarks,
+  type PetSessionSummary,
   type RemoteTarget,
   type WorkspacePurpose,
   ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV,
 } from "@zcode/shared";
 import { getMainLaunchPartialMarks } from "./desktopLaunchMarks.js";
+import { buildExternalCdpEnvPatch, type ExternalCdpRuntimeConfig } from "./externalCdpSettings.js";
 import { BroadcastHub } from "./broadcastHub.js";
 import type { TaskRealtimeBus } from "./taskRealtimeBus.js";
 import { createHostLogRelay } from "./hostLogRelay.js";
@@ -156,6 +158,8 @@ export function spawnHostProcess(
     hostProcessLocalEnv: Record<string, string>;
     /** Main 进程已完成服务端灰度裁决；Host 只消费这个快照，不自行请求或分桶。 */
     desktopContextPromptEnabled?: () => boolean;
+    /** 外部浏览器（external CDP）最终配置；main 已解析，spawn 时注入 host env，host 不再自行解析。 */
+    externalCdpConfiguration?: () => ExternalCdpRuntimeConfig;
     logger: {
       info: (...args: unknown[]) => void;
       warn: (...args: unknown[]) => void;
@@ -164,6 +168,8 @@ export function spawnHostProcess(
     taskRealtimeBus?: TaskRealtimeBus;
     windowHostProcessMap: Map<number, ElectronUtilityProcess>;
     hostRunningTaskCountMap: Map<ElectronUtilityProcess, number>;
+    /** host 运行任务总数变化（桌面宠物 running/idle 联动等只读订阅方）。 */
+    onAgentRunningTotalChanged?: (total: number) => void;
     onWorkspaceRunningTaskCountChanged?: (
       child: ElectronUtilityProcess,
       event: {
@@ -171,6 +177,11 @@ export function spawnHostProcess(
         workspaceIdentity?: string;
         runningTaskCount: number;
       },
+    ) => void;
+    /** 桌面宠物会话状态摘要（host 推送，空数组代表该 host 无符合条件会话）。 */
+    onPetSessionSummaries?: (
+      child: ElectronUtilityProcess,
+      event: { summaries: PetSessionSummary[]; overflowCount: number },
     ) => void;
     onAgentProcessExited?: (event: HostAgentProcessExitedResponse) => void;
     onAgentProcessError?: (event: HostAgentProcessErrorResponse) => void;
@@ -261,6 +272,9 @@ export function spawnHostProcess(
       ...buildHostProcessEnv(dependencies.hostProcessLocalEnv),
       ...buildHostE2ECoverageEnv(),
       ZCODE_PROCESS_LABEL: label,
+      ...(dependencies.externalCdpConfiguration
+        ? buildExternalCdpEnvPatch(dependencies.externalCdpConfiguration())
+        : {}),
       // macOS-only: the Computer Use Helper launcher runs inside this forked host utilityProcess, whose
       // code-signing identity is a nested Electron helper (NOT dev.zcode.app). Publish THIS (main
       // Electron) process's pid — which IS dev.zcode.app — so helperLauncher passes it as
@@ -554,6 +568,13 @@ export function spawnHostProcess(
       dependencies.logger.info(
         `[app-quit] host running agent sessions updated (${label}) count=${result.data.runningTaskCount}`,
       );
+      // 桌面宠物联动：所有 host 的运行任务总数（只读聚合，不改变计数所有权）。
+      dependencies.onAgentRunningTotalChanged?.(
+        [...dependencies.hostRunningTaskCountMap.values()].reduce(
+          (total, count) => total + count,
+          0,
+        ),
+      );
       return;
     }
 
@@ -562,6 +583,14 @@ export function spawnHostProcess(
         workspacePath: result.data.workspacePath,
         workspaceIdentity: result.data.workspaceIdentity,
         runningTaskCount: result.data.runningTaskCount,
+      });
+      return;
+    }
+
+    if (result.data.type === HostResponseTypes.PetSessionSummaries) {
+      dependencies.onPetSessionSummaries?.(child, {
+        summaries: result.data.summaries,
+        overflowCount: result.data.overflowCount,
       });
       return;
     }
@@ -752,6 +781,8 @@ export function spawnHostProcess(
     exitedHostProcesses.add(child);
     // Host exit 是 fail-hidden 权威边界；不能依赖即将退出的 Host 再补发 inactive。
     dependencies.onCuaOperationStateSourceExited?.(child);
+    // 宠物会话摘要同理：host 退出必须立刻清掉它贡献的行，否则气泡残留幽灵会话。
+    dependencies.onPetSessionSummaries?.(child, { summaries: [], overflowCount: 0 });
     hostLogRelay.flushRawLogs();
     dependencies.logger.info(`[spawnHostProcess] host process (${label}) exited with code ${code}`);
     dependencies.hostRunningTaskCountMap.delete(child);

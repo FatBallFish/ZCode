@@ -127,6 +127,7 @@ export function createDesktopPlatform(options: {
     onDesktopZoomLevelChanged: (handler) =>
       window.zcode.onDesktopZoomLevelChanged?.(handler) ?? (() => {}),
     onTaskNotificationClick: (handler) => window.zcode.onTaskNotificationClick(handler),
+    onOpenPetTask: (handler) => window.zcode.onOpenPetTask(handler),
     exportLogs: () => window.zcode.exportLogs(),
     captureWindowScreenshot: () =>
       window.zcode.captureWindowScreenshot?.() ?? Promise.resolve(null),
@@ -150,6 +151,24 @@ export function createDesktopPlatform(options: {
       window.zcode.getZCodeStdioTapDevState?.() ??
       Promise.resolve({ enabled: false, visible: false, logDir: "", statePath: "" }),
     onSettingsChanged: (callback) => window.zcode.onSettingsChanged?.(callback) ?? (() => {}),
+    // 桌面宠物（specs/desktop/desktop-pet.md）：市场与本地包操作全部经 main 代理。
+    petListInstalled: () => window.zcode.petListInstalled?.() ?? Promise.resolve([]),
+    petMarketGetCatalog: (options) =>
+      window.zcode.petMarketGetCatalog?.(options) ??
+      Promise.reject(new Error("pet market unavailable")),
+    petMarketInstall: (petId, force) =>
+      window.zcode.petMarketInstall?.(petId, force) ??
+      Promise.resolve({ ok: false, error: "unavailable" }),
+    petMarketUninstall: (petId) =>
+      window.zcode.petMarketUninstall?.(petId) ??
+      Promise.resolve({ ok: false, error: "unavailable" }),
+    petMarketPreview: (petId) =>
+      window.zcode.petMarketPreview?.(petId) ?? Promise.resolve({ error: "unavailable" }),
+    petGetInstalledPreview: (petId) =>
+      window.zcode.petGetInstalledPreview?.(petId) ?? Promise.resolve(null),
+    petImportFromCodex: () =>
+      window.zcode.petImportFromCodex?.() ?? Promise.resolve({ imported: [], skipped: [] }),
+    onOpenPetSettings: (callback) => window.zcode.onOpenPetSettings?.(callback) ?? (() => {}),
     onApplicationLocaleChanged: (callback) =>
       window.zcode.onApplicationLocaleChanged?.(callback) ?? (() => {}),
     onPostUpdateReleaseNotes: (callback) => window.zcode.onPostUpdateReleaseNotes(callback),
@@ -158,6 +177,7 @@ export function createDesktopPlatform(options: {
     skipUpdateVersion: (version) => window.zcode.skipUpdateVersion?.(version) ?? Promise.resolve(),
     quitAndInstallUpdate: () => window.zcode.quitAndInstallUpdate(),
     getInstalledEditors: () => window.zcode.getInstalledEditors(),
+    getInstalledAppsForFile: (path) => window.zcode.getInstalledAppsForFile(path),
     getApplicationIcon: (bundleId) =>
       window.zcode.getApplicationIcon?.(bundleId) ?? Promise.resolve(null),
     openInEditor: (editorId, path, editorOptions) =>

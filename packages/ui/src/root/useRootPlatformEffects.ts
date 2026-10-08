@@ -202,6 +202,52 @@ export function useRootPlatformEffects({
           });
         })
       : () => {};
+    // 宠物气泡点击：携带 workspace 地址直连激活，不依赖 taskListCache 命中
+    // （后台 workspace 的列表可能未加载/过期，仅按 taskId 反查会静默失败）。
+    const disposeOpenPetTask = platform.onOpenPetTask
+      ? platform.onOpenPetTask((payload) => {
+          logger.info("[Root] onOpenPetTask:", payload.taskId);
+          const activated = activateTabByPath(
+            payload.workspacePath,
+            payload.workspaceIdentity
+              ? { workspaceIdentity: payload.workspaceIdentity }
+              : undefined,
+          );
+          if (activated) {
+            useZCodeSessionStore
+              .getState()
+              .setActiveTaskId(payload.workspacePath, payload.taskId, payload.workspaceIdentity);
+            return;
+          }
+          // 目标 workspace 尚无 tab（如重启后未恢复）：回退按 taskId 反查已加载 workspace。
+          const workspaces = useZCodeSessionStore.getState().workspaces;
+          for (const [workspacePath, workspaceState] of Object.entries(workspaces)) {
+            const taskMeta = workspaceState.taskListCache?.find(
+              (task) => task.taskId === payload.taskId,
+            );
+            if (taskMeta || workspaceState.activeTaskId === payload.taskId) {
+              activateTabByPath(
+                taskMeta?.workspacePath ?? workspacePath,
+                taskMeta?.workspaceIdentity
+                  ? { workspaceIdentity: taskMeta.workspaceIdentity }
+                  : undefined,
+              );
+              useZCodeSessionStore
+                .getState()
+                .setActiveTaskId(
+                  taskMeta?.workspacePath ?? workspacePath,
+                  payload.taskId,
+                  taskMeta?.workspaceIdentity,
+                );
+              return;
+            }
+          }
+          logger.warn(
+            "[Root] onOpenPetTask: target workspace not open and task not cached:",
+            payload.taskId,
+          );
+        })
+      : () => {};
     const disposeNotificationClick = platform.onTaskNotificationClick((taskId: string) => {
       logger.info("[Root] onTaskNotificationClick:", taskId);
       // 遍历所有 workspace 找到 taskId 所属的 workspace，然后激活对应 tab 并切换任务
@@ -278,6 +324,7 @@ export function useRootPlatformEffects({
       disposeOpenWorkspace();
       disposeOpenWorkspacePath();
       disposeShareImport();
+      disposeOpenPetTask();
       disposeNotificationClick();
       disposeUpdateCheckResult();
     };
