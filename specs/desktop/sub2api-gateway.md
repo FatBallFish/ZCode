@@ -43,6 +43,8 @@
 - **订阅 badge 只跟随智谱账号**：`WorkspaceSidebarFooterPlanBadge`（用量摘要里的订阅标签）仅在 footer 当前展示智谱 OAuth 账号（`user` 存在且 `relaySite == null`）时渲染。切到中转站账号后名称/余额已切换，badge 必须同步消失——它属于智谱账号的订阅信息，不属于中转站。
 - **账号切换菜单**：菜单里的中转站站点列表区块（`sub2ApiAuthedSites.length > 0` 时展示）首项增加智谱账号条目（仅当 `user` 存在）——否则从中转站切走后无处切回。点击智谱条目 = `setRelaySiteSelection(null)`；选中态圆点判定 `!relaySite`，与中转站条目（`siteId === relaySite?.siteId`）互斥。仅有智谱账号、无中转站站点时该区块整体不展示（无需切换）。
 - **验收**：智谱账号带订阅 → 切到中转站后 badge 消失、名称变邮箱、副标题变余额；切回智谱后 badge 恢复。中转站登录态下打开菜单可见智谱条目并可切回；退出登录的中转站站点自动落到下一个登录账号（既有行为不变）。
+- **余额更新广播（2026-10-02 修复）**：footer 余额只随 `onDidChange` 更新，而余额轮询入口 `getAccountDetail` 原本只变异内存缓存（不落盘、不广播）——footer（工作区 + 设置页两个实例）余额永远停在登录时的旧值，仅模型设置页（直接消费返回值）是新的。修订：`getAccountDetail` 对账号三字段（balanceUsd/frozenUsd/totalRechargedUsd）做变更检测，**实际变化才 `saveConfig` 落盘并广播**；未变化零 IO 零事件（沿用 persistSilently 防「订阅 → 重拉 → 再写盘」闪环的约束，listKeys 等高频路径仍走静默持久化）。订阅方（sidebarAccount / Sub2ApiSection）只读不写，一轮收敛不回环。
+- **验收（回归测试 `packages/services/test/sub2apiBalanceBroadcast.test.ts`）**：余额变化 → `onDidChange` 广播且磁盘 sub2api.json 与 `getSites` 均为新值；余额不变 → 不广播、不写盘。
 
 ## 同步语义
 

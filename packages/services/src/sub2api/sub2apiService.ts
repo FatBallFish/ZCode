@@ -946,10 +946,21 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       return toSiteState(site);
     },
     async getAccountDetail(siteId) {
-      const { site } = await findSite(siteId);
+      const { config, site } = await findSite(siteId);
       if (!site.account) {
         throw new Error("站点未登录");
       }
+      // 余额快照（变更检测用）：getAccountDetail 是余额轮询入口（60-120s 一次），
+      // 下面的变异只改内存缓存。footer 等订阅方只收 onDidChange——字段没变就不广播
+      // （沿用 persistSilently 防"订阅 → 重拉 → 再写盘"闪环的约束），变了必须走
+      // saveConfig 广播，否则 footer 余额永远停在登录时的旧值。
+      const accountBefore = site.account
+        ? {
+            balanceUsd: site.account.balanceUsd,
+            frozenUsd: site.account.frozenUsd,
+            totalRechargedUsd: site.account.totalRechargedUsd,
+          }
+        : null;
       const [me, bootstrap, groups, subs] = await Promise.all([
         panelRequestWithRefresh<Record<string, unknown>>(site, "/api/v1/auth/me").catch(() => null),
         panelRequestWithRefresh<Record<string, unknown>>(site, "/api/v1/console/bootstrap").catch(
@@ -977,6 +988,17 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
         site.account.balanceUsd = balanceUsd;
         site.account.frozenUsd = pickNumber(meUser, ["frozen_balance"]);
         site.account.totalRechargedUsd = pickNumber(meUser, ["total_recharged"]);
+      }
+      const accountChanged = Boolean(
+        accountBefore &&
+        site.account &&
+        (accountBefore.balanceUsd !== site.account.balanceUsd ||
+          accountBefore.frozenUsd !== site.account.frozenUsd ||
+          accountBefore.totalRechargedUsd !== site.account.totalRechargedUsd),
+      );
+      if (accountChanged) {
+        // config 与 site 同源（loadConfig 返回缓存引用），变异已在其中；saveConfig 落盘并广播。
+        await saveConfig(config);
       }
       const subscriptions: Sub2ApiSubscriptionInfo[] = [];
       if (subs && subs.ok && Array.isArray(subs.data)) {
