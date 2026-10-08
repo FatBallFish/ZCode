@@ -6,6 +6,11 @@ import { z } from "zod";
  * 包格式与校验规则对齐 openai/codex 的 codex-rs/tui/src/pets/model.rs：
  * 网格缺省 192x208 帧、8 列；行数由图集高度推导（1872→v1 九行 / 2288→v2 十一行）；
  * 动作表缺省值、覆盖合并与越界校验同款。市场协议对齐 legeling/awesome-codex-pet。
+ *
+ * 未知键容忍（2026-10-09 修订）：Codex 原版 serde 结构无 deny_unknown_fields，
+ * 对 pet.json 未知字段本就静默忽略；早期实现误用 zod strict 反而比上游更严——
+ * 上游市场包新增 "kind" 元数据键即触发「invalid pet.json: Unrecognized key」
+ * 安装失败（v1.0.7 实测）。三层 schema 统一 loose，已知字段仍严格校验类型。
  */
 
 export const PET_FRAME_WIDTH = 192;
@@ -31,7 +36,7 @@ export const petAnimationSpecSchema = z
     loop: z.boolean().optional(),
     fallback: z.string().optional(),
   })
-  .strict();
+  .loose();
 export type PetAnimationSpec = z.infer<typeof petAnimationSpecSchema>;
 
 export const petFrameSpecSchema = z
@@ -41,7 +46,7 @@ export const petFrameSpecSchema = z
     columns: z.number().int().positive(),
     rows: z.number().int().positive(),
   })
-  .strict();
+  .loose();
 export type PetFrameSpec = z.infer<typeof petFrameSpecSchema>;
 
 export const petManifestSchema = z
@@ -55,7 +60,7 @@ export const petManifestSchema = z
     /** 市场侧在 install-manifest 标注；包内携带时只做冗余校验。 */
     spriteVersionNumber: z.number().int().optional(),
   })
-  .strict();
+  .loose();
 export type PetManifest = z.infer<typeof petManifestSchema>;
 
 export interface NormalizedPetAnimationFrame {

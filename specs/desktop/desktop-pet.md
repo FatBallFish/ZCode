@@ -11,7 +11,7 @@
 
 安装目录：`~/.mikiko/v2/pets/<pet-id>/`（`getAppConfigDir()` 下，与 Codex 目录互相独立）。
 
-- `pet.json`（zod 严格校验）：`id?`、`displayName?`、`description?`、`spritesheetPath?`（默认 `spritesheet.webp`，**只允许包内相对子路径**，拒绝绝对路径与 `..` 穿越——Codex 同款防护）、`frame? {width,height,columns,rows}`、`animations?`。
+- `pet.json`（zod 校验，**未知键容忍**）：`id?`、`displayName?`、`description?`、`spritesheetPath?`（默认 `spritesheet.webp`，**只允许包内相对子路径**，拒绝绝对路径与 `..` 穿越——Codex 同款防护）、`frame? {width,height,columns,rows}`、`animations?`。已知字段类型不符仍然整体拒绝；未知键（含嵌套）静默忽略——与 Codex 原版 serde（无 `deny_unknown_fields`）行为对齐。2026-10-09 事故：上游市场 pet.json 新增 `"kind": "character"` 元数据键，strict 校验拒绝导致「DeepSeek 娘」等新包安装失败（`invalid pet.json: Unrecognized key: "kind"`），故改为 loose。
 - 缺省网格：帧 192×208、8 列；**行数由图集实际高度推导**：1872→9 行（v1）、2288→11 行（v2），其它高度拒绝。
 - 缺省动作表（行号→语义，时长 ms，末帧加长）。帧数必须与官方图集每行**实际非空格数**一致（像素级实测：idle 行第 6/7 格、waving 第 4 格起等均为空白格）——按空格格子绘制即「闪烁」：
 
@@ -84,7 +84,7 @@
 
 ## 安全与许可
 
-- pet.json zod 严格校验 + spritesheet 路径穿越防护 + 网格一致性 + 帧数/fps 上限（对齐 Codex）。
+- pet.json 已知字段 zod 严格校验（未知键容忍）+ spritesheet 路径穿越防护 + 网格一致性 + 帧数/fps 上限（对齐 Codex serde 行为）。
 - `petpack://` 只放行已安装宠物目录内的文件；pet 页面 CSP 仅允许该 scheme，无远端加载。
 - 市场资产 CC BY-NC 4.0（部分为作者自定义非商用条款）：按需下载不捆绑分发；UI 展示作者与许可证（来自 pets.json/submission.json）。
 
