@@ -33,6 +33,9 @@ For configured external Chromium instances, inspect `await agent.browsers.list()
 user-requested name and exact ID, such as `await agent.browsers.get("cdp:external:work-a")`.
 Never use `get("cdp")` or URL/default selection to choose between multiple external accounts.
 External instances expose only task-owned pages; existing user pages cannot be enumerated or claimed.
+An external descriptor is absent from the discovery list if and only if its CDP port (default `9333`)
+is not listening: ask the user to start their browser with `--remote-debugging-port=9333` and
+re-run discovery instead of treating the instance as unavailable.
 
 Keep the DOM observation as the final expression so the model receives it. Assigning it to a variable without returning or writing it does not surface the page state.
 
