@@ -14,17 +14,22 @@
 
 1. Mikiko Agent（apps/zcode-cli）的全部持久化数据默认落在 `~/.mikiko`，不再读写 `~/.zcode`；
    与官方 ZCode 实现目录级隔离。`storage.dir` 配置项仍可显式覆盖默认值。
-2. 不迁移、不兼容读取历史数据：
+2. 不做整库迁移、不整目录兼容读取：
    - `~/.zcode/cli/{debug,rollout}` 下的存量 model-io 文件不再可见；
-   - `~/.zcode/cli/db/db.sqlite` 中的存量 session 记录不迁移；
+   - `~/.zcode/cli/db/db.sqlite` 不做启动时整库迁移（会连带官方 ZCode.app 的会话，破坏隔离意图）；
    - `~/.zcode/workflows`（全局）与项目内 `.zcode/workflows` 的存量保存工作流不再列出。
-3. App 更新后的老会话继续对话：
+3. App 更新后的老会话继续对话（2026-10-09 v1.0.7 实测反馈修订：原「走 session missing
+   错误路径」不可接受，改为按会话惰性回迁）：
    - 任务列表来自 host 侧任务索引（`~/.mikiko/v2/tasks-index.sqlite`），与 agent db 无关，
      老会话更新后仍出现在列表中；
-   - 点开老会话 resume 时，agent 在新库找不到 session，走既有 `session missing` 错误路径
-     （除 legacy Claude 导入历史外不降级重建）；此时不产生新模型请求，自然无新轨迹记录——
-     「能记录就记录，记录不了就不记录」由写入路径全局跟随 `storage.dir` 自动满足；
-   - 老会话在 agent 新库中不存在后，不提供自动迁移。
+   - 点开老会话 resume 时，agent 在新库 miss 后**只读打开旧库 `~/.zcode/cli/db/db.sqlite`，
+     把该 sessionId 的 `session` 行与所有含 `session_id` 列的表行按列交集导入新库**（幂等，
+     `INSERT OR IGNORE`；v1.0.6→v1.0.7 schema 无差异，交集仅为更旧版本兜底），导入成功后
+     继续正常 activation，后续对话写入新库；
+   - 旧库路径可用 `MIKIKO_LEGACY_SESSION_DB` 覆盖（旧版自定义过 `sessionDbPath` 的用户）；
+   - 惰性回迁只处理 host 明确请求的 sessionId（host 索引里的任务都是 Mikiko 自己创建的），
+     官方 ZCode.app 的会话 id 永远不会被请求，不构成混入；导入失败（旧库缺失/损坏/WAL
+     热恢复失败）保持既有 `session missing` 错误路径，不阻塞新建会话。
 4. 登录凭据已落在 `~/.mikiko/v2/credentials.json`（`resolveSharedZCodeCredentialsPath`），
    切换后登录态不受影响。
 
@@ -57,7 +62,8 @@
 1. dev 桌面新建会话并发送消息：`~/.mikiko/cli/debug/model-io-<taskId>.jsonl` 生成，
    会话「调用轨迹」面板能显示该次模型调用记录。
 2. 打包版（`ZCODE_RUNTIME_ENV=production`）同理落到 `~/.mikiko/cli/rollout`。
-3. 更新后点开老会话：任务列表仍显示老会话；resume 报 session missing 错误提示（不 crash）；
+3. 更新后点开老会话：任务列表仍显示老会话；旧库存在该 session 时导入成功、可继续对话
+   （后续消息落新库）；旧库缺失/无该 session 时报 session missing 错误提示（不 crash）；
    新建会话不受影响。
 4. 同机并行使用官方 ZCode.app 与 Mikiko：`~/.zcode` 与 `~/.mikiko` 下各自独立产生数据，
    Mikiko Agent 不再写 `~/.zcode`。
@@ -67,4 +73,5 @@
 
 - config.json 位置切换后，CLI 独立运行时的本地配置回到默认（provider/model 等需重配）；
   desktop 场景配置由 host 经协议下发，影响面小。
-- 存量保存工作流（全局与项目档）、存量轨迹、agent 侧存量 session 均按「不迁移」接受丢失。
+- 存量保存工作流（全局与项目档）、存量轨迹按「不迁移」接受丢失；agent 侧存量 session
+  按规则 3 惰性回迁（2026-10-09 修订），不做启动时整库迁移。
