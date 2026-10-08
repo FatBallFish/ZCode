@@ -1,5 +1,6 @@
 import * as permissionFullAccessRepository from "./repositories/permission-full-access.js";
-import { DatabaseSync } from "node:sqlite";
+import { existsSync } from "node:fs";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type {
   CollaborationMode,
   ClaimLegacySessionWorkspaceInput,
@@ -87,7 +88,7 @@ import type {
   SessionStoreDebugCounts,
   SqliteSessionStoreOptions,
 } from "./options.js";
-import { ensureParentDir, getDefaultSessionDbPath } from "./paths.js";
+import { ensureParentDir, getDefaultLegacySessionDbPath, getDefaultSessionDbPath } from "./paths.js";
 import { maybeThrowStorageFsFault } from "../fs-fault-injection.js";
 import * as debugRepository from "./repositories/debug.js";
 import { createDwfJournalStore } from "./repositories/dwf-journal.js";
@@ -222,6 +223,24 @@ function assertForkBundleChildLocal(bundle: ForkCommitBundle): void {
 
 const deferredStartup = Symbol("deferredSqliteStartup");
 
+/** 旧库回迁路径解析：显式选项 > MIKIKO_LEGACY_SESSION_DB（旧版自定义过 sessionDbPath 的用户）> ~/.zcode 默认；与新库同文件时禁用。 */
+function resolveLegacyDbPath(
+  options: SqliteSessionStoreOptions,
+  currentDbPath: string,
+): string | null {
+  if (options.legacyDbPath !== undefined) {
+    return options.legacyDbPath;
+  }
+  const fromEnv = process.env.MIKIKO_LEGACY_SESSION_DB;
+  const resolved = fromEnv && fromEnv.trim().length > 0 ? fromEnv.trim() : getDefaultLegacySessionDbPath();
+  return resolved === currentDbPath ? null : resolved;
+}
+
+function readTableColumns(db: DatabaseSync, table: string): string[] {
+  const rows = db.prepare(`pragma table_info("${table}")`).all() as Array<{ name: string }>;
+  return rows.map((row) => row.name);
+}
+
 export class SqliteSessionStore
   implements
     SessionStorePort,
@@ -234,10 +253,16 @@ export class SqliteSessionStore
   private readonly dbPath: string;
   private readonly forkCommitFaultAt?: ForkCommitFaultStage;
   private dwfJournalStore?: JournalStorePort;
+  /** 旧库（~/.zcode）惰性回迁状态：null=禁用；exists 缓存避免每次 miss 都探盘。 */
+  private readonly legacyDbPath: string | null;
+  private legacyDbExists: boolean | null = null;
+  private readonly legacyImportAttempted = new Set<string>();
+  private readonly mainTableColumnsCache = new Map<string, string[]>();
 
   constructor(options: SqliteSessionStoreOptions = {}, startupToken?: symbol) {
     this.dbPath = options.dbPath ?? getDefaultSessionDbPath();
     this.forkCommitFaultAt = options.forkCommitFaultAt;
+    this.legacyDbPath = resolveLegacyDbPath(options, this.dbPath);
     const startupLockTimeoutMs =
       options.startupLockTimeoutMs ?? DEFAULT_SQLITE_STARTUP_LOCK_TIMEOUT_MS;
     try {
@@ -582,7 +607,135 @@ export class SqliteSessionStore
   }
 
   async getSession(sessionID: SessionId): Promise<SessionInfo | null> {
-    return sessionRepository.getSession(this.db, sessionID);
+    const found = sessionRepository.getSession(this.db, sessionID);
+    if (found) {
+      return found;
+    }
+    // v1.0.7 数据根切换（specs/agent/data-dir-isolation.md 规则 3）：v1.0.6 及之前的
+    // 会话仍在 ~/.zcode 旧库，host 任务索引会列出它们；miss 时按会话惰性回迁后重查。
+    // 回迁失败（旧库缺失/损坏/WAL 热恢复失败）保持 notFound 语义，不影响其余链路。
+    if (this.tryImportLegacySession(sessionID)) {
+      return sessionRepository.getSession(this.db, sessionID);
+    }
+    return null;
+  }
+
+  /**
+   * 旧库（~/.zcode/cli/db/db.sqlite）按会话惰性回迁：只读打开 → 校验 session 行存在
+   * → 事务内把该 sessionId 的 session 行与所有含 session_id 列的表行按「列交集」
+   * INSERT OR IGNORE 进当前库（幂等，多 agent 进程并发回迁安全）。列交集兜底更旧
+   * 版本库（v1.0.2–v1.0.5）缺列的情况；任何异常吞掉返回 false，调用方保持 miss。
+   * 只回迁 host 明确请求的 sessionId——host 索引里的任务均为 Mikiko 创建，官方
+   * ZCode.app 共享旧库时其会话 id 不会被请求，不构成混入。
+   */
+  private tryImportLegacySession(sessionID: SessionId): boolean {
+    const sessionId = String(sessionID);
+    if (!this.legacyDbPath || this.legacyImportAttempted.has(sessionId)) {
+      return false;
+    }
+    // 同一 miss 只尝试一次：彻底不存在的 id 不应反复触发旧库探查/打开。
+    this.legacyImportAttempted.add(sessionId);
+    if (this.legacyImportAttempted.size > 1024) {
+      this.legacyImportAttempted.clear();
+    }
+    if (this.legacyDbExists === null) {
+      this.legacyDbExists = existsSync(this.legacyDbPath);
+    }
+    if (!this.legacyDbExists) {
+      return false;
+    }
+    try {
+      this.throwBeforeWrite();
+      const legacy = new DatabaseSync(this.legacyDbPath, { readOnly: true });
+      try {
+        const legacySession = legacy
+          .prepare('select id from "session" where id = ?')
+          .get(sessionId);
+        if (legacySession === undefined) {
+          return false;
+        }
+        this.db.exec("begin immediate");
+        try {
+          this.copyLegacyTableRows(legacy, "session", ["id"], sessionId);
+          for (const table of this.listLegacySessionScopedTables(legacy)) {
+            this.copyLegacyTableRows(legacy, table, ["session_id"], sessionId);
+          }
+          this.db.exec("commit");
+        } catch (error) {
+          this.db.exec("rollback");
+          throw error;
+        }
+      } finally {
+        legacy.close();
+      }
+      return true;
+    } catch {
+      // 回迁是尽力而为：失败时上游（v4 cold-resume / v2 resume）按 notFound 报错，
+      // 与修复前的行为一致，不阻塞新建会话与其余会话。
+      return false;
+    }
+  }
+
+  /** 旧库中含 session_id 列的业务表（跳过 sqlite 内部表）。 */
+  private listLegacySessionScopedTables(legacy: DatabaseSync): string[] {
+    const tables = legacy
+      .prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'")
+      .all() as Array<{ name: string }>;
+    const result: string[] = [];
+    for (const { name } of tables) {
+      if (name === "session") {
+        continue;
+      }
+      const columns = readTableColumns(legacy, name);
+      if (columns.includes("session_id")) {
+        result.push(name);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * 列交集复制：旧库更早版本 schema 可能缺列（如 message.sequence 后加），
+   * 只复制两边同名列，让新库新列取默认值；按 keyColumn（id / session_id）过滤行。
+   */
+  private copyLegacyTableRows(
+    legacy: DatabaseSync,
+    table: string,
+    keyColumns: string[],
+    sessionId: string,
+  ): void {
+    const legacyColumns = readTableColumns(legacy, table);
+    const mainColumns = this.readMainTableColumns(table);
+    const shared = legacyColumns.filter((column) => mainColumns.includes(column));
+    if (shared.length === 0) {
+      return;
+    }
+    const columnList = shared.map((column) => `"${column}"`).join(", ");
+    const where = keyColumns.map((column) => `"${column}" = ?`).join(" and ");
+    const rows = legacy.prepare(`select ${columnList} from "${table}" where ${where}`).all(
+      sessionId,
+    ) as Array<Record<string, unknown>>;
+    if (rows.length === 0) {
+      return;
+    }
+    const placeholders = shared.map(() => "?").join(", ");
+    const insert = this.db.prepare(
+      `insert or ignore into "${table}" (${columnList}) values (${placeholders})`,
+    );
+    for (const row of rows) {
+      // sqlite 读出的值（string/number/bigint/null/Uint8Array）原样回写，undefined 统一成 null。
+      insert.run(...shared.map((column) => (row[column] ?? null) as SQLInputValue));
+    }
+  }
+
+  private readMainTableColumns(table: string): string[] {
+    const cached = this.mainTableColumnsCache.get(table);
+    if (cached) {
+      return cached;
+    }
+    const columns = readTableColumns(this.db, table);
+    this.mainTableColumnsCache.set(table, columns);
+    return columns;
   }
 
   async listSessions(input: ListSessionsInput = {}): Promise<SessionInfo[]> {
