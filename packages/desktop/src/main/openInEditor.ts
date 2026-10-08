@@ -4,6 +4,7 @@ import { shell } from "electron";
 import type { OpenInEditorOptions, OpenInEditorRemoteTarget } from "@zcode/shared";
 import { listWSLDistros } from "@zcode/server/remote/wsl-detect.js";
 import { getEditorDefsForCurrentPlatform, resolveEditorDefAppPath } from "./editors.js";
+import { findFileOpenAppDef } from "./fileOpenApps.js";
 import { logger } from "./logger.js";
 import { isDelegatedWindowsExplorerExit } from "./windowsExplorerDelegation.js";
 
@@ -310,7 +311,10 @@ export async function openInEditor(
   path: string,
   options?: OpenInEditorOptions,
 ): Promise<OpenInEditorResult> {
-  const def = getEditorDefsForCurrentPlatform().find((editor) => editor.id === editorId);
+  // 查找范围包含格式感知应用（fileOpenApps.ts 的 defs）：WPS/Office 等 id 也走同一条打开链路。
+  const def =
+    getEditorDefsForCurrentPlatform().find((editor) => editor.id === editorId) ??
+    findFileOpenAppDef(editorId);
   if (!def) {
     return { success: false, error: `unknown editor: ${editorId}` };
   }

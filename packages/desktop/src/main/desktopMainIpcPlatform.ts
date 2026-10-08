@@ -28,6 +28,7 @@ import {
   type WindowControlsOverlayReadyPayload,
 } from "@zcode/shared";
 import { getInstalledEditors } from "./editors.js";
+import { getInstalledAppsForFile } from "./fileOpenApps.js";
 import { getApplicationIcon } from "./applicationIcons.js";
 import { exportLogs } from "./exportLogs.js";
 import { resolveCommunityUrl } from "./desktopCommandHandlers.js";
@@ -455,6 +456,9 @@ export function registerPlatformIpcHandlers(options: {
     return resolveDesktopWindowChromeState(senderWindow?.isMaximized() ?? false);
   });
   ipcMain.handle(PlatformChannels.GetInstalledEditors, () => getInstalledEditors());
+  ipcMain.handle(PlatformChannels.GetInstalledAppsForFile, (_event, path: string) =>
+    getInstalledAppsForFile(path),
+  );
   ipcMain.handle(
     PlatformChannels.GetApplicationIcon,
     (_event, request: string | ApplicationIconRequest) => getApplicationIcon(request),

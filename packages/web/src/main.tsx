@@ -845,6 +845,7 @@ function createWebPlatform(options?: {
     skipUpdateVersion: () => Promise.resolve(),
     quitAndInstallUpdate: () => Promise.resolve(),
     getInstalledEditors: () => Promise.resolve([]),
+    getInstalledAppsForFile: () => Promise.resolve([]),
     openInEditor: () => Promise.resolve({ success: false, error: "Not supported in web mode" }),
     executeDesktopCommand: () => Promise.resolve(),
     setApplicationLocale: (_locale) => Promise.resolve(),

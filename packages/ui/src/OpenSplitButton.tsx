@@ -1,5 +1,6 @@
 import type { EditorInfo } from "@zcode/shared";
-import { ChevronDownIcon, CopyIcon, ExternalLinkIcon } from "lucide-react";
+import { AppWindowIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon } from "lucide-react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button.js";
 import { toast } from "@/components/ui/toast.js";
@@ -15,7 +16,12 @@ import { usePlatform } from "@/hooks/usePlatform.js";
 import { useFileContextActions } from "@/hooks/useFileContextActions.js";
 import { useWorkspaceOpenInEditorTarget } from "@/hooks/useWorkspaceOpenInEditorTarget.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import { persistLastSelectedEditorId, readLastSelectedEditorId } from "@/lib/editorPreference.js";
+import { persistLastSelectedEditorId } from "@/lib/editorPreference.js";
+import {
+  isOpenWithDefaultAppModifierEvent,
+  mergeFileOpenApps,
+  openFileWithDefaultApp,
+} from "@/lib/fileOpenMethods.js";
 import type { CodeViewerSource } from "@/lib/codeViewer.js";
 import { getWorkspaceFileRelativePath } from "@/workspace-file-tree/model.js";
 import { resolveWorkspaceEditorSelection } from "@/lib/workspaceEditorSelection.js";
@@ -71,6 +77,11 @@ export function OpenSplitButton({
   const [editors, setEditors] = useState<EditorInfo[]>([]);
   const [editorsLoaded, setEditorsLoaded] = useState(false);
   const [loadingEditors, setLoadingEditors] = useState(false);
+  // 格式感知应用（WPS/Office/Adobe 等）只对本地文件有意义；远端 workspace 隐藏。
+  const canUseLocalFileApps = target.type === "file" && !isRemoteSource;
+  const [fileApps, setFileApps] = useState<EditorInfo[]>([]);
+  const [fileAppsLoaded, setFileAppsLoaded] = useState(false);
+  const [loadingFileApps, setLoadingFileApps] = useState(false);
   const sortedEditors = useMemo(
     () =>
       isRemoteSource && !openInEditorRemoteTarget
@@ -82,16 +93,15 @@ export function OpenSplitButton({
           }).availableEditors,
     [editors, isRemoteSource, openInEditorRemoteTarget],
   );
+  const mergedOpenApps = useMemo(
+    () => mergeFileOpenApps(fileApps, sortedEditors),
+    [fileApps, sortedEditors],
+  );
+  const canOpenWithDefaultApp = canUseLocalFileApps && Boolean(platform.openExternalFile);
   const canPreview =
     target.type === "website"
       ? Boolean(onOpenBrowserUrl)
       : Boolean(onOpenFileLink || onOpenCodeViewer);
-  const selectedEditor = useMemo(() => {
-    const selectedEditorId = readLastSelectedEditorId();
-    return (
-      sortedEditors.find((editor) => editor.id === selectedEditorId) ?? sortedEditors[0] ?? null
-    );
-  }, [sortedEditors]);
 
   const stopEventPropagation = (event: { stopPropagation: () => void }) => {
     if (stopPropagation) {
@@ -117,6 +127,27 @@ export function OpenSplitButton({
       setLoadingEditors(false);
     }
   }, [editorsLoaded, loadingEditors, platform, target]);
+
+  const loadFileApps = useCallback(async () => {
+    if (fileAppsLoaded || loadingFileApps || !canUseLocalFileApps) {
+      return;
+    }
+
+    setLoadingFileApps(true);
+    try {
+      setFileApps(
+        await platform.getInstalledAppsForFile(target.type === "file" ? target.path : ""),
+      );
+      setFileAppsLoaded(true);
+    } catch (error) {
+      logger.warn("[OpenSplitButton] 获取格式打开方式失败", {
+        path: target.path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setLoadingFileApps(false);
+    }
+  }, [canUseLocalFileApps, fileAppsLoaded, loadingFileApps, platform, target]);
 
   const handlePreview = () => {
     if (target.type === "website") {
@@ -192,6 +223,39 @@ export function OpenSplitButton({
       .catch(reportFailure);
   };
 
+  const handleOpenWithDefaultApp = () => {
+    if (target.type !== "file") {
+      return;
+    }
+
+    const reportFailure = (error: unknown) => {
+      logger.warn("[OpenSplitButton] 默认应用打开文件失败", {
+        path: target.path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      toast(intl.formatMessage({ id: "chat.previewCards.openExternalFailed" }));
+    };
+    void platform
+      .openExternalFile?.(target.path)
+      .then((result) => {
+        if (!result?.success) {
+          reportFailure(result?.error ?? "unknown-error");
+        }
+      })
+      .catch(reportFailure);
+  };
+
+  const handlePrimaryClick = async (event: ReactMouseEvent<HTMLButtonElement>) => {
+    // Cmd/Ctrl+左键优先系统默认应用（macOS=Cmd，Windows/Linux=Ctrl）；
+    // 无默认应用或失败时回落内置预览，由预览侧栏展示「不支持预览」占位。
+    if (canUseLocalFileApps && isOpenWithDefaultAppModifierEvent(event)) {
+      if (target.type === "file" && (await openFileWithDefaultApp(platform, target.path))) {
+        return;
+      }
+    }
+    handlePreview();
+  };
+
   if (hideOpenWithMenu) {
     return (
       <div
@@ -207,7 +271,7 @@ export function OpenSplitButton({
           disabled={!canPreview}
           onClick={(event) => {
             stopEventPropagation(event);
-            handlePreview();
+            void handlePrimaryClick(event);
           }}
         >
           {intl.formatMessage({ id: "common.open" })}
@@ -217,7 +281,14 @@ export function OpenSplitButton({
   }
 
   return (
-    <DropdownMenu onOpenChange={(open) => open && void loadEditors()}>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) {
+          void loadEditors();
+          void loadFileApps();
+        }
+      }}
+    >
       <div
         className="flex h-7 shrink-0 items-center overflow-hidden rounded-lg border border-border bg-input transition-all hover:border-border-hover"
         onClick={stopEventPropagation}
@@ -231,7 +302,7 @@ export function OpenSplitButton({
           disabled={!canPreview}
           onClick={(event) => {
             stopEventPropagation(event);
-            handlePreview();
+            void handlePrimaryClick(event);
           }}
         >
           {intl.formatMessage({ id: "common.open" })}
@@ -262,17 +333,26 @@ export function OpenSplitButton({
           </DropdownMenuItem>
         ) : (
           <>
-            {selectedEditor ? (
-              sortedEditors.map((editor) => (
-                <DropdownMenuItem key={editor.id} onSelect={() => handleOpenInEditor(editor)}>
-                  <img src={editor.iconDataUrl} alt={editor.name} className="size-4 shrink-0" />
-                  <span>{editor.name}</span>
+            {canOpenWithDefaultApp ? (
+              <DropdownMenuItem onSelect={handleOpenWithDefaultApp}>
+                <AppWindowIcon className="size-4" />
+                <span>{intl.formatMessage({ id: "chat.previewCards.openWithDefaultApp" })}</span>
+              </DropdownMenuItem>
+            ) : null}
+            {mergedOpenApps.length > 0 ? (
+              mergedOpenApps.map((app) => (
+                <DropdownMenuItem key={app.id} onSelect={() => handleOpenInEditor(app)}>
+                  <img src={app.iconDataUrl} alt={app.name} className="size-4 shrink-0" />
+                  <span>{app.name}</span>
                 </DropdownMenuItem>
               ))
             ) : (
               <DropdownMenuItem disabled>
                 {intl.formatMessage({
-                  id: loadingEditors ? "common.loading" : "chat.previewCards.noOpenApps",
+                  id:
+                    loadingEditors || loadingFileApps
+                      ? "common.loading"
+                      : "chat.previewCards.noOpenApps",
                 })}
               </DropdownMenuItem>
             )}
