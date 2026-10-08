@@ -85,3 +85,104 @@ describe("per-arch manifest 路由", () => {
     assert.match(await response.text(), /mac-arm64\.zip/u);
   });
 });
+
+/** prune 用：可 list/delete 的 R2 内存 mock（files/<version>/<asset> → 字节数）。 */
+function createStorageEnv(sizes: Record<string, number>) {
+  const store = new Map(Object.entries(sizes).map(([key, size]) => [key, { key, size }]));
+  const env = {
+    RELEASES: {
+      async get(key: string) {
+        const object = store.get(key);
+        return object ?? null;
+      },
+      async put() {},
+      async list(options: { prefix?: string }) {
+        return {
+          objects: [...store.values()].filter((object) =>
+            object.key.startsWith(options.prefix ?? ""),
+          ),
+          truncated: false,
+        };
+      },
+      async delete(keys: string[]) {
+        for (const key of keys) {
+          store.delete(key);
+        }
+      },
+    },
+    UPDATE_CONFIG: {
+      async get() {
+        return null;
+      },
+    },
+    PUBLISH_TOKEN: "tok",
+  };
+  return { env, remainingKeys: () => [...store.keys()].sort() };
+}
+
+describe("/admin/prune 旧版本清理（R2 配额）", () => {
+  it("按语义版本保留最新 keep 版，更旧版本整目录删除；channels/ 不参与", async () => {
+    const { env, remainingKeys } = createStorageEnv({
+      "files/1.0.7/Mikiko.dmg": 100,
+      "files/1.0.7/Mikiko.blockmap": 10,
+      "files/1.0.10/Mikiko.dmg": 200,
+      "files/1.0.6/Mikiko.dmg": 100,
+      "channels/stable/latest.yml": 1,
+    });
+    const response = await worker.fetch(
+      new Request("https://agent-update.mikiko.ai/admin/prune", {
+        method: "POST",
+        headers: { "x-publish-token": "tok", "content-type": "application/json" },
+        body: JSON.stringify({ keep: 2 }),
+      }),
+      env,
+    );
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as {
+      keep: number;
+      keptVersions: string[];
+      prunedVersions: string[];
+      deletedCount: number;
+      freedBytes: number;
+    };
+    // 语义版本排序：1.0.10 > 1.0.7 > 1.0.6（字符串排序会把 1.0.10 排在 1.0.7 前）。
+    assert.deepEqual(body.keptVersions, ["1.0.10", "1.0.7"]);
+    assert.deepEqual(body.prunedVersions, ["1.0.6"]);
+    assert.equal(body.deletedCount, 1);
+    assert.equal(body.freedBytes, 100);
+    assert.deepEqual(remainingKeys(), [
+      "channels/stable/latest.yml",
+      "files/1.0.10/Mikiko.dmg",
+      "files/1.0.7/Mikiko.blockmap",
+      "files/1.0.7/Mikiko.dmg",
+    ]);
+  });
+
+  it("无 token 401；keep 边界收敛（0→1、99→10）", async () => {
+    const { env } = createStorageEnv({ "files/1.0.7/Mikiko.dmg": 1 });
+    const unauthorized = await worker.fetch(
+      new Request("https://agent-update.mikiko.ai/admin/prune", {
+        method: "POST",
+        body: JSON.stringify({ keep: 1 }),
+      }),
+      env,
+    );
+    assert.equal(unauthorized.status, 401);
+
+    for (const [requested, expected] of [
+      [0, 1],
+      [99, 10],
+      [NaN, 3],
+    ] as const) {
+      const response = await worker.fetch(
+        new Request("https://agent-update.mikiko.ai/admin/prune", {
+          method: "POST",
+          headers: { "x-publish-token": "tok", "content-type": "application/json" },
+          body: JSON.stringify({ keep: requested }),
+        }),
+        env,
+      );
+      assert.equal(((await response.json()) as { keep: number }).keep, expected);
+    }
+  });
+});

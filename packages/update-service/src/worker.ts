@@ -192,8 +192,27 @@ export default {
  *  - PUT /admin/files/{key...}                  原始请求体写入 R2（Content-Type 透传）
  *  - PUT /admin/configs                         JSON 请求体写入 KV client-configs
  *  - PUT /admin/channel/{channel}/{platform}.yml 快捷发布通道清单（同 files）
+ *  - POST /admin/prune                          旧版本清理（保留最新 N 个 files/<version>/）
  * 说明：wrangler CLI OAuth 的 r2/kv 写入不落真实存储（2026-09-24 实测），一切写入经本端点。
  */
+
+/** 语义版本降序比较（"1.0.10" > "1.0.9"）；非纯数字段回退 localeCompare。 */
+function compareVersionKeysDescending(a: string, b: string): number {
+  const segments = (value: string) => value.split(".").map((part) => Number.parseInt(part, 10));
+  const left = segments(a);
+  const right = segments(b);
+  if (left.some(Number.isNaN) || right.some(Number.isNaN)) {
+    return b.localeCompare(a);
+  }
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    const diff = (right[index] ?? 0) - (left[index] ?? 0);
+    if (diff !== 0) {
+      return diff;
+    }
+  }
+  return 0;
+}
 async function handleAdmin(env: Env, url: URL, request: Request): Promise<Response> {
   if (!env.PUBLISH_TOKEN || request.headers.get("x-publish-token") !== env.PUBLISH_TOKEN) {
     return jsonResponse({ error: "unauthorized" }, 401);
@@ -253,6 +272,62 @@ async function handleAdmin(env: Env, url: URL, request: Request): Promise<Respon
         .map((part) => ({ etag: part.etag!, partNumber: part.partNumber! })),
     );
     return jsonResponse({ ok: true, key: body.key });
+  }
+
+  // —— 旧版本自动清理（2026-10-09 v1.0.7 撞 R2 免费档 10GB 配额后的长效机制）——
+  // POST /admin/prune {"keep":3}：files/ 前缀按语义版本降序保留最新 keep 个版本
+  // 目录（1–10），更旧版本整目录删除。channels/ 清单是当前指针不占空间，不参与；
+  // 调用时机是刚发布完新版本，语义版本最大的必然在保留集内，不会被误删。
+  if (url.pathname === "/admin/prune" && request.method === "POST") {
+    const body = (await request.json().catch(() => null)) as { keep?: number } | null;
+    // keep 钳制到 1–10：0/负数会连刚发布的当前版本一起删掉（断更新链路），升到 1；
+    // null/缺省/非数字回退默认 3（JSON 无法携带 NaN，Number(null)=0 需先经 ?? 排除）。
+    const requestedKeep = Math.trunc(Number(body?.keep ?? 3));
+    const keep = Number.isFinite(requestedKeep) ? Math.min(10, Math.max(1, requestedKeep)) : 3;
+    const objectsByVersion = new Map<string, { key: string; size: number }[]>();
+    let cursor: string | undefined;
+    do {
+      const listed = await env.RELEASES.list({ prefix: "files/", cursor });
+      for (const object of listed.objects) {
+        const version = object.key.split("/")[1];
+        if (!version) {
+          continue;
+        }
+        const bucket = objectsByVersion.get(version);
+        if (bucket) {
+          bucket.push({ key: object.key, size: object.size });
+        } else {
+          objectsByVersion.set(version, [{ key: object.key, size: object.size }]);
+        }
+      }
+      cursor = listed.truncated ? listed.cursor : undefined;
+    } while (cursor);
+    const keepSet = new Set(
+      [...objectsByVersion.keys()].sort(compareVersionKeysDescending).slice(0, keep),
+    );
+    let freedBytes = 0;
+    let deletedCount = 0;
+    const prunedVersions: string[] = [];
+    for (const [version, objects] of objectsByVersion) {
+      if (keepSet.has(version)) {
+        continue;
+      }
+      for (let index = 0; index < objects.length; index += 1000) {
+        // R2 delete 单次批量上限 1000 key。
+        await env.RELEASES.delete(objects.slice(index, index + 1000).map((item) => item.key));
+      }
+      prunedVersions.push(version);
+      deletedCount += objects.length;
+      freedBytes += objects.reduce((total, item) => total + item.size, 0);
+    }
+    return jsonResponse({
+      ok: true,
+      keep,
+      keptVersions: [...keepSet],
+      prunedVersions,
+      deletedCount,
+      freedBytes,
+    });
   }
 
   if (request.method !== "PUT") {
