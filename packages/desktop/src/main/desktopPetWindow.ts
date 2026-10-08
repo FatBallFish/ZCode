@@ -289,6 +289,25 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
       const bounds = petBounds();
       if (bounds) deps.bubble.reposition(bounds);
     });
+    // Windows 混合 DPI 尺寸钉住（2026-10-09 v1.0.7 用户实测：部分 Windows 机器拖动
+    // 宠物时"一边移动一边放大"，切宠后恢复原大小）。根因：透明无边框窗跨不同缩放比
+    // 显示器时按 WM_DPICHANGED 的系统建议矩形放大窗口，Chromium 对 transparent 窗的
+    // DIP 补偿不完整（上游已知问题），且我们的代码从不改宠物窗尺寸、无人纠正；切宠
+    // 走整窗重建所以表现为"切宠恢复"。宠物窗尺寸是常量（帧 192×208×0.6），不存在
+    // 用户合法调尺寸的路径——任何尺寸漂移都立即纠正回固定大小。
+    petWindow.on("resize", () => {
+      if (!petWindow || petWindow.isDestroyed()) return;
+      const [width, height] = petWindow.getSize();
+      if (width === windowSize.width && height === windowSize.height) return;
+      petWindow.setSize(windowSize.width, windowSize.height);
+      // 尺寸被系统建议矩形改过时位置也可能被牵动；重新夹取并持久化。
+      const [x, y] = petWindow.getPosition();
+      const clamped = clampIntoWorkArea({ x: x ?? 0, y: y ?? 0 }, windowSize);
+      petWindow.setPosition(clamped.x, clamped.y, false);
+      persistPositionSoon();
+      const bounds = petBounds();
+      if (bounds) deps.bubble.reposition(bounds);
+    });
     petWindow.on("closed", () => {
       petWindow = null;
       deps.bubble.hide();
@@ -323,7 +342,20 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
       { x: x + Math.round(payload.dx), y: y + Math.round(payload.dy) },
       windowSize,
     );
-    petWindow.setPosition(next.x, next.y, false);
+    // 混合 DPI 漂移的兜底：正常路径只挪位置；发现尺寸已被系统建议矩形改大时，
+    // 一步 setBounds 同时纠位置与尺寸，缩短"一边拖一边放大"的可见窗口期
+    // （resize 监听是最终防线，这里让高频拖拽帧内即时纠正）。
+    const [width, height] = petWindow.getSize();
+    if (width !== windowSize.width || height !== windowSize.height) {
+      petWindow.setBounds({
+        x: next.x,
+        y: next.y,
+        width: windowSize.width,
+        height: windowSize.height,
+      });
+    } else {
+      petWindow.setPosition(next.x, next.y, false);
+    }
     // 程序化 setPosition 在部分平台不触发 moved 事件；拖拽路径自行驱动持久化。
     persistPositionSoon();
     // 气泡跟随宠物拖拽（bounds 用夹取后的真实窗口位置）。

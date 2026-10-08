@@ -61,6 +61,7 @@
 - **全工作区可见**：`visibleOnAllWorkspaces: true`——桌面宠物是全桌面陪伴物，必须跟随用户跨 macOS Space / Windows 虚拟桌面；否则创建宠物时所在 Space 被切走后宠物"消失"（E2E 实测：多显示器 + 多 Space 环境下窗口存活且在渲染动画，但用户当前 Space 看不到）。
 - 位置：持久化到 `AppSettings.desktopPetPosition {x,y}`（拖拽结束 debounce 落盘；夹取在屏幕可视区内）。
 - 拖拽：页面捕获 pointer 事件 → IPC 增量 → main `setPosition`；按下→抬起位移 < 阈值判定为点击 → waving（一次后回 idle）。**只有主键（button 0）可开始拖拽**——右键按下会弹菜单且菜单吞掉 pointerup，拖拽会话悬空会表现为"宠物一直跟着鼠标走"；右键菜单弹出前也终止在途拖拽会话。
+- **Windows 混合 DPI 尺寸钉住（2026-10-09）**：部分 Windows 机器（多显示器不同缩放比）拖动宠物时窗口"一边移动一边放大"，切宠后恢复（整窗重建）。根因：透明无边框窗跨显示器时按 `WM_DPICHANGED` 系统建议矩形放大，Chromium 对 transparent 窗的 DIP 补偿不完整。宠物窗尺寸是常量（帧 192×208×0.6），任何尺寸漂移都非法：main 侧 `resize` 监听发现 `getSize()` 偏离即 `setSize` 纠回（并重新夹取位置/持久化/气泡跟随），拖拽 `PetDragMove` 帧内检测到漂移时用 `setBounds` 一步同时纠位置与尺寸。
   - **增量必须用屏幕全局坐标（`screenX/screenY`）**，不能用视口坐标（`clientX/clientY`）：窗口本身随鼠标移动，视口坐标系下鼠标位置几乎不变，宠物只能靠事件残差推进——表现为"跟不上鼠标 + 残差噪声导致左右动画频繁抖动"（用户实测报告）。screenX/Y 与 `setPosition` 同为全局 DIP 坐标系。
   - **方向切换带迟滞**：新方向需累计 ≥16px（或单事件 ≥20px）且距上次切换 ≥200ms 才切换动画；竖直方向（上/下）统一用循环动作 `running`（`jumping` 是一次性 ×3 动作，持续拖拽会中途落回 idle）。
 - 右键菜单（main Menu）：切换宠物…/宠物市场…/设置/隐藏宠物。
