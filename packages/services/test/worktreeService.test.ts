@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -165,6 +165,25 @@ test("worktree 目录命名：<rootDir>/<repo>-<hash4>/<id8> 且同路径稳定�
   assert.equal(a, b);
   assert.notEqual(a, c);
   assert.match(a, /^\/wt\/demo-[0-9a-f]{4}\/00112233$/);
+});
+
+// 2026-10-09 Windows 静默失败回归（v1.0.7）：默认 rootDir "~/..." 是正斜杠，而
+// win32 sep 是 "\"，此前 expandHomeDir 只认 "~"+sep，匹配不到时被当相对路径解析
+// 到 host 进程 CWD（打包后通常是 Program Files，不可写）→ git worktree add 必败。
+// 两种分隔符都必须展开到用户主目录，与运行平台无关。
+test("rootDir 的 ~ 展开：正斜杠/反斜杠/裸 ~ 都落到用户主目录", () => {
+  const home = homedir();
+  for (const rootDir of ["~/.mikiko/worktrees", "~\\.mikiko\\worktrees", "~"]) {
+    const path = buildWorktreeDirectoryPath({
+      rootDir,
+      rootWorkspacePath: "/repos/demo",
+      id: "00112233",
+    });
+    assert.ok(
+      path === home || path.startsWith(`${home}/`) || path.startsWith(`${home}\\`),
+      `${rootDir} 解析到 ${path}，应位于主目录 ${home} 下而非进程 CWD`,
+    );
+  }
 });
 
 test("registry：空文件返回空表；mutate 串行读改写；损坏文件隔离后从空表启动", async (t) => {

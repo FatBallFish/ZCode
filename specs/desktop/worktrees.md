@@ -84,7 +84,7 @@ zod 同步加进 `validationAppSettings.ts` 的 object 与 patch 两个 schema�
       → 自动清理检查（见下）
   → 成功：ensureWorkspaceTab(worktreePath) + startDraft(worktreePath) + 首条文本经 initialPrompt 通道投递
   → createSession(workspaceId=worktreeKey)（既有 v4 命令，零协议改动）
-  → 失败：composer 顶部错误条（非仓库/fetch 失败/路径冲突），草稿与文本保留
+  → 失败：composer 顶部错误条（本地化标题 + git 原始信息进详情，附「改用本地模式」一键切换），草稿与文本保留
 ```
 
 ### 删除（手动，D1：连同会话历史）
@@ -109,7 +109,8 @@ create 成功后：同根项目注册条目按 lastUsedAt 升序
 
 ## 失败语义
 
-- create 失败（非 git 仓库 / ref 不存在 / 目录已存在）：不写注册表、不建 tab、草稿保留、错误条展示 git 原始信息。
+- create 失败（非 git 仓库 / git 不可用 / ref 不存在 / 目录已存在）：不写注册表、不建 tab、草稿保留、错误条展示 git 原始信息；host 侧 `log.error` 落盘（含根项目路径），供回查。git 可执行文件缺失与非仓库两种原因分开报错文案。
+- **首发分流失败必须落到 composer 错误横幅**（2026-10-09 修复：`maybeRedirectWorktreeFirstSend` 曾在 `handleSendText` 的 try/catch 之外调用，错误横幅设置点永远不触发，叠加 renderer 生产日志 no-op，用户只看到发送按钮转圈后恢复、零反馈）：pane-local `sendSubmissionError`（code `WORKTREE_FIRST_SEND_FAILED`，标题本地化、git 原始错误进 detail），草稿与文本由 composer 原路径保留。横幅提供「改用本地模式」一键动作：把该根项目草稿工作位置切回 `local` 并关闭横幅，**不自动重发**（用户明确要求隔离环境时静默降级到主工作区有风险，重发由用户手动触发）。
 - fetch 失败（离线等）：**warn 后按本地已有 ref 继续创建**，不阻塞（离线友好；实际起点 ref 与短 SHA 在列表展示）。
 - 注册表损坏：隔离损坏文件（`.corrupt-<ts>`）后从空表启动（settingService 同款策略）；`git worktree list` 对账时可发现磁盘孤儿（v1 只提示不强收）。
 - 删除时进程存活：直接拒绝（不提供 kill 选项，避免误杀运行中会话）。
@@ -121,6 +122,7 @@ create 成功后：同根项目注册条目按 lastUsedAt 升序
 - SSH/远程 workspace：设置分区不渲染（服务不在远程集合）、草稿不出现工作位置选项（workspace 非本地）。
 - Web（非远控）：服务可达则分区渲染（服务器本机仓库），不可达则隐藏——UI 以 `worktreeService` 存在性门控。
 - Windows：路径统一 `path.resolve`；目录名长度受控（hash4+id8）；验收含 Windows 实测。
+- **rootDir 的 `~` 展开必须同时识别 `~/` 与 `~\`**（2026-10-09 修复）：默认值 `~/.mikiko/worktrees` 是正斜杠写法，而 win32 的 `path.sep` 是 `\`，此前按 `~+sep` 匹配不到，路径被当相对路径解析到 host 进程 CWD（打包后通常为 Program Files，不可写）→ `git worktree add` 必败且被 UI 吞掉（v1.0.7 Windows「新建本地工作树」静默失败根因）。
 
 ## 侧栏并入（D3）与展示
 
@@ -148,4 +150,6 @@ create 成功后：同根项目注册条目按 lastUsedAt 升序
 8. `/new`：本地会话预选原分支；worktree 会话锁定两 chip。
 9. 侧栏：worktree 会话出现在根项目组、带分支 icon、hover 显示 pin；置顶/未读计数正确（双桶去重不受影响）。
 10. 手机远控：设置 → Worktrees 可见可操作（本地 attachment）。
-11. `pnpm typecheck` / `pnpm lint` / `pnpm architecture:check --changed` 通过；新增单测（目录派生、注册表对账、清理资格、settings schema）全绿。
+11. 首发分流失败（拔掉 git / 目录不可写模拟）：错误横幅出现（标题本地化、detail 含 git 原始 stderr），「改用本地模式」点击后工作位置 chip 切回本地、横幅关闭、草稿保留；再次发送走本地模式成功。
+12. `rootDir` 写 `~/.mikiko/worktrees`（正斜杠）与 `~\.mikiko\worktrees`（反斜杠）时，worktree 目录都落在用户主目录下而非进程 CWD。
+13. `pnpm typecheck` / `pnpm lint` / `pnpm architecture:check --changed` 通过；新增单测（目录派生、注册表对账、清理资格、settings schema）全绿。
