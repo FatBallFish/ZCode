@@ -9,10 +9,11 @@
  * 用法：
  *   node scripts/publish-update-feed.mjs --dist packages/desktop/dist --version 1.0.0 \
  *     --channel stable [--endpoint https://agent-update.mikiko.ai] [--download-origin https://agent-dl.mikiko.ai] \
- *     [--release-notes release-notes.md]
+ *     [--release-notes release-notes.md] [--keep-versions 3]
  *   环境变量：UPDATE_PUBLISH_TOKEN（必须）；--release-notes 为 markdown 文件，
  *   注入 latest*.yml 的 releaseNotesByLocale 作为客户端更新日志，并（配置
- *   MIKIKO_RELEASE_PUBLISH_TOKEN 时，与 Worker 侧 secret 同名）自动追加到 agent.mikiko.ai 官网更新日志。
+ *   MIKIKO_RELEASE_PUBLISH_TOKEN 时，与 Worker 侧 secret 同名）自动追加到 agent.mikiko.ai 官网更新日志；
+ *   --keep-versions 发布后自动清理 R2 旧版本，保留最近 N 版（默认 3，R2 免费档 10GB 配额）。
  */
 
 import { createHash } from "node:crypto";
@@ -254,7 +255,38 @@ async function main() {
       );
     }
   }
-  // 3. 官网更新日志（2026-09-28 全自动发版）：同一份 release notes 推到
+  // 3. 旧版本自动清理（2026-10-09 v1.0.7 撞 R2 免费档 10GB 配额后的长效机制）：
+  //    /admin/prune 按语义版本保留最新 keep 个 files/<version>/ 目录（默认 3，
+  //    --keep-versions 可调），更旧版本整目录删除。channels/ 清单不参与；本步在
+  //    新版本上传完成后执行，刚发布的版本必然属于保留集。清理失败（如线上
+  //    Worker 尚未部署到含该端点的版本，返回 404/405）只告警不阻塞发布。
+  const keepVersions = Number(readArg("keep-versions") ?? 3);
+  const pruneResponse = await fetchWithRetry(
+    `${endpoint}/admin/prune`,
+    {
+      method: "POST",
+      headers: { "x-publish-token": token, "content-type": "application/json" },
+      body: JSON.stringify({ keep: keepVersions }),
+    },
+    "旧版本清理",
+  );
+  if (!pruneResponse.ok) {
+    console.warn(
+      `旧版本清理失败（不影响本次发布）: ${pruneResponse.status} ${await pruneResponse.text()}`,
+    );
+  } else {
+    const pruned = (await pruneResponse.json()) ?? {};
+    if (Array.isArray(pruned.prunedVersions) && pruned.prunedVersions.length > 0) {
+      const freedGb = (Number(pruned.freedBytes) / 1024 / 1024 / 1024).toFixed(2);
+      console.log(
+        `已清理旧版本 ${pruned.prunedVersions.join(", ")}（${pruned.deletedCount} 个对象，释放 ${freedGb}GB）；保留最近 ${pruned.keep} 版。`,
+      );
+    } else {
+      console.log(`旧版本清理：无需清理（保留最近 ${pruned.keep} 版）。`);
+    }
+  }
+
+  // 4. 官网更新日志（2026-09-28 全自动发版）：同一份 release notes 推到
   //    agent.mikiko.ai（/api/v1/admin/release-notes，X-Publish-Token 鉴权）。
   //    未配置令牌时仅提示跳过——官网日志缺失不阻塞升级发布。
   if (!releaseNotesMarkdown) {
