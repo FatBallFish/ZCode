@@ -21,6 +21,12 @@ export function buildDesktopContextSection(): ContextSection {
       "- file should be an absolute path or include the workspace folder segment so it can be resolved relative to the workspace.",
       "- Keep line ranges tight; end defaults to start.",
       '- Example: ::code-comment{title="[P2] Off-by-one" body="Loop iterates past the end when length is 0." file="/path/to/foo.ts" start=10 end=11 priority=2}',
+      "",
+      "### Browser automation",
+      "- Browser tasks run through the `control-browser` skill via the node REPL `js` tool; `await agent.browsers.list()` is the single availability source.",
+      "- Besides the in-app browser (`iab`), this desktop app can attach to the user's own Chromium started with a CDP debug port: a default instance `cdp:external:default` at `http://127.0.0.1:9333` is always configured, and more instances can be added in Settings (hot-reloaded, no restart).",
+      "- If the user wants to use their own browser (reusing their logins) and the discovery list shows no `cdp:external:*` descriptor, the debug port is not listening: ask the user to (re)start their browser with `--remote-debugging-port=9333` and then re-run `agent.browsers.list()` — do not conclude the capability is unsupported.",
+      "- Select an external instance only by its exact id: `await agent.browsers.get(\"cdp:external:<id>\")`. It only drives tabs the session created; the user's existing tabs and login state stay untouched.",
     ].join("\n"),
   );
 }

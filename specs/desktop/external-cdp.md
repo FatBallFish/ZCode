@@ -64,6 +64,15 @@ allow(scope) = scope.sessionContext !== "cached"        // 回放/恢复上下�
 - 非 Windows / 非 macOS 的注册为 no-op；语言切换刷新沿用既有 locale-refresh 路径。
 - 注：deep link scheme `mikiko://` 三形态共用（macOS 由系统决定唯一接收者），维持现状不改。
 
+## 模型可见性（2026-10-09 补：Agent 自调度）
+
+实测问题：用户让 Agent 操作「自己的浏览器」时，模型不知道应用具备 external CDP 能力，需要人为引导。能力描述分两层写入模型可见面：
+
+1. **能力感知层（每个桌面会话稳定可见）**：`apps/zcode-cli/packages/core/src/context/sections/desktop.ts` 的 `# Mikiko Desktop Context` 新增 `### Browser automation` 小节——声明 iab 之外可挂载用户自启 Chromium（默认实例 `cdp:external:default` @ `http://127.0.0.1:9333`，设置页可加多实例、热更新）；发现入口唯一 `agent.browsers.list()`；**列表无 `cdp:external:*` ⇔ 端口未监听，应引导用户带 `--remote-debugging-port=9333` 启动浏览器后重新发现，而不是判定不支持**；外部实例只能按精确 id `get("cdp:external:<id>")` 选择。该段 cacheHint=stable，不伤 prompt 缓存。
+2. **操作细节层（动手前阅读）**：`browser-use-plugin/skills/control-browser/SKILL.md`（frontmatter description 提及外部 Chromium；正文外部段补默认端口/缺席引导/热更新 backend_unavailable 重试/登录态复用与永不关浏览器）与 `docs/overview.md`（`browser.documentation()` 输出补「不在列表 ⇔ 端口未监听」）。插件资产变更需同步升版三处（package.json、`.zcode-plugin/plugin.json`、`official-plugin-definitions.ts`）才会重 seed 官方插件缓存（0.5.1 → 0.5.2）。
+
+生效链路：改 `apps/zcode-cli` 源码/插件资产后必须跑 `node scripts/build-desktop-agent-cli.mjs` 重建 bundled-agents（dev 验证），安装版随正式发版生效。
+
 ## 验收场景
 
 1. 零配置：不设 env、不在设置页配置 → 发现列表含 `cdp:external:default`（9333 有浏览器时可见可操作；无监听时不可见，IAB 正常）。

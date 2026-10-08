@@ -1,6 +1,6 @@
 ---
 name: control-browser
-description: "Use when opening, navigating, inspecting, testing, clicking, typing, filling, screenshotting, or verifying web pages and local HTTP targets (localhost, 127.0.0.1, ::1) inside ZCode, including browser/web-UI automation, rendered-page scraping, frontend checks, and visible page-state reading. Prefer this over Computer Use for anything that stays inside a web page, unless the user explicitly asks for Computer Use. Main agent only."
+description: "Use when opening, navigating, inspecting, testing, clicking, typing, filling, screenshotting, or verifying web pages and local HTTP targets (localhost, 127.0.0.1, ::1) inside ZCode or in the user's own external Chromium (CDP, e.g. to reuse their logins), including browser/web-UI automation, rendered-page scraping, frontend checks, and visible page-state reading. Prefer this over Computer Use for anything that stays inside a web page, unless the user explicitly asks for Computer Use. Main agent only."
 ---
 
 # Browser automation (agent.browsers)
@@ -39,6 +39,7 @@ Backend types are `iab`, `extension`, and `cdp`; Playwright is a tab API surface
 
 Configured external Chromium instances are also `cdp`. Inspect discovery names and exact IDs, then
 select the requested `cdp:external:<id>`. Never choose `get("cdp")`, a URL match or the first array entry between multiple external accounts. Existing user tabs are not exposed or claimable; recover task-owned tabs or create a new task tab. Keep the same exact instance ID in every fresh call.
+External instance facts (desktop app): the default instance is `cdp:external:default` at `http://127.0.0.1:9333`; users can add more instances in the app's browser settings (changes are hot-reloaded). An external descriptor is absent from `agent.browsers.list()` if and only if its debug port is not listening — in that case ask the user to (re)start their browser with `--remote-debugging-port=9333` (or the configured port) and re-run discovery; do not conclude that external browsers are unsupported. After a settings change, an in-flight command may fail with `backend_unavailable`; re-run discovery and retry. External Chromium reuses the user's real login state directly (never ask for credentials) and is never closed by the agent — a finished task detaches safely.
 User-facing progress should stay non-technical: describe it as "opening the browser" / "checking the page", not "Node REPL", "CDP", or "webview".
 
 Recreate the same selected browser wrapper in every fresh call using the user's explicit backend choice or the same verified URL/default rule. A fresh JavaScript kernel does not mean the browser disconnected and is not permission to switch backend. Do not reuse a tab id from memory as the target of a new logical operation batch without validation: first return the complete current tab list to the model, then in the next JS call match the intended id/url/title and call `tabs.get(id)`.
