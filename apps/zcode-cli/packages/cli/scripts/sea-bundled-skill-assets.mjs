@@ -16,6 +16,9 @@ export const bundledSkillPackRequiredPaths = [
   "skills/dynamic-workflows/SKILL.md",
   "skills/dynamic-workflows/patterns.md",
   "skills/dynamic-workflows/examples.md",
+  "skills/create-pet/SKILL.md",
+  "skills/create-pet/references/pet-format.md",
+  "skills/create-pet/scripts/verify-sheet.mjs",
 ];
 
 export const collectSeaBundledSkillAssets = async ({ root, stagingDirectory }) => {

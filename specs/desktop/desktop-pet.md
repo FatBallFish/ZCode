@@ -33,6 +33,17 @@
 - 自定义 `animations` 覆盖同名牌（`frames[]`+`fps`（默认 8，≤60）+`loop`（默认 true）+`fallback`（默认 idle））；校验：帧索引 < 总帧数、fallback 存在、总帧数 ≤256。
 - `submission.json` 仅市场投稿用，安装时一并保存（作者/许可展示用），运行时不读取。
 
+## 自定义创建（内置 create-pet skill，2026-10-09）
+
+市场/导入之外，用户可通过会话让 Agent 生成自定义宠物。内置技能包（`apps/zcode-cli/packages/bundled-skills/skills/create-pet/`，随 CLI 分发、不可卸载）承载全流程指引：
+
+- **生图能力由用户提供**：skill 自身不生图，只负责向用户提供并调用的生图 API（OpenAI-compatible `/v1/images/generations` 为缺省假设，其它形态按用户给的 curl 示例适配）传递提示词与做复核；API key 不落盘（不进 pet.json/提示词/提交文件）。
+- **提示词与图集契约**：单图整版优先（v1 1536×1872，8×9 网格、192×208 帧、行序=动作表、行尾可留白），质量不足回退逐行条带（1536×208）拼合；格式契约全文在 `references/pet-format.md`（与本 spec 的包格式一节同源）。
+- **强制复核**：安装前必须跑随包的 `scripts/verify-sheet.mjs`（无依赖解析 PNG/JPEG/WebP 头，尺寸非 v1/v2 精确值退出非 0），并按动作表核对行序；转换 WebP（`magick`/`sips`）后命名 `spritesheet.webp`。
+- **安装**：直接写 `~/.mikiko/v2/pets/<pet-id>/{pet.json,spritesheet.webp}`（覆盖同 id 目录即更新）；切换宠物/市场已装列表会重扫目录，无需重启。
+- **诚实失败**：API 产不出可用网格时明确报告（返回了什么、为何不过校验），不安装坏图集。
+- 资产为 bundled skill pack 必需路径（`BUNDLED_SKILL_PACK_REQUIRED_PATHS` + SEA 侧 `bundledSkillPackRequiredPaths` 同步登记）。
+
 ## 市场协议（awesome-codex-pet）
 
 - 源：`https://raw.githubusercontent.com/legeling/awesome-codex-pet/main/`（可被镜像设置覆盖，仅允许无凭据 HTTPS URL）。文件：`pets.json`（目录：slug/双语名/作者/分类/标签/许可/spriteVersionNumber）、`install-manifest.json`（每宠物 `petJsonSha256/Bytes` + `spritesheetSha256/Bytes` + 图集尺寸）、`categories.json`。
