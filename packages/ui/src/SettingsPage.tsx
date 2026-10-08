@@ -71,9 +71,9 @@ import { PluginsSection } from "@/settings/PluginsSection.js";
 import { HooksSection } from "@/settings/HooksSection.js";
 import { WorkspaceFileSearchSection } from "@/settings/WorkspaceFileSearchSection.js";
 import { MemorySettingsSection } from "@/settings/MemorySettingsSection.js";
+import { BrowserSettingsSection } from "@/settings/BrowserSettingsSection.js";
 import { WorktreesSection } from "@/settings/WorktreesSection.js";
 import { ArchivedSessionsSection } from "@/settings/ArchivedSessionsSection.js";
-import { BrowserSettingsSection } from "@/settings/BrowserSettingsSection.js";
 import { PetSettingsSection } from "@/settings/PetSettingsSection.js";
 import { ComputerUseSection } from "@/settings/ComputerUseSection.js";
 import { ShortcutSettingsSection } from "@/settings/ShortcutSettingsSection.js";
@@ -1960,8 +1960,8 @@ export function SettingsPage({
                             }
                             onEmbeddedBrowserAllowInsecureCertificatesChange={
                               handleEmbeddedBrowserAllowInsecureCertificatesChange
-                          />
                             }
+                          />
                         ) : activeSection === "worktrees" ? (
                           <ServiceProvider services={localHostServices}>
                             {/* 工作树注册表/操作属于本机 Host（手机远控同链路可达）；激活远端 workspace 时不注入远端。 */}

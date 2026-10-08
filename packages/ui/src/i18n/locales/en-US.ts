@@ -1272,8 +1272,8 @@ const enUS: Record<string, string> = {
   "git.branchSwitcher.label": "Branch",
   "git.branchSwitcher.trigger.ariaLabel": "Switch Git branch",
   "git.branchSwitcher.searchPlaceholder": "Search branches",
-  "git.branchSwitcher.loading": "Loading branches…",
   "git.branchSwitcher.section.branches": "Branches",
+  "git.branchSwitcher.loading": "Loading branches…",
   "git.branchSwitcher.empty": "No matching branches",
   "git.branchSwitcher.currentDirty": "Uncommitted changes: {count} files",
   "git.branchSwitcher.createAction": "Create and switch to new branch...",
@@ -2062,6 +2062,7 @@ const enUS: Record<string, string> = {
   "settings.navLabel": "Sections",
   "settings.sidebar.group.basics": "Basics",
   "settings.sidebar.group.agentCapabilities": "Agent capabilities",
+  "settings.sidebar.group.dataAndStats": "Data and statistics",
   "settings.nav.generalDescription": "Language and current window experience",
   "settings.archived.title": "Archived",
   "settings.archived.searchPlaceholder": "Search archived sessions (title / project / path)",
@@ -2079,9 +2080,8 @@ const enUS: Record<string, string> = {
   "settings.archived.bulkDeleted": "Permanently deleted {count} session(s)",
   "settings.archived.moreActions": "More actions",
   "settings.archived.worktreeGone":
-  "settings.sidebar.group.dataAndStats": "Data and statistics",
-  "settings.archived.worktreeGoneShort": "Worktree removed",
     "The owning worktree no longer exists; this record can only be deleted.",
+  "settings.archived.worktreeGoneShort": "Worktree removed",
   "settings.worktrees.title": "Worktrees",
   "settings.worktrees.unavailable": "Worktree management is unavailable",
   "settings.worktrees.unavailableHint": "Requires the local Mikiko host worktree service.",
@@ -4586,9 +4586,9 @@ const enUS: Record<string, string> = {
   "settings.hooks.title": "Hooks",
   "settings.workspaceFileSearch.title": "Workspace Search Scope",
   "settings.workspaceFileSearch.description":
-    "Edit .zcodeignore rules (gitignore syntax) that scope workspace file search. Takes effect on the next search after saving.",
+    "Edit .mikikoignore rules (gitignore syntax) that scope workspace file search. Takes effect on the next search after saving.",
   "settings.workspaceFileSearch.templateHint":
-    ".zcodeignore does not exist yet: the content below is the initial preview (.gitignore copy + default exclusions); it is written to the workspace only after saving.",
+    ".mikikoignore does not exist yet: the content below is the initial preview (.gitignore copy + default exclusions); it is written to the workspace only after saving.",
   "settings.workspaceFileSearch.editorLabel": "Workspace search ignore rules editor",
   "settings.workspaceFileSearch.save": "Save",
   "settings.workspaceFileSearch.saved": "Saved; effective on the next search",
@@ -4599,7 +4599,8 @@ const enUS: Record<string, string> = {
   "settings.workspaceFileSearch.transformFailed":
     "Failed to apply the section operation; check the logs",
   "settings.workspaceFileSearch.reveal": "Reveal file location",
-  "settings.workspaceFileSearch.revealHint": "Save first; .zcodeignore lives at the workspace root",
+  "settings.workspaceFileSearch.revealHint":
+    "Save first; .mikikoignore lives at the workspace root",
   "settings.workspaceFileSearch.unsaved": "Unsaved changes",
   "settings.workspaceFileSearch.noWorkspace":
     "No workspace is open, so search ignore rules cannot be configured.",
@@ -6001,6 +6002,9 @@ const enUS: Record<string, string> = {
   "chat.mention.sessions.empty": "No recent sessions match",
   "chat.mention.sessions.searchHint": "Type to search recent sessions",
   "chat.slash.title": "Commands and capabilities",
+  "chat.slash.searchHint": "Type to search commands, skills, or agents",
+  "chat.workLocation.label": "Work location",
+  "chat.workLocation.local": "Local",
   "chat.workLocation.newWorktree": "New local worktree",
   "chat.workLocation.existingWorktree": "Existing worktree",
   "chat.workLocation.remoteDefault": "Remote default branch",
@@ -6013,7 +6017,6 @@ const enUS: Record<string, string> = {
     "Attachments are not yet supported for the first message in a worktree session; send text first or use local mode",
   "chat.workLocation.unavailable": "Starting a session in a worktree is unavailable here",
   "chat.slash.app.new.description": "New chat (keeps current project and work location)",
-  "chat.slash.searchHint": "Type to search commands, skills, or agents",
   "chat.slash.app.side.description": "Open a new side conversation",
   "chat.slash.commands.title": "Commands",
   "chat.slash.skills.title": "Skills",

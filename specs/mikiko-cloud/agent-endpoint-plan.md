@@ -225,7 +225,7 @@ wrangler secret put MIKIKO_ADMIN_SESSION_SECRET   # session cookie 签名密钥
 
 **不迁移**（内部机制/测试/身份类，改前缀收益低、风险高）：`ZCODE_ENV`、`ZCODE_DATA_BASE_DIR`/`ZCODE_HOME`/`ZCODE_LOG_DIR`/`ZCODE_DESKTOP_HOME_DIR`（路径体系）、`ZCODE_OFFPEAK_MOCK*`（测试）、CUA/AGENT_SERVER/REMOTE/SERVER/PLUGIN 系（进程间传参）、`ZCODE_UPDATES_ENABLED` 等。存量 `Zcode*` 类名同理不动，仅约束新增命名。
 
-**存量 `Zcode*` 类名对客暴露评估（2026-09-28，结论：暂不重命名）**：对客可见面均已 Mikiko 品牌化——出网 UA 按品牌规范以 `Mikiko/` 开头（`specs/brand/outbound-user-agent.md`，含 WebFetch/插件安装器出口）；UI 文案无 ZCode 残留（i18n 中 `zcode` 仅存在于 key 名与 `x-zcode-bot-secret` 请求头说明、`.zcodeignore` 文件名等技术性内容）。类名仅存在于源码与诊断日志/stack trace（`~/.mikiko/v2/logs/`，技术受众），错误 UI 只展示 traceId 不展示 stack 类名。复查触发条件：若未来某个 `Zcode*` 类名进入对客错误消息、新 UI 展示文案或对外文档，须随该变更一并重命名。
+**存量 `Zcode*` 类名对客暴露评估（2026-09-28，结论：暂不重命名）**：对客可见面均已 Mikiko 品牌化——出网 UA 按品牌规范以 `Mikiko/` 开头（`specs/brand/outbound-user-agent.md`，含 WebFetch/插件安装器出口）；UI 文案无 ZCode 残留（i18n 中 `zcode` 仅存在于 key 名与 `x-zcode-bot-secret` 请求头说明等技术性内容；`.zcodeignore` 已于 2026-10-08 更名为 `.mikikoignore`，见 `specs/desktop/workspace-file-search-ignore.md`）。类名仅存在于源码与诊断日志/stack trace（`~/.mikiko/v2/logs/`，技术受众），错误 UI 只展示 traceId 不展示 stack 类名。复查触发条件：若未来某个 `Zcode*` 类名进入对客错误消息、新 UI 展示文案或对外文档，须随该变更一并重命名。
 
 顺带品牌残留清理（并入 P1）：`Mikiko-WebFetch` UA 括号内的联系 URL 仍为 `+https://zcode.ai`（`apps/zcode-cli/packages/core/src/tool/handlers/webfetch-constants.ts`），域名已定，随本方案更新为 `+https://agent.mikiko.ai`。注意 `X-Title`/`X-ZCode-App-Version` 等自定义请求头是官方后端契约（zai/codingplan 链路），继续保留不改。
 
