@@ -19,6 +19,8 @@ import {
   Keyboard,
   FileSearch,
   Cat,
+  GitBranch,
+  Archive,
 } from "lucide-react";
 import { isSettingsSectionEnabled, type SettingsSectionId } from "@/lib/settingsNavigation.js";
 import type { Theme } from "@/useTheme.js";
@@ -134,19 +136,20 @@ const BASE_SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     icon: Globe2,
     titleId: "settings.browser.title",
     groupId: "basics",
+  },
   // Git 工作树管理紧跟「浏览器」：同为面向 Agent 执行环境的本机配置入口。
   {
     id: "worktrees",
     icon: GitBranch,
     titleId: "settings.worktrees.title",
     groupId: "basics",
+  },
   // 已归档会话总览：历史数据管理，收在数据与统计组。
   {
     id: "archived",
     icon: Archive,
     titleId: "settings.archived.title",
     groupId: "dataAndStats",
-  },
   },
   {
     id: "pet",
@@ -169,7 +172,7 @@ const BASE_SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     titleId: "settings.shortcuts.title",
     groupId: "basics",
   },
-  // 工作区搜索范围（.zcodeignore）：面向所有用户的基础工作区行为配置，收在基础设置末尾。
+  // 工作区搜索范围（.mikikoignore）：面向所有用户的基础工作区行为配置，收在基础设置末尾。
   {
     id: "workspaceFileSearch",
     icon: FileSearch,
