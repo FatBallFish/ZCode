@@ -39,7 +39,7 @@ import { DesktopTopOverlay } from "@/DesktopTopOverlay.js";
 import { DesktopWindowFrame } from "@/DesktopWindowFrame.js";
 import { WorkspacePluginPreview } from "@/WorkspacePluginPreview.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";
-import { GitBranchSwitcher } from "@/GitBranchSwitcher.js";
+import { DraftWorkLocation } from "@/v4/composer/DraftWorkLocation.js";
 import { ScopedErrorBoundary } from "@/ErrorBoundary.js";
 
 import {
