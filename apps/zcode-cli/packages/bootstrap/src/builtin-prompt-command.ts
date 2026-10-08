@@ -82,7 +82,7 @@ function buildInitAgentsPrompt(params: {
     additionalInstructions,
     "",
     "Process:",
-    "1. First check whether .zcode/AGENTS.md or .agents/AGENTS.md exists in the workspace. If either exists, tell the user they already have an instructions file, mention the path found, and stop without creating a new AGENTS.md.",
+    "1. First check whether .mikiko/AGENTS.md or .agents/AGENTS.md exists in the workspace. If either exists, tell the user they already have an instructions file, mention the path found, and stop without creating a new AGENTS.md.",
     "2. Inspect the repository before writing. Prefer Read, Glob, Grep, and safe Bash commands such as ls, find, git status, and package-manager script inspection.",
     "3. If AGENTS.md already exists, read it first and update it with Edit instead of replacing it wholesale.",
     "4. If AGENTS.md does not exist, create it at the workspace root.",

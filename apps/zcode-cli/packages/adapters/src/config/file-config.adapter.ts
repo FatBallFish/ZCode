@@ -59,7 +59,8 @@ export interface PluginRemovePatchResult {
 }
 
 const DEFAULT_CONFIG_FILE = "config.json";
-const DEFAULT_BASE_DIR = "~/.zcode/cli";
+// 与 DefaultConfig.storage.dir（contracts）保持同一数据根，Mikiko 与官方 ZCode 目录级隔离。
+const DEFAULT_BASE_DIR = "~/.mikiko/cli";
 
 /**
  * Resolve path with ~ expansion

@@ -474,7 +474,7 @@ function ensurePluginManagementWorkspacePath(): string {
 
 // NOTE: this counts ONLY the per-session MCP servers passed through the ZCode Protocol
 // session/create params (the app→protocol channel). It is deliberately independent of the
-// CLI/bootstrap MCP servers configured in ~/.zcode/cli/config.json (mcp.servers), which the agent
+// CLI/bootstrap MCP servers configured in ~/.mikiko/cli/config.json (mcp.servers), which the agent
 // runtime connects separately and reports via the `mcp.server.connected`/toolCount events. So a
 // createSession log line with mcpServerCount:0 is EXPECTED when zcode-cua is a CLI-config MCP server
 // (e.g. the product Helper broker path injected through the gated bootstrap env): the model still receives those
@@ -3139,7 +3139,7 @@ export function createZCodeAgentService(
   // 就绪的 workspace 级方法，管理面进程正是为这种「不寄居真实项目」的控制面能力准备的，且不会因
   // 真实 workspace 生命周期被 watchdog 回收；getOrStartReadOnlyClient 反而会把这个合成 workspace
   // 塞进 activeClientsByWorkspaceKey 并跑一遍交互偏好同步，污染会话 client map。两条路径都在本机，
-  // homedir() 即用户家目录，全局根 `~/.zcode/workflows/` 因此解析到真实目录。
+  // homedir() 即用户家目录，全局根 `~/.mikiko/workflows/` 因此解析到真实目录。
   // 远程 runtime（SSH/WSL identity 或带 remoteSessionId）的 home 不是本机，绝不选它当载体。
   function isLocalActiveWorkspaceClient(workspace: ZCodeAgentWorkspaceTarget): boolean {
     return (
@@ -3419,10 +3419,11 @@ export function createZCodeAgentService(
       await getReadOnlyClient(params, "existing-only");
       return await processManager.getRuntimeIdentity(params);
     },
+
+    hasLiveRuntimeClient(params: ZCodeAgentWorkspaceTarget): boolean {
       // worktree 删除资格（D4）需要只读探活；绝不能经 getClient 隐式拉起进程。
       return processManager.getExistingClient(params) !== undefined;
     },
-
 
     async createSession(params: ZCodeAgentCreateSessionParams) {
       const startedAt = Date.now();

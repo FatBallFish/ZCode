@@ -449,9 +449,9 @@ export interface IZCodeTaskService {
     workspacePath: string;
     workspaceIdentity?: string;
   }): Promise<ZCodeTaskMeta[]>;
+
   /** 跨 workspace 的已归档任务总览（设置页「已归档」；updated_at 倒序限量）。 */
   listAllArchivedTasks(params?: { limit?: number }): Promise<ZCodeTaskMeta[]>;
-
 
   /** 批量归档超期旧任务；仅归档已完成、无未读、非 pinned 且当前未打开的 task */
   archiveStaleTasks(params: {
@@ -597,7 +597,7 @@ export interface IZCodeTaskService {
   }>;
 
   /**
-   * 读取 task 对应的模型调用轨迹（来自 ~/.zcode/cli/{debug,rollout} 的 model-io JSONL）。
+   * 读取 task 对应的模型调用轨迹（来自 ~/.mikiko/cli/{debug,rollout} 的 model-io JSONL）。
    * taskId 即 ZCode Agent 的 sessionId，按 sessionId 匹配 model-io 记录。
    */
   getModelTrajectory(params: {

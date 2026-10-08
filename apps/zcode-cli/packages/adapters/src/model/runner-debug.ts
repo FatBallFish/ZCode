@@ -584,8 +584,9 @@ function sanitizeFileSegment(value?: string): string {
     .slice(0, 80);
 }
 
-// storage profile 回滚删除了自定义 CLI 根模块，遗留 import 会让 adapters 无法构建。
-// 这里保持历史语义：开发态写 ~/.zcode/cli/debug，生产态写 ~/.zcode/cli/rollout。
+// 正常路径下目录由 bootstrap 按 DefaultConfig.storage.dir（~/.mikiko）派生后经 debugDir 显式传入；
+// 这里只是无 debugDir 调用方（如独立测试）的兜底，须与 storage.dir 默认值同根，
+// 否则会像历史上 storage.dir=~/.zcode 与读取侧 ~/.mikiko 失配那样让调用轨迹读不到。
 function getModelIOBaseDir(isDev: boolean): string {
   return join(homedir(), ".mikiko", "cli", isDev ? "debug" : "rollout");
 }
