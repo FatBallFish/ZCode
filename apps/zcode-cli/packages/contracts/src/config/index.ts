@@ -299,8 +299,10 @@ export const DefaultRuntimeConfig: RuntimeConfig = {
     allowMediumRiskInAuto: false,
   },
   storage: {
-    dir: "~/.zcode",
-    sessionDbPath: "~/.zcode/cli/db/db.sqlite",
+    // Mikiko 与官方 ZCode 同机并行时必须目录级隔离；~/.zcode 是官方数据根。
+    // storage.dir 是 plugins/skills/MCP 存储、model-io、memory、session db 的派生根。
+    dir: "~/.mikiko",
+    sessionDbPath: "~/.mikiko/cli/db/db.sqlite",
   },
   network: {
     timeout: 180000,

@@ -632,7 +632,7 @@ export function SessionPane({
     usageStatsService,
     zcodeSessionService,
     zcodeTaskService,
-  } = services; 6761feb4 (feat(desktop): Git Worktree 管理（创建/删除/注册表单写者 + 设置页工作树总览 + 会话工作位置与任务链路隔离）)
+  } = services; 
   const { intl, locale } = useZCodeIntl();
   const slashCommands = useSlashCommands(workspacePath, workspaceIdentity);
   const baseWorkspaceServices = useBaseWorkspaceServices();
