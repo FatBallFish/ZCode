@@ -29,6 +29,10 @@ After every successful `tab.goto(url)`, explicitly call `await tab.playwright.wa
 
 For a CLI started with `--browser-use=headless`, select the advertised `cdp` backend (or use
 `getForUrl(url)`). Headless is its launch/display mode, not a fourth backend type.
+For configured external Chromium instances, inspect `await agent.browsers.list()` and select the
+user-requested name and exact ID, such as `await agent.browsers.get("cdp:external:work-a")`.
+Never use `get("cdp")` or URL/default selection to choose between multiple external accounts.
+External instances expose only task-owned pages; existing user pages cannot be enumerated or claimed.
 
 Keep the DOM observation as the final expression so the model receives it. Assigning it to a variable without returning or writing it does not surface the page state.
 

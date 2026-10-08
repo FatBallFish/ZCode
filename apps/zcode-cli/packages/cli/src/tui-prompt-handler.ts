@@ -59,6 +59,10 @@ export function createTuiSubmitPrompt(
   forceMcs = false,
   browserUse?: GlobalOptions["browserUse"],
   browserExecutable?: GlobalOptions["browserExecutable"],
+  externalBrowserOptions: Pick<
+    GlobalOptions,
+    "browserEndpoint" | "browserName" | "browserIdentity" | "browserInstances"
+  > = {},
 ): TuiPromptHandler {
   let app: Awaited<ReturnType<NonNullable<RunDependencies["createZCodeApp"]>>> | undefined;
   let activeUiLocale = uiLocale;
@@ -141,7 +145,10 @@ export function createTuiSubmitPrompt(
       sessionId,
       workingDirectory,
     } = await prepareTuiAppRuntime(deps, version, request, processRuntime);
-    const browserRuntime = createCliHeadlessBrowserRuntime({ browserExecutable, browserUse }, deps);
+    const browserRuntime = createCliHeadlessBrowserRuntime(
+      { browserExecutable, browserUse, ...externalBrowserOptions },
+      deps,
+    );
     let createdApp: Awaited<ReturnType<NonNullable<RunDependencies["createZCodeApp"]>>>;
     try {
       createdApp = await createAppFactory({

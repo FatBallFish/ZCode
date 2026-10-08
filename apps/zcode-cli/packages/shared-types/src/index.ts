@@ -29,7 +29,11 @@ export type GlobalOutputFormat = "text" | "json" | "stream-json";
 
 export type GlobalOptions = {
   browserExecutable?: string;
-  browserUse?: "headless";
+  browserUse?: "headless" | "external";
+  browserInstances?: string;
+  browserEndpoint?: string;
+  browserName?: string;
+  browserIdentity?: string;
   detectedLocale?: GlobalDetectedLocale;
   enableWorkflow?: boolean;
   force: boolean;

@@ -1,3 +1,17 @@
+export {
+  createExternalCdpRegistry,
+  parseExternalCdpConfiguration,
+  externalCdpDescriptorId,
+  type ExternalCdpConfiguration,
+  type ExternalCdpInstance,
+} from "./external-registry.js";
+export {
+  createExternalCdpBrowserRuntime,
+  parseExternalCdpOptions,
+  validateExternalEndpoint,
+  resolveExternalEndpoint,
+  type ExternalCdpOptions,
+} from "./external.js";
 import { randomUUID } from "node:crypto";
 import type {
   BrowserBackendDescriptor,

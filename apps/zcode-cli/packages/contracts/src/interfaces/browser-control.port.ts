@@ -517,6 +517,8 @@ export interface BrowserCommandResult {
 }
 
 export interface BrowserControlExecuteInput {
+  /** Host correlation identity for backend cancellation; CLI may omit it. */
+  requestId?: string;
   /** 精确 runtime backend id；不能只传 iab/extension/cdp family。 */
   browserId: string;
   browserGeneration: number;

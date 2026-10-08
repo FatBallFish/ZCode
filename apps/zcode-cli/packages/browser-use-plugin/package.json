@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc && node scripts/build.mjs",
     "clean": "node ../../scripts/clean-dist.mjs",
+    "test:external-cdp": "node --import tsx --test --test-force-exit tests/external-cdp.test.ts tests/external-instances.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src --no-ignore"
   },

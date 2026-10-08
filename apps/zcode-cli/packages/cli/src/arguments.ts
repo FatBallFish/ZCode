@@ -24,6 +24,10 @@ export const parseGlobalArgs = (argv: string[]) =>
       "browser-use": {
         type: "string",
       },
+      "browser-instances": { type: "string" },
+      "browser-endpoint": { type: "string" },
+      "browser-name": { type: "string" },
+      "browser-identity": { type: "string" },
       "browser-executable": {
         type: "string",
       },

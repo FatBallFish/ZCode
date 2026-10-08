@@ -21,6 +21,9 @@ function backendFallbackRank(info: BrowserInfo): number {
 }
 
 export function selectDefaultBrowser(infos: readonly BrowserInfo[]): BrowserInfo | undefined {
+  if (infos.length > 1 && infos.every((info) => info.metadata?.launchMode === "external")) {
+    throw new Error("Multiple external browser instances require explicit selection by ID.");
+  }
   return [...infos].sort(
     (left, right) => backendFallbackRank(left) - backendFallbackRank(right),
   )[0];

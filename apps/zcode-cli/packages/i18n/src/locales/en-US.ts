@@ -31,9 +31,13 @@ Options:
   -p, --prompt <text>  Run a single prompt without opening the TUI
   --enable-workflow  Enable dynamic workflows for --prompt or --target (default: off)
   --memory-bench   With --prompt, enable automatic Memory extraction and wait before exiting (requires Memory enabled)
-  --browser-use <mode> Enable Browser Use backend (supported: headless)
+  --browser-use <mode> Enable Browser Use backend (supported: headless, external)
   --surface <surface>  Presentation surface for headless prompts/app-server: terminal or desktop
   --browser-executable <path> Chrome/Chromium executable for headless Browser Use
+  --browser-instances <json> External instances configuration (exact ID selection)
+  --browser-endpoint <origin> Explicit loopback HTTP origin for external Chromium
+  --browser-name <label> Optional external browser display name
+  --browser-identity <uuid> Optional pinned external browser identity
   --attach <path>  Attach a local file to --prompt; repeat for multiple files
   --cwd <path>     Run this command from the given directory
   --disallowed-tools, --disallowedTools <tools...>

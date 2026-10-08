@@ -98,6 +98,10 @@ const globalOptions = (
   outputFormat: GlobalOptions["outputFormat"],
 ): GlobalOptions => {
   return {
+    browserInstances: values["browser-instances"] as string | undefined,
+    browserEndpoint: values["browser-endpoint"] as string | undefined,
+    browserName: values["browser-name"] as string | undefined,
+    browserIdentity: values["browser-identity"] as string | undefined,
     browserExecutable,
     browserUse,
     detectedLocale,
@@ -143,7 +147,10 @@ const normalizePromptMode = (value: string | undefined): CliPermissionMode | und
 const normalizeBrowserUse = (value: string | undefined): GlobalOptions["browserUse"] => {
   if (value === undefined) return undefined;
   if (value.toLowerCase() === "headless") return "headless";
-  throw new Error(`Unsupported --browser-use value: ${value}. Supported value: headless.`);
+  if (value.toLowerCase() === "external") return "external";
+  throw new Error(
+    `Unsupported --browser-use value: ${value}. Supported values: headless, external.`,
+  );
 };
 
 const normalizePresentationSurface = (value: string | undefined): PresentationSurface => {
@@ -364,6 +371,36 @@ export const run = async (ctx: RunContext, deps: RunDependencies = {}): Promise<
     return 1;
   }
 
+  const externalFlags = [
+    "browser-instances",
+    "browser-endpoint",
+    "browser-name",
+    "browser-identity",
+  ] as const;
+  if (browserUse !== "external" && externalFlags.some((key) => parsed.values[key] !== undefined)) {
+    ctx.stderr.write("External browser flags require --browser-use=external.\n");
+    return 1;
+  }
+  if (
+    parsed.values["browser-instances"] !== undefined &&
+    (["browser-endpoint", "browser-name", "browser-identity"] as const).some(
+      (key) => parsed.values[key] !== undefined,
+    )
+  ) {
+    ctx.stderr.write("--browser-instances cannot be combined with single-instance flags.\n");
+    return 1;
+  }
+  if (
+    browserUse === "external" &&
+    !parsed.values["browser-endpoint"] &&
+    parsed.values["browser-instances"] === undefined
+  ) {
+    ctx.stderr.write(
+      "--browser-use=external requires --browser-instances or --browser-endpoint.\n",
+    );
+    return 1;
+  }
+
   const resumeRequest: CliResumeRequest = {
     continueSession: parsed.values.continue === true,
     resumeSessionId: parsed.values.resume as string | undefined,
@@ -446,7 +483,7 @@ export const run = async (ctx: RunContext, deps: RunDependencies = {}): Promise<
   }
 
   if (
-    browserUse === "headless" &&
+    browserUse !== undefined &&
     !isForceMcsSupportedInvocation({
       positionals: parsed.positionals,
       prompt: parsed.values.prompt as string | undefined,

@@ -1048,6 +1048,12 @@ export class BrowsersFacade {
 
   async get(idOrType: string): Promise<Browser> {
     const infos = await this.listAvailable();
+    const family = infos.filter((candidate) => candidate.type === idOrType);
+    if (!infos.some((candidate) => candidate.id === idOrType) && family.length > 1) {
+      throw new Error(
+        `Browser family '${idOrType}' is ambiguous; select an exact ID: ${family.map((candidate) => `${candidate.name} (${candidate.id})`).join(", ")}`,
+      );
+    }
     const info =
       infos.find((candidate) => candidate.id === idOrType) ??
       infos.find((candidate) => candidate.type === idOrType);
@@ -1081,6 +1087,9 @@ export class BrowsersFacade {
     const infos = await this.listAvailable();
     if (infos.length === 0) {
       return this.get("__no_browser_backend__");
+    }
+    if (infos.length > 1 && infos.every((info) => info.metadata?.launchMode === "external")) {
+      throw new Error("Multiple external browser instances require explicit selection by ID.");
     }
     if (infos.length === 1) {
       return this.browserFor(infos[0]);
