@@ -33,6 +33,7 @@ import {
 } from "@/hooks/useGroupedTaskView.js";
 import type { WorkspaceTabState } from "@/store/tabStore.js";
 import { buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
+import { formatWorktreeWorkspaceLabel, useWorktreeStore } from "@/store/worktreeStore.js";
 import { getPathLeaf } from "@/lib/path.js";
 import { resolveTaskFileTreeTargetFromTabs } from "@/lib/taskFileTreeTarget.js";
 import { toast } from "@/components/ui/toast.js";
@@ -954,6 +955,7 @@ export function WorkspaceGroupedTasksSection({
     [workspaceTabs],
   );
 
+  const worktreeRegistryEntries = useWorktreeStore((state) => state.registryEntries);
   const getTaskWorkspaceLabel = useCallback(
     (task: ZCodeTaskMeta) => {
       const tab = workspaceTabByKey.get(
@@ -964,11 +966,16 @@ export function WorkspaceGroupedTasksSection({
           id: "workspaceSidebar.conversationsSection",
         });
       }
-      return (
-        tab?.label || getPathLeaf(task.workspacePath) || task.workspacePath
+      // worktree 会话统一展示「repoName · 短id」（specs/desktop/worktrees.md）。
+      const worktreeEntry = worktreeRegistryEntries.find(
+        (entry) => entry.worktreePath === task.workspacePath,
       );
+      if (worktreeEntry) {
+        return formatWorktreeWorkspaceLabel(task.workspacePath, worktreeEntry.rootWorkspacePath);
+      }
+      return tab?.label || getPathLeaf(task.workspacePath) || task.workspacePath;
     },
-    [intl, workspaceTabByKey],
+    [intl, workspaceTabByKey, worktreeRegistryEntries],
   );
   const draftWorkspaceLabel = useMemo(() => {
     const tab = workspaceTabByKey.get(

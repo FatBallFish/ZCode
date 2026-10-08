@@ -32,6 +32,7 @@ import {
   SquareIcon,
   SquareTerminalIcon,
   Workflow,
+  GitBranch,
 } from "lucide-react";
 import {
   TID_CHAT_SUMMARY_PANEL,
@@ -75,6 +76,7 @@ import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { formatBackgroundTaskElapsedLabel } from "@/BackgroundTaskElapsedLabel.js";
 import { GitActionMenu } from "@/GitActionMenu.js";
 import { GitBranchSwitcher } from "@/GitBranchSwitcher.js";
+import { useWorktreeStore, worktreeShortId } from "@/store/worktreeStore.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import type {
   OpenPlanDetailSideTabRequest,
@@ -360,6 +362,33 @@ function StatusSection({
   );
 }
 
+function WorktreeIdentityRow({ workspacePath }: { workspacePath: string }) {
+  const { intl } = useZCodeIntl();
+  const entry = useWorktreeStore((state) =>
+    state.registryEntries.find((item) => item.worktreePath === workspacePath),
+  );
+  if (!entry) {
+    return null;
+  }
+  return (
+    <div
+      className="flex h-8 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-ui-base text-[var(--color-foreground-secondary)]"
+      title={entry.worktreePath}
+    >
+      <GitBranch className="size-4 shrink-0 text-[var(--color-foreground)]" />
+      <span className="min-w-0 flex-1 truncate">
+        {intl.formatMessage({ id: "chat.workLocation.existingWorktree" })}
+        <span className="ml-1 font-mono text-ui-sm text-[var(--color-foreground)]">
+          {worktreeShortId(entry.id)}
+        </span>
+      </span>
+      <span className="shrink-0 font-mono text-ui-xs text-[var(--color-foreground-secondary)]">
+        {entry.ref}
+      </span>
+    </div>
+  );
+}
+
 function GitStatusSection({
   activeTaskChangeSummary,
   gitSummary,
@@ -410,7 +439,8 @@ function GitStatusSection({
       }
     >
       <div className="space-y-0">
-        {/* Bug 原因：V4 状态面板迁移时只保留了 Changes 的静态展示，
+        {git.isWorktree ? <WorktreeIdentityRow workspacePath={workspacePath} /> : null}
+        {/* Bug 原因：V4 状态面板迁移时只保留了 Changes 的静态展示， 6761feb4 (feat(desktop): Git Worktree 管理（创建/删除/注册表单写者 + 设置页工作树总览 + 会话工作位置与任务链路隔离）)
             没有继续透传旧版 Git review 回调，导致规范中的审阅入口不可点击。 */}
         <button
           type="button"

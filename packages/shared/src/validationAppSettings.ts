@@ -7,6 +7,7 @@ import { wslUserSchema } from "./wslUserValidation.js";
 import { ZCODE_ENABLED_AGENT_PROVIDERS } from "./zcode-agent-policy.js";
 import { DYNAMIC_WORKFLOW_MODES } from "./dynamic-workflow-feature.js";
 import { normalizeZCodeEndpointOrigin } from "./zcodeEndpoint.js";
+import { worktreeConfigSchema } from "./worktree.js";
 import {
   DEFAULT_EMBEDDED_BROWSER_VIEWPORT_PREFERENCE,
   embeddedBrowserViewportPreferenceSchema,
@@ -533,6 +534,8 @@ const appSettingsObjectSchema = z.object({
   desktopPetEnabled: z.boolean().optional(),
   desktopPetId: z.string().optional(),
   desktopPetPosition: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
+  // Git worktree 配置；undefined=服务侧按默认值解析（specs/desktop/worktrees.md）。
+  worktreeConfig: worktreeConfigSchema.optional(),
 });
 
 export const appSettingsSchema = z.preprocess(
@@ -638,4 +641,6 @@ export const appSettingsPatchSchema = z.object({
   desktopPetEnabled: z.boolean().optional(),
   desktopPetId: z.string().optional(),
   desktopPetPosition: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
+  // Git worktree 配置；patch 里同样整体可选（写入时全量替换）。
+  worktreeConfig: worktreeConfigSchema.optional(),
 });

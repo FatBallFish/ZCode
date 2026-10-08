@@ -10,6 +10,7 @@ import type { ICloudContentService } from "#src/cloud-content/cloudContent.js";
 import type { IMarketingTouchService } from "#src/marketing-touch/marketingTouch.js";
 import type { IGitService } from "./git/git.js";
 import type { IGitCheckpointService } from "./git/gitCheckpoint.js";
+import type { IWorktreeService } from "./git/worktree.js";
 import type { ISystemService } from "./system/system.js";
 import type { ITerminalService } from "./terminal/terminal.js";
 import type { ISettingService } from "./setting/setting.js";
@@ -57,6 +58,8 @@ export interface IServiceAccessor {
   readonly marketingTouchService?: IMarketingTouchService;
   readonly gitService: IGitService;
   readonly gitCheckpointService: IGitCheckpointService;
+  /** Git worktree 管理（仅本地 host；旧 wire / 测试 double 可不提供）。 */
+  readonly worktreeService?: IWorktreeService;
   readonly systemService: ISystemService;
   readonly terminalService: ITerminalService;
   readonly settingService: ISettingService;

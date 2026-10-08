@@ -134,6 +134,13 @@ const BASE_SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     icon: Globe2,
     titleId: "settings.browser.title",
     groupId: "basics",
+  // Git 工作树管理紧跟「浏览器」：同为面向 Agent 执行环境的本机配置入口。
+  {
+    id: "worktrees",
+    icon: GitBranch,
+    titleId: "settings.worktrees.title",
+    groupId: "basics",
+  },
   },
   {
     id: "pet",

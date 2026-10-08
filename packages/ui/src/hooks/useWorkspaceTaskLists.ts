@@ -32,6 +32,7 @@ import {
   buildWorkspaceTaskListVersionSignature,
 } from "@/hooks/workspaceTaskListRefreshSignatures.js";
 import { shouldRefetchTaskListMembershipForWorkspaceEvent } from "@/lib/taskListRefreshPolicy.js";
+import { useWorktreeStore } from "@/store/worktreeStore.js";
 import { syncTaskUnreadFromStatusWorkspaceEvent } from "@/lib/taskStatusUnreadSync.js";
 import type { ZCodeTaskMeta } from "@zcode/shared";
 import { fetchTaskListMembershipSetsForEndpointsCached } from "@/lib/taskListMembershipSets.js";
@@ -283,54 +284,82 @@ export function useWorkspaceTaskLists(params: {
       ? { workspaceIdentity: params.activeWorkspaceIdentity }
       : {}),
   };
-  const queryConfigs = useMemo(
-    () =>
-      params.workspaceTabs.map((tab) => {
-        const scope = {
-          workspacePath: tab.workspacePath,
-          workspaceIdentity: tab.workspaceIdentity,
-        };
-        const resolvedRemoteSessionId = resolveWorkspaceRemoteSessionId(tab, serviceResolverState);
-        const isRemoteWorkspace = isRemoteWorkspaceTarget(tab, resolvedRemoteSessionId);
-        const workspaceKey = buildTaskWorkspaceKey(scope.workspacePath, scope.workspaceIdentity);
-        const visibleLimit = resolveWorkspaceTaskVisibleLimit(
-          params.visibleLimitByWorkspaceKey,
-          workspaceKey,
-          params.defaultVisibleLimit,
-        );
-        const descriptor = buildTaskListCacheDescriptor({
-          kind: "workspace",
-          workspaceScopes: [scope],
-          sortBy: params.sortBy,
-          search: "",
-          expanded: false,
-          visibleLimit,
-        });
-        return {
-          scope,
-          workspaceKey,
-          remoteSessionId: resolvedRemoteSessionId,
-          isRemoteWorkspace,
-          visibleLimit,
-          descriptor,
-          // 之前每个 workspace 分组的 queryKey 都拼上“所有 tabs 的版本签名”。
-          // archive 一个本地 task 后，其它 workspace 的 queryKey 也会同时换新，旧缓存瞬间失效，
-          // 连接远端时刷新更慢，就会看到所有本地 workspace 变成 No tasks yet。
-          // 这里改成只使用当前 workspace 自己的版本，避免无关 workspace 被连带清空。
-          queryKey:
-            buildTaskListCacheKeyFromDescriptor(descriptor) +
-            `::version=${taskListVersionByWorkspaceKey.get(workspaceKey) ?? 0}`,
-        };
-      }),
-    [
-      params.defaultVisibleLimit,
-      params.sortBy,
+  const worktreeRegistryEntries = useWorktreeStore((state) => state.registryEntries);
+  const buildScopeQueryConfig = (
+    scope: { workspacePath: string; workspaceIdentity?: string },
+    remoteSessionId: string | null | undefined,
+  ): WorkspaceTaskListQueryConfig => {
+    const workspaceKey = buildTaskWorkspaceKey(scope.workspacePath, scope.workspaceIdentity);
+    const visibleLimit = resolveWorkspaceTaskVisibleLimit(
       params.visibleLimitByWorkspaceKey,
-      params.workspaceTabs,
-      serviceResolverState,
-      taskListVersionByWorkspaceKey,
-    ],
-  );
+      workspaceKey,
+      params.defaultVisibleLimit,
+    );
+    const descriptor = buildTaskListCacheDescriptor({
+      kind: "workspace",
+      workspaceScopes: [scope],
+      sortBy: params.sortBy,
+      search: "",
+      expanded: false,
+      visibleLimit,
+    });
+    return {
+      scope,
+      workspaceKey,
+      ...(remoteSessionId ? { remoteSessionId } : {}),
+      isRemoteWorkspace: remoteSessionId !== null,
+      visibleLimit,
+      descriptor,
+      // 之前每个 workspace 分组的 queryKey 都拼上“所有 tabs 的版本签名”。
+      // archive 一个本地 task 后，其它 workspace 的 queryKey 也会同时换新，旧缓存瞬间失效，
+      // 连接远端时刷新更慢，就会看到所有本地 workspace 变成 No tasks yet。
+      // 这里改成只使用当前 workspace 自己的版本，避免无关 workspace 被连带清空。
+      queryKey:
+        buildTaskListCacheKeyFromDescriptor(descriptor) +
+        `::version=${taskListVersionByWorkspaceKey.get(workspaceKey) ?? 0}`,
+    };
+  };
+  const queryConfigs = useMemo(() => {
+    const tabConfigs = params.workspaceTabs.map((tab) => {
+      const resolvedRemoteSessionId = resolveWorkspaceRemoteSessionId(tab, serviceResolverState);
+      return buildScopeQueryConfig(
+        {
+          workspacePath: tab.workspacePath,
+          ...(tab.workspaceIdentity ? { workspaceIdentity: tab.workspaceIdentity } : {}),
+        },
+        isRemoteWorkspaceTarget(tab, resolvedRemoteSessionId) ? resolvedRemoteSessionId : null,
+      );
+    });
+    // D3 并入：本地根项目 tab 的查询面扩宽到其注册工作树（task 实体键仍是
+    // worktree 真实 workspaceKey，只是多查一份，供展示层并进根项目组）。
+    const tabPathSet = new Set(params.workspaceTabs.map((tab) => tab.workspacePath));
+    const worktreeConfigs: WorkspaceTaskListQueryConfig[] = [];
+    for (const tab of params.workspaceTabs) {
+      if (tab.workspaceIdentity || tab.remoteSessionId) {
+        continue;
+      }
+      for (const entry of worktreeRegistryEntries) {
+        if (
+          entry.rootWorkspacePath !== tab.workspacePath ||
+          entry.worktreePath === tab.workspacePath ||
+          tabPathSet.has(entry.worktreePath)
+        ) {
+          continue;
+        }
+        worktreeConfigs.push(buildScopeQueryConfig({ workspacePath: entry.worktreePath }, null));
+      }
+    }
+    return [...tabConfigs, ...worktreeConfigs];
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildScopeQueryConfig 闭包只读上方 memo 依赖
+  }, [
+    params.defaultVisibleLimit,
+    params.sortBy,
+    params.visibleLimitByWorkspaceKey,
+    params.workspaceTabs,
+    serviceResolverState,
+    taskListVersionByWorkspaceKey,
+    worktreeRegistryEntries,
+  ]);
   const endpointShards = useMemo(() => {
     const shardMap = new Map<
       string,

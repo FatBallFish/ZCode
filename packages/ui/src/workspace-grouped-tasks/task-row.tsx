@@ -9,6 +9,8 @@ import {
   Clock,
   Cloud,
   Folder,
+  GitBranch,
+ 6761feb4 (feat(desktop): Git Worktree 管理（创建/删除/注册表单写者 + 设置页工作树总览 + 会话工作位置与任务链路隔离）)
   ListTree,
   LoaderIcon,
   Moon,
@@ -50,6 +52,7 @@ import {
 import { TaskWorkflowRunLines } from "@/components/workflow-run-line/TaskWorkflowRunLines.js";
 import { useTaskInteractionAutoResolutionSnooze } from "@/hooks/useTaskInteractionAutoResolutionSnooze.js";
 import { useOptionalTabStore } from "@/store/TabStoreProvider.js";
+import { useWorktreeStore } from "@/store/worktreeStore.js";
 import { isWorkspaceReadOnly } from "@/store/tabStore.js";
 import { TaskTitleOverflowText } from "@/components/TaskTitleOverflowText.js";
 
@@ -146,6 +149,10 @@ function GroupedTaskRowComponent({
         )
       : taskAttentionLabel;
   const leadingIndicator = deriveTaskLeadingIndicator(task, taskActivity);
+  // worktree 会话：分组视图行内以分支 icon 标识（specs/desktop/worktrees.md FR-5）。
+  const isWorktreeSession = useWorktreeStore((state) =>
+    state.registryEntries.some((entry) => entry.worktreePath === task.workspacePath),
+  );
   const taskTitle =
     task.title ||
     intl.formatMessage({
@@ -537,6 +544,8 @@ function GroupedTaskRowComponent({
             <TooltipContent side="right" align="center" sideOffset={6}>
               {remoteSessionId ? (
                 <Cloud aria-hidden="true" className="size-3.5 shrink-0" />
+              ) : isWorktreeSession ? (
+                <GitBranch aria-hidden="true" className="size-3.5 shrink-0" />
               ) : (
                 <Folder aria-hidden="true" className="size-3.5 shrink-0" />
               )}
