@@ -51,6 +51,47 @@ test("缺省网格：v1/v2 高度推导行数，其余高度拒绝", () => {
   assert.ok(!bad.ok);
 });
 
+// 2026-10-09 事故回归：上游市场 pet.json 新增 "kind": "character" 元数据键，
+// strict 校验拒绝导致「DeepSeek 娘」安装失败（invalid pet.json: Unrecognized
+// key: "kind"）。Codex 原版 serde 对未知字段静默忽略，三层 schema 改 loose 对齐；
+// 已知字段类型不符仍须整体拒绝。
+test("未知键容忍（含嵌套）；已知字段类型不符仍拒绝", () => {
+  const upstream = normalizePetManifest({
+    manifest: {
+      id: "deepseek-girl--legeling",
+      displayName: "DeepSeek Girl",
+      description: "聪明亲切的蓝鲸少女",
+      spriteVersionNumber: 2,
+      spritesheetPath: "spritesheet.webp",
+      kind: "character",
+    },
+    fallbackId: "deepseek-girl--legeling",
+    sheetWidth: SHEET_W,
+    sheetHeight: PET_V2_SPRITESHEET_HEIGHT,
+  });
+  assert.ok(upstream.ok);
+  assert.equal(upstream.pet.id, "deepseek-girl--legeling");
+
+  const nestedUnknown = normalizePetManifest({
+    manifest: {
+      animations: { idle: { frames: [0, 1], flipX: true }, look: { frames: [72], unknown: 1 } },
+      frame: { width: 192, height: 208, columns: 8, rows: 11, extra: "x" },
+    },
+    fallbackId: "a",
+    sheetWidth: SHEET_W,
+    sheetHeight: PET_V2_SPRITESHEET_HEIGHT,
+  });
+  assert.ok(nestedUnknown.ok);
+
+  const badType = normalizePetManifest({
+    manifest: { id: 123 },
+    fallbackId: "a",
+    sheetWidth: SHEET_W,
+    sheetHeight: PET_V1_SPRITESHEET_HEIGHT,
+  });
+  assert.ok(!badType.ok);
+});
+
 test("spritesheet 路径穿越/绝对路径拒绝；相对子路径放行", () => {
   for (const spritesheetPath of ["../x.webp", "/abs/x.webp", "C:\\x.webp", "a\\b.webp"]) {
     const result = normalizePetManifest({
