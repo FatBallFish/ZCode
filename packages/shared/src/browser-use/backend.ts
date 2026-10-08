@@ -78,3 +78,16 @@ export const browserBackendListResultSchema = z
   .object({ browsers: z.array(browserBackendDescriptorSchema) })
   .strict();
 export type BrowserBackendListResult = z.infer<typeof browserBackendListResultSchema>;
+
+/**
+ * 外部浏览器（external CDP）内置默认配置：不配置任何来源时按默认端口 9333 挂载一个
+ * 实例，实现「零配置可用」。9333 无监听时该实例从发现列表消失，不影响 IAB 与其他实例。
+ * main（解析注入/推送）与 host（env 缺失兜底）共用，避免两处字符串漂移。
+ */
+export const DEFAULT_EXTERNAL_CDP_CONFIGURATION =
+  '{"instances":[{"id":"default","endpoint":"http://127.0.0.1:9333"}]}';
+
+/** main 在 spawn window Host 时注入的外部浏览器实例配置 env（已解析+校验的最终 JSON）。 */
+export const EXTERNAL_CDP_CONFIGURATION_ENV = "MIKIKO_EXTERNAL_CDP";
+/** main 在 spawn window Host 时注入的远控开关 env（"0"=禁止手机远控使用外部浏览器）。 */
+export const EXTERNAL_CDP_REMOTE_CONTROL_ENV = "MIKIKO_EXTERNAL_CDP_REMOTE_CONTROL";

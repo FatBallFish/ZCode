@@ -62,6 +62,10 @@ export function createTuiSubmitPrompt(
   browserUse?: GlobalOptions["browserUse"],
   browserExecutable?: GlobalOptions["browserExecutable"],
   workflowMode: DynamicWorkflowMode = DEFAULT_CLI_WORKFLOW_MODE,
+  externalBrowserOptions: Pick<
+    GlobalOptions,
+    "browserEndpoint" | "browserName" | "browserIdentity" | "browserInstances"
+  > = {},
 ): TuiPromptHandler {
   let app: Awaited<ReturnType<NonNullable<RunDependencies["createZCodeApp"]>>> | undefined;
   let activeUiLocale = uiLocale;
@@ -145,7 +149,10 @@ export function createTuiSubmitPrompt(
       workingDirectory,
     } = await prepareTuiAppRuntime(deps, version, request, processRuntime);
     const providerEndpointRoutingPort = processRuntime.providerEndpointRoutingPort;
-    const browserRuntime = createCliHeadlessBrowserRuntime({ browserExecutable, browserUse }, deps);
+    const browserRuntime = createCliHeadlessBrowserRuntime(
+      { browserExecutable, browserUse, ...externalBrowserOptions },
+      deps,
+    );
     let createdApp: Awaited<ReturnType<NonNullable<RunDependencies["createZCodeApp"]>>>;
     try {
       createdApp = await createAppFactory({

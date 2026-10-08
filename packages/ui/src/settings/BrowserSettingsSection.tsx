@@ -23,6 +23,10 @@ import { invalidateDeferredDraftSessionForSkillChange } from "@/lib/zcodeDraftSk
 import { logger } from "@/logger.js";
 import { startUserAction } from "@/lib/userActionTelemetry.js";
 import { SettingsGroupCard, SettingsRow } from "@/settings/SettingsPageParts.js";
+import {
+  ExternalBrowserInstancesView,
+  ExternalBrowserSettingsSection,
+} from "@/settings/ExternalBrowserSettingsSection.js";
 import { usePluginManagementStore } from "@/store/pluginManagementStore.js";
 import { useSkillStore } from "@/store/skillStore.js";
 import { formatImportSummary } from "./browserImportSummary.js";
@@ -99,6 +103,10 @@ export function BrowserSettingsSection({
   const skillStoreWorkspacePath = useSkillStore((state) => state.workspacePath);
   const skillStoreWorkspaceIdentity = useSkillStore((state) => state.workspaceIdentity);
   const [pendingOperation, setPendingOperation] = useState<BrowserDataOperation>(null);
+  // 外部浏览器实例管理子页：像「新建钩子」一样整页接管设置区，面包屑经 Reporter 上报。
+  const [externalBrowserView, setExternalBrowserView] = useState<"summary" | "instances">(
+    "summary",
+  );
   const [confirmClearAll, setConfirmClearAll] = useState(false);
   const [lastImportResult, setLastImportResult] = useState<ChromeBrowserDataImportResult | null>(
     null,
@@ -242,6 +250,10 @@ export function BrowserSettingsSection({
   const pluginUnavailable = !workspacePath || loading || !browserUsePlugin;
   const operationDisabled = !nativeActionsAvailable;
 
+  if (externalBrowserView === "instances" && isDesktop) {
+    return <ExternalBrowserInstancesView onExit={() => setExternalBrowserView("summary")} />;
+  }
+
   return (
     <div className="space-y-5">
       <section className="space-y-3">
@@ -326,6 +338,11 @@ export function BrowserSettingsSection({
             />
           </SettingsGroupCard>
         </section>
+      ) : null}
+
+      {/* 外部浏览器（external CDP）只在桌面 Host 上生效；配置保存后经 main 热推送，无需重启。 */}
+      {isDesktop ? (
+        <ExternalBrowserSettingsSection onManage={() => setExternalBrowserView("instances")} />
       ) : null}
 
       <section className="space-y-3">
