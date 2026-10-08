@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Worker 单文件入口路由全部云端端点（spec specs/mikiko-cloud/agent-endpoint-plan.md）；拆分会破坏 wrangler 部署映射。 */
 /**
  * Mikiko 自建云端（Cloudflare Worker，spec specs/mikiko-cloud/agent-endpoint-plan.md）。
  *
