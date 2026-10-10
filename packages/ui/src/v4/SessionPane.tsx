@@ -3029,7 +3029,18 @@ export function SessionPane({
         targetWorktreePath = location.worktreePath;
         void worktreeService.touch({ worktreePath: targetWorktreePath }).catch(() => undefined);
       }
-      const modelSelection = options?.submission?.modelSelection;
+      // 与本地首发同构（specs/desktop/worktrees.md「会话配置继承」）：firstInput 携带
+      // 完整 Submission（权限模式/planEnabled/modelSelection），顶层携带草稿先行
+      // config（模型/思考强度/followupMode）。此前只透传 text+modelSelection，导致
+      // 首条 turn 权限回落新 workspace 缺省、会话持久模型/思考强度全部丢失。
+      const submission = options?.submission ?? createSubmissionFromComposer();
+      const draftConfigPayload = buildDraftCreateConfigPayload(
+        {
+          ...draftConfigRef.current,
+          ...(submission ? { modelSelection: submission.modelSelection } : {}),
+        },
+        appFollowupMode,
+      );
       const envelope = createCommandEnvelope({
         type: "createSession",
         sessionId: null,
@@ -3038,8 +3049,9 @@ export function SessionPane({
           workspaceId: targetWorktreePath,
           firstInput: {
             text,
-            ...(modelSelection ? { modelSelection } : {}),
+            ...(submission ? submission : {}),
           },
+          ...draftConfigPayload,
         },
       });
       const ack = await services.zcodeAgentService.sendConversationCommandV4({
@@ -3067,7 +3079,10 @@ export function SessionPane({
       return true;
     },
     [
+      appFollowupMode,
       baseWorkspaceServices,
+      createSubmissionFromComposer,
+      draftConfigRef,
       intl,
       services.worktreeService,
       services.zcodeAgentService,

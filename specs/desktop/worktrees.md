@@ -20,6 +20,8 @@
 - **ref 语义**：用户在草稿分支 chip 里选「起始分支」；未选时取远程默认分支（`symbolic-ref refs/remotes/<remote>/HEAD`，回退 main/master 探测）；fetch 开关开启时先 `git fetch --prune <remote>`（无 remote 静默跳过）。
 - **目录命名**：`<工作树根目录>/<repoName>-<hash4(rootPath)>/<id8>`；id8 = `crypto.randomBytes(4).toString("hex")`，展示用前 4 位（对齐 Codex「036b」风格）。名称≠分支名。
 - **会话根目录 = worktree 目录**：spawn cwd、CLI 会话库（按目录哈希分库）、Git 面板、tasks-index `workspace_path` 全部是 worktree 路径，绝不回落原项目。
+- **未跟踪项目资产物化（2026-10-11）**：`git worktree add` 只检出 git 跟踪文件，本地安装的项目级 `.agents`（含 `skills/`，通常未跟踪）不会出现在新工作树；且工作树建在仓库外（`~/.mikiko/worktrees/...`），CLI 的技能根回溯（至 worktree 根的 `.git` 标记为止）也够不到原项目（用户实测：uem-controller 工作树会话找不到 `ec-dev-ship` 技能）。创建成功后由 WorktreeService 把根项目 `.agents` 目录**递归拷贝**一份进工作树（覆盖 git 检出的旧版本，工作树与根项目一致）。
+- **会话配置继承（2026-10-11）**：工作位置分流不改变配置继承语义——首发 `createSession` 与本地首发同构：`firstInput` 携带完整 Submission（`modelSelection`/`mode`/`planEnabled`），顶层携带草稿先行 `config`（模型/思考强度/followupMode）。此前只透传 `text + modelSelection`，权限模式回落新 workspace 缺省、会话持久模型/思考强度丢失。
 - **根项目 checkout 不被触碰**：新建工作树不 checkout 根工作区。
 - 后续需要分支时，用现有 `createBranchAndSwitch` 在 worktree 内建分支（如 `codex/<slug>`）。
 
@@ -80,10 +82,11 @@ zod 同步加进 `validationAppSettings.ts` 的 object 与 patch 两个 schema�
       → [可选] git fetch --prune <remote>
       → 解析 ref（缺省=远程默认分支）
       → git worktree add --detach <dir> <ref>
+      → 物化未跟踪项目资产：根项目 .agents 递归拷贝进 worktree（best-effort，失败 warn 不阻塞）
       → 注册表写入（串行）
       → 自动清理检查（见下）
   → 成功：ensureWorkspaceTab(worktreePath) + startDraft(worktreePath) + 首条文本经 initialPrompt 通道投递
-  → createSession(workspaceId=worktreeKey)（既有 v4 命令，零协议改动）
+  → createSession(workspaceId=worktreeKey)（既有 v4 命令，零协议改动；payload 含完整 Submission + 草稿 config，见「会话配置继承」）
   → 失败：composer 顶部错误条（本地化标题 + git 原始信息进详情，附「改用本地模式」一键切换），草稿与文本保留
 ```
 
@@ -112,6 +115,7 @@ create 成功后：同根项目注册条目按 lastUsedAt 升序
 - create 失败（非 git 仓库 / git 不可用 / ref 不存在 / 目录已存在）：不写注册表、不建 tab、草稿保留、错误条展示 git 原始信息；host 侧 `log.error` 落盘（含根项目路径），供回查。git 可执行文件缺失与非仓库两种原因分开报错文案。
 - **首发分流失败必须落到 composer 错误横幅**（2026-10-09 修复：`maybeRedirectWorktreeFirstSend` 曾在 `handleSendText` 的 try/catch 之外调用，错误横幅设置点永远不触发，叠加 renderer 生产日志 no-op，用户只看到发送按钮转圈后恢复、零反馈）：pane-local `sendSubmissionError`（code `WORKTREE_FIRST_SEND_FAILED`，标题本地化、git 原始错误进 detail），草稿与文本由 composer 原路径保留。横幅提供「改用本地模式」一键动作：把该根项目草稿工作位置切回 `local` 并关闭横幅，**不自动重发**（用户明确要求隔离环境时静默降级到主工作区有风险，重发由用户手动触发）。
 - fetch 失败（离线等）：**warn 后按本地已有 ref 继续创建**，不阻塞（离线友好；实际起点 ref 与短 SHA 在列表展示）。
+- `.agents` 拷贝失败（权限/磁盘等）：**warn 后不阻塞创建**——git 侧已成功、注册表照常写入；技能缺失可由用户手动补拷，不应连坐整个工作树。源目录不存在视为正常（无项目级技能）直接跳过。
 - 注册表损坏：隔离损坏文件（`.corrupt-<ts>`）后从空表启动（settingService 同款策略）；`git worktree list` 对账时可发现磁盘孤儿（v1 只提示不强收）。
 - 删除时进程存活：直接拒绝（不提供 kill 选项，避免误杀运行中会话）。
 - 多窗口并发写注册表：host 内单写入者串行队列兜底；渲染层缓存以「读时可能滞后」为代价（下次加载点收敛）。
@@ -152,4 +156,6 @@ create 成功后：同根项目注册条目按 lastUsedAt 升序
 10. 手机远控：设置 → Worktrees 可见可操作（本地 attachment）。
 11. 首发分流失败（拔掉 git / 目录不可写模拟）：错误横幅出现（标题本地化、detail 含 git 原始 stderr），「改用本地模式」点击后工作位置 chip 切回本地、横幅关闭、草稿保留；再次发送走本地模式成功。
 12. `rootDir` 写 `~/.mikiko/worktrees`（正斜杠）与 `~\.mikiko\worktrees`（反斜杠）时，worktree 目录都落在用户主目录下而非进程 CWD。
-13. `pnpm typecheck` / `pnpm lint` / `pnpm architecture:check --changed` 通过；新增单测（目录派生、注册表对账、清理资格、settings schema）全绿。
+13. `pnpm typecheck` / `pnpm lint` / `pnpm architecture:check --changed` 通过；新增单测（目录派生、注册表对账、清理资格、settings schema、.agents 物化）全绿。
+14. 根项目存在未跟踪的 `.agents/skills/<skill>` 时新建工作树：`<worktree>/.agents/skills/<skill>` 与根项目一致；根项目无 `.agents` 时创建照常成功；拷贝失败仅 warn、创建仍成功。
+15. 草稿选定权限模式（如 build）/模型/思考强度后经「新建本地工作树」首发：新会话首轮与后续轮次均使用所选配置（模式、模型、思考强度不回落新 workspace 缺省）；起始分支选择弹出层支持搜索过滤（与本地分支切换一致）。

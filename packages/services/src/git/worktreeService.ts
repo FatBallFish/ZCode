@@ -25,6 +25,7 @@ import type { GitCliRepo } from "./repo/gitCliRepo.js";
 import type { GitWorktreeRepo } from "./repo/gitWorktreeRepo.js";
 import type { WorktreeRegistry } from "./worktreeRegistry.js";
 import { generateWorktreeId } from "./worktreeRegistry.js";
+import { copyRootAgentsDir } from "./worktreeProjectAssets.js";
 import type { IWorktreeService } from "./worktree.js";
 
 const log = createServiceLogger("worktree");
@@ -252,6 +253,7 @@ export function createWorktreeService(options: CreateWorktreeServiceOptions): IW
       id,
     });
     await worktreeRepo.addDetachedWorktree(resolution.repoRoot, worktreePath, actualRef);
+    await copyRootAgentsDir(normalizedRoot, worktreePath);
     const now = new Date().toISOString();
     const entry: WorktreeRegistryEntry = {
       id,
