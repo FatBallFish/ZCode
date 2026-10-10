@@ -278,8 +278,7 @@ export type VoiceSessionStartError =
   | "model-not-found"
   | "download-failed"
   | "arch-unsupported"
-  | "engine-error"
-  | "mic-in-use";
+  | "engine-error";
 
 export type VoiceSessionStartResult =
   | { ok: true; sessionId: string; modelId: string }

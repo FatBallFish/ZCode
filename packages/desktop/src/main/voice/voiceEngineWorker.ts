@@ -18,6 +18,10 @@ import type { VoiceModelKind } from "@zcode/shared";
 import type { VoiceEngineCommand, VoiceEngineEvent } from "./voiceEngineProtocol.js";
 
 const SAMPLE_RATE = 16_000;
+/** silero VAD 的窗口步长：acceptWaveform 单次调用不会完整消化任意长度的输入
+ * （官方 JS 示例按 windowSize 逐块喂入；整帧直喂会以远低于实时的速度消费，
+ * 语音段永远无法按时闭合——实测 1s 静音单次喂入不触发分段，按 512 分块喂入即可）。 */
+const VAD_WINDOW_SIZE = 512;
 
 interface OfflineSegmentRecord {
   text: string;
@@ -38,6 +42,8 @@ let vad: SherpaVad | null = null;
 
 let seq = 0;
 let offlineSession: OfflineSessionState = { segments: [], totalSamples: 0 };
+/** 上次向 main 发出的 partial 文本（变化才发，避免静默期每帧重复事件）。 */
+let lastEmittedPartial = "";
 /** 流式 partial 文本的空格衔接由 getResult 内部维护，无需额外状态。 */
 
 function post(event: VoiceEngineEvent): void {
@@ -49,18 +55,31 @@ function fail(message: string): void {
 }
 
 /** 剥离 SenseVoice 情绪/事件标记（<|laugh|> 等），并把全大写英文归一为小写。
- * SenseVoice 英文输出恒为全大写；仅在文本以拉丁大写为主时逐词（≥2 字母）小写，
- * 避免误伤正常大小写混排与其他模型输出。 */
+ * SenseVoice 英文输出恒为全大写；仅当文本里的拉丁字母 100% 为大写（≥8 个）时逐词（≥2 字母）
+ * 小写——正常大小写混排（含 NASA API 一类缩写混在句中）不受影响。 */
 function normalizeTranscriptText(raw: string): string {
   let text = raw.replace(/<\|[^|>]*\|>/g, "");
   const latinLetters = text.replace(/[^A-Za-z]/g, "");
   if (latinLetters.length >= 8) {
     const upperLetters = latinLetters.replace(/[^A-Z]/g, "").length;
-    if (upperLetters / latinLetters.length > 0.7) {
+    if (upperLetters === latinLetters.length) {
       text = text.replace(/[A-Z]{2,}/g, (word) => word.toLowerCase());
     }
   }
   return text.replace(/\s+/g, " ").trim();
+}
+
+/** 跨 VAD 分段拼接：相邻段都是拉丁字母/数字边界时补一个空格，
+ * 否则英文/中英混说跨段会被直接粘连（"hello world" + "this is" → "hello worldthis is"）。 */
+function joinSegmentTexts(segments: OfflineSegmentRecord[]): string {
+  let text = "";
+  for (const segment of segments) {
+    if (text.length > 0 && /[A-Za-z0-9]$/.test(text) && /^[A-Za-z0-9]/.test(segment.text)) {
+      text += " ";
+    }
+    text += segment.text;
+  }
+  return text;
 }
 
 function buildOfflineRecognizer(
@@ -132,8 +151,13 @@ function handleOfflineFeed(samples: Float32Array): void {
   offlineSession.totalSamples += samples.length;
   if (vad) {
     // silero VAD 内部按 windowSize(512) 步进；一次喂入分多窗处理，segment 就绪即出。
-    vad.acceptWaveform(samples);
-    drainVadSegments(offlineSession);
+    // 按 VAD 窗口分块喂入（见 VAD_WINDOW_SIZE 注释），每块处理后即尝试收割已闭合分段。
+    for (let offset = 0; offset < samples.length; offset += VAD_WINDOW_SIZE) {
+      vad.acceptWaveform(
+        samples.subarray(offset, Math.min(offset + VAD_WINDOW_SIZE, samples.length)),
+      );
+      drainVadSegments(offlineSession);
+    }
   } else {
     // 无 VAD 兜底：整段缓冲，finish 时一次性识别（不应发生：requiresVad 模型加载时已校验）。
     const text = recognizeOfflineSamples(samples);
@@ -145,11 +169,12 @@ function handleOfflineFeed(samples: Float32Array): void {
       });
     }
   }
-  post({
-    type: "partial",
-    seq,
-    text: offlineSession.segments.map((segment) => segment.text).join(""),
-  });
+  // 文本变化才发 partial：静默期每 100ms 的 feed 不产生无意义的重复事件与重渲。
+  const partialText = joinSegmentTexts(offlineSession.segments);
+  if (partialText !== lastEmittedPartial) {
+    lastEmittedPartial = partialText;
+    post({ type: "partial", seq, text: partialText });
+  }
 }
 
 function handleOfflineFinish(): void {
@@ -158,7 +183,7 @@ function handleOfflineFinish(): void {
     vad.flush();
     drainVadSegments(offlineSession);
   }
-  const text = offlineSession.segments.map((segment) => segment.text).join("");
+  const text = joinSegmentTexts(offlineSession.segments);
   post({
     type: "final",
     seq,
@@ -176,11 +201,11 @@ function handleOnlineFeed(samples: Float32Array): void {
   while (onlineRecognizer.isReady(onlineStream)) {
     onlineRecognizer.decode(onlineStream);
   }
-  post({
-    type: "partial",
-    seq,
-    text: normalizeTranscriptText(onlineRecognizer.getResult(onlineStream).text),
-  });
+  const partialText = normalizeTranscriptText(onlineRecognizer.getResult(onlineStream).text);
+  if (partialText !== lastEmittedPartial) {
+    lastEmittedPartial = partialText;
+    post({ type: "partial", seq, text: partialText });
+  }
 }
 
 function handleOnlineFinish(): void {
@@ -203,6 +228,7 @@ function handleOnlineFinish(): void {
 function resetSession(): void {
   seq += 1;
   offlineSession = { segments: [], totalSamples: 0 };
+  lastEmittedPartial = "";
   if (vad) {
     vad.reset();
     vad.clear();

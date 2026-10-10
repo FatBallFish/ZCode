@@ -131,9 +131,11 @@ utilityProcess 内运行 `voiceEngineWorker.js`：
 - main→worker（`postMessage`）：`{type:"load", modelType, modelDir, vadModelPath, numThreads}` / `{type:"feed", sessionId, samples: Float32Array(transfer)}` / `{type:"finish", sessionId}` / `{type:"reset", sessionId}` / `{type:"dispose"}`
 - worker→main（`process.parentPort` message）：`{type:"loaded", ...}` / `{type:"partial", sessionId, text}` / `{type:"final", sessionId, text, segments}` / `{type:"error", message}` / `{type:"unloaded"}`
 - worker 内部：
-  - `senseVoice` / `qwen3Asr`：`Vad`（silero，windowSize 512）滑动分段；每收满一段（speech segment）跑 `OfflineRecognizer.decode`，产出该段文本 → `partial`（累计文本 = 已完成段拼接）；`finish` 时 flush 尾段 + 全段重拼为 `final`。
-  - `zipformer`（OnlineRecognizer transducer）：feed 即 decode/poll partial；`finish` 收尾。
-  - 情绪/事件标记剥离：`text.replace(/<\|[^|]+\|>/g, "")`。
+  - `senseVoice` / `qwen3Asr`：`Vad`（silero，windowSize 512）滑动分段；每收满一段（speech segment）跑 `OfflineRecognizer.decode`，产出该段文本 → `partial`（累计文本 = 已完成段拼接，**文本变化才发**，静默期不刷）；`finish` 时 flush 尾段 + 全段重拼为 `final`。
+  - **VAD 喂入必须按 windowSize(512) 分块**：`acceptWaveform` 单次调用不会完整消化任意长度输入（实测 1s 静音整帧一次喂入不触发分段、按 512 分块喂入正常；整帧直喂会让 VAD 以远低于实时的速度消费，语音段永远无法按时闭合——曾导致 partial 完全不出字，只有 finish 的 flush 兜底）。IPC 帧长（100ms/1600 采样）与 VAD 消费粒度解耦：worker 内统一重切块。
+  - 跨段拼接：相邻段以拉丁字母/数字相接时补一个空格（"hello world" + "this is" 不粘连）；中文直接连接。
+  - `zipformer`（OnlineRecognizer transducer）：feed 即 decode/poll partial（文本变化才发）；`finish` 收尾。
+  - 情绪/事件标记剥离：`text.replace(/<\|[^|]+\|>/g, "")`；SenseVoice 全大写英文仅在文本拉丁字母 100% 大写时逐词小写（混排缩写不受影响）。
 - 加载耗时与线程：`numThreads = max(1, min(4, cpus-2))`。
 
 ## 6. 生命周期与资源
@@ -150,7 +152,7 @@ utilityProcess 内运行 `voiceEngineWorker.js`：
 1. 无麦克风/权限拒绝：`getUserMedia` 失败 → preparing 失败，浮窗错误条「麦克风不可用」。
 2. 下载失败（断网/校验失败）：保留 `.part` 临时文件机制（下载到 `<file>.part`，校验通过后 rename），失败清理；可重试。
 3. Windows arm64：模型清单标记不可用，start 返回 `arch-unsupported`。
-4. 活动会话期间第二个入口（快捷键/另一窗口）：main 返回 `busy`——同一窗口的 toggle 语义在 renderer 层短路（store 状态已 listening 时 stop），跨窗口由 main busy 兜底，浮窗不弹。
+4. 活动会话期间第二个入口（快捷键/另一窗口）：main 返回 `busy`——同一窗口的 toggle 语义在 renderer 层短路（store 状态已 listening 时 stop）；跨窗口由 main busy 兜底，后触发窗口的浮窗短暂显示「忙碌」错误后自动关闭（约 3s；比无反馈更友好）。`startSession` 在 main 侧整体串行化：busy 判定与 activeSession 赋值之间隔着下载/引擎加载等多个 await，串行链 + 复检彻底关死双 worker 竞态。
 5. 语义整理模型未配置/连接不可用：回填原始文案（整理失败同路径）。
 6. 快捷键冲突：交给现有快捷键冲突检测；`voiceInput` 出现在快捷键设置页命令表，可改绑。
 7. 录音超长：VAD 分段天然分块；单会话不设上限，转录内存为文本累计（可接受）。

@@ -27,22 +27,26 @@ export function isVoiceTranscriptAppendEvent(
   return event.type === VOICE_TRANSCRIPT_APPEND_EVENT;
 }
 
-/** 追加到输入框末尾并聚焦；保持受控 text 状态与草稿持久化同步（同 add-to-chat 模式）。 */
+/** 追加到输入框末尾并聚焦；保持受控 text 状态与编辑器内容一致（同 add-to-chat 模式）。
+ * Lexical 的 appendEditorPlainText 追加到末段并按需补一个空格、不支持段内换行 ——
+ * 这里把转录折叠为单行并镜像同一空格规则，markdown 状态与编辑器不漂移。 */
 export function appendVoiceTranscriptToComposer(params: {
   inputApiRef: MutableRefObject<LexicalChatInputHandle | null>;
   currentMarkdown: string;
   text: string;
   onTextChange: (text: string) => void;
 }): string {
-  const trimmed = params.text.trim();
-  if (trimmed.length === 0) return params.currentMarkdown;
+  const collapsed = params.text
+    .trim()
+    .replace(/\s*\n+\s*/g, " ")
+    .trim();
+  if (collapsed.length === 0) return params.currentMarkdown;
   const separator =
-    params.currentMarkdown.length > 0 && !/\s$/.test(params.currentMarkdown) ? "\n" : "";
-  const appended = `${trimmed}\n`;
-  const nextText = `${params.currentMarkdown}${separator}${appended}`;
+    params.currentMarkdown.length > 0 && !/\s$/.test(params.currentMarkdown) ? " " : "";
+  const nextText = `${params.currentMarkdown}${separator}${collapsed}`;
 
   params.onTextChange(nextText);
-  params.inputApiRef.current?.appendText(`${separator}${appended}`);
+  params.inputApiRef.current?.appendText(collapsed);
   params.inputApiRef.current?.focus();
   return nextText;
 }

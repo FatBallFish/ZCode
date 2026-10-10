@@ -2005,14 +2005,18 @@ const zhCN: Record<string, string> = {
   "settings.voiceInput.model.sensevoice-int8.tag": "推荐",
   "settings.voiceInput.model.sensevoice-int8.description":
     "默认模型。中英（含粤语/日/韩）识别快而准，自带标点；低配设备也流畅。",
+  "settings.voiceInput.model.sensevoice-int8.license":
+    "来源 FunAudioLLM/SenseVoice（FunASR 模型开源许可 v1.1，商用需保留模型署名）。",
   "settings.voiceInput.model.zipformer-bilingual-int8.name": "Zipformer 双语流式",
   "settings.voiceInput.model.zipformer-bilingual-int8.tag": "低占用",
   "settings.voiceInput.model.zipformer-bilingual-int8.description":
     "体积极小的真流式模型，边说边连续出字；准确率略低于默认模型，适合低配设备。",
+  "settings.voiceInput.model.zipformer-bilingual-int8.license": "来源 k2-fsa（Apache-2.0）。",
   "settings.voiceInput.model.qwen3-asr-0.6b-int8.name": "Qwen3-ASR 0.6B",
   "settings.voiceInput.model.qwen3-asr-0.6b-int8.tag": "高精度",
   "settings.voiceInput.model.qwen3-asr-0.6b-int8.description":
     "可选下载。30 语种 + 22 种中文方言，中文准确率显著领先；体积与内存占用较大。",
+  "settings.voiceInput.model.qwen3-asr-0.6b-int8.license": "来源 Qwen（Apache-2.0）。",
   "settings.voiceInput.download.action": "下载",
   "settings.voiceInput.download.retry": "重试",
   "settings.voiceInput.download.failed": "模型下载失败，请检查网络后重试。",

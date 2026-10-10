@@ -42,7 +42,11 @@ export function registerVoiceIpc(options: { service: DesktopVoiceService }): voi
   });
 
   ipcMain.handle(PlatformChannels.VoiceStartSession, (event, payload?: { modelId?: string }) => {
-    if (payload !== undefined && typeof payload !== "object") {
+    if (
+      payload !== undefined &&
+      (typeof payload !== "object" ||
+        (payload.modelId !== undefined && typeof payload.modelId !== "string"))
+    ) {
       return { ok: false as const, error: "model-not-found" as const };
     }
     return service.startSession(toEventSink(event.sender), { modelId: payload?.modelId });

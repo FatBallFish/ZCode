@@ -19,11 +19,6 @@ function waveBarMotion(index: number) {
   return { duration, delay };
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)}MB`;
-  return `${Math.max(1, Math.round(bytes / 1024))}KB`;
-}
-
 export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
   const { intl } = useZCodeIntl();
   const phase = useVoiceInputStore((state) => state.phase);
@@ -47,11 +42,13 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
   useEffect(() => {
     if (phase !== "preparing" && phase !== "listening") return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        cancel();
-      }
+      if (event.key !== "Escape") return;
+      // 对话框/弹层打开时 ESC 属于它们（关闭弹层而不是取消录音）。
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[role="dialog"], [data-radix-popper-content-wrapper]')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      cancel();
     };
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
@@ -67,7 +64,7 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
       );
       statusText = intl.formatMessage(
         { id: "voice.overlay.status.downloading" },
-        { file: formatBytes(downloadProgress.receivedBytes), percent },
+        { file: downloadProgress.activeFile, percent },
       );
     } else if (engineLoading) {
       statusText = intl.formatMessage({ id: "voice.overlay.status.engineLoading" });
