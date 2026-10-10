@@ -152,6 +152,12 @@ import type { CodeViewerSource } from "@/lib/codeViewer.js";
 import { useConversationSelectionReferences } from "@/v4/composer/useConversationSelectionReferences.js";
 import { ConversationBackgroundWorkTrigger } from "@/v4/composer/ConversationBackgroundWorkTrigger.js";
 import { V4ComposerCuaEntry } from "@/v4/composer/V4ComposerCuaEntry.js";
+import { ComposerVoiceInputButton } from "@/voice/ComposerVoiceInputButton.js";
+import {
+  appendVoiceTranscriptToComposer,
+  isVoiceTranscriptAppendEvent,
+  VOICE_TRANSCRIPT_APPEND_EVENT,
+} from "@/voice/voiceTranscript.js";
 import {
   V4ComposerModeSwitch,
   V4ComposerModelControls,
@@ -1603,6 +1609,28 @@ function ConversationComposerImpl({
     };
   }, [listenAddToChatEvents, updateText, workspaceIdentity, workspacePath]);
 
+  // ── 语音转录回填事件（voice controller 广播）→ 追加到输入框末尾并聚焦 ──
+  // 与「加入对话」同构：仅聚焦 composer 消费，追加语义不破坏已有草稿（specs/desktop/voice-input.md）。
+  useEffect(() => {
+    if (!listenAddToChatEvents || typeof window === "undefined") {
+      return;
+    }
+    const handleVoiceTranscriptAppend = (event: Event) => {
+      if (!isVoiceTranscriptAppendEvent(event)) return;
+      event.preventDefault();
+      appendVoiceTranscriptToComposer({
+        inputApiRef,
+        currentMarkdown: inputApiRef.current?.getMarkdown() ?? textRef.current,
+        text: event.detail.text,
+        onTextChange: updateText,
+      });
+    };
+    window.addEventListener(VOICE_TRANSCRIPT_APPEND_EVENT, handleVoiceTranscriptAppend);
+    return () => {
+      window.removeEventListener(VOICE_TRANSCRIPT_APPEND_EVENT, handleVoiceTranscriptAppend);
+    };
+  }, [listenAddToChatEvents, updateText]);
+
   // 动态 placeholder（旧 chatViewPlaceholder 语义）：无历史 → newTask；
   // 有历史空闲 → followUpAsk；有历史处理中 → followUpQueue。
   const placeholder = intl.formatMessage({
@@ -2165,6 +2193,8 @@ function ConversationComposerImpl({
           remoteSessionId={remoteSessionId}
           currentSessionBusy={canStop}
         />
+        {/* 语音输入入口（specs/desktop/voice-input.md）：桌面限定、入口自判定平台能力。 */}
+        <ComposerVoiceInputButton disabled={disabled} />
         <ConversationBackgroundWorkTrigger
           backgroundWorks={snapshot?.backgroundWorks ?? []}
           runningSubagentCount={runningSubagentCount}

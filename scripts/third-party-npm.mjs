@@ -12,6 +12,10 @@ const unsupportedCanvas = new Set([
   "@napi-rs/canvas-linux-arm-gnueabihf",
   "@napi-rs/canvas-linux-riscv64-gnu",
 ]);
+// sherpa-onnx-node 的平台 optional 包按安装机架构裁剪（pnpm 尊重 os/cpu 约束），
+// 与 @napi-rs/canvas 同理不进「缺装」门禁；打进安装包的平台子包由
+// desktop-native-package-policy.mjs 按目标平台另行裁剪。
+const platformOptionalAllowlist = new Set([...unsupportedCanvas, "sherpa-onnx-win-ia32"]);
 const noticeName =
   /(?:^|[._-])(?:licen[sc]es?|copying|notice|copyright|unlicense|third.party|ofl)(?:[._-]|$)/iu;
 
@@ -69,7 +73,7 @@ export function assertProductionGraphs(lockedProjects, installedProjects) {
   const locked = productionPackages(lockedProjects);
   const installed = productionPackages(installedProjects);
   const missing = [...locked].filter(
-    ([key, item]) => !installed.has(key) && !unsupportedCanvas.has(item.name),
+    ([key, item]) => !installed.has(key) && !platformOptionalAllowlist.has(item.name),
   );
   const stale = [...installed.keys()].filter((key) => !locked.has(key));
   if (missing.length || stale.length) {
@@ -152,7 +156,7 @@ export async function scanInstalledPackages(root, projects) {
 export function missingProductionPackages(required, installed) {
   const missing = [...required].filter(([key]) => !installed.has(key)).map(([, item]) => item);
   for (const item of missing) {
-    if (!unsupportedCanvas.has(item.name))
+    if (!platformOptionalAllowlist.has(item.name))
       throw new Error(`Missing installed dependency: ${item.name}@${item.version}`);
   }
   return missing;

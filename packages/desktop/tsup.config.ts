@@ -270,4 +270,21 @@ export default defineConfig([
     onSuccess: createDevReadyMarkerHook("scheduler"),
     ...desktopTsupBundleSecurityOptions,
   },
+  {
+    // 语音引擎 worker（specs/desktop/voice-input.md）：utilityProcess 加载。
+    // CJS 是硬约束：sherpa-onnx-node 按平台名动态 require（sherpa-onnx-<platform>-<arch>），
+    // ESM bundle 无法承载动态 require；外部依赖仅保留该原生包。
+    name: "voiceWorker",
+    entry: { "main/voiceEngineWorker": "src/main/voice/voiceEngineWorker.ts" },
+    outDir: "out",
+    format: "cjs",
+    platform: "node",
+    target: "node22",
+    external: ["sherpa-onnx-node"],
+    outExtension: () => ({ js: ".cjs" }),
+    esbuildOptions(options) {
+      applyDesktopTsupEsbuildSecurityOptions(options);
+    },
+    ...desktopTsupBundleSecurityOptions,
+  },
 ]);

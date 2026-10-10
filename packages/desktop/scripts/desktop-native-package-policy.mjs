@@ -7,6 +7,25 @@ const SUPPORTED_DESKTOP_PLATFORM_KEYS = [
   "win32-x64",
 ];
 
+// sherpa-onnx-node 的平台子包命名（win32-* 无对应上游 arm64 包，值见 SHERPA_ONNX_UNSUPPORTED）。
+const SHERPA_ONNX_PLATFORM_BY_TARGET = {
+  "darwin-arm64": "darwin-arm64",
+  "darwin-x64": "darwin-x64",
+  "linux-arm64": "linux-arm64",
+  "linux-x64": "linux-x64",
+  "win32-x64": "win-x64",
+  "win32-arm64": null,
+};
+
+const SHERPA_ONNX_PLATFORM_PACKAGES = [
+  "sherpa-onnx-darwin-arm64",
+  "sherpa-onnx-darwin-x64",
+  "sherpa-onnx-linux-arm64",
+  "sherpa-onnx-linux-x64",
+  "sherpa-onnx-win-x64",
+  "sherpa-onnx-win-ia32",
+];
+
 function assertSupportedTargetPlatformKey(targetPlatformKey) {
   if (!SUPPORTED_DESKTOP_PLATFORM_KEYS.includes(targetPlatformKey)) {
     throw new Error(`不支持的桌面目标平台: ${targetPlatformKey}`);
@@ -15,6 +34,7 @@ function assertSupportedTargetPlatformKey(targetPlatformKey) {
 
 export function createDesktopNativePackagePrunePatterns(targetPlatformKey) {
   assertSupportedTargetPlatformKey(targetPlatformKey);
+  const targetSherpaPlatform = SHERPA_ONNX_PLATFORM_BY_TARGET[targetPlatformKey];
 
   return [
     // PDF 预览已经由 Vite 打进 renderer，pdfjs-dist 的 Canvas optional dependency
@@ -29,6 +49,11 @@ export function createDesktopNativePackagePrunePatterns(targetPlatformKey) {
     ...SUPPORTED_DESKTOP_PLATFORM_KEYS.filter((key) => key !== targetPlatformKey).map(
       (key) => `!node_modules/node-pty/prebuilds/${key}/**`,
     ),
+    // sherpa-onnx 语音引擎：只保留目标平台子包（win32-arm64 无上游包，全部裁剪；
+    // 运行时由 VoiceService 的 arch-unsupported 分支兜底）。
+    ...SHERPA_ONNX_PLATFORM_PACKAGES.filter(
+      (packageName) => packageName !== `sherpa-onnx-${targetSherpaPlatform}`,
+    ).map((packageName) => `!node_modules/${packageName}/**`),
   ];
 }
 
@@ -88,6 +113,16 @@ export function findDesktopNativePackageViolations(entries, targetPlatformKey) {
     const nodePtyPrebuildMatch = /^\/node_modules\/node-pty\/prebuilds\/([^/]+)/.exec(path);
     if (nodePtyPrebuildMatch && nodePtyPrebuildMatch[1] !== targetPlatformKey) {
       violations.push(`node-pty 包含非目标平台 prebuild: ${path}`);
+      continue;
+    }
+
+    const sherpaPlatformMatch = /^\/node_modules\/(sherpa-onnx-[a-z0-9-]+)\//.exec(path);
+    if (
+      sherpaPlatformMatch &&
+      SHERPA_ONNX_PLATFORM_PACKAGES.includes(sherpaPlatformMatch[1]) &&
+      sherpaPlatformMatch[1] !== `sherpa-onnx-${SHERPA_ONNX_PLATFORM_BY_TARGET[targetPlatformKey]}`
+    ) {
+      violations.push(`sherpa-onnx 包含非目标平台子包: ${path}`);
       continue;
     }
 

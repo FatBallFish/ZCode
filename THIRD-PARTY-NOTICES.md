@@ -2088,6 +2088,18 @@ Original copyright, license and NOTICE text is retained below. Identical text is
 
 - shell-quote@1.8.3 — MIT
 
+- sherpa-onnx-darwin-arm64@1.13.8 — Apache-2.0
+
+- sherpa-onnx-darwin-x64@1.13.8 — Apache-2.0
+
+- sherpa-onnx-linux-arm64@1.13.8 — Apache-2.0
+
+- sherpa-onnx-linux-x64@1.13.8 — Apache-2.0
+
+- sherpa-onnx-node@1.13.8 — Apache-2.0
+
+- sherpa-onnx-win-x64@1.13.8 — Apache-2.0
+
 - shiki@3.23.0 — MIT
 
 - shiki@4.0.2 — MIT
@@ -3219,6 +3231,18 @@ SOFTWARE.
 - chevrotain@12.0.0: LICENSE.txt
 
 - long@5.3.2: LICENSE
+
+- sherpa-onnx-darwin-arm64@1.13.8: https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE
+
+- sherpa-onnx-darwin-x64@1.13.8: https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE
+
+- sherpa-onnx-linux-arm64@1.13.8: https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE
+
+- sherpa-onnx-linux-x64@1.13.8: https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE
+
+- sherpa-onnx-node@1.13.8: https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE
+
+- sherpa-onnx-win-x64@1.13.8: https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE
 
 - sumchecker@3.0.1: LICENSE
 

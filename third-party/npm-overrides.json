@@ -507,5 +507,41 @@
     "source": "https://registry.npmjs.org/%40arms%2frum-electron%400.0.3",
     "evidenceKind": "publisher-license-identifier-and-standard-terms",
     "license": "MIT"
+  },
+  {
+    "package": "sherpa-onnx-node@1.13.8",
+    "file": "third-party/upstream/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "source": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE"
+  },
+  {
+    "package": "sherpa-onnx-darwin-arm64@1.13.8",
+    "file": "third-party/upstream/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "source": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE"
+  },
+  {
+    "package": "sherpa-onnx-darwin-x64@1.13.8",
+    "file": "third-party/upstream/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "source": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE"
+  },
+  {
+    "package": "sherpa-onnx-linux-arm64@1.13.8",
+    "file": "third-party/upstream/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "source": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE"
+  },
+  {
+    "package": "sherpa-onnx-linux-x64@1.13.8",
+    "file": "third-party/upstream/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "source": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE"
+  },
+  {
+    "package": "sherpa-onnx-win-x64@1.13.8",
+    "file": "third-party/upstream/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "source": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE"
   }
 ]

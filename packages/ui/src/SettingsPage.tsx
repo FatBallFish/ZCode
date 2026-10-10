@@ -75,6 +75,7 @@ import { BrowserSettingsSection } from "@/settings/BrowserSettingsSection.js";
 import { WorktreesSection } from "@/settings/WorktreesSection.js";
 import { ArchivedSessionsSection } from "@/settings/ArchivedSessionsSection.js";
 import { PetSettingsSection } from "@/settings/PetSettingsSection.js";
+import { VoiceInputSettingsSection } from "@/settings/VoiceInputSettingsSection.js";
 import { ComputerUseSection } from "@/settings/ComputerUseSection.js";
 import { ShortcutSettingsSection } from "@/settings/ShortcutSettingsSection.js";
 import { MigrationSection } from "@/settings/MigrationSection.js";
@@ -1949,6 +1950,8 @@ export function SettingsPage({
                           />
                         ) : activeSection === "pet" ? (
                           <PetSettingsSection isDesktop={Boolean(isDesktop)} />
+                        ) : activeSection === "voiceInput" ? (
+                          <VoiceInputSettingsSection isDesktop={Boolean(isDesktop)} />
                         ) : activeSection === "browser" ? (
                           <BrowserSettingsSection
                             isDesktop={Boolean(isDesktop)}

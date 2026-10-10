@@ -160,6 +160,7 @@ import {
   resolveBundledGlmBinaryPath,
   resolveRemoteAssetDirs,
   resolveZCodeEndpointEnvBaseOrigin,
+  voiceEngineWorkerModulePath,
   desktopRuntimeEnv,
   runtimeApplicationName,
   runtimeHomePath,
@@ -266,6 +267,8 @@ import { createPetBubbleWindow } from "./desktopPetBubble.js";
 import { readWebpSize, mergePetSessionSummaries, type PetSessionSummary } from "@zcode/shared";
 import { createPetMarketService } from "./desktopPetMarketService.js";
 import { registerPetMarketIpc } from "./desktopPetIpc.js";
+import { createVoiceService, type DesktopVoiceService } from "./voice/desktopVoiceService.js";
+import { registerVoiceIpc, spawnVoiceEngineWorker } from "./voice/desktopVoiceIpc.js";
 
 registerLocalMediaPreviewScheme(protocol);
 registerPetPackScheme(protocol);
@@ -696,6 +699,8 @@ const windowsCuaOperationIndicator = createWindowsCuaOperationIndicator({
 
 // 常驻 cron scheduler 进程句柄；app ready 后拉起，退出前销毁。
 let cronScheduler: CronSchedulerHandle | null = null;
+// 语音服务句柄（specs/desktop/voice-input.md）；App ready 后构造，退出前销毁引擎 worker。
+let voiceService: DesktopVoiceService | null = null;
 // host → main 的定时任务派发结果，转交给 scheduler 结算。经模块变量转发以避免 spawn 顺序耦合。
 function forwardCronRunResult(
   result: Parameters<CronSchedulerHandle["handleCronRunResult"]>[0],
@@ -1164,6 +1169,9 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
   stopDesktopZCodeDataSizeTelemetry();
   stopDesktopNetworkTelemetry();
   stopRemoteUsageArmsPeriodicSampling();
+  // 语音引擎 worker：会话状态无需收敛（录音不落盘），杀进程即释放模型内存。
+  voiceService?.dispose();
+  voiceService = null;
   disposeRendererActionTraceIpc?.();
   disposeRendererActionTraceIpc = undefined;
   notifyStabilityAppExit(
@@ -2238,6 +2246,16 @@ app.whenReady().then(async () => {
     },
   });
   registerPetMarketIpc({ market: petMarket });
+
+  // 语音输入（specs/desktop/voice-input.md）：VoiceService 懒加载引擎 worker，
+  // App 启动零语音开销；模型文件在 getAppConfigDir()/voice-models 下按需下载。
+  voiceService = createVoiceService({
+    modelsRootDir: join(getAppConfigDir(), "voice-models"),
+    workerModulePath: voiceEngineWorkerModulePath,
+    logger,
+    spawnWorker: spawnVoiceEngineWorker,
+  });
+  registerVoiceIpc({ service: voiceService });
   // 首次使用预置官方内置宠物（本地无任何宠物时才动作；失败静默，不影响启动）。
   void petMarket
     .ensureBuiltinPets()
