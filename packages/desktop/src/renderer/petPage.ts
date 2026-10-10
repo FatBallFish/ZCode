@@ -1,10 +1,12 @@
 import type { ActivePetView } from "@zcode/shared";
-import { createPetAnimator, dragAnimationName } from "@zcode/shared";
+import { PET_CLICK_THRESHOLD_PX, createPetAnimator } from "@zcode/shared";
 
 /**
  * 宠物窗口页面（vanilla，无 React）：canvas 逐帧绘制 petpack:// 图集；
- * 拖拽经 preload 增量上报 main；点击播放 waving；右键弹 main 菜单。
- * 交互细节：pointerdown→pointerup 位移小于阈值视为点击；拖拽中按方向切换跑动动作。
+ * 拖拽为锚点式——pointerdown 上报 main 接管移动，pointerup 取回累计位移判定点击；
+ * 方向动画由 main 推送。点击播放 waving；右键弹 main 菜单。
+ * 交互细节：移动与方向判定都不在页面侧计算（screenX/Y 在混合 DPI 多屏下与
+ * main 坐标系不一致，曾导致跨屏错位与松手后触碰瞬闪）。
  */
 
 interface DesktopPetBridge {
@@ -12,7 +14,8 @@ interface DesktopPetBridge {
     view: ActivePetView;
     state: "idle" | "running" | "waiting" | "failed" | "review";
   } | null>;
-  dragMove(delta: { dx: number; dy: number }): void;
+  dragStart(): void;
+  dragEnd(): Promise<{ movedPx: number }>;
   contextMenu(): void;
   openApp(): void;
   onState(
@@ -20,6 +23,7 @@ interface DesktopPetBridge {
       state: "idle" | "running" | "waiting" | "failed" | "review" | "waving";
     }) => void,
   ): () => void;
+  onDragDirection(callback: (event: { direction: string }) => void): () => void;
 }
 
 declare global {
@@ -29,22 +33,15 @@ declare global {
 }
 
 const FRAME_ANIMATION_INTERVAL_MS = 16;
-const CLICK_THRESHOLD_PX = 6;
 const LOOK_INTERVAL_MIN_MS = 20_000;
 const LOOK_INTERVAL_JITTER_MS = 20_000;
 
 const bridge = window.desktopPet;
 const canvas = document.getElementById("stage") as HTMLCanvasElement | null;
 
+/** 拖拽会话只保留 pointer 身份：移动真值与方向判定都在 main。 */
 interface DragSession {
   pointerId: number;
-  lastScreenX: number;
-  lastScreenY: number;
-  movedPx: number;
-  lastDirectionAt: number;
-  lastDirection: string | undefined;
-  pendingDirection: string | undefined;
-  pendingDistancePx: number;
 }
 
 async function main() {
@@ -125,92 +122,60 @@ async function main() {
     animator.play(event.state);
   });
 
+  // main 迟滞判定后推送的跑动方向（左右/竖直 running）。
+  const disposeDragDirection = bridge.onDragDirection((event) => {
+    animator.play(event.direction);
+  });
+
   canvas.addEventListener("pointerdown", (event) => {
     // 只有主键（左键）可以开始拖拽：右键按下会弹菜单，菜单吞掉 pointerup，
     // 拖拽会话悬空表现为"宠物一直跟着鼠标走，直到再点一次左键"。
     if (event.button !== 0) return;
     canvas.setPointerCapture(event.pointerId);
-    dragging = {
-      pointerId: event.pointerId,
-      lastScreenX: event.screenX,
-      lastScreenY: event.screenY,
-      movedPx: 0,
-      lastDirectionAt: 0,
-      lastDirection: undefined,
-      pendingDirection: undefined,
-      pendingDistancePx: 0,
-    };
+    dragging = { pointerId: event.pointerId };
     document.body.classList.add("dragging");
-  });
-  canvas.addEventListener("pointermove", (event) => {
-    if (!dragging || event.pointerId !== dragging.pointerId) return;
-    // 增量必须用屏幕全局坐标：窗口本身随鼠标移动，视口坐标（clientX/Y）下鼠标
-    // 位置几乎不变，宠物只能靠事件残差推进（跟不上鼠标 + 残差噪声抖动方向）。
-    // screenX/Y 与 main setPosition 同为全局 DIP 坐标系，逐事件增量即真实鼠标位移。
-    const dx = event.screenX - dragging.lastScreenX;
-    const dy = event.screenY - dragging.lastScreenY;
-    dragging.lastScreenX = event.screenX;
-    dragging.lastScreenY = event.screenY;
-    if (dx === 0 && dy === 0) return;
-    const step = Math.hypot(dx, dy);
-    dragging.movedPx += step;
-    bridge.dragMove({ dx, dy });
-    if (dragging.movedPx > CLICK_THRESHOLD_PX) {
-      // 方向切换带迟滞：新方向累计 ≥16px（或单次 ≥20px 快速甩动）且距上次切换
-      // ≥200ms 才切动画；斜向漂移/手抖不会在左右动画间来回闪。
-      const direction = dragAnimationName(dx, dy);
-      if (direction === dragging.lastDirection) {
-        dragging.pendingDirection = undefined;
-        dragging.pendingDistancePx = 0;
-      } else {
-        if (direction === dragging.pendingDirection) {
-          dragging.pendingDistancePx += step;
-        } else {
-          dragging.pendingDirection = direction;
-          dragging.pendingDistancePx = step;
-        }
-        const now = performance.now();
-        if (
-          (dragging.pendingDistancePx >= 16 || step >= 20) &&
-          now - dragging.lastDirectionAt >= 200
-        ) {
-          dragging.lastDirection = direction;
-          dragging.lastDirectionAt = now;
-          dragging.pendingDirection = undefined;
-          dragging.pendingDistancePx = 0;
-          animator.play(direction);
-        }
-      }
-    }
+    bridge.dragStart();
   });
   const endDrag = (event: PointerEvent) => {
     if (!dragging || event.pointerId !== dragging.pointerId) return;
-    const wasClick = dragging.movedPx <= CLICK_THRESHOLD_PX;
     dragging = undefined;
     document.body.classList.remove("dragging");
-    if (wasClick) {
-      const now = performance.now();
-      // 双击（400ms 内两次有效点击）→ 唤起 App 主窗口；单击仍播放挥手。
-      if (now - lastClickAt < 400) {
-        bridge.openApp();
-        lastClickAt = 0;
-      } else {
-        lastClickAt = now;
-        animator.play("waving");
-        scheduleSteadyRestore(3200);
+    void (async () => {
+      // main 侧实际应用位移的累计是点击判定唯一真值：页面侧 screenX 在混合 DPI
+      // 多屏下可能产生假增量（点击被误判成拖拽）；IPC 失败保守按拖拽处理。
+      let movedPx = Number.POSITIVE_INFINITY;
+      try {
+        movedPx = (await bridge.dragEnd()).movedPx;
+      } catch {
+        // 保留默认 Infinity：不触发点击动作。
       }
-    } else {
-      // 拖拽结束回稳态（会话进行中保持 waiting/running 等，不强制 idle）。
-      animator.play(lastSteadyState);
-    }
+      if (movedPx <= PET_CLICK_THRESHOLD_PX) {
+        const now = performance.now();
+        // 双击（400ms 内两次有效点击）→ 唤起 App 主窗口；单击仍播放挥手。
+        if (now - lastClickAt < 400) {
+          bridge.openApp();
+          lastClickAt = 0;
+        } else {
+          lastClickAt = now;
+          animator.play("waving");
+          scheduleSteadyRestore(3200);
+        }
+      } else {
+        // 拖拽结束回稳态（会话进行中保持 waiting/running 等，不强制 idle）。
+        animator.play(lastSteadyState);
+      }
+    })();
   };
   canvas.addEventListener("pointerup", endDrag);
   canvas.addEventListener("pointercancel", endDrag);
+  // 防御：pointerup 被吞（系统菜单/窗口失活）时 capture 丢失也能终止拖拽。
+  canvas.addEventListener("lostpointercapture", endDrag);
   canvas.addEventListener("contextmenu", (event) => {
     event.preventDefault();
     // 右键弹菜单前终止任何在途拖拽会话（防御：菜单会吞掉后续 pointer 事件）。
     dragging = undefined;
     document.body.classList.remove("dragging");
+    void bridge.dragEnd().catch(() => undefined);
     bridge.contextMenu();
   });
 
@@ -219,6 +184,7 @@ async function main() {
     clearInterval(lookLoop);
     if (steadyRestoreTimer) clearTimeout(steadyRestoreTimer);
     disposeState();
+    disposeDragDirection();
   });
 }
 

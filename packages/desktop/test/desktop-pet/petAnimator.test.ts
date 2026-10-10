@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizePetManifest } from "@zcode/shared";
-import { createPetAnimator, dragAnimationName } from "@zcode/shared";
+import {
+  PET_CLICK_THRESHOLD_PX,
+  createPetAnimator,
+  createPetDragDirectionTracker,
+  dragAnimationName,
+} from "@zcode/shared";
 
 /** 宠物动画引擎：帧推进/循环/一次性动作回落 fallback/拖拽方向映射。 */
 
@@ -67,4 +72,41 @@ test("拖拽方向映射：水平优先；竖直上/下统一循环 running", ()
   assert.equal(dragAnimationName(0, 5), "running");
   assert.equal(dragAnimationName(0, -5), "running", "竖直向上不用一次性 jumping");
   assert.equal(dragAnimationName(1, 10), "running");
+});
+
+// 2026-10-11 拖拽重构：方向迟滞迁到 main（按实际应用位移判定），语义与旧宠物页
+// 一致——总位移 ≤ 点击阈值不判方向；新方向累计 ≥16px（或单步 ≥20px）且距上次
+// 切换 ≥200ms 才切换；同方向持续不重复触发。
+test("拖拽方向追踪：点击级位移不判方向；迟滞与间隔生效", () => {
+  // 时间用 performance.now()/Date.now() 量级：lastDirectionAt 初始为 0，
+  // 首次切换天然满足「距上次切换 ≥200ms」。
+  const t0 = 60_000;
+  const tracker = createPetDragDirectionTracker();
+  assert.equal(tracker.push(3, 0, t0), undefined, "总位移 ≤6px 不判方向");
+  assert.equal(tracker.push(3, 0, t0 + 10), undefined);
+  assert.equal(tracker.movedPx, PET_CLICK_THRESHOLD_PX, "恰好等于阈值仍不判（严格大于才判）");
+  // 累计 16px 同方向 → 切换 running-right。
+  assert.equal(tracker.push(20, 0, t0 + 100), "running-right", "单步 ≥20px 立即切换");
+  // 同方向继续推进不重复触发。
+  assert.equal(tracker.push(30, 0, t0 + 200), undefined);
+  // 反向但距上次切换 <200ms：不切换。
+  assert.equal(tracker.push(-20, 0, t0 + 250), undefined, "间隔不足 200ms 不切换");
+  // 反向且间隔足够 → 切换 running-left。
+  assert.equal(tracker.push(-20, 0, t0 + 400), "running-left");
+  // 小幅抖动（<16px 累计）不足以切换方向。
+  assert.equal(tracker.push(5, 0, t0 + 600), undefined);
+  assert.equal(tracker.push(5, 0, t0 + 700), undefined);
+  assert.equal(tracker.push(5, 0, t0 + 800), undefined, "累计 15px <16px 且单步 <20px 不切换");
+  assert.equal(tracker.push(5, 0, t0 + 900), "running-right", "累计 ≥16px 且间隔足够则切换");
+  // clamp 边缘零位移：只累计 0，不产生方向。
+  const clamped = createPetDragDirectionTracker();
+  clamped.push(20, 0, t0);
+  assert.equal(clamped.push(0, 0, t0 + 100), undefined);
+  assert.equal(clamped.push(0, 0, t0 + 200), undefined);
+});
+
+test("拖拽方向追踪：movedPx 累计 hypot，供点击判定", () => {
+  const tracker = createPetDragDirectionTracker();
+  tracker.push(3, 4, 0);
+  assert.equal(tracker.movedPx, 5);
 });

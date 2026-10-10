@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { BrowserWindow, Menu, app, ipcMain, protocol, screen } from "electron";
 import type { MenuItemConstructorOptions } from "electron";
 import {
+  DESKTOP_PET_DRAG_DIRECTION_CHANNEL,
   DESKTOP_PET_STATE_CHANNEL,
   PlatformChannels,
   normalizePetManifest,
@@ -14,6 +15,7 @@ import {
   type PetSessionSummary,
 } from "@zcode/shared";
 import type { PetBubbleWindowController } from "./desktopPetBubble.js";
+import { createPetDragController, type PetDragController } from "./desktopPetDragController.js";
 import type { PetMarketService } from "./desktopPetMarketService.js";
 
 /**
@@ -309,6 +311,8 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
       if (bounds) deps.bubble.reposition(bounds);
     });
     petWindow.on("closed", () => {
+      // 拖拽循环持有窗口引用，窗口销毁（切宠/禁用）时必须同步停止。
+      dragController.stop();
       petWindow = null;
       deps.bubble.hide();
     });
@@ -318,6 +322,7 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
   };
 
   const destroyWindow = () => {
+    dragController.stop();
     if (petWindow && !petWindow.isDestroyed()) petWindow.destroy();
     petWindow = null;
     deps.bubble.hide();
@@ -334,33 +339,30 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
     return { view, state: lastDerivedState };
   });
 
-  ipcMain.on(PlatformChannels.PetDragMove, (event, payload: { dx: number; dy: number }) => {
-    if (!isPetWindowSender(event.sender) || !petWindow || petWindow.isDestroyed()) return;
-    if (!Number.isFinite(payload?.dx) || !Number.isFinite(payload?.dy)) return;
-    const [x, y] = petWindow.getPosition();
-    const next = clampIntoWorkArea(
-      { x: x + Math.round(payload.dx), y: y + Math.round(payload.dy) },
-      windowSize,
-    );
-    // 混合 DPI 漂移的兜底：正常路径只挪位置；发现尺寸已被系统建议矩形改大时，
-    // 一步 setBounds 同时纠位置与尺寸，缩短"一边拖一边放大"的可见窗口期
-    // （resize 监听是最终防线，这里让高频拖拽帧内即时纠正）。
-    const [width, height] = petWindow.getSize();
-    if (width !== windowSize.width || height !== windowSize.height) {
-      petWindow.setBounds({
-        x: next.x,
-        y: next.y,
-        width: windowSize.width,
-        height: windowSize.height,
-      });
-    } else {
-      petWindow.setPosition(next.x, next.y, false);
-    }
-    // 程序化 setPosition 在部分平台不触发 moved 事件；拖拽路径自行驱动持久化。
-    persistPositionSoon();
-    // 气泡跟随宠物拖拽（bounds 用夹取后的真实窗口位置）。
-    const bounds = petWindow.getBounds();
-    deps.bubble.reposition(bounds);
+  // —— 拖拽（锚点式，desktopPetDragController.ts）：移动真值唯一所有者在 main，
+  // renderer 只上报开始/结束（screenX/Y 在混合 DPI 多屏下与 main 坐标系不一致，
+  // 不再参与移动；细节见控制器文件头注释与 spec 拖拽一节）。——
+  const dragController: PetDragController = createPetDragController({
+    getPetWindow: () => petWindow,
+    windowSize,
+    clampIntoWorkArea,
+    persistPositionSoon,
+    repositionBubble: (bounds) => deps.bubble.reposition(bounds),
+    sendDragDirection: (direction) => {
+      if (petWindow && !petWindow.isDestroyed()) {
+        petWindow.webContents.send(DESKTOP_PET_DRAG_DIRECTION_CHANNEL, { direction });
+      }
+    },
+  });
+
+  ipcMain.on(PlatformChannels.PetDragStart, (event) => {
+    if (!isPetWindowSender(event.sender)) return;
+    dragController.start();
+  });
+
+  ipcMain.handle(PlatformChannels.PetDragEnd, (event) => {
+    if (!isPetWindowSender(event.sender)) return { movedPx: 0 };
+    return dragController.end();
   });
 
   ipcMain.on(PlatformChannels.PetContextMenu, (event) => {
