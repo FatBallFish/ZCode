@@ -307,6 +307,13 @@ export const DESKTOP_PET_STATE_CHANNEL = "zcode:desktop-pet-state";
 /** 宠物稳态（一次性 waving 之外的派生态；PetGetActive 初始化用）。 */
 export type DesktopPetSteadyState = Exclude<DesktopPetStateEvent["state"], "waving">;
 
+/** 拖拽方向推送（main → pet 页面；main 侧迟滞判定后仅在切换时发送）。 */
+export interface DesktopPetDragDirectionEvent {
+  direction: string;
+}
+
+export const DESKTOP_PET_DRAG_DIRECTION_CHANNEL = "zcode:desktop-pet-drag-direction";
+
 // ---------------------------------------------------------------------------
 // 会话状态气泡（host → main 聚合 → 气泡窗口）
 // ---------------------------------------------------------------------------

@@ -73,6 +73,68 @@ export function dragAnimationName(dx: number, dy: number): string {
   return "running";
 }
 
+/** 点击判定阈值：按下→抬起累计位移不超过该值视为点击（waving/双击唤起）。 */
+export const PET_CLICK_THRESHOLD_PX = 6;
+/** 拖拽方向迟滞（specs/desktop/desktop-pet.md 拖拽一节）：新方向累计 ≥16px
+ * （或单步 ≥20px 快速甩动）且距上次切换 ≥200ms 才切换动画；斜向漂移/手抖
+ * 不会在左右动画间来回闪。 */
+const DRAG_DIRECTION_ACCUMULATE_PX = 16;
+const DRAG_DIRECTION_SINGLE_STEP_PX = 20;
+const DRAG_DIRECTION_SWITCH_INTERVAL_MS = 200;
+
+export interface PetDragDirectionTracker {
+  /** 喂入一帧实际应用位移（clamp 后）；返回本次切换到的动作名（未切换返回 undefined）。 */
+  push(dx: number, dy: number, nowMs: number): string | undefined;
+  /** 累计位移（px）：PetDragEnd 返回给页面判定点击。 */
+  readonly movedPx: number;
+}
+
+/** 拖拽方向迟滞追踪（main 侧随每帧 setBounds 喂入实际位移；2026-10-11 从宠物页
+ * 迁来——方向判定需要真实位移，页面侧 screenX 在混合 DPI 多屏下不可靠）。 */
+export function createPetDragDirectionTracker(): PetDragDirectionTracker {
+  let movedPx = 0;
+  let lastDirection: string | undefined;
+  let pendingDirection: string | undefined;
+  let pendingDistancePx = 0;
+  let lastDirectionAt = 0;
+
+  return {
+    get movedPx() {
+      return movedPx;
+    },
+    push(dx, dy, nowMs) {
+      const step = Math.hypot(dx, dy);
+      if (step === 0) return undefined;
+      movedPx += step;
+      if (movedPx <= PET_CLICK_THRESHOLD_PX) return undefined;
+      const direction = dragAnimationName(dx, dy);
+      if (direction === lastDirection) {
+        pendingDirection = undefined;
+        pendingDistancePx = 0;
+        return undefined;
+      }
+      if (direction === pendingDirection) {
+        pendingDistancePx += step;
+      } else {
+        pendingDirection = direction;
+        pendingDistancePx = step;
+      }
+      if (
+        (pendingDistancePx >= DRAG_DIRECTION_ACCUMULATE_PX ||
+          step >= DRAG_DIRECTION_SINGLE_STEP_PX) &&
+        nowMs - lastDirectionAt >= DRAG_DIRECTION_SWITCH_INTERVAL_MS
+      ) {
+        lastDirection = direction;
+        lastDirectionAt = nowMs;
+        pendingDirection = undefined;
+        pendingDistancePx = 0;
+        return direction;
+      }
+      return undefined;
+    },
+  };
+}
+
 /** 按运行态事件映射动作（agent running / 问候 waving / 默认 idle）。 */
 export function stateAnimationName(state: "idle" | "running" | "waving"): string {
   return state;

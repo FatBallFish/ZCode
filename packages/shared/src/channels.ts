@@ -506,7 +506,10 @@ export const PlatformChannels = {
   PetMarketPreview: "zcode:pet:market-preview",
   PetImportFromCodex: "zcode:pet:import-codex",
   PetGetActive: "zcode:pet:get-active",
-  PetDragMove: "zcode:pet:drag-move",
+  /** 宠物页 → Main：开始拖拽（main 记录锚点并接管移动；锚点式 60Hz 驱动） */
+  PetDragStart: "zcode:pet:drag-start",
+  /** 宠物页 → Main：结束拖拽（invoke；返回 main 侧累计位移供点击判定） */
+  PetDragEnd: "zcode:pet:drag-end",
   PetContextMenu: "zcode:pet:context-menu",
   PetGetInstalledPreview: "zcode:pet:installed-preview",
   /** 宠物会话气泡（preload/desktopPetBubble）→ Main：点击某条会话，跳转主窗口 */
@@ -1401,9 +1404,13 @@ export interface PlatformChannelMap {
       state: import("./pets.js").DesktopPetStateEvent["state"];
     } | null;
   };
-  [PlatformChannels.PetDragMove]: {
-    request: { dx: number; dy: number };
+  [PlatformChannels.PetDragStart]: {
+    request: void;
     response: void;
+  };
+  [PlatformChannels.PetDragEnd]: {
+    request: void;
+    response: { movedPx: number };
   };
   [PlatformChannels.PetContextMenu]: {
     request: void;
