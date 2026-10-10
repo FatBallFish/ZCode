@@ -101,6 +101,8 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
   const downloadErrors = new Map<string, string>();
   const lastUsedAt = new Map<string, number>();
   let engine: LoadedEngine | null = null;
+  /** 正在加载的 worker（engine 赋值前的句柄；load 失败/中断时必须 kill，防孤儿进程）。 */
+  let loadingEngineChild: VoiceEngineChildProcess | null = null;
   let engineLoadWaiter: {
     resolve: () => void;
     reject: (error: Error) => void;
@@ -276,33 +278,45 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
         : { ok: false, message: downloadErrors.get(modelId) ?? "download failed" };
     }
 
-    const artifacts: Array<{ file: VoiceModelFile; rootDir: string }> = [];
-    if (manifest.requiresVad && !(await fileReady(vadDir(), VOICE_VAD_ARTIFACT))) {
-      artifacts.push({ file: VOICE_VAD_ARTIFACT, rootDir: vadDir() });
-    }
-    for (const file of manifest.files) {
-      if (!(await fileReady(modelDir(modelId), file))) {
-        artifacts.push({ file, rootDir: modelDir(modelId) });
-      }
-    }
-    if (artifacts.length === 0) {
-      downloadErrors.delete(modelId);
-      return { ok: true };
-    }
-
-    const totalBytes = artifacts.reduce((sum, item) => sum + item.file.sizeBytes, 0);
+    // 同步占位再扫描：并发调用在 fileReady 的 await 间隙里也会看到 downloading 态，
+    // 避免「先完成方把后注册方刚写入的进度条目删掉」的双重注册窗口。
+    const fullTotalBytes =
+      manifest.files.reduce((sum, file) => sum + file.sizeBytes, 0) +
+      (manifest.requiresVad ? VOICE_VAD_ARTIFACT.sizeBytes : 0);
     const state = {
       receivedBytes: 0,
-      totalBytes,
-      activeFile: artifacts[0]!.file.path,
+      totalBytes: fullTotalBytes,
+      activeFile: manifest.files[0]!.path,
       promise: null as unknown as Promise<void>,
     };
     downloading.set(modelId, state);
     downloadErrors.delete(modelId);
     emitSnapshot();
 
+    const artifacts: Array<{ file: VoiceModelFile; rootDir: string }> = [];
+    if (manifest.requiresVad && !(await fileReady(vadDir(), VOICE_VAD_ARTIFACT))) {
+      artifacts.push({ file: VOICE_VAD_ARTIFACT, rootDir: vadDir() });
+    }
+    let alreadyPresentBytes = 0;
+    for (const file of manifest.files) {
+      if (await fileReady(modelDir(modelId), file)) {
+        alreadyPresentBytes += file.sizeBytes;
+      } else {
+        artifacts.push({ file, rootDir: modelDir(modelId) });
+      }
+    }
+    if (artifacts.length === 0) {
+      downloading.delete(modelId);
+      emitSnapshot();
+      return { ok: true };
+    }
+
+    state.totalBytes =
+      alreadyPresentBytes + artifacts.reduce((sum, item) => sum + item.file.sizeBytes, 0);
+    state.receivedBytes = alreadyPresentBytes;
+
     let lastEmit = 0;
-    let baseBytes = 0;
+    let baseBytes = alreadyPresentBytes;
     const promise = enqueueDownload(async () => {
       for (const item of artifacts) {
         state.activeFile = item.file.path;
@@ -362,20 +376,24 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
       engineLoadWaiter.reject(new Error(`engine load interrupted: ${reason}`));
       engineLoadWaiter = null;
     }
-    if (!engine) return;
+    // 加载中的 child 也必须 kill：否则 load 失败后 worker 继续加载模型成为孤儿进程。
+    const target = engine?.child ?? loadingEngineChild;
+    if (!target && !engine) return;
     try {
-      engine.child.postMessage({ type: "dispose" });
-      engine.child.kill();
+      target?.postMessage({ type: "dispose" });
+      target?.kill();
     } catch (error) {
       logger.warn(`[voice] 引擎 worker 退出异常：${(error as Error)?.message ?? error}`);
     }
     engine = null;
+    loadingEngineChild = null;
     logger.info(`[voice] 引擎 worker 已卸载（${reason}）`);
     emitSnapshot();
   }
 
   function handleEngineEvent(event: VoiceEngineEvent): void {
-    // loaded 在引擎赋值前到达（engine 于 load 完成后才赋值），必须先于 engine 判空处理。
+    // loaded / error 都可能在引擎赋值前到达（engine 于 load 完成后才赋值），
+    // 必须先于 engine 判空处理：error 否则只能等满 120s 超时。
     if (event.type === "loaded") {
       if (engineLoadWaiter) {
         clearTimeout(engineLoadWaiter.timer);
@@ -385,18 +403,36 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
       }
       return;
     }
+    if (event.type === "error" && !engine) {
+      if (engineLoadWaiter) {
+        clearTimeout(engineLoadWaiter.timer);
+        const waiter = engineLoadWaiter;
+        engineLoadWaiter = null;
+        waiter.reject(new Error(event.message));
+      }
+      return;
+    }
     const current = engine;
     if (!current) return;
     if (event.type === "error") {
       logger.error(`[voice] 引擎错误：${event.message}`);
       const waiter = activeSession?.finishWaiter;
+      if (activeSession) {
+        emitSessionEvent(activeSession.sessionId, { kind: "error", message: event.message });
+      }
       if (waiter) {
         clearTimeout(waiter.timer);
         waiter.resolve({ ok: false, error: event.message });
       }
       if (activeSession) {
-        emitSessionEvent(activeSession.sessionId, { kind: "error", message: event.message });
+        // 引擎报错后 worker 不一定退出，但该会话已不可继续：立即清理并复位 worker，
+        // 否则 activeSession 悬置会让后续 start 永远 busy。
+        clearActiveSession();
+        current.child.postMessage({ type: "reset" });
+        current.workerSeq += 1;
+        current.used = false;
       }
+      scheduleIdleUnload();
       return;
     }
     if (!activeSession) return;
@@ -443,19 +479,21 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
     if (!manifest) throw new Error(`未知模型：${modelId}`);
 
     const child = spawnWorker(workerModulePath);
-    let loadingChild = child;
+    loadingEngineChild = child;
     child.on("message", (message) => {
       handleEngineEvent(message as VoiceEngineEvent);
     });
     child.on("exit", () => {
-      // 加载期退出：engine 尚未赋值，靠 loadingChild 判定，立即失败而非等满超时。
-      const wasLoading = engineLoadWaiter && loadingChild === child;
+      // 加载期退出：engine 尚未赋值，靠 loadingEngineChild 判定，立即失败而非等满超时。
+      const wasLoading = engineLoadWaiter && loadingEngineChild === child;
       if (wasLoading) {
         clearTimeout(engineLoadWaiter.timer);
         engineLoadWaiter.reject(new Error("engine worker exited during load"));
         engineLoadWaiter = null;
       }
-      loadingChild = null;
+      if (loadingEngineChild === child) {
+        loadingEngineChild = null;
+      }
       const wasCurrent = engine?.child === child;
       if (wasCurrent) {
         engine = null;
@@ -499,6 +537,9 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
     });
 
     engine = { child, modelId, workerSeq: 1, used: false };
+    if (loadingEngineChild === child) {
+      loadingEngineChild = null;
+    }
     logger.info(`[voice] 引擎已加载：${modelId}`);
     emitSnapshot();
   }
@@ -528,7 +569,22 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
     return { ok: true };
   }
 
-  async function startSession(
+  /** startSession 串行化：busy 检查与 activeSession 赋值之间隔着下载/引擎加载等多个 await，
+   * 并发进入会让两路都通过 busy 门（双 worker + waiter 单槽被覆盖）。串行链彻底关死该窗口。 */
+  let startSessionChain: Promise<unknown> = Promise.resolve();
+  function startSession(
+    sender: VoiceEventSink,
+    input: { modelId?: string },
+  ): Promise<VoiceSessionStartResult> {
+    const run = startSessionChain.then(
+      () => doStartSession(sender, input),
+      () => doStartSession(sender, input),
+    );
+    startSessionChain = run.catch(() => undefined);
+    return run;
+  }
+
+  async function doStartSession(
     sender: VoiceEventSink,
     input: { modelId?: string },
   ): Promise<VoiceSessionStartResult> {
@@ -540,7 +596,12 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
 
     clearIdleTimer();
     const install = await ensureModelInstalled(modelId);
-    if (!install.ok) return { ok: false, error: "download-failed", message: install.message };
+    if (!install.ok) {
+      // 下载失败路径也要恢复空闲卸载排程，否则已加载的旧引擎从此常驻。
+      scheduleIdleUnload();
+      return { ok: false, error: "download-failed", message: install.message };
+    }
+    if (activeSession) return { ok: false, error: "busy" };
 
     emitSessionEventForSender(sender, { kind: "engine-loading", modelId });
     try {
@@ -549,6 +610,7 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
       scheduleIdleUnload();
       return { ok: false, error: "engine-error", message: (error as Error).message };
     }
+    if (activeSession) return { ok: false, error: "busy" };
 
     const sessionId = `voice-${now().toString(36)}-${randomUUID().slice(0, 8)}`;
     activeSession = {

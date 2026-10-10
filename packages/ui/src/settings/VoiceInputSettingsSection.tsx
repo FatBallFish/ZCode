@@ -121,12 +121,18 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
           toast(result.error ?? intl.formatMessage({ id: "settings.voiceInput.delete.failed" }));
           return;
         }
+        // 删除的是当前选中模型时回落默认，避免「选中但未安装」的悬空选择。
+        if (selectedModelId === modelId) {
+          await update({
+            voiceInputModelId: DEFAULT_VOICE_MODEL_ID,
+          } satisfies Partial<AppSettings>);
+        }
         refreshSnapshot();
       } catch (error) {
         logger.warn("[voice-settings] delete failed", { error: String(error) });
       }
     },
-    [intl, platform, refreshSnapshot],
+    [intl, platform, refreshSnapshot, selectedModelId, update],
   );
 
   const handleUnloadEngine = useCallback(async () => {
@@ -262,6 +268,11 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
                   {intl.formatMessage({
                     id: `settings.voiceInput.model.${manifest.id}.description`,
                   })}
+                  <span className="ml-1 text-fg-subtlest">
+                    {intl.formatMessage({
+                      id: `settings.voiceInput.model.${manifest.id}.license`,
+                    })}
+                  </span>
                 </div>
                 <div className="pl-6 flex flex-wrap gap-x-4 gap-y-1 text-ui-xs text-fg-subtlest">
                   <span>

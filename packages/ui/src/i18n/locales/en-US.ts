@@ -2482,14 +2482,18 @@ const enUS: Record<string, string> = {
   "settings.voiceInput.model.sensevoice-int8.tag": "Recommended",
   "settings.voiceInput.model.sensevoice-int8.description":
     "Default model. Fast and accurate Chinese/English (plus Cantonese/Japanese/Korean) with punctuation; runs well on low-end devices.",
+  "settings.voiceInput.model.sensevoice-int8.license":
+    "Source: FunAudioLLM/SenseVoice (FunASR Model Open Source License v1.1; attribution required for commercial use).",
   "settings.voiceInput.model.zipformer-bilingual-int8.name": "Zipformer Bilingual Streaming",
   "settings.voiceInput.model.zipformer-bilingual-int8.tag": "Lightweight",
   "settings.voiceInput.model.zipformer-bilingual-int8.description":
     "Tiny true-streaming model that transcribes continuously while you speak; slightly less accurate than the default, great for low-end devices.",
+  "settings.voiceInput.model.zipformer-bilingual-int8.license": "Source: k2-fsa (Apache-2.0).",
   "settings.voiceInput.model.qwen3-asr-0.6b-int8.name": "Qwen3-ASR 0.6B",
   "settings.voiceInput.model.qwen3-asr-0.6b-int8.tag": "High accuracy",
   "settings.voiceInput.model.qwen3-asr-0.6b-int8.description":
     "Optional download. 30 languages and 22 Chinese dialects with leading Chinese accuracy; larger download and memory footprint.",
+  "settings.voiceInput.model.qwen3-asr-0.6b-int8.license": "Source: Qwen (Apache-2.0).",
   "settings.voiceInput.download.action": "Download",
   "settings.voiceInput.download.retry": "Retry",
   "settings.voiceInput.download.failed": "Model download failed. Check your network and retry.",

@@ -242,6 +242,8 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
 
   const begin = async () => {
     if (phaseRef.current !== "idle") return;
+    // 防御：上一生命周期若异常残留采集（理论上不该发生），先关掉再开新的。
+    stopMic();
     const { platform: currentPlatform } = latest.current;
     if (!currentPlatform.voiceStartSession || !currentPlatform.voiceFeedAudio) {
       failWith("voice.error.unsupported");
@@ -282,16 +284,16 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
       );
 
     if (!sessionResult.ok) {
-      stopMic();
+      // 麦克风可能仍在授权/启动中：等它落定后立即关闭，否则系统麦克风指示灯常开。
       const micError = await Promise.resolve(micPromise);
       void micError;
+      stopMic();
       const keyByError: Record<string, string> = {
         busy: "voice.error.busy",
         "model-not-found": "voice.error.engine",
         "download-failed": "voice.error.download",
         "arch-unsupported": "voice.error.arch",
         "engine-error": "voice.error.engine",
-        "mic-in-use": "voice.error.busy",
       };
       failWith(keyByError[sessionResult.error] ?? "voice.error.engine", sessionResult.message);
       return;
@@ -397,7 +399,11 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
       // engine-loading 事件在 sessionId 分配前发出（空 id），直接消费。
       if (sessionId && state.sessionId && sessionId !== state.sessionId) return;
       if (event.kind === "engine-loading") {
-        useVoiceInputStore.setState({ engineLoading: true });
+        // engine-loading 在 sessionId 分配前发出（空 id）；仅本控制器发起的 preparing 阶段消费，
+        // 避免 main 广播误置其他窗口/空闲态的 engineLoading。
+        if (phaseRef.current === "preparing" && state.modelId === event.modelId) {
+          useVoiceInputStore.setState({ engineLoading: true });
+        }
       } else if (event.kind === "listening") {
         if (phaseRef.current === "preparing" || phaseRef.current === "listening") {
           useVoiceInputStore.setState({ engineLoading: false });
@@ -409,8 +415,13 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
         }
       } else if (event.kind === "error") {
         if (phaseRef.current === "preparing" || phaseRef.current === "listening") {
+          const session = sessionRef.current;
           stopMic();
           sessionRef.current = null;
+          // main 侧引擎错误会自清理会话；这里补发 cancel 兜底旧版本/竞态残留。
+          if (session) {
+            latest.current.platform.voiceCancelSession?.(session.sessionId).catch(() => undefined);
+          }
           failWith("voice.error.engine", event.message);
         }
       }

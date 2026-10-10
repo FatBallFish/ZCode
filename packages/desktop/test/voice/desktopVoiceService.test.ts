@@ -8,16 +8,18 @@ import { VOICE_VAD_ARTIFACT, findVoiceModelManifest } from "@zcode/shared";
 import { createVoiceService } from "../../src/main/voice/desktopVoiceService.js";
 
 /** 可编程假 worker：记录 main 下发的命令，测试侧注入 worker 事件。
- * 收到 load 命令自动回 loaded 握手（真实 worker 同步行为），避免 startSession 挂起。 */
+ * autoLoad=true 时收到 load 命令自动回 loaded 握手（真实 worker 行为）；
+ * manualLoad 场景（加载期错误/退出）由测试自行注入事件。 */
 class FakeWorker {
   commands: Array<Record<string, unknown> & { type: string }> = [];
   killed = false;
+  autoLoad = true;
   private listeners = new Map<string, Array<(arg: unknown) => void>>();
 
   postMessage(message: unknown): void {
     const command = message as Record<string, unknown> & { type: string };
     this.commands.push(command);
-    if (command.type === "load") {
+    if (command.type === "load" && this.autoLoad) {
       queueMicrotask(() => this.emit("message", { type: "loaded", modelType: command.modelType }));
     }
   }
@@ -54,20 +56,25 @@ interface Harness {
 async function createHarness(options?: {
   fetchFn?: typeof globalThis.fetch;
   idleUnloadMs?: number;
+  engineLoadTimeoutMs?: number;
+  manualLoad?: boolean;
 }): Promise<Harness> {
   const modelsRoot = await mkdtemp(join(tmpdir(), "zcode-voice-test-"));
   const workers: FakeWorker[] = [];
+  const manualLoad = options?.manualLoad === true;
   const service = createVoiceService({
     modelsRootDir: modelsRoot,
     workerModulePath: "/virtual/voiceEngineWorker.cjs",
     logger: { info: () => {}, warn: () => {}, error: () => {} },
     spawnWorker: () => {
       const worker = new FakeWorker();
+      worker.autoLoad = !manualLoad;
       workers.push(worker);
       return worker;
     },
     ...(options?.fetchFn ? { fetchFn: options.fetchFn } : {}),
     ...(options?.idleUnloadMs ? { idleUnloadMs: options.idleUnloadMs } : {}),
+    ...(options?.engineLoadTimeoutMs ? { engineLoadTimeoutMs: options.engineLoadTimeoutMs } : {}),
   });
   const sessionEvents: Harness["sessionEvents"] = [];
   const sender: Harness["sender"] = {
@@ -269,4 +276,66 @@ test("未知模型：start 返回 model-not-found", async (t) => {
   t.after(() => harness.dispose());
   const start = await harness.service.startSession(harness.sender, { modelId: "not-a-model" });
   assert.deepEqual(start, { ok: false, error: "model-not-found" });
+});
+
+test("加载期 worker 报错：立即 engine-error 且 worker 被 kill（无孤儿进程）", async (t) => {
+  const harness = await createHarness({ engineLoadTimeoutMs: 60_000, manualLoad: true });
+  t.after(() => harness.dispose());
+  await materializeModel(harness.modelsRoot, "sensevoice-int8");
+  const startPromise = harness.service.startSession(harness.sender, {});
+  // 等待 load 命令下发后注入 worker 错误（不等 loaded）。
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const worker = harness.workers[0]!;
+  assert.ok(worker.lastCommand("load"));
+  worker.emit("message", { type: "error", message: "boom" });
+  const start = await startPromise;
+  assert.equal(start.ok, false);
+  if (!start.ok) {
+    assert.equal(start.error, "engine-error");
+    assert.match(start.message ?? "", /boom/);
+  }
+  assert.equal(worker.killed, true);
+});
+
+test("并发 startSession：串行化后第二个返回 busy（无双 worker）", async (t) => {
+  const harness = await createHarness();
+  t.after(() => harness.dispose());
+  await materializeModel(harness.modelsRoot, "sensevoice-int8");
+  const [first, second] = await Promise.all([
+    harness.service.startSession(harness.sender, {}),
+    harness.service.startSession(harness.sender, {}),
+  ]);
+  const oks = [first, second].filter((result) => result.ok).length;
+  assert.equal(oks, 1);
+  assert.equal(harness.workers.length, 1);
+  assert.deepEqual(
+    [first, second].find((result) => !result.ok),
+    { ok: false, error: "busy" },
+  );
+});
+
+test("会话中引擎错误：会话清理并可重新 start（不悬置 busy）", async (t) => {
+  const harness = await createHarness();
+  t.after(() => harness.dispose());
+  await materializeModel(harness.modelsRoot, "sensevoice-int8");
+  const first = await harness.service.startSession(harness.sender, {});
+  if (!first.ok) assert.fail("first start failed");
+  const worker = harness.workers[0]!;
+  harness.service.feedAudio(first.sessionId, new Int16Array(1600));
+
+  worker.emit("message", { type: "error", message: "decode failed" });
+  const errorEvents = harness.sessionEvents.filter(
+    (entry) => (entry.event as { kind?: string }).kind === "error",
+  );
+  assert.equal(errorEvents.length, 1);
+  let snapshot = await harness.service.getState();
+  assert.equal(snapshot.activeSession, null);
+  // worker 已复位（reset 命令），引擎保留可复用。
+  assert.ok(worker.lastCommand("reset"));
+  assert.equal(snapshot.loadedModelId, "sensevoice-int8");
+
+  const second = await harness.service.startSession(harness.sender, {});
+  assert.equal(second.ok, true);
+  snapshot = await harness.service.getState();
+  assert.ok(snapshot.activeSession);
 });
