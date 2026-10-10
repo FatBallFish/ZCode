@@ -26,6 +26,12 @@ import type {
 import type { AppSettings, Locale } from "./protocol.js";
 import type { ArmsCustomEventPayload, RendererTelemetryEventPayload } from "./telemetry.js";
 import type {
+  VoiceFinalResult,
+  VoiceSessionEvent,
+  VoiceSessionStartResult,
+  VoiceStateSnapshot,
+} from "./voice.js";
+import type {
   RendererActionTraceBatchV1,
   RendererActionTraceConfigV1,
 } from "./rendererActionTrace.js";
@@ -663,6 +669,22 @@ export interface IPlatformService {
 
   /** 打开系统目录选择框，返回选中路径或 null */
   selectDirectory(): Promise<string | null>;
+
+  /** 语音输入（specs/desktop/voice-input.md）：仅 Desktop 实现；Web 端缺省 = 功能不可用。 */
+  voiceGetState?(): Promise<VoiceStateSnapshot>;
+  voiceDownloadModel?(modelId: string): Promise<{ ok: boolean; error?: string }>;
+  voiceDeleteModel?(modelId: string): Promise<{ ok: boolean; error?: string }>;
+  voiceStartSession?(modelId?: string): Promise<VoiceSessionStartResult>;
+  voiceFeedAudio?(sessionId: string, samples: Int16Array): void;
+  voiceFinishSession?(
+    sessionId: string,
+  ): Promise<{ ok: true; result: VoiceFinalResult } | { ok: false; error: string }>;
+  voiceCancelSession?(sessionId: string): Promise<void>;
+  voiceUnloadEngine?(): Promise<{ ok: boolean; error?: string }>;
+  onVoiceStateChanged?(handler: (snapshot: VoiceStateSnapshot) => void): () => void;
+  onVoiceSessionEvent?(
+    handler: (payload: { sessionId: string; event: VoiceSessionEvent }) => void,
+  ): () => void;
 
   /** 打开系统文件选择框，返回选中文件路径或 null */
   selectFile(): Promise<string | null>;

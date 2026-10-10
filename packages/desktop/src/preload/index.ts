@@ -112,6 +112,12 @@ if (shouldEnableE2ETestBridge(process.env)) {
 
 const updateReadyCallbacks = new Set<(version: string) => void>();
 const updateStateCallbacks = new Set<(payload: UpdateStatePayload) => void>();
+const voiceStateCallbacks = new Set<
+  (snapshot: import("@zcode/shared").VoiceStateSnapshot) => void
+>();
+const voiceSessionEventCallbacks = new Set<
+  (payload: { sessionId: string; event: import("@zcode/shared").VoiceSessionEvent }) => void
+>();
 const postUpdateReleaseNotesCallbacks = new Set<(payload: PostUpdateReleaseNotesPayload) => void>();
 const openWorkspacePathCallbacks = new Set<(path: string) => void>();
 let latestReadyUpdateVersion: string | null = null;
@@ -876,6 +882,50 @@ contextBridge.exposeInMainWorld("zcode", {
   /** 清理内置浏览器缓存或全部站点数据。 */
   clearEmbeddedBrowserData: (mode: "cache" | "all") =>
     ipcRenderer.invoke(PlatformChannels.ClearEmbeddedBrowserData, mode),
+  /** 语音输入（specs/desktop/voice-input.md）：模型/引擎状态快照。 */
+  voiceGetState: () => ipcRenderer.invoke(PlatformChannels.VoiceGetState),
+  /** 语音输入：下载模型文件（进度走 onVoiceStateChanged）。 */
+  voiceDownloadModel: (modelId: string) =>
+    ipcRenderer.invoke(PlatformChannels.VoiceDownloadModel, { modelId }),
+  /** 语音输入：删除已下载模型文件。 */
+  voiceDeleteModel: (modelId: string) =>
+    ipcRenderer.invoke(PlatformChannels.VoiceDeleteModel, { modelId }),
+  /** 语音输入：开始语音会话（自动 ensure 下载与引擎加载）。 */
+  voiceStartSession: (modelId?: string) =>
+    ipcRenderer.invoke(PlatformChannels.VoiceStartSession, modelId ? { modelId } : {}),
+  /** 语音输入：推流音频帧（16kHz mono Int16；单向 send，不等待）。 */
+  voiceFeedAudio: (sessionId: string, samples: Int16Array) => {
+    ipcRenderer.send(PlatformChannels.VoiceFeedAudio, { sessionId, samples });
+  },
+  /** 语音输入：结束会话并取最终转录。 */
+  voiceFinishSession: (sessionId: string) =>
+    ipcRenderer.invoke(PlatformChannels.VoiceFinishSession, { sessionId }),
+  /** 语音输入：取消会话（丢弃文案）。 */
+  voiceCancelSession: (sessionId: string) =>
+    ipcRenderer.invoke(PlatformChannels.VoiceCancelSession, { sessionId }),
+  /** 语音输入：立即卸载引擎 worker（空闲内存释放）。 */
+  voiceUnloadEngine: () => ipcRenderer.invoke(PlatformChannels.VoiceUnloadEngine),
+  /** 语音输入：订阅模型下载进度/引擎加载状态；返回 disposer。 */
+  onVoiceStateChanged: (
+    callback: (snapshot: import("@zcode/shared").VoiceStateSnapshot) => void,
+  ): (() => void) => {
+    voiceStateCallbacks.add(callback);
+    return () => {
+      voiceStateCallbacks.delete(callback);
+    };
+  },
+  /** 语音输入：订阅会话内事件（engine-loading/listening/partial/error）；返回 disposer。 */
+  onVoiceSessionEvent: (
+    callback: (payload: {
+      sessionId: string;
+      event: import("@zcode/shared").VoiceSessionEvent;
+    }) => void,
+  ): (() => void) => {
+    voiceSessionEventCallbacks.add(callback);
+    return () => {
+      voiceSessionEventCallbacks.delete(callback);
+    };
+  },
   /** 桌面宠物：列出已安装宠物。 */
   petListInstalled: () => ipcRenderer.invoke(PlatformChannels.PetListInstalled),
   /** 桌面宠物：获取市场目录（分类+索引）。 */
@@ -1086,6 +1136,33 @@ ipcRenderer.on(PlatformChannels.UpdateReady, (_event, version: string) => {
 ipcRenderer.on(PlatformChannels.UpdateStateChanged, (_event, payload: UpdateStatePayload) => {
   notifyUpdateStateCallbacks(payload);
 });
+
+// 语音输入：状态广播与会话事件（specs/desktop/voice-input.md）。回调集合与桥接方法同文件维护。
+ipcRenderer.on(
+  PlatformChannels.VoiceStateChanged,
+  (_event, snapshot: import("@zcode/shared").VoiceStateSnapshot) => {
+    for (const callback of voiceStateCallbacks) {
+      try {
+        callback(snapshot);
+      } catch {
+        // 渲染层回调异常不阻断广播。
+      }
+    }
+  },
+);
+
+ipcRenderer.on(
+  PlatformChannels.VoiceSessionEvent,
+  (_event, payload: { sessionId: string; event: import("@zcode/shared").VoiceSessionEvent }) => {
+    for (const callback of voiceSessionEventCallbacks) {
+      try {
+        callback(payload);
+      } catch {
+        // 渲染层回调异常不阻断事件分发。
+      }
+    }
+  },
+);
 
 ipcRenderer.on(
   PlatformChannels.PostUpdateReleaseNotes,

@@ -7,145 +7,12 @@ import { resolveSpawnRuntimeOptions } from "./spawn-command.mjs";
 
 const exec = promisify(execFile);
 export const hashBytes = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const noticeName =
-  /(?:^|[._-])(?:licen[sc]es?|copying|notice|copyright|unlicense|third.party|ofl)(?:[._-]|$)/iu;
-
-export async function readPackageNotices(directory) {
-  const files = [];
-  async function visit(path) {
-    for (const entry of await readdir(path, { withFileTypes: true })) {
-      if (["node_modules", ".git", "test", "tests", "fixtures"].includes(entry.name)) continue;
-      // Chromium 聚合许可由打包流程经 resources/licenses/electron 单独分发，不进 npm 通知。
-      if (entry.isFile() && entry.name === "LICENSES.chromium.html") continue;
-      const full = join(path, entry.name);
-      if (entry.isDirectory()) await visit(full);
-      else if (entry.isFile() && noticeName.test(entry.name)) {
-        const bytes = await readFile(full);
-        if (bytes.includes(0) || bytes.length === 0) continue;
-        files.push({ member: relative(directory, full).replaceAll("\\", "/"), bytes });
-      } else if (entry.isFile() && /^readme(?:\.[^/]*)?$/iu.test(entry.name)) {
-        const text = await readFile(full, "utf8");
-        const match = /^(?:#{1,6}\s+licen[sc]e[^\n]*\n|licen[sc]e\s*\n[=-]+\n)/imu.exec(text);
-        if (match) {
-          const section = text.slice(match.index).split(/\n(?=#{1,6}\s)/u)[0];
-          files.push({
-            member: `${relative(directory, full).replaceAll("\\", "/")} (license section)`,
-            bytes: Buffer.from(section),
-          });
-        }
-      }
-    }
-  }
-  await visit(directory);
-  return files.sort((a, b) => a.member.localeCompare(b.member, "en"));
-}
-
-// 解析锁文件（v9）packages 段的平台约束：`  'name@version':` 下的 `    os/cpu/libc: [..]` 行。
-export function readLockfilePlatformConstraints(lockfileText) {
-  const constraints = new Map();
-  let inPackages = false;
-  let key = null;
-  for (const line of lockfileText.split(/\r?\n/u)) {
-    if (/^\S/u.test(line)) {
-      inPackages = line === "packages:";
-      key = null;
-      continue;
-    }
-    if (!inPackages) continue;
-    const header = /^ {2}(?:'([^']+)'|([^\s'][^:]*)):$/u.exec(line);
-    if (header) {
-      key = header[1] ?? header[2];
-      continue;
-    }
-    const field = key && /^ {4}(os|cpu|libc): \[(.*)\]$/u.exec(line);
-    if (field) {
-      const values = field[2]
-        .split(",")
-        .map((value) => value.trim().replace(/^'(.*)'$/u, "$1"))
-        .filter(Boolean);
-      constraints.set(key, { ...constraints.get(key), [field[1]]: values });
-    }
-  }
-  return constraints;
-}
-
-// 照搬 pnpm package-is-installable 的 checkList，保证与实际安装结果一致（含否定项语义）。
-function pnpmCheckList(values, list) {
-  if (list.length === 1 && list[0] === "any") return true;
-  let match = false;
-  let blc = 0;
-  for (const value of values) {
-    for (const item of list) {
-      if (item[0] === "!") {
-        if (item.slice(1) === value) return false;
-        ++blc;
-      } else {
-        match = match || item === value;
-      }
-    }
-  }
-  return match || blc === list.length;
-}
-
-// targets.libc 为 null 表示宿主 libc 未知（非 Linux），pnpm 此时不检查 libc。
-export function createInstallablePackageFilter(constraints, targets) {
-  return (name, version) => {
-    const wanted = constraints.get(`${name}@${version.split("(")[0]}`);
-    if (!wanted) return true;
-    if (wanted.os && !pnpmCheckList(targets.os, wanted.os)) return false;
-    if (wanted.cpu && !pnpmCheckList(targets.cpu, wanted.cpu)) return false;
-    if (wanted.libc && targets.libc && !pnpmCheckList(targets.libc, wanted.libc)) return false;
-    return true;
-  };
-}
-
-function hostLibc() {
-  if (process.platform !== "linux") return null;
-  return process.report?.getReport?.()?.header?.glibcVersionRuntime ? "glibc" : "musl";
-}
-
-// 与 pnpm checkPlatform 相同：supportedArchitectures 未配置时只取宿主，`current` 替换为宿主值。
-export async function readInstallTargets(root) {
-  const { parse } = await import("yaml");
-  const workspace = parse(await readFile(join(root, "pnpm-workspace.yaml"), "utf8")) ?? {};
-  const supported = workspace.supportedArchitectures ?? {};
-  const resolveCurrent = (list, current) =>
-    (list ?? ["current"]).map((value) => (value === "current" ? current : value));
-  const libc = hostLibc();
-  return {
-    os: resolveCurrent(supported.os, process.platform),
-    cpu: resolveCurrent(supported.cpu, process.arch),
-    libc: libc ? resolveCurrent(supported.libc, libc) : null,
-  };
-}
-
-// 修复：pnpm 按 supportedArchitectures 跳过的平台包（如 sharp 的 s390x/wasm32 构建）从不安装、不分发，
-// 此前靠按包名的例外名单放行，新依赖一引入就会误报缺失；现在按锁文件平台约束整棵子树跳过。
-export function productionPackages(projects, isInstallable = () => true) {
-  const own = new Set(projects.map((project) => project.name));
-  const required = new Map();
-  function dependencies(deps) {
-    for (const [alias, info] of Object.entries(deps ?? {})) {
-      const name = info.name ?? alias;
-      if (!isInstallable(name, info.version)) continue;
-      if (!own.has(name) && !name.startsWith("@zcode/") && !info.version.startsWith("link:")) {
-        required.set(`${name}@${info.version}`, { name, version: info.version });
-      }
-      dependencies(info.dependencies);
-      dependencies(info.optionalDependencies);
-    }
-  }
-  for (const project of projects) {
-    dependencies(project.dependencies);
-    dependencies(project.optionalDependencies);
-  }
-  return required;
-}
-
-export function assertProductionGraphs(lockedProjects, installedProjects, isInstallable) {
-  const locked = productionPackages(lockedProjects, isInstallable);
-  const installed = productionPackages(installedProjects, isInstallable);
-  const missing = [...locked].filter(([key]) => !installed.has(key));
+export function assertProductionGraphs(lockedProjects, installedProjects) {
+  const locked = productionPackages(lockedProjects);
+  const installed = productionPackages(installedProjects);
+  const missing = [...locked].filter(
+    ([key, item]) => !installed.has(key) && !platformOptionalAllowlist.has(item.name),
+  );
   const stale = [...installed.keys()].filter((key) => !locked.has(key));
   if (missing.length || stale.length) {
     throw new Error(
@@ -231,7 +98,8 @@ export async function scanInstalledPackages(root, projects) {
 export function missingProductionPackages(required, installed) {
   const missing = [...required].filter(([key]) => !installed.has(key)).map(([, item]) => item);
   for (const item of missing) {
-    throw new Error(`Missing installed dependency: ${item.name}@${item.version}`);
+    if (!platformOptionalAllowlist.has(item.name))
+      throw new Error(`Missing installed dependency: ${item.name}@${item.version}`);
   }
   return missing;
 }

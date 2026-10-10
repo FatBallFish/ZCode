@@ -525,6 +525,27 @@ export const PlatformChannels = {
   /** Main → Renderer：气泡点击跳转指定会话（携带 workspace 地址直连，不依赖列表缓存命中） */
   OpenPetTask: "zcode:open-pet-task",
   OpenPetSettings: "zcode:open-pet-settings",
+  // ── 语音输入（specs/desktop/voice-input.md；main VoiceService 为唯一所有者）──
+  /** Renderer → Main：模型/引擎状态快照（设置页与麦克风入口） */
+  VoiceGetState: "zcode:voice:get-state",
+  /** Renderer → Main：下载模型文件（进度走 VoiceStateChanged 事件） */
+  VoiceDownloadModel: "zcode:voice:download-model",
+  /** Renderer → Main：删除已下载模型文件回收磁盘 */
+  VoiceDeleteModel: "zcode:voice:delete-model",
+  /** Renderer → Main：开始语音会话（自动 ensure 下载与引擎加载） */
+  VoiceStartSession: "zcode:voice:start-session",
+  /** Renderer → Main：推流音频帧（16kHz mono Int16；sessionId 不匹配即丢弃） */
+  VoiceFeedAudio: "zcode:voice:feed-audio",
+  /** Renderer → Main：结束会话并取最终转录 */
+  VoiceFinishSession: "zcode:voice:finish-session",
+  /** Renderer → Main：取消会话（丢弃文案） */
+  VoiceCancelSession: "zcode:voice:cancel-session",
+  /** Renderer → Main：立即卸载引擎 worker（设置页「立即释放」） */
+  VoiceUnloadEngine: "zcode:voice:unload-engine",
+  /** Main → Renderer：模型下载进度/引擎加载状态变化（广播所有窗口） */
+  VoiceStateChanged: "zcode:voice:state-changed",
+  /** Main → Renderer：会话内事件（partial/error，仅发会话所属窗口） */
+  VoiceSessionEvent: "zcode:voice:session-event",
   /** Renderer → Main：获取与指定文件格式匹配的已安装应用列表（含图标） */
   GetInstalledAppsForFile: "zcode:get-installed-apps-for-file",
   /** Renderer → Main：按 bundle id 获取系统应用图标 */
@@ -1446,6 +1467,48 @@ export interface PlatformChannelMap {
   };
   [PlatformChannels.OpenPetSettings]: {
     request: void;
+    response: void;
+  };
+  [PlatformChannels.VoiceGetState]: {
+    request: void;
+    response: import("./voice.js").VoiceStateSnapshot;
+  };
+  [PlatformChannels.VoiceDownloadModel]: {
+    request: { modelId: string };
+    response: { ok: boolean; error?: string };
+  };
+  [PlatformChannels.VoiceDeleteModel]: {
+    request: { modelId: string };
+    response: { ok: boolean; error?: string };
+  };
+  [PlatformChannels.VoiceStartSession]: {
+    request: { modelId?: string };
+    response: import("./voice.js").VoiceSessionStartResult;
+  };
+  [PlatformChannels.VoiceFeedAudio]: {
+    request: { sessionId: string; samples: Int16Array };
+    response: void;
+  };
+  [PlatformChannels.VoiceFinishSession]: {
+    request: { sessionId: string };
+    response:
+      | { ok: true; result: import("./voice.js").VoiceFinalResult }
+      | { ok: false; error: string };
+  };
+  [PlatformChannels.VoiceCancelSession]: {
+    request: { sessionId: string };
+    response: void;
+  };
+  [PlatformChannels.VoiceUnloadEngine]: {
+    request: void;
+    response: { ok: boolean; error?: string };
+  };
+  [PlatformChannels.VoiceStateChanged]: {
+    request: import("./voice.js").VoiceStateSnapshot;
+    response: void;
+  };
+  [PlatformChannels.VoiceSessionEvent]: {
+    request: { sessionId: string; event: import("./voice.js").VoiceSessionEvent };
     response: void;
   };
   [PlatformChannels.GetInstalledAppsForFile]: {

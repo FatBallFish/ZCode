@@ -424,4 +424,13 @@ export interface AppSettings {
    * 唯一消费者是 host 内 WorktreeService（每次操作时现读，无缓存失效问题）。
    */
   worktreeConfig?: WorktreeConfig;
+  /**
+   * 语音输入（specs/desktop/voice-input.md）：当前选择的本地识别模型 id；
+   * undefined=sensevoice-int8（默认，免迁移）。引擎/文件唯一所有者是 desktop main VoiceService。
+   */
+  voiceInputModelId?: string;
+  /** 语音转义后是否自动调用所选模型做语义整理；undefined=关闭。 */
+  voiceCleanupEnabled?: boolean;
+  /** 语义整理使用的模型（复用 provider/model 体系，走 workspace/generateText）。 */
+  voiceCleanupSelection?: { providerId: string; modelId: string };
 }

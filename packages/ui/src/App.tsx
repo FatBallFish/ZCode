@@ -29,6 +29,9 @@ import { resolveWorkspaceSwitchDraftProvider } from "@/lib/workspaceDraftProvide
 import { useTestActions } from "@/test-actions.js";
 import type { TestActions } from "@/test-actions.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
+import { useVoiceInputController } from "@/voice/useVoiceInputController.js";
+import { VoiceInputOverlay } from "@/voice/VoiceInputOverlay.js";
+import { useVoiceInputStore } from "@/voice/voiceInputStore.js";
 import type { TaskFindDialogProps } from "@/quickpick/TaskFindDialog.js";
 import {
   changeTaskFindSelection,
@@ -396,6 +399,18 @@ export function App({
   const tabs = useTabStore((s) => s.tabs);
   const addTab = useTabStore((s) => s.addTab);
   const activateTabByPath = useTabStore((s) => s.activateTabByPath);
+
+  // ── 语音输入（specs/desktop/voice-input.md）：App 级单例控制器 + 浮窗 ──
+  // 目标 workspace 取当前激活 tab（本地 workspace；远程 tab 的 composer 状态按
+  // (path, identity) 分桶，v1 不支持远程语音回填）。
+  const activeTabId = useTabStore((s) => s.activeTabId);
+  const voiceWorkspaceRef = useRef<{ workspacePath: string } | null>(null);
+  voiceWorkspaceRef.current = useMemo(() => {
+    const activeTab = activeTabId ? tabs.find((tab) => tab.id === activeTabId) : undefined;
+    if (!activeTab || !isWorkspaceTab(activeTab) || activeTab.remoteSessionId) return null;
+    return { workspacePath: activeTab.workspacePath };
+  }, [activeTabId, tabs]);
+  useVoiceInputController({ resolveActiveWorkspace: () => voiceWorkspaceRef.current });
 
   const {
     resolvedActiveTaskMeta,
@@ -1050,6 +1065,9 @@ export function App({
     navigateForward: canTaskNavForward
       ? () => runVisibleWorkspaceCommand(handleTaskNavForward)
       : null,
+    // 语音输入 toggle（specs/desktop/voice-input.md）：监听中再按 = 结束并回填；
+    // 桌面限定（平台无 voice 能力时不注册，快捷键不拦截）。
+    voiceInput: platform.voiceStartSession ? () => useVoiceInputStore.getState().toggle() : null,
   });
 
   useEffect(() => {
@@ -1204,6 +1222,8 @@ export function App({
       {/* Bugfix: 反馈是应用级能力，必须固定走本机 base host；SSH session 连接中或断开时，
           workspace-scoped services 会切成断连代理，不能让反馈提交跟随远程 session 失效。 */}
       <FeedbackHost feedbackService={baseFeedbackService} platform={platform} />
+        {/* 语音输入浮窗（fixed 定位、聚焦 composer 上方；App 级单例） */}
+        <VoiceInputOverlay />
       <PluginUiWorkspaceProvider onOpenSidePane={handleOpenPluginUi}>
         <WorkspaceShellLayout
           services={services}

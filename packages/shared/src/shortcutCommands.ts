@@ -14,6 +14,7 @@ export type ShortcutChannel = "window" | "menu";
 export type ShortcutCommandId =
   | "toggleInterfaceMode"
   | "openOnboarding"
+  | "voiceInput"
   | "openCommandCenter"
   | "openSettings"
   | "findInTask"
@@ -97,6 +98,8 @@ export const SHORTCUT_COMMANDS: readonly ShortcutCommandEntry[] = [
   },
   { id: "toggleInterfaceMode", channel: "window", defaultBindings: ["CmdOrCtrl+Shift+u"] },
   { id: "openOnboarding", channel: "window", defaultBindings: ["CmdOrCtrl+Shift+o"] },
+  // 语音输入（specs/desktop/voice-input.md）：toggle 语义（监听中再按=结束并回填）。
+  { id: "voiceInput", channel: "window", defaultBindings: ["CmdOrCtrl+Shift+v"] },
 ];
 
 /** 按命令 ID 取默认绑定；未知命令返回空数组（生效表 resolve 对未知命令整体忽略）。 */

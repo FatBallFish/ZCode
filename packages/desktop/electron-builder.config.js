@@ -610,6 +610,21 @@ export default {
     // node-pty 的 target prebuild 还包含 spawn-helper / winpty-agent.exe 等辅助可执行文件，
     // 整个目标目录必须 unpack；其他平台目录已由 files 规则裁剪。
     `node_modules/node-pty/prebuilds/${targetPlatform.key}/**`,
+    // sherpa-onnx 语音引擎（specs/desktop/voice-input.md）：目标平台子包内的
+    // .node addon 与 libonnxruntime.dylib 等原生库必须 unpack；
+    // 其余平台子包已由 createDesktopNativePackagePrunePatterns 裁剪（win32-arm64 全裁）。
+    ...[
+      "sherpa-onnx-darwin-arm64",
+      "sherpa-onnx-darwin-x64",
+      "sherpa-onnx-linux-arm64",
+      "sherpa-onnx-linux-x64",
+      "sherpa-onnx-win-x64",
+    ]
+      .filter(
+        (packageName) =>
+          packageName === `sherpa-onnx-${targetPlatform.key.replace("win32", "win")}`,
+      )
+      .map((packageName) => `node_modules/${packageName}/**`),
   ],
   beforePack: async (context) => {
     runTimedSync("beforePack:restoreTargetNodePtyPrebuild", () =>

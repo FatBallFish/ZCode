@@ -181,6 +181,7 @@ import {
   resolveBundledGlmBinaryPath,
   resolveRemoteAssetDirs,
   resolveZCodeEndpointEnvBaseOrigin,
+  voiceEngineWorkerModulePath,
   desktopRuntimeEnv,
   runtimeApplicationName,
   runtimeHomePath,
@@ -299,6 +300,8 @@ import { createPetBubbleWindow } from "./desktopPetBubble.js";
 import { readWebpSize, mergePetSessionSummaries, type PetSessionSummary } from "@zcode/shared";
 import { createPetMarketService } from "./desktopPetMarketService.js";
 import { registerPetMarketIpc } from "./desktopPetIpc.js";
+import { createVoiceService, type DesktopVoiceService } from "./voice/desktopVoiceService.js";
+import { registerVoiceIpc, spawnVoiceEngineWorker } from "./voice/desktopVoiceIpc.js";
 
 registerLocalMediaPreviewScheme(protocol, [PLUGIN_SANDBOX_PRIVILEGED_SCHEME]);
 registerPetPackScheme(protocol);
@@ -737,6 +740,8 @@ const windowsCuaOperationIndicator = createWindowsCuaOperationIndicator({
 
 // 常驻 cron scheduler 进程句柄；app ready 后拉起，退出前销毁。
 let cronScheduler: CronSchedulerHandle | null = null;
+// 语音服务句柄（specs/desktop/voice-input.md）；App ready 后构造，退出前销毁引擎 worker。
+let voiceService: DesktopVoiceService | null = null;
 // host → main 的定时任务派发结果，转交给 scheduler 结算。经模块变量转发以避免 spawn 顺序耦合。
 function forwardCronRunResult(
   result: Parameters<CronSchedulerHandle["handleCronRunResult"]>[0],
@@ -1310,6 +1315,9 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
   stopDesktopZCodeDataSizeTelemetry();
   stopDesktopNetworkTelemetry();
   stopRemoteUsageArmsPeriodicSampling();
+  // 语音引擎 worker：会话状态无需收敛（录音不落盘），杀进程即释放模型内存。
+  voiceService?.dispose();
+  voiceService = null;
   disposeRendererActionTraceIpc?.();
   disposeRendererActionTraceIpc = undefined;
   notifyStabilityAppExit(
@@ -2307,6 +2315,124 @@ app.whenReady().then(async () => {
       ? { registryMaxEntries: Number(process.env.ZCODE_E2E_PLUGIN_SANDBOX_MAX_ENTRIES) }
       : {}),
   });
+  const petMarket = createPetMarketService({
+    fetchText: (url) =>
+      net.fetch(url).then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.text();
+      }),
+    fetchBytes: async (url) => {
+      const response = await net.fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return new Uint8Array(await response.arrayBuffer());
+    },
+    petRootDir,
+    codexPetsDirs: () => {
+      // 候选顺序：CODEX_HOME → ~/.codex（CLI/官方安装器）→ macOS Codex App 数据目录。
+      const candidates = [
+        process.env["CODEX_HOME"] ? join(process.env["CODEX_HOME"], "pets") : undefined,
+        join(homedir(), ".codex", "pets"),
+        process.platform === "darwin"
+          ? join(homedir(), "Library", "Application Support", "Codex", "pets")
+          : undefined,
+      ];
+      return [...new Set(candidates.filter((dir): dir is string => Boolean(dir)))];
+    },
+    // Electron nativeImage 不解码 WebP（只支持 PNG/JPEG），尺寸用自研容器头解析。
+    readImageSize: (bytes) => {
+      const size = readWebpSize(bytes);
+      if (!size) throw new Error("not a decodable WebP container");
+      return size;
+    },
+    logger,
+  });
+  let petPositionSave: Promise<void> = Promise.resolve();
+  // 会话气泡窗口（specs/desktop/desktop-pet.md）：manager 负责随宠物显隐与内容推送。
+  const petBubble = createPetBubbleWindow({
+    preloadPath: join(import.meta.dirname, "../preload/desktopPetBubble.cjs"),
+    resolveRendererTarget: () => ({
+      devUrl: app.isPackaged ? undefined : process.env["ELECTRON_RENDERER_URL"],
+      rendererDir: join(import.meta.dirname, "../renderer"),
+    }),
+  });
+  // 主题（dark/light/system→实际值）变化时重推气泡：载荷携带主题驱动页面 CSS 切换。
+  nativeTheme.on("updated", () => {
+    if (!lastMergedPetSummaries) return;
+    desktopPetManager?.setSessionSummaries(lastMergedPetSummaries);
+  });
+  desktopPetManager = createDesktopPetManager({
+    petPreloadPath: join(import.meta.dirname, "../preload/desktopPet.cjs"),
+    petRootDir,
+    market: petMarket,
+    logger,
+    bubble: petBubble,
+    onOpenTask: (summary) => {
+      // 气泡点击跳转：无窗口先创建（cmd+w 关闭后宠物是唯一入口），聚焦后广播携带
+      // workspace 地址的 OpenPetTask——renderer 直连激活目标 tab，不依赖任务列表缓存
+      // 命中（用户实测"只唤起不切换"：TaskNotificationClick 反查 taskListCache 未命中即
+      // 静默放弃）。新建窗口的 renderer 需要时间挂监听，补一次延迟广播（重复激活幂等）。
+      void ensureApplicationWindowsVisible("pet-bubble-open-task").then(() => {
+        const broadcast = () => {
+          for (const win of getMainApplicationWindows().filter((w) => !w.isDestroyed())) {
+            win.webContents.send(PlatformChannels.OpenPetTask, {
+              taskId: summary.taskId,
+              workspacePath: summary.workspacePath,
+              ...(summary.workspaceIdentity
+                ? { workspaceIdentity: summary.workspaceIdentity }
+                : {}),
+            });
+          }
+        };
+        broadcast();
+        setTimeout(broadcast, 1_500);
+      });
+    },
+    onOpenApp: () => {
+      // 双击宠物：唤起 App 主窗口（不指定会话）。无窗口（cmd+w 后）先创建再聚焦。
+      void ensureApplicationWindowsVisible("pet-open-app");
+    },
+    getTheme: () => (nativeTheme.shouldUseDarkColors ? "dark" : "light"),
+    savePosition: (position) => {
+      // 串行化位置写盘，避免拖拽期间的并发 update 相互覆盖。
+      petPositionSave = petPositionSave
+        .then(() => mainSettingService.update({ desktopPetPosition: position }))
+        .catch(() => undefined);
+    },
+    hidePet: () => {
+      void mainSettingService
+        .update({ desktopPetEnabled: false })
+        .then(() => syncImmediateAppSettings({ desktopPetEnabled: false }))
+        .catch((error) => logger.warn("[desktop-pet] hide failed", { error: String(error) }));
+    },
+    openPetSettings: () => {
+      // 无窗口时同样先创建主窗口再打开设置分区（宠物右键菜单是隐藏宠物前唯一入口）。
+      void ensureApplicationWindowsVisible("pet-open-settings").then(() => {
+        const target = getMainApplicationWindows().find((win) => !win.isDestroyed());
+        target?.webContents.send(PlatformChannels.OpenPetSettings);
+      });
+    },
+    menuLabels: {
+      manage: currentApplicationLocale === "zh-CN" ? "宠物设置…" : "Pet Settings…",
+      hide: currentApplicationLocale === "zh-CN" ? "隐藏宠物" : "Hide Pet",
+    },
+  });
+  registerPetMarketIpc({ market: petMarket });
+
+  // 语音输入（specs/desktop/voice-input.md）：VoiceService 懒加载引擎 worker，
+  // App 启动零语音开销；模型文件在 getAppConfigDir()/voice-models 下按需下载。
+  voiceService = createVoiceService({
+    modelsRootDir: join(getAppConfigDir(), "voice-models"),
+    workerModulePath: voiceEngineWorkerModulePath,
+    logger,
+    spawnWorker: spawnVoiceEngineWorker,
+  });
+  registerVoiceIpc({ service: voiceService });
+  // 首次使用预置官方内置宠物（本地无任何宠物时才动作；失败静默，不影响启动）。
+  void petMarket
+    .ensureBuiltinPets()
+    .catch((error) =>
+      logger.warn("[desktop-pet] builtin provision failed", { error: String(error) }),
+    );
   // Electron 的 net.request 只能在 app ready 后使用；灰度请求仍是旁路预热，不阻塞首个 Host。
   void desktopContextPromptRollout?.refresh();
   installBrowserRestoreBootstrapProtocol(

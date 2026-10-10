@@ -313,6 +313,7 @@ export * from "./workspaceSessionRestore.js";
 export * from "./skill-scan-policy.js";
 export * from "./browser-use/index.js";
 export * from "./pets.js";
+export * from "./voice.js";
 export * from "./petWebp.js";
 export * from "./petMarket.js";
 export * from "./petAnimator.js";

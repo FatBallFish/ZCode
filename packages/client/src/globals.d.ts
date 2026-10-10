@@ -58,6 +58,10 @@ import type {
   UpdateCheckResultPayload,
   UpdateStatePayload,
   OpenInEditorOptions,
+  VoiceStateSnapshot,
+  VoiceSessionEvent,
+  VoiceSessionStartResult,
+  VoiceFinalResult,
 } from "@zcode/shared";
 
 /**
@@ -125,6 +129,30 @@ declare global {
       log(level: "info" | "warn" | "error", args: unknown[]): void;
       /** 打开系统目录选择框，返回选中路径或 null */
       selectDirectory(): Promise<string | null>;
+      /** 语音输入（specs/desktop/voice-input.md）：模型/引擎状态快照 */
+      voiceGetState?(): Promise<VoiceStateSnapshot>;
+      /** 语音输入：下载模型文件（进度经 onVoiceStateChanged 推送） */
+      voiceDownloadModel?(modelId: string): Promise<{ ok: boolean; error?: string }>;
+      /** 语音输入：删除已下载模型文件 */
+      voiceDeleteModel?(modelId: string): Promise<{ ok: boolean; error?: string }>;
+      /** 语音输入：开始语音会话（自动 ensure 下载与引擎加载） */
+      voiceStartSession?(modelId?: string): Promise<VoiceSessionStartResult>;
+      /** 语音输入：推流音频帧（16kHz mono Int16） */
+      voiceFeedAudio?(sessionId: string, samples: Int16Array): void;
+      /** 语音输入：结束会话并取最终转录 */
+      voiceFinishSession?(
+        sessionId: string,
+      ): Promise<{ ok: true; result: VoiceFinalResult } | { ok: false; error: string }>;
+      /** 语音输入：取消会话（丢弃文案） */
+      voiceCancelSession?(sessionId: string): Promise<void>;
+      /** 语音输入：立即卸载引擎 worker */
+      voiceUnloadEngine?(): Promise<{ ok: boolean; error?: string }>;
+      /** 语音输入：订阅模型下载进度/引擎加载状态，返回 disposer */
+      onVoiceStateChanged?(callback: (snapshot: VoiceStateSnapshot) => void): () => void;
+      /** 语音输入：订阅会话内事件（engine-loading/listening/partial/error），返回 disposer */
+      onVoiceSessionEvent?(
+        callback: (payload: { sessionId: string; event: VoiceSessionEvent }) => void,
+      ): () => void;
       /** 打开系统文件选择框，返回选中文件路径或 null */
       selectFile(): Promise<string | null>;
       /** 打开系统多文件选择框，返回选中文件路径；取消时返回空数组 */
