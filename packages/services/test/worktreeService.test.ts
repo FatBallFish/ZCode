@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -218,6 +218,79 @@ test("create：detached 目录 + 注册表条目 + ref 缺省解析远程默认�
   assert.equal(entry.ref, "origin/main");
   assert.equal(fake.state.entries.length, 1);
   assert.ok(fake.calls.some((call) => call.startsWith("add:")));
+});
+
+// 2026-10-11：git worktree add 只检出跟踪文件，未跟踪的项目级 .agents（含 skills/）
+// 不会出现在仓库外的新工作树里，CLI 技能根回溯也够不到原项目——创建后必须递归物化；
+// 拷贝 best-effort（源缺失跳过、失败 warn 不阻塞创建）。
+test("create：根项目 .agents 递归物化进工作树；缺失/失败不阻塞创建", async (t) => {
+  const base = await mkdtemp(join(tmpdir(), "worktree-agents-"));
+  t.after(async () => {
+    await rm(base, { recursive: true, force: true });
+  });
+  const rootRepo = join(base, "repo");
+  const rootDir = join(base, "wt");
+  await mkdir(join(rootRepo, ".agents", "skills", "ec-dev-ship"), { recursive: true });
+  await writeFile(
+    join(rootRepo, ".agents", "skills", "ec-dev-ship", "SKILL.md"),
+    "skill body",
+    "utf8",
+  );
+  await writeFile(join(rootRepo, ".agents", "config.json"), "{}", "utf8");
+
+  const fake = createFakeDeps();
+  /** addDetachedWorktree 的真实副作用：git 会创建工作树目录；destBlocked 模拟
+   * 「.agents 目标路径被 git 检出的同名文件占据」这类确定性拷贝失败。 */
+  const deps = {
+    ...fake.deps,
+    resolveConfig: async () => ({
+      rootDir,
+      fetchBeforeCreate: false,
+      autoPruneEnabled: false,
+      autoPruneLimit: 5,
+    }),
+    worktreeRepo: {
+      ...fake.deps.worktreeRepo,
+      async addDetachedWorktree(_repoRoot: string, worktreePath: string, _ref: string) {
+        await mkdir(worktreePath, { recursive: true });
+      },
+    },
+  };
+  const service = createWorktreeService(deps);
+
+  const entry = await service.create({ rootWorkspacePath: rootRepo });
+  assert.equal(
+    await readFile(
+      join(entry.worktreePath, ".agents", "skills", "ec-dev-ship", "SKILL.md"),
+      "utf8",
+    ),
+    "skill body",
+  );
+  assert.equal(await readFile(join(entry.worktreePath, ".agents", "config.json"), "utf8"), "{}");
+
+  // 根项目无 .agents：照常创建（无技能可物化是正常态）。
+  const bareEntry = await service.create({ rootWorkspacePath: join(base, "bare-repo") });
+  assert.match(bareEntry.worktreePath, /bare-repo-[0-9a-f]{4}\/[0-9a-f]{8}$/);
+
+  // 拷贝失败（目标 .agents 被同名文件占据）：warn 不阻塞，创建仍成功且注册表写入。
+  const blockedDeps = {
+    ...deps,
+    worktreeRepo: {
+      ...deps.worktreeRepo,
+      async addDetachedWorktree(_repoRoot: string, worktreePath: string, _ref: string) {
+        await mkdir(worktreePath, { recursive: true });
+        await writeFile(join(worktreePath, ".agents"), "tracked file blocks dir", "utf8");
+      },
+    },
+  };
+  const blockedEntry = await createWorktreeService(blockedDeps).create({
+    rootWorkspacePath: rootRepo,
+  });
+  assert.equal(
+    await readFile(join(blockedEntry.worktreePath, ".agents"), "utf8"),
+    "tracked file blocks dir",
+  );
+  assert.equal(fake.state.entries.length, 3);
 });
 
 test("remove：进程存活直接拒绝；脏树未 force 拒绝；成功后 tombstone 会话并广播", async () => {

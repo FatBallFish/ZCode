@@ -20,11 +20,13 @@ import {
 } from "lucide-react";
 import type { GitRepositorySummary } from "@zcode/shared";
 import { Button } from "@/components/ui/button.js";
+import { Input } from "@/components/ui/input.js";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.js";
 import { cn } from "@/components/lib/utils.js";
 import { useServices } from "@/hooks/useServices.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { GitBranchSwitcher } from "@/GitBranchSwitcher.js";
+import { matchesGitBranchSearch } from "@/git-branch-switcher/display.js";
 import { logger } from "@/logger.js";
 import {
   DEFAULT_DRAFT_LOCATION,
@@ -272,7 +274,8 @@ function LocationSelector({
   );
 }
 
-/** new-worktree 模式的起始 ref 选择：本地分支 + 远程默认分支（不 checkout）。 */
+/** new-worktree 模式的起始 ref 选择：本地分支 + 远程默认分支（不 checkout）。
+ * 分支列表带搜索过滤（与本地模式 GitBranchSwitcher 同一匹配函数与文案）。 */
 function RefPicker({
   workspacePath,
   selectedRef,
@@ -287,6 +290,11 @@ function RefPicker({
   const [open, setOpen] = useState(false);
   const [branches, setBranches] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (open) setQuery("");
+  }, [open]);
 
   useEffect(() => {
     if (!open || branches !== null || !services.gitService) {
@@ -313,6 +321,11 @@ function RefPicker({
     };
   }, [branches, open, services.gitService, workspacePath]);
 
+  const filteredBranches = useMemo(
+    () => (branches ?? []).filter((branchName) => matchesGitBranchSearch(branchName, query)),
+    [branches, query],
+  );
+
   const triggerLabel = selectedRef
     ? selectedRef
     : intl.formatMessage({ id: "chat.workLocation.remoteDefault" });
@@ -330,6 +343,17 @@ function RefPicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent side="top" avoidCollisions={false} className="w-64 p-1">
+        {(branches?.length ?? 0) > 0 ? (
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={intl.formatMessage({ id: "git.branchSwitcher.searchPlaceholder" })}
+            className="mb-1"
+            size="sm"
+            // 弹出即聚焦：选基线分支通常是打开弹层后的第一个动作。
+            autoFocus
+          />
+        ) : null}
         <div className="flex max-h-56 flex-col overflow-y-auto">
           <button
             type="button"
@@ -353,8 +377,12 @@ function RefPicker({
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               {intl.formatMessage({ id: "git.branchSwitcher.loading" })}
             </div>
+          ) : filteredBranches.length === 0 ? (
+            <div className="px-2 py-3 text-center text-ui-sm text-foreground-subtle">
+              {intl.formatMessage({ id: "git.branchSwitcher.empty" })}
+            </div>
           ) : (
-            (branches ?? []).map((branchName) => (
+            filteredBranches.map((branchName) => (
               <button
                 key={branchName}
                 type="button"
