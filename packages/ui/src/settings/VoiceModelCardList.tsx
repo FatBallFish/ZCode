@@ -40,7 +40,9 @@ export function VoiceModelCardList({
           control={<span aria-hidden="true" />}
         />
       ) : null}
-      <div className="divide-y divide-border-subtle">
+      {/* 分割线用 --color-border（与 SettingsRow 一致）。divide-border-subtle 的 token
+          并不存在，生成不出颜色会回退 currentColor（文字色≈纯黑，真机反馈）。 */}
+      <div className="divide-y divide-border">
         {VOICE_MODEL_MANIFESTS.map((manifest) => {
           const install = snapshot?.models.find((entry) => entry.modelId === manifest.id)?.install;
           const status = install?.status ?? "not-installed";

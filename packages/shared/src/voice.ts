@@ -311,6 +311,8 @@ export const voiceCleanupSelectionSchema = z
   .object({
     providerId: z.string().trim().min(1),
     modelId: z.string().trim().min(1),
+    /** 要求思考档位的模型（GLM 系 coding plan）必须携带，运行时映射为 options.reasoningLevel。 */
+    reasoningLevel: z.string().trim().min(1).optional(),
   })
   .strict();
 

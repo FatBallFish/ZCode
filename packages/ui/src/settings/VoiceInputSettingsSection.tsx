@@ -4,28 +4,19 @@
  * （复用 ModelConfigSelect）、快捷键展示与跳转、引擎占用与「立即释放」。
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AudioLines, CheckCircle2Icon, CircleIcon, ShieldAlertIcon } from "lucide-react";
+import { AudioLines } from "lucide-react";
+import { completeNewModelSelection } from "@zcode/provider";
 import {
   DEFAULT_VOICE_MODEL_ID,
   ZCODE_AGENT_PROVIDER,
   type AppSettings,
-  type VoiceMicPermissionStatus,
   type VoiceStateSnapshot,
 } from "@zcode/shared";
 import { Button } from "@/components/ui/button.js";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select.js";
 import { Switch } from "@/components/ui/switch.js";
 import { toast } from "@/components/ui/toast.js";
-import { cn } from "@/components/lib/utils.js";
 import { ModelConfigSelect } from "@/ModelConfigSelect.js";
-import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
-import { useModelSelectionServiceView } from "@/hooks/useModelSelectionView.js";
+import { useModelSelectionView } from "@/hooks/useModelSelectionView.js";
 import { usePlatform } from "@/hooks/usePlatform.jsx";
 import { useSettings } from "@/hooks/useSettingService.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
@@ -33,26 +24,57 @@ import { logger } from "@/logger.js";
 import { buildRegistryModelSelectGroups } from "@/lib/modelSelectionGroups.js";
 import { setPendingSettingsSection } from "@/lib/settingsNavigation.js";
 import { decodeCustomModelValue, encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
+import { parseModelPickerValue } from "@/lib/zcodeSessionProjection.js";
+import { useTabStore } from "@/store/TabStoreProvider.js";
+import { isWorkspaceTab } from "@/store/tabStore.js";
 import { SettingsGroupCard, SettingsRow } from "@/settings/SettingsPageParts.js";
+import { VoiceDevicePermissionCard } from "@/settings/VoiceDevicePermissionCard.js";
 import { VoiceModelCardList } from "@/settings/VoiceModelCardList.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 
 const MODEL_ITEM_NEVER_LOCKED = () => false;
 
-/**
- * 「使用系统默认」的哨兵值：Radix Select 的 SelectItem value 不允许空字符串
- * （空串保留给“清除选择”语义，传了会抛错），而设置里空串=系统默认，进出各映射一次。
- */
-const DEVICE_SYSTEM_DEFAULT = "__system-default__";
-
 export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean }) {
   const { intl } = useZCodeIntl();
   const { settings, update } = useSettings();
   const platform = usePlatform();
-  const localHostServices = useBaseWorkspaceServices();
-  const modelSelectionRead = useModelSelectionServiceView(localHostServices.modelSelectionService);
   const shortcutLabel = useShortcutCommandLabel("voiceInput");
   const [snapshot, setSnapshot] = useState<VoiceStateSnapshot | null>(null);
+
+  // 整理模型候选取本地工作区的模型视图（与自动化设置同源）：含账号系/中转站/自定义
+  // 供应商。base host 视图只有账号系，中转站模型全部缺席（spec §3.3）。本地 workspace
+  // 共享同一 Host，任取一个即可；设置页打开时活动 tab 可能不是工作区（实测踩坑），
+  // 回退到第一个本地工作区 tab，避免下拉被禁用、迁移补档位不触发。
+  const tabs = useTabStore((s) => s.tabs);
+  const activeTabId = useTabStore((s) => s.activeTabId);
+  const activeWorkspace = useMemo(() => {
+    const asLocal = (tab: (typeof tabs)[number] | undefined) =>
+      tab && isWorkspaceTab(tab) && !tab.remoteSessionId ? tab : null;
+    const active = asLocal(activeTabId ? tabs.find((item) => item.id === activeTabId) : undefined);
+    const picked = active ?? tabs.map(asLocal).find(Boolean) ?? null;
+    return picked
+      ? { workspacePath: picked.workspacePath, workspaceIdentity: picked.workspaceIdentity ?? null }
+      : null;
+  }, [activeTabId, tabs]);
+
+  const cleanupSelection = settings?.voiceCleanupSelection;
+  const modelSelectionRead = useModelSelectionView(
+    activeWorkspace?.workspacePath ?? null,
+    undefined,
+    activeWorkspace?.workspaceIdentity ?? null,
+    undefined,
+    {
+      selection: cleanupSelection
+        ? {
+            providerId: cleanupSelection.providerId,
+            modelId: cleanupSelection.modelId,
+            ...(cleanupSelection.reasoningLevel
+              ? { options: { reasoningLevel: cleanupSelection.reasoningLevel } }
+              : {}),
+          }
+        : null,
+    },
+  );
 
   const available = isDesktop && typeof platform.voiceGetState === "function";
   const selectedModelId = settings?.voiceInputModelId ?? DEFAULT_VOICE_MODEL_ID;
@@ -84,21 +106,36 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
     });
   }, [intl, modelSelectionView]);
 
-  const cleanupSelection = settings?.voiceCleanupSelection;
   const cleanupEnabled = settings?.voiceCleanupEnabled === true;
   const normalizedCleanupValue = cleanupSelection
     ? encodeCustomModelValue(cleanupSelection.providerId, cleanupSelection.modelId)
     : "";
+  // 触发器显示选中模型名：优先取分组里的展示名（带中转站徽标的完整列表项）。
+  const selectedCleanupItem = cleanupSelection
+    ? cleanupSelectGroups
+        .flatMap((group) => group.items)
+        .find((item) => item.value === normalizedCleanupValue)
+    : undefined;
 
   const handleCleanupModelChange = useCallback(
     (value: string) => {
       const decoded = decodeCustomModelValue(value);
       if (!decoded?.modelName) return;
+      // 主动选模型补默认档位（最高档）；不要求档位的模型 complete 返回 undefined。
+      const completed = modelSelectionView
+        ? completeNewModelSelection(modelSelectionView, parseModelPickerValue(value))
+        : undefined;
       void update({
-        voiceCleanupSelection: { providerId: decoded.providerId, modelId: decoded.modelName },
+        voiceCleanupSelection: {
+          providerId: decoded.providerId,
+          modelId: decoded.modelName,
+          ...(completed?.options?.reasoningLevel
+            ? { reasoningLevel: completed.options.reasoningLevel }
+            : {}),
+        },
       } satisfies Partial<AppSettings>);
     },
-    [update],
+    [modelSelectionView, update],
   );
 
   const handleDownload = useCallback(
@@ -147,67 +184,6 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
     refreshSnapshot();
   }, [intl, platform, refreshSnapshot]);
 
-  // ── 输入设备（spec §3.4）：enumerateDevices + devicechange/聚焦刷新 ──
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const refreshDevices = useCallback(() => {
-    navigator.mediaDevices
-      ?.enumerateDevices()
-      .then((all) =>
-        // deviceId 为空的条目不进下拉：Radix SelectItem 不接受空串 value（同默认项哨兵原因）。
-        setDevices(all.filter((device) => device.kind === "audioinput" && device.deviceId !== "")),
-      )
-      .catch(() => undefined);
-  }, []);
-  const selectedDeviceId = settings?.voiceInputDeviceId ?? "";
-  const selectedDeviceMissing =
-    selectedDeviceId !== "" && !devices.some((device) => device.deviceId === selectedDeviceId);
-
-  // ── 麦克风权限（spec §3.5）：状态查询 + 聚焦刷新（用户从系统设置改完回来的场景）──
-  const permissionSupported = typeof platform.voiceGetMicPermissionStatus === "function";
-  const [micPermission, setMicPermission] = useState<VoiceMicPermissionStatus | null>(null);
-  const refreshMicPermission = useCallback(() => {
-    if (!permissionSupported) return;
-    platform
-      .voiceGetMicPermissionStatus?.()
-      .then((result) => setMicPermission(result.status))
-      .catch(() => undefined);
-  }, [permissionSupported, platform]);
-
-  useEffect(() => {
-    refreshDevices();
-    refreshMicPermission();
-    const onDeviceChange = () => {
-      refreshDevices();
-    };
-    // 授权/系统设置变更后回到窗口时刷新两类状态。
-    const onFocus = () => {
-      refreshDevices();
-      refreshMicPermission();
-    };
-    navigator.mediaDevices?.addEventListener?.("devicechange", onDeviceChange);
-    window.addEventListener("focus", onFocus);
-    return () => {
-      navigator.mediaDevices?.removeEventListener?.("devicechange", onDeviceChange);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [refreshDevices, refreshMicPermission]);
-
-  const handleOpenMicSettings = useCallback(() => {
-    // macOS 补请求流程可能直接完成授权：返回后立即刷新状态行，不等窗口 focus。
-    void platform
-      .voiceOpenMicPermissionSettings?.()
-      .catch(() => null)
-      .finally(() => refreshMicPermission());
-  }, [platform, refreshMicPermission]);
-
-  let permissionLabelId: string | null = null;
-  if (micPermission === "granted") permissionLabelId = "settings.voiceInput.permission.granted";
-  else if (micPermission === "denied" || micPermission === "restricted")
-    permissionLabelId = "settings.voiceInput.permission.denied";
-  else if (micPermission === "not-determined")
-    permissionLabelId = "settings.voiceInput.permission.notDetermined";
-  const permissionBlocked = micPermission === "denied" || micPermission === "restricted";
-
   if (!available) {
     return (
       <section className="space-y-3">
@@ -248,85 +224,7 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
         />
       </SettingsGroupCard>
 
-      <SettingsGroupCard>
-        <SettingsRow
-          label={intl.formatMessage({ id: "settings.voiceInput.device.title" })}
-          description={
-            selectedDeviceMissing
-              ? intl.formatMessage({ id: "settings.voiceInput.device.missing" })
-              : intl.formatMessage({ id: "settings.voiceInput.device.description" })
-          }
-          control={
-            <Select
-              value={selectedDeviceId || DEVICE_SYSTEM_DEFAULT}
-              onValueChange={(value) =>
-                void update({
-                  voiceInputDeviceId: value === DEVICE_SYSTEM_DEFAULT ? "" : value,
-                } satisfies Partial<AppSettings>)
-              }
-            >
-              <SelectTrigger
-                className="h-8 w-56 shrink-0"
-                data-testid="voice-input-device-select"
-                aria-label={intl.formatMessage({ id: "settings.voiceInput.device.title" })}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={DEVICE_SYSTEM_DEFAULT} data-testid="voice-input-device-default">
-                  {intl.formatMessage({ id: "settings.voiceInput.device.default" })}
-                </SelectItem>
-                {devices.map((device, index) => (
-                  <SelectItem key={device.deviceId} value={device.deviceId}>
-                    {device.label ||
-                      intl.formatMessage(
-                        { id: "settings.voiceInput.device.unnamed" },
-                        { index: index + 1 },
-                      )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          }
-        />
-        {permissionSupported ? (
-          <SettingsRow
-            label={intl.formatMessage({ id: "settings.voiceInput.permission.title" })}
-            description={
-              permissionBlocked
-                ? intl.formatMessage({ id: "settings.voiceInput.permission.deniedDescription" })
-                : undefined
-            }
-            control={
-              <div className="flex items-center gap-2">
-                {permissionLabelId ? (
-                  <span
-                    className={cn(
-                      "flex items-center gap-1.5 text-ui-sm",
-                      permissionBlocked ? "text-warning" : "text-fg-subtle",
-                    )}
-                    data-testid="voice-mic-permission-status"
-                  >
-                    {permissionBlocked ? (
-                      <ShieldAlertIcon className="size-4" aria-hidden />
-                    ) : micPermission === "granted" ? (
-                      <CheckCircle2Icon className="size-4 text-success" aria-hidden />
-                    ) : (
-                      <CircleIcon className="size-4" aria-hidden />
-                    )}
-                    {intl.formatMessage({ id: permissionLabelId })}
-                  </span>
-                ) : null}
-                {permissionBlocked ? (
-                  <Button type="button" variant="outline" size="xs" onClick={handleOpenMicSettings}>
-                    {intl.formatMessage({ id: "settings.voiceInput.permission.openSettings" })}
-                  </Button>
-                ) : null}
-              </div>
-            }
-          />
-        ) : null}
-      </SettingsGroupCard>
+      <VoiceDevicePermissionCard />
 
       <SettingsGroupCard>
         <SettingsRow
@@ -351,9 +249,13 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
               normalizedValue={normalizedCleanupValue}
               triggerLabel={
                 cleanupSelection
-                  ? `${cleanupSelection.providerId}/${cleanupSelection.modelId}`
+                  ? (selectedCleanupItem?.name ??
+                    `${cleanupSelection.providerId}/${cleanupSelection.modelId}`)
                   : intl.formatMessage({ id: "settings.voiceInput.cleanup.modelPlaceholder" })
               }
+              // 默认值 "hidden @xl/composer:inline-flex" 是聊天输入框的响应式容器类，
+              // 设置页没有该容器会导致已选模型名永远隐藏（真机反馈）。
+              labelVisibilityClassName="inline-flex"
               showProviderLevel={false}
               showManageModelsAction={false}
               lockReasonMessage=""
@@ -376,7 +278,7 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
           control={
             <div className="flex items-center gap-2">
               {shortcutLabel ? (
-                <kbd className="rounded border border-border-subtle bg-surface px-1.5 py-0.5 text-ui-xs text-fg-subtle">
+                <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-ui-xs text-fg-subtle">
                   {shortcutLabel}
                 </kbd>
               ) : null}
