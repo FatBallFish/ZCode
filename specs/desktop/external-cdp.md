@@ -73,6 +73,25 @@ allow(scope) = scope.sessionContext !== "cached"        // 回放/恢复上下�
 
 生效链路：改 `apps/zcode-cli` 源码/插件资产后必须跑 `node scripts/build-desktop-agent-cli.mjs` 重建 bundled-agents（dev 验证），安装版随正式发版生效。
 
+## Ambient 收集不阻塞消息 + 连接失败负缓存（2026-10-11 补）
+
+实测问题（Windows 客户反馈）：外部 CDP 端点不可用时，新会话第一条消息（`sendText`/`sendPrompt`）
+在转发给 Agent 前串行等待 `collectBrowserAmbientContext` → external `connect()`，
+单实例最坏 10s（`/json/version` fetch 超时）+10s（`connectOverCDP`），且连接失败不做缓存，
+每条消息都重复付满超时，表现为「新建会话长时间卡在校验 CDP，直到超时才进入创建流程」。
+
+- ambient 是尽力而为的浏览器 UI 状态补充，**不允许阻塞真实 prompt**：
+  `collectBrowserAmbientContext` 增加整体 deadline（默认 1500ms，测试可注入），
+  超时/失败一律返回 `undefined`；AbortSignal 随 `list`/`execute` 入参下发，
+  host 包装层（`createDesktopExternalBrowserControl`）原样转发给 external registry，
+  registry 内 `raceWithAbort` 收到 abort 立即放弃等待。
+- `ExternalCdpPort` 对 connect 失败做短 TTL 负缓存（默认 10s，测试可注入）：
+  TTL 内后续发现直接抛「近期失败，延迟重试」，不再重复付握手超时；
+  连接成功即清空负缓存；`applyConfiguration` 重建 registry 后自然重置。
+- agent 显式发现（`interaction/browserList`）不设 ambient deadline，仍按原握手超时执行；
+  端口恢复监听后模型重新发现即可见（与「无监听 ⇔ 从发现列表消失」语义一致，
+  最多延迟一个负缓存 TTL）。
+
 ## 验收场景
 
 1. 零配置：不设 env、不在设置页配置 → 发现列表含 `cdp:external:default`（9333 有浏览器时可见可操作；无监听时不可见，IAB 正常）。
@@ -89,6 +108,9 @@ allow(scope) = scope.sessionContext !== "cached"        // 回放/恢复上下�
    对比落盘值），不一致时提示「后台服务进程版本过旧，需完全重启 App」并停留在编辑页——
    用于暴露 host 进程内联旧 zod schema 剥离新字段的场景（改 appSettingsSchema 后必须
    重启 host，Cmd+R 刷新窗口不会重启 host 工具进程）。
+7. 端点不可用：新会话首条消息 ≤1.5s 内进入转发流程（ambient deadline 生效，
+   不等待 CDP 握手超时）；后续消息不再重复等待（负缓存 TTL 内立即失败）。
+8. 端口恢复监听：≤10s（负缓存 TTL）后 agent 显式重新发现即可见该实例。
 
 ## 状态所有者
 

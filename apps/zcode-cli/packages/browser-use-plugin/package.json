@@ -11,6 +11,7 @@
     "build": "tsc && node scripts/build.mjs",
     "clean": "node ../../scripts/clean-dist.mjs",
     "test:external-cdp": "node --import tsx --test --test-force-exit tests/external-cdp.test.ts tests/external-instances.test.ts",
+    "test:external-cdp-cache": "node --import tsx --test --test-force-exit tests/external-connect-failure-cache.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src --no-ignore"
   },

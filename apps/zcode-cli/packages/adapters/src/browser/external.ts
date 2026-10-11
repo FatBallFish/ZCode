@@ -19,9 +19,14 @@ import { ExternalCdpSession } from "./external-session.js";
 import { executeExternalCommand } from "./external-command.js";
 import { abortError, raceWithAbort, hasSideEffects } from "./request.js";
 
+/** 连接失败负缓存默认 TTL：覆盖一次「端口未监听 → 用户起浏览器」的典型间隔，同时避免高频重试。 */
+const CONNECT_FAILURE_CACHE_MS = 10_000;
+
 export interface ExternalCdpRuntimeOptions extends ExternalCdpOptions {
   instanceId?: string;
   loadPlaywright?: () => Promise<PlaywrightChromiumModule>;
+  /** 连接失败负缓存 TTL（ms）；默认 10s，测试注入更短值。 */
+  connectFailureCacheMs?: number;
 }
 interface Pending {
   requestId?: string;
@@ -39,6 +44,10 @@ class ExternalCdpPort implements BrowserControlPort {
   #context: BrowserContext | undefined;
   #connecting: Promise<void> | undefined;
   #identity: string | undefined;
+  // 客户反馈（Windows，2026-10-11）：端点不可用时每条消息的 ambient 发现都重复付满
+  // 10s+10s 握手超时，新会话长时间卡住。对连接失败做短 TTL 负缓存：TTL 内直接拒绝、
+  // 不再重复握手；成功连接即清空；applyConfiguration 重建 registry 自然重置。
+  #connectFailedAt: number | undefined;
   // 稳定实例 ID 不能复用旧 runtime generation，防止旧 wrapper 命中新连接。
   #generation = randomInt(1, 2 ** 48 - 1);
   #disposed = false;
@@ -204,6 +213,13 @@ class ExternalCdpPort implements BrowserControlPort {
   private async connect(): Promise<void> {
     if (this.#disposed) throw new Error("External CDP runtime is closed.");
     if (this.#browser?.isConnected()) return;
+    const failureCacheMs = this.options.connectFailureCacheMs ?? CONNECT_FAILURE_CACHE_MS;
+    if (
+      this.#connectFailedAt !== undefined &&
+      Date.now() - this.#connectFailedAt < failureCacheMs
+    ) {
+      throw new Error("External CDP endpoint failed recently; retry deferred.");
+    }
     this.#connecting ??= (async () => {
       const target = await resolveExternalEndpoint(this.options.endpoint, this.#identity);
       this.#identity ??= target.browserId;
@@ -231,9 +247,20 @@ class ExternalCdpPort implements BrowserControlPort {
         for (const session of this.#sessions.values()) session.invalidate();
         this.#sessions.clear();
       });
-    })().finally(() => {
-      this.#connecting = undefined;
-    });
+    })()
+      .then(
+        (result: void) => {
+          this.#connectFailedAt = undefined;
+          return result;
+        },
+        (error: unknown) => {
+          this.#connectFailedAt = Date.now();
+          throw error;
+        },
+      )
+      .finally(() => {
+        this.#connecting = undefined;
+      });
     await this.#connecting;
   }
 }
