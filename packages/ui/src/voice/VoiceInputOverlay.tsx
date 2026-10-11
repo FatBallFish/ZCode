@@ -158,7 +158,13 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
                   variant="outline"
                   size="xs"
                   className="shrink-0"
-                  onClick={() => void platform.voiceOpenMicPermissionSettings?.()}
+                  onClick={async () => {
+                    const result = await platform
+                      .voiceOpenMicPermissionSettings?.()
+                      .catch(() => null);
+                    // macOS 补请求流程里用户直接点了“允许”：错误已解除，浮窗随消隐。
+                    if (result?.status === "granted") cancel();
+                  }}
                 >
                   {intl.formatMessage({ id: "voice.overlay.openMicSettings" })}
                 </Button>

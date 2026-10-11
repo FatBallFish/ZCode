@@ -68,8 +68,13 @@
   - `granted` → 继续开录；
   - `not-determined` → main 调 `askForMediaAccessPermission("microphone")` 弹系统授权框，返回最终状态；
   - `denied`/`restricted` → 不再发起 getUserMedia（必然失败），浮窗错误态 `voice.error.micDenied`，并附「去开启」按钮直接跳系统设置的麦克风隐私面板。
-- **设置页权限状态行**：展示当前状态（已授权/未授权/尚未请求），未授权时提供「去系统设置开启」按钮（`shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")`）与提示文案：**系统设置中开启后如仍无法录音，需重启应用生效**（macOS TCC 对运行中进程的授权变更不即时生效）。
-- Windows/Linux：无预检（`voiceGetMicPermissionStatus` 返回 `unsupported`，设置页不显示权限行），授权交给 getUserMedia 的系统级提示。
+- **设置页权限状态行**：展示当前状态（已授权/未授权/尚未请求），未授权时提供「去系统设置开启」按钮与提示文案：**系统设置中开启后如仍无法录音，需重启应用生效**（macOS TCC 对运行中进程的授权变更不即时生效）。
+- **「去开启」按钮行为**（VoiceOpenMicPermissionSettings，按平台）：
+  - macOS：**先补一次 TCC 请求再跳设置**——`not-determined` 时调 `askForMediaAccessPermission`（系统授权框直接点“允许”即完成授权，无需进设置；点“不允许”也会把本应用写入麦克风列表，避免列表里找不到应用而需手动添加）。`denied`（记录已存在）直接跳 `Privacy_Microphone` 面板。返回最终 status，授权成功时浮窗自动消隐、设置页即时刷新。
+  - Windows：无逐应用 TCC（桌面应用受全局“桌面应用访问麦克风”开关控制），跳 `ms-settings:privacy-microphone`。
+  - Linux：无统一权限体系（普通构建无需授权），no-op。
+  - 注意：开发构建（ad-hoc 签名随构建变化）的 TCC 记录可能随重构建失效，属签名身份问题，不在应用层解决。
+- Windows/Linux：无 macOS 式预检（`voiceGetMicPermissionStatus` 返回 `unsupported`，设置页不显示权限行），授权交给 getUserMedia 的系统级提示；Windows 上反复 NotAllowedError 时经「去开启」跳全局麦克风隐私设置。
 
 ## 4. 状态与所有者
 

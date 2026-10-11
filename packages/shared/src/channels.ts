@@ -1519,7 +1519,7 @@ export interface PlatformChannelMap {
   };
   [PlatformChannels.VoiceOpenMicPermissionSettings]: {
     request: void;
-    response: { ok: boolean };
+    response: { ok: boolean; status?: import("./voice.js").VoiceMicPermissionStatus };
   };
   [PlatformChannels.VoiceStateChanged]: {
     request: import("./voice.js").VoiceStateSnapshot;

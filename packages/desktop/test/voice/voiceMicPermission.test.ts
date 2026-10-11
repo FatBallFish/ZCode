@@ -62,15 +62,49 @@ describe("voiceMicPermission", () => {
     assert.equal((await createVoiceMicPermission(deps).ensure()).status, "denied");
   });
 
-  it("openSystemSettings 打开 macOS 隐私面板深链；openExternal 失败返回 ok:false", async () => {
-    const ok = makeDeps();
-    assert.equal((await createVoiceMicPermission(ok.deps).openSystemSettings()).ok, true);
-    assert.match(ok.openedUrl(), /^x-apple\.systempreferences:.*Privacy_Microphone/);
+  it("darwin「去开启」：not-determined 先补请求，允许则不再跳设置页", async () => {
+    const allowed = makeDeps({ getMediaAccessStatus: () => "not-determined" }, true);
+    const allowedResult = await createVoiceMicPermission(allowed.deps).openSystemSettings();
+    assert.equal(allowedResult.ok, true);
+    assert.equal(allowedResult.status, "granted");
+    assert.equal(allowed.asked(), 1);
+    assert.equal(allowed.openedUrl(), "");
+  });
+
+  it("darwin「去开启」：补请求被拒后跳隐私面板（应用已写入列表）", async () => {
+    const denied = makeDeps({ getMediaAccessStatus: () => "not-determined" }, false);
+    const result = await createVoiceMicPermission(denied.deps).openSystemSettings();
+    assert.equal(result.ok, true);
+    assert.equal(result.status, "denied");
+    assert.equal(denied.asked(), 1);
+    assert.match(denied.openedUrl(), /^x-apple\.systempreferences:.*Privacy_Microphone/);
+  });
+
+  it("darwin「去开启」：已 denied（记录存在）不重复弹框直接跳面板", async () => {
+    const { deps, asked, openedUrl } = makeDeps({ getMediaAccessStatus: () => "denied" });
+    const result = await createVoiceMicPermission(deps).openSystemSettings();
+    assert.equal(result.ok, true);
+    assert.equal(asked(), 0);
+    assert.match(openedUrl(), /^x-apple\.systempreferences:.*Privacy_Microphone/);
+  });
+
+  it("win32「去开启」：跳 ms-settings 麦克风隐私页", async () => {
+    const { deps, openedUrl } = makeDeps({ platform: "win32" });
+    const result = await createVoiceMicPermission(deps).openSystemSettings();
+    assert.equal(result.ok, true);
+    assert.equal(openedUrl(), "ms-settings:privacy-microphone");
+  });
+
+  it("openExternal 失败返回 ok:false（不打崩调用链）", async () => {
+    // denied 状态才会走到 openExternal（granted 在补请求环节即短路返回）。
     const bad = makeDeps({
+      getMediaAccessStatus: () => "denied",
       openExternal: async () => {
         throw new Error("nope");
       },
     });
-    assert.equal((await createVoiceMicPermission(bad.deps).openSystemSettings()).ok, false);
+    const result = await createVoiceMicPermission(bad.deps).openSystemSettings();
+    assert.equal(result.ok, false);
+    assert.equal(result.status, "denied");
   });
 });

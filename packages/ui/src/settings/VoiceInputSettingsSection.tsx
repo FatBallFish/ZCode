@@ -193,8 +193,12 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
   }, [refreshDevices, refreshMicPermission]);
 
   const handleOpenMicSettings = useCallback(() => {
-    void platform.voiceOpenMicPermissionSettings?.();
-  }, [platform]);
+    // macOS 补请求流程可能直接完成授权：返回后立即刷新状态行，不等窗口 focus。
+    void platform
+      .voiceOpenMicPermissionSettings?.()
+      .catch(() => null)
+      .finally(() => refreshMicPermission());
+  }, [platform, refreshMicPermission]);
 
   let permissionLabelId: string | null = null;
   if (micPermission === "granted") permissionLabelId = "settings.voiceInput.permission.granted";
