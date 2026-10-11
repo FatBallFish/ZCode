@@ -16,6 +16,8 @@ interface Scope {
   remoteSessionId?: string;
   clientMode?: BrowserClientMode;
   sessionContext?: "live" | "cached";
+  /** ambient 收集的 deadline 取消信号：转发给 external registry，端点不可达时立即放弃等待。 */
+  signal?: AbortSignal;
 }
 interface Execute extends Scope {
   browserId?: string;
@@ -68,7 +70,11 @@ export function createDesktopExternalBrowserControl(
     async list(scope?: Scope): Promise<BrowserBackendDescriptor[]> {
       const existing = await iab.list(scope);
       if (!scope || !allow(scope)) return existing;
-      const descriptors = await port.list({ sessionId: sessionId(scope), turnId: scope.turnId });
+      const descriptors = await port.list({
+        sessionId: sessionId(scope),
+        turnId: scope.turnId,
+        signal: scope.signal,
+      });
       return [...existing, ...descriptors];
     },
     async execute(input: Execute): Promise<BrowserCommandResult> {
@@ -95,6 +101,7 @@ export function createDesktopExternalBrowserControl(
           sessionId: sessionId(input),
           turnId: input.turnId,
           command: input.command,
+          signal: input.signal,
         });
       }
       if (allow(input)) {
