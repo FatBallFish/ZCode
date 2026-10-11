@@ -256,7 +256,9 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
               // 默认值 "hidden @xl/composer:inline-flex" 是聊天输入框的响应式容器类，
               // 设置页没有该容器会导致已选模型名永远隐藏（真机反馈）。
               labelVisibilityClassName="inline-flex"
-              showProviderLevel={false}
+              // 不能设 showProviderLevel={false}：那会只渲染第一个分组（智谱账号组）的
+              // 扁平列表，中转站/自定义供应商的分组全部不出现（真机反馈）。默认按
+              // 供应商子菜单展示全量候选。
               showManageModelsAction={false}
               lockReasonMessage=""
               isItemLocked={MODEL_ITEM_NEVER_LOCKED}
