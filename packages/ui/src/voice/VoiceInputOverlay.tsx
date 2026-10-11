@@ -130,7 +130,7 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
         >
           <div
             className={cn(
-              "rounded-2xl border border-border-subtle bg-bg-elevated/95 p-3 shadow-xl backdrop-blur",
+              "rounded-2xl border border-border bg-bg-elevated/95 p-3 shadow-xl backdrop-blur",
               phase === "error" ? "border-destructive/40" : "",
             )}
           >

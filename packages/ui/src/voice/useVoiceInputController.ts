@@ -7,6 +7,7 @@
  * 转录回填（window 事件 → 聚焦 composer）。
  */
 import { useEffect, useRef } from "react";
+import { completeNewModelSelection } from "@zcode/provider";
 import { DEFAULT_VOICE_MODEL_ID, type VoiceSessionStartResult } from "@zcode/shared";
 import { usePlatform } from "@/hooks/usePlatform.jsx";
 import { useServices } from "@/hooks/useServices.js";
@@ -232,6 +233,23 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
     const selection = latest.current.settings?.voiceCleanupSelection;
     const workspace = latest.current.resolveActiveWorkspace();
     if (!selection || !workspace) return transcript;
+    // 旧数据/未迁移选择可能缺思考档位：要求档位的模型会被 RPC 拒绝（实测
+    // "Reasoning level is required"）。调用前懒补默认档位（最高档），视图不可用则按原样
+    // 发出让 RPC 错误路径兜底（降级回填原文 + warn）。
+    let selectionWithLevel = selection;
+    if (!selection.reasoningLevel) {
+      const view = await currentServices.modelSelectionService.getView().catch(() => null);
+      const completed = view
+        ? completeNewModelSelection(view, {
+            providerId: selection.providerId,
+            modelId: selection.modelId,
+          })
+        : undefined;
+      const reasoningLevel = completed?.options?.reasoningLevel;
+      if (reasoningLevel) {
+        selectionWithLevel = { ...selection, reasoningLevel };
+      }
+    }
     const systemPrompt = currentIntl.formatMessage({ id: "voice.cleanup.systemPrompt" });
     const userPrompt = currentIntl.formatMessage(
       { id: "voice.cleanup.userPrompt" },
@@ -240,7 +258,13 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
     try {
       const result = await currentServices.zcodeAgentService.generateWorkspaceText({
         workspacePath: workspace.workspacePath,
-        selection: { providerId: selection.providerId, modelId: selection.modelId },
+        selection: {
+          providerId: selectionWithLevel.providerId,
+          modelId: selectionWithLevel.modelId,
+          ...(selectionWithLevel.reasoningLevel
+            ? { options: { reasoningLevel: selectionWithLevel.reasoningLevel } }
+            : {}),
+        },
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

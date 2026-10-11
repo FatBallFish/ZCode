@@ -399,5 +399,5 @@ export interface AppSettings {
   /** 语音转义后是否自动调用所选模型做语义整理；undefined=关闭。 */
   voiceCleanupEnabled?: boolean;
   /** 语义整理使用的模型（复用 provider/model 体系，走 workspace/generateText）。 */
-  voiceCleanupSelection?: { providerId: string; modelId: string };
+  voiceCleanupSelection?: { providerId: string; modelId: string; reasoningLevel?: string };
 }

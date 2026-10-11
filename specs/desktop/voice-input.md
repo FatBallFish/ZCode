@@ -51,6 +51,12 @@
 ### 3.3 语义整理管线
 
 - 触发条件：设置开关开 + 已选模型。转录完成后调用 `services.zcodeAgentService.generateWorkspaceText`（既有 `workspace/generateText`，`querySource: "voice-cleanup"`），入参 `messages: [{role:"system", ...},{role:"user", transcript}]`。
+- **模型选择携带思考档位**：要求档位的模型（如 GLM 系 coding plan）不带 `options.reasoningLevel` 会被 RPC 直接拒绝（实测 "Reasoning level is required"），整理静默降级为原文。规则：
+  - `voiceCleanupSelection` 含可选 `reasoningLevel`；
+  - 设置页选中模型时经 `completeNewModelSelection` 补默认档位（最高档）一并保存；
+  - 运行时兜底：已存选择缺档位时经 base host 的 `modelSelectionService.getView()` 懒补
+    默认档位再调用（旧数据无需迁移；视图不可用则按原样发出，由 RPC 错误路径降级回填原文 + warn）。
+- **整理模型候选 = 活动工作区的模型视图**（`useModelSelectionView`，与自动化设置同源）：含账号系、中转站（Sub2API）与自定义供应商；不用 base host 视图（只有账号系，中转站模型全部缺席——实测踩坑）。无活动本地工作区时下拉禁用。
 - Prompt 约束：删除语气词/口癖/无意义重复与停顿；恢复标点与分段；不改原意、不翻译（中英混说保留原文）；输出只有整理后正文。
 - SenseVoice 的情绪/事件标记（`<|laugh|>` 等）由引擎 worker 在产出文本时剥离，不进 LLM。
 - 失败降级：整理调用失败/超时（上限 60s + AbortSignal）→ 回填原始转录文案，logger.warn，浮窗正常关闭，不打断用户。
@@ -152,7 +158,7 @@ preload 暴露于 `window.zcode.voice.*`（invoke + `onVoiceStateChanged`/`onVoi
 
 ### 5.2 shared 类型（`packages/shared/src/voice.ts`）
 
-`VoiceModelManifest`（id/引擎子类型/语言/流式/磁盘内存预估/download{files[{path,url,mirrorUrl,sizeBytes,sha256}]}）、`VoiceModelState`（installed/downloading{progress}/error、lastUsedAt）、`VoiceStateSnapshot`、`VoiceFinalResult`、`VOICE_MODEL_MANIFESTS`（内置清单常量）、zod schema（运行时校验 manifest 与 IPC payload）。语义整理模型存 `AppSettings`：`voiceInputModelId?: string`、`voiceInputDeviceId?: string`（`""`/缺省 = 系统默认输入设备）、`voiceCleanupEnabled?: boolean`、`voiceCleanupSelection?: {providerId, modelId}`（同 `modelSelectionSchema` 形状，不含 reasoningLevel）。
+`VoiceModelManifest`（id/引擎子类型/语言/流式/磁盘内存预估/download{files[{path,url,mirrorUrl,sizeBytes,sha256}]}）、`VoiceModelState`（installed/downloading{progress}/error、lastUsedAt）、`VoiceStateSnapshot`、`VoiceFinalResult`、`VOICE_MODEL_MANIFESTS`（内置清单常量）、zod schema（运行时校验 manifest 与 IPC payload）。语义整理模型存 `AppSettings`：`voiceInputModelId?: string`、`voiceInputDeviceId?: string`（`""`/缺省 = 系统默认输入设备）、`voiceCleanupEnabled?: boolean`、`voiceCleanupSelection?: {providerId, modelId, reasoningLevel?}`（执行时映射为 `options.reasoningLevel`，见 §3.3）。
 
 ### 5.3 引擎 worker 协议（desktop 包内 `voiceEngineProtocol.ts`，非跨端协议）
 
