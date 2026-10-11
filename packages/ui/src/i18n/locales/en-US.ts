@@ -1854,6 +1854,9 @@ const enUS: Record<string, string> = {
   "workspaceSidebar.searchArchivedTasksPlaceholder": "Search archived tasks...",
   "workspaceSidebar.closeTaskSearch": "Close task search",
   "workspaceSidebar.remove": "Remove",
+  "workspaceSidebar.copyProjectPath": "Copy project path",
+  "workspaceSidebar.pinProject": "Pin project",
+  "workspaceSidebar.unpinProject": "Unpin project",
   "workspaceSidebar.removeRunningWorkspace.title": "Remove a running project?",
   "workspaceSidebar.removeRunningWorkspace.description":
     "This project still has a running chat or Agent. Removing it will stop and release the related runtime state, but task history will not be deleted.",

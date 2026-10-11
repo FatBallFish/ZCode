@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- pinned 列表现在同时承载本地查询、远端主动注入结果和任务操作分发，先集中保持交互一致。 */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { ZCodeTaskMeta } from "@zcode/shared";
 import { toast } from "@/components/ui/toast.js";
@@ -50,7 +50,7 @@ export function WorkspacePinnedTasksSection({
   activeTaskId,
   taskSortBy,
   mobileActiveTaskKey,
-  onSelectTask,
+  pinnedProjectRows,  onSelectTask,
   onOpenFileTree,
 }: {
   workspaceTabs: WorkspaceTabState[];
@@ -59,7 +59,8 @@ export function WorkspacePinnedTasksSection({
   activeTaskId: string | null;
   taskSortBy: "created" | "updated";
   mobileActiveTaskKey?: string | null;
-  onSelectTask: (
+  /** 置顶项目行（含嵌套会话列表，spec specs/desktop/sidebar-projects.md）；由上层渲染注入。 */
+  pinnedProjectRows?: ReactNode;  onSelectTask: (
     targetWorkspacePath: string,
     taskId: string,
     targetWorkspaceIdentity?: string,
@@ -468,7 +469,7 @@ export function WorkspacePinnedTasksSection({
     ? resolveTaskServices(contextMenuItem.workspaceIdentity)
     : null;
 
-  if (items.length === 0) {
+  if (items.length === 0 && !pinnedProjectRows) {
     // 切换/加入工作区时 pinned 查询会先进入 loading，但此时没有可展示的数据。
     // 不能仍渲染“已置顶 + 正在获取任务”，否则侧栏每次切换都出现一次无实际帮助的 loading。
     // 有缓存数据时继续走下面的正常渲染路径，保持 stale-while-revalidate 的展示体验。
@@ -531,6 +532,7 @@ export function WorkspacePinnedTasksSection({
         />
       ) : null}
       <PinnedTasksSectionTitle title={sectionTitle} />
+      {pinnedProjectRows}
       <ContextMenu
         onOpenChange={(open) => {
           if (!open) {

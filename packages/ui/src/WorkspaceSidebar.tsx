@@ -130,6 +130,8 @@ import {
   SortableWorkspaceSidebarItem,
   restrictVerticalDragWithinContainer,
 } from "./SortableWorkspaceSidebar.js";
+import { WorkspaceSidebarItem } from "./WorkspaceSidebarItem.js";
+import { persistPinnedProjectKeys, readPinnedProjectKeys } from "@/lib/pinnedProjectsPreference.js";
 import {
   resolveSidebarTaskGroupTogglePresentation,
   type SidebarTaskGroupTogglePresentation,
@@ -800,6 +802,52 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
       increaseWorkspaceTaskVisibleLimit(current, workspaceKey),
     );
   }, []);
+  // 项目置顶（spec specs/desktop/sidebar-projects.md）：键为 buildTaskWorkspaceKey 的
+  // 本设备 localStorage 偏好；置顶行移入「已置顶」分区，项目分区只保留未置顶行。
+  const [pinnedProjectKeys, setPinnedProjectKeys] = useState<Set<string>>(readPinnedProjectKeys);
+  const handleToggleProjectPinned = useCallback((workspaceKey: string, pinned: boolean) => {
+    setPinnedProjectKeys((current) => {
+      const next = new Set(current);
+      if (pinned) {
+        next.add(workspaceKey);
+      } else {
+        next.delete(workspaceKey);
+      }
+      if (next.size === current.size && next.has(workspaceKey) === current.has(workspaceKey)) {
+        return current;
+      }
+      persistPinnedProjectKeys(next);
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    // 惰性清理：置顶键指向的项目已不存在（如在别的窗口被移除）时回收，避免残留脏键。
+    const activeKeys = new Set(
+      projectWorkspaceTabs.map((tab) =>
+        buildTaskWorkspaceKey(tab.workspacePath, tab.workspaceIdentity),
+      ),
+    );
+    setPinnedProjectKeys((current) => {
+      const next = new Set([...current].filter((key) => activeKeys.has(key)));
+      if (next.size === current.size) {
+        return current;
+      }
+      persistPinnedProjectKeys(next);
+      return next;
+    });
+  }, [projectWorkspaceTabs]);
+  const { pinnedProjectTabs, unpinnedProjectTabs } = useMemo(() => {
+    const pinned: WorkspaceTabState[] = [];
+    const unpinned: WorkspaceTabState[] = [];
+    for (const tab of sidebarProjectTabs) {
+      if (pinnedProjectKeys.has(buildTaskWorkspaceKey(tab.workspacePath, tab.workspaceIdentity))) {
+        pinned.push(tab);
+      } else {
+        unpinned.push(tab);
+      }
+    }
+    return { pinnedProjectTabs: pinned, unpinnedProjectTabs: unpinned };
+  }, [pinnedProjectKeys, sidebarProjectTabs]);
   const handleOpenWorkspaceFileTree = useCallback((target: SidebarFileTreeTarget) => {
     setFileTreeTarget(target);
     setIsFileTreeOpen(true);
@@ -837,6 +885,47 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
     workspacePath,
     workspaceTaskGroupByKey,
   ]);
+  // 置顶项目行（渲染进「已置顶」分区）：复用项目分区的 WorkspaceSidebarItem（保留
+  // 展开收缩/新建会话/文件树/重连/移除/菜单全部行为），但不在 sortable 上下文内，
+  // 也不参与拖拽（spec specs/desktop/sidebar-projects.md）。
+  const pinnedProjectRows =
+    pinnedProjectTabs.length > 0 ? (
+      <ul className="space-y-2 pb-1">
+        {pinnedProjectTabs.map((tab) => {
+          const workspaceKey = buildTaskWorkspaceKey(tab.workspacePath, tab.workspaceIdentity);
+          const taskGroup = workspaceTaskGroupByKey.get(workspaceKey);
+          const taskLoading = workspaceTaskLists.loadingByWorkspaceKey[workspaceKey] ?? false;
+          return (
+            <WorkspaceSidebarItem
+              key={tab.id}
+              tab={tab}
+              isActiveWorkspace={tab.workspacePath === workspacePath}
+              isExpanded={expandedWorkspacePaths.has(tab.workspacePath)}
+              activateTab={activateTab}
+              closeTab={closeTab}
+              toggleWorkspaceExpanded={toggleWorkspaceExpanded}
+              onSelectTask={onSelectTask}
+              onStartDraftInWorkspace={onStartDraftInWorkspace}
+              taskItems={taskGroup?.items ?? EMPTY_WORKSPACE_TASK_ITEMS}
+              taskListLoading={taskLoading}
+              taskListHasMore={taskGroup?.hasMore ?? false}
+              taskListHasUnread={taskGroup?.hasUnread ?? false}
+              taskListLiveWorkflowCount={taskGroup?.liveWorkflowCount ?? 0}
+              onShowMoreTasks={() => handleShowMoreWorkspaceTasks(workspaceKey)}
+              reconnectingRemoteWorkspaceKeys={reconnectingRemoteWorkspaceKeys}
+              remoteWorkspaceErrorByWorkspaceKey={remoteWorkspaceErrorByWorkspaceKey}
+              reconnectingRemoteWorkspaceLogsByWorkspaceKey={
+                reconnectingRemoteWorkspaceLogsByWorkspaceKey
+              }
+              onReconnectRemoteWorkspace={onReconnectRemoteWorkspace}
+              onOpenFileTree={handleOpenWorkspaceFileTree}
+              isProjectPinned
+              onToggleProjectPinned={handleToggleProjectPinned}
+            />
+          );
+        })}
+      </ul>
+    ) : undefined;
   const workspaceScrollMaskStyle = useMemo<CSSProperties>(() => {
     const baseStyle: CSSProperties = { overflowAnchor: "none" };
     if (!showWorkspaceTopMask && !showWorkspaceBottomMask) {
@@ -1661,6 +1750,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
                   activeTaskId={activeTaskId}
                   taskSortBy={taskSortBy}
                   mobileActiveTaskKey={mobileActiveTaskKey}
+                  pinnedProjectRows={pinnedProjectRows}
                   onSelectTask={handleTaskRowSelect}
                   onOpenFileTree={(target) => {
                     setFileTreeTarget(target);
@@ -1835,11 +1925,11 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
                                   onDragCancel={handleWorkspaceDragCancel}
                                 >
                                   <SortableContext
-                                    items={sidebarProjectTabs.map((tab) => tab.id)}
+                                    items={unpinnedProjectTabs.map((tab) => tab.id)}
                                     strategy={workspaceVerticalListSortingStrategy}
                                   >
                                     <ul data-testid={TID_WORKSPACE_LIST} className="space-y-2 pb-4">
-                                      {sidebarProjectTabs.map((tab) => {
+                                      {unpinnedProjectTabs.map((tab) => {
                                         const workspaceKey = buildTaskWorkspaceKey(
                                           tab.workspacePath,
                                           tab.workspaceIdentity,
@@ -1890,6 +1980,8 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
                                             }
                                             onReconnectRemoteWorkspace={onReconnectRemoteWorkspace}
                                             onOpenFileTree={handleOpenWorkspaceFileTree}
+                                            isProjectPinned={false}
+                                            onToggleProjectPinned={handleToggleProjectPinned}
                                           />
                                         );
                                       })}

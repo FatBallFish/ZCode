@@ -70,6 +70,19 @@ function ContextMenuSeparator({
   );
 }
 
+function ContextMenuLabel({
+  className,
+  ...props
+}: React.ComponentProps<typeof ContextMenuPrimitive.Label>) {
+  return (
+    <ContextMenuPrimitive.Label
+      data-slot="context-menu-label"
+      className={cn("px-2 py-1.5 text-ui-base font-medium text-foreground-subtlest", className)}
+      {...props}
+    />
+  );
+}
+
 function ContextMenuSub({ ...props }: React.ComponentProps<typeof ContextMenuPrimitive.Sub>) {
   return <ContextMenuPrimitive.Sub data-slot="context-menu-sub" {...props} />;
 }
@@ -118,6 +131,7 @@ export {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuLabel,
   ContextMenuSeparator,
   ContextMenuSub,
   ContextMenuSubContent,
