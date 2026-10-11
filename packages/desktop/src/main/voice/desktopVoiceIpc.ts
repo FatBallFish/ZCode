@@ -2,13 +2,21 @@
  * 语音 IPC 注册（renderer ↔ main；specs/desktop/voice-input.md §5.1）。
  * 进程内实现细节不外泄：VoiceService 是唯一所有者，本层只做转发与广播。
  */
-import { BrowserWindow, ipcMain, utilityProcess, type WebContents } from "electron";
+import {
+  BrowserWindow,
+  ipcMain,
+  shell,
+  systemPreferences,
+  utilityProcess,
+  type WebContents,
+} from "electron";
 import { PlatformChannels } from "@zcode/shared";
 import type {
   DesktopVoiceService,
   VoiceEngineChildProcess,
   VoiceEventSink,
 } from "./desktopVoiceService.js";
+import { createVoiceMicPermission } from "./voiceMicPermission.js";
 
 export function spawnVoiceEngineWorker(modulePath: string): VoiceEngineChildProcess {
   return utilityProcess.fork(modulePath, [], {
@@ -86,6 +94,20 @@ export function registerVoiceIpc(options: { service: DesktopVoiceService }): voi
   );
 
   ipcMain.handle(PlatformChannels.VoiceUnloadEngine, () => service.unloadEngine());
+
+  // 麦克风权限（§3.5）：main 侧 systemPreferences 是唯一事实源，renderer 只读+发命令。
+  const micPermission = createVoiceMicPermission({
+    platform: process.platform,
+    getMediaAccessStatus: (mediaType) => systemPreferences.getMediaAccessStatus(mediaType),
+    askForMediaAccessPermission: (mediaType) =>
+      systemPreferences.askForMediaAccessPermission(mediaType),
+    openExternal: (url) => shell.openExternal(url),
+  });
+  ipcMain.handle(PlatformChannels.VoiceGetMicPermissionStatus, () => micPermission.getStatus());
+  ipcMain.handle(PlatformChannels.VoiceEnsureMicPermission, () => micPermission.ensure());
+  ipcMain.handle(PlatformChannels.VoiceOpenMicPermissionSettings, () =>
+    micPermission.openSystemSettings(),
+  );
 
   service.onSnapshot((snapshot) => {
     for (const window of BrowserWindow.getAllWindows()) {

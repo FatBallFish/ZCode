@@ -76,3 +76,24 @@ test("状态快照 schema：合法快照通过、缺 activeSession 字段拒绝"
   assert.equal(voiceStateSnapshotSchema.safeParse(valid).success, true);
   assert.equal(voiceStateSnapshotSchema.safeParse({ supported: true }).success, false);
 });
+
+test("麦克风权限结果 schema：五个状态枚举通过、未知值拒绝", async () => {
+  const { voiceMicPermissionResultSchema } = await import("../src/voice.js");
+  for (const status of ["granted", "denied", "not-determined", "restricted", "unsupported"]) {
+    assert.equal(voiceMicPermissionResultSchema.safeParse({ status }).success, true, status);
+  }
+  assert.equal(voiceMicPermissionResultSchema.safeParse({ status: "yes" }).success, false);
+  assert.equal(voiceMicPermissionResultSchema.safeParse({}).success, false);
+});
+
+test("设置 schema：voiceInputDeviceId 可选字符串（缺省/空串=系统默认）", async () => {
+  const { appSettingsSchema } = await import("../src/validationAppSettings.js");
+  const base = {};
+  assert.equal(appSettingsSchema.safeParse(base).success, true);
+  assert.equal(appSettingsSchema.safeParse({ ...base, voiceInputDeviceId: "" }).success, true);
+  assert.equal(
+    appSettingsSchema.safeParse({ ...base, voiceInputDeviceId: "device-abc" }).success,
+    true,
+  );
+  assert.equal(appSettingsSchema.safeParse({ ...base, voiceInputDeviceId: 123 }).success, false);
+});

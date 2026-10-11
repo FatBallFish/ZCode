@@ -429,6 +429,11 @@ export interface AppSettings {
    * undefined=sensevoice-int8（默认，免迁移）。引擎/文件唯一所有者是 desktop main VoiceService。
    */
   voiceInputModelId?: string;
+  /**
+   * 语音输入采集设备（specs/desktop/voice-input.md §3.4）：deviceId；
+   * ""/undefined=系统默认输入设备。设备枚举在 renderer（enumerateDevices）。
+   */
+  voiceInputDeviceId?: string;
   /** 语音转义后是否自动调用所选模型做语义整理；undefined=关闭。 */
   voiceCleanupEnabled?: boolean;
   /** 语义整理使用的模型（复用 provider/model 体系，走 workspace/generateText）。 */

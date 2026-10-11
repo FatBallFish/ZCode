@@ -9,6 +9,7 @@ import { LoaderIcon, MicIcon, XIcon } from "lucide-react";
 import { TID_V4_COMPOSER } from "@zcode/shared";
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
+import { usePlatform } from "@/hooks/usePlatform.jsx";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useVoiceInputStore } from "@/voice/voiceInputStore.js";
 
@@ -22,6 +23,7 @@ function waveBarMotion(index: number) {
 
 export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
   const { intl } = useZCodeIntl();
+  const platform = usePlatform();
   const phase = useVoiceInputStore((state) => state.phase);
   const partialText = useVoiceInputStore((state) => state.partialText);
   const downloadProgress = useVoiceInputStore((state) => state.downloadProgress);
@@ -62,7 +64,7 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
 
   // ESC 取消（capture：先于 composer 的 ESC 处理；录制快捷键态由 useAppKeyboard 统一抑制）。
   useEffect(() => {
-    if (phase !== "preparing" && phase !== "listening") return;
+    if (phase !== "preparing" && phase !== "listening" && phase !== "error") return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       // 对话框/弹层打开时 ESC 属于它们（关闭弹层而不是取消录音）。
@@ -150,6 +152,17 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
               >
                 {statusText}
               </span>
+              {phase === "error" && error?.key === "voice.error.micDenied" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  className="shrink-0"
+                  onClick={() => void platform.voiceOpenMicPermissionSettings?.()}
+                >
+                  {intl.formatMessage({ id: "voice.overlay.openMicSettings" })}
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 variant="ghost"

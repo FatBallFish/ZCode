@@ -542,6 +542,12 @@ export const PlatformChannels = {
   VoiceCancelSession: "zcode:voice:cancel-session",
   /** Renderer → Main：立即卸载引擎 worker（设置页「立即释放」） */
   VoiceUnloadEngine: "zcode:voice:unload-engine",
+  /** Renderer → Main：查询麦克风权限状态（macOS TCC；不弹授权框） */
+  VoiceGetMicPermissionStatus: "zcode:voice:get-mic-permission-status",
+  /** Renderer → Main：确保麦克风权限（not-determined 时弹系统授权框） */
+  VoiceEnsureMicPermission: "zcode:voice:ensure-mic-permission",
+  /** Renderer → Main：打开系统设置的麦克风隐私面板（未授权引导） */
+  VoiceOpenMicPermissionSettings: "zcode:voice:open-mic-permission-settings",
   /** Main → Renderer：模型下载进度/引擎加载状态变化（广播所有窗口） */
   VoiceStateChanged: "zcode:voice:state-changed",
   /** Main → Renderer：会话内事件（partial/error，仅发会话所属窗口） */
@@ -1502,6 +1508,18 @@ export interface PlatformChannelMap {
   [PlatformChannels.VoiceUnloadEngine]: {
     request: void;
     response: { ok: boolean; error?: string };
+  };
+  [PlatformChannels.VoiceGetMicPermissionStatus]: {
+    request: void;
+    response: import("./voice.js").VoiceMicPermissionResult;
+  };
+  [PlatformChannels.VoiceEnsureMicPermission]: {
+    request: void;
+    response: import("./voice.js").VoiceMicPermissionResult;
+  };
+  [PlatformChannels.VoiceOpenMicPermissionSettings]: {
+    request: void;
+    response: { ok: boolean };
   };
   [PlatformChannels.VoiceStateChanged]: {
     request: import("./voice.js").VoiceStateSnapshot;

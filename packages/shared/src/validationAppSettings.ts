@@ -537,8 +537,9 @@ const appSettingsObjectSchema = z.object({
   desktopPetPosition: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
   // Git worktree 配置；undefined=服务侧按默认值解析（specs/desktop/worktrees.md）。
   worktreeConfig: worktreeConfigSchema.optional(),
-  // 语音输入（specs/desktop/voice-input.md）：模型选择/语义整理开关与模型。
+  // 语音输入（specs/desktop/voice-input.md）：模型选择/采集设备/语义整理开关与模型。
   voiceInputModelId: z.string().optional(),
+  voiceInputDeviceId: z.string().optional(),
   voiceCleanupEnabled: z.boolean().optional(),
   voiceCleanupSelection: voiceCleanupSelectionSchema.optional(),
 });
@@ -648,8 +649,9 @@ export const appSettingsPatchSchema = z.object({
   desktopPetPosition: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
   // Git worktree 配置；patch 里同样整体可选（写入时全量替换）。
   worktreeConfig: worktreeConfigSchema.optional(),
-  // 语音输入（specs/desktop/voice-input.md）：模型选择/语义整理开关与模型。
+  // 语音输入（specs/desktop/voice-input.md）：模型选择/采集设备/语义整理开关与模型。
   voiceInputModelId: z.string().optional(),
+  voiceInputDeviceId: z.string().optional(),
   voiceCleanupEnabled: z.boolean().optional(),
   voiceCleanupSelection: voiceCleanupSelectionSchema.optional(),
 });

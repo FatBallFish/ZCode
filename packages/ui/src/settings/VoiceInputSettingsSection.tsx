@@ -1,25 +1,25 @@
 /**
- * 语音输入设置（specs/desktop/voice-input.md §3.1）：
- * 识别模型卡（特点/磁盘/内存/下载状态）、语义整理开关与模型选择（复用 ModelConfigSelect）、
- * 快捷键展示与跳转、引擎占用与「立即释放」。
+ * 语音输入设置（specs/desktop/voice-input.md §3.1/§3.4/§3.5）：
+ * 识别模型卡（特点/磁盘/内存/下载状态）、输入设备与麦克风权限、语义整理开关与模型选择
+ * （复用 ModelConfigSelect）、快捷键展示与跳转、引擎占用与「立即释放」。
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  AudioLines,
-  CheckCircle2Icon,
-  CircleIcon,
-  DownloadIcon,
-  LoaderIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { AudioLines, CheckCircle2Icon, CircleIcon, ShieldAlertIcon } from "lucide-react";
 import {
   DEFAULT_VOICE_MODEL_ID,
-  VOICE_MODEL_MANIFESTS,
   ZCODE_AGENT_PROVIDER,
   type AppSettings,
+  type VoiceMicPermissionStatus,
   type VoiceStateSnapshot,
 } from "@zcode/shared";
 import { Button } from "@/components/ui/button.js";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.js";
 import { Switch } from "@/components/ui/switch.js";
 import { toast } from "@/components/ui/toast.js";
 import { cn } from "@/components/lib/utils.js";
@@ -34,13 +34,10 @@ import { buildRegistryModelSelectGroups } from "@/lib/modelSelectionGroups.js";
 import { setPendingSettingsSection } from "@/lib/settingsNavigation.js";
 import { decodeCustomModelValue, encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
 import { SettingsGroupCard, SettingsRow } from "@/settings/SettingsPageParts.js";
+import { VoiceModelCardList } from "@/settings/VoiceModelCardList.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 
 const MODEL_ITEM_NEVER_LOCKED = () => false;
-
-function formatMb(mb: number): string {
-  return mb >= 1024 ? `${(mb / 1024).toFixed(1)}GB` : `${mb}MB`;
-}
 
 export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean }) {
   const { intl } = useZCodeIntl();
@@ -144,6 +141,60 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
     refreshSnapshot();
   }, [intl, platform, refreshSnapshot]);
 
+  // ── 输入设备（spec §3.4）：enumerateDevices + devicechange/聚焦刷新 ──
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const refreshDevices = useCallback(() => {
+    navigator.mediaDevices
+      ?.enumerateDevices()
+      .then((all) => setDevices(all.filter((device) => device.kind === "audioinput")))
+      .catch(() => undefined);
+  }, []);
+  const selectedDeviceId = settings?.voiceInputDeviceId ?? "";
+  const selectedDeviceMissing =
+    selectedDeviceId !== "" && !devices.some((device) => device.deviceId === selectedDeviceId);
+
+  // ── 麦克风权限（spec §3.5）：状态查询 + 聚焦刷新（用户从系统设置改完回来的场景）──
+  const permissionSupported = typeof platform.voiceGetMicPermissionStatus === "function";
+  const [micPermission, setMicPermission] = useState<VoiceMicPermissionStatus | null>(null);
+  const refreshMicPermission = useCallback(() => {
+    if (!permissionSupported) return;
+    platform
+      .voiceGetMicPermissionStatus?.()
+      .then((result) => setMicPermission(result.status))
+      .catch(() => undefined);
+  }, [permissionSupported, platform]);
+
+  useEffect(() => {
+    refreshDevices();
+    refreshMicPermission();
+    const onDeviceChange = () => {
+      refreshDevices();
+    };
+    // 授权/系统设置变更后回到窗口时刷新两类状态。
+    const onFocus = () => {
+      refreshDevices();
+      refreshMicPermission();
+    };
+    navigator.mediaDevices?.addEventListener?.("devicechange", onDeviceChange);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      navigator.mediaDevices?.removeEventListener?.("devicechange", onDeviceChange);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshDevices, refreshMicPermission]);
+
+  const handleOpenMicSettings = useCallback(() => {
+    void platform.voiceOpenMicPermissionSettings?.();
+  }, [platform]);
+
+  let permissionLabelId: string | null = null;
+  if (micPermission === "granted") permissionLabelId = "settings.voiceInput.permission.granted";
+  else if (micPermission === "denied" || micPermission === "restricted")
+    permissionLabelId = "settings.voiceInput.permission.denied";
+  else if (micPermission === "not-determined")
+    permissionLabelId = "settings.voiceInput.permission.notDetermined";
+  const permissionBlocked = micPermission === "denied" || micPermission === "restricted";
+
   if (!available) {
     return (
       <section className="space-y-3">
@@ -173,142 +224,93 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
           description={intl.formatMessage({ id: "settings.voiceInput.recognition.description" })}
           control={<span aria-hidden="true" />}
         />
-        {snapshot?.supported === false ? (
+        <VoiceModelCardList
+          snapshot={snapshot}
+          selectedModelId={selectedModelId}
+          onSelect={(modelId) =>
+            void update({ voiceInputModelId: modelId } satisfies Partial<AppSettings>)
+          }
+          onDownload={(modelId) => void handleDownload(modelId)}
+          onDelete={(modelId) => void handleDelete(modelId)}
+        />
+      </SettingsGroupCard>
+
+      <SettingsGroupCard>
+        <SettingsRow
+          label={intl.formatMessage({ id: "settings.voiceInput.device.title" })}
+          description={
+            selectedDeviceMissing
+              ? intl.formatMessage({ id: "settings.voiceInput.device.missing" })
+              : intl.formatMessage({ id: "settings.voiceInput.device.description" })
+          }
+          control={
+            <Select
+              value={selectedDeviceId}
+              onValueChange={(value) =>
+                void update({ voiceInputDeviceId: value } satisfies Partial<AppSettings>)
+              }
+            >
+              <SelectTrigger
+                className="h-8 w-56 shrink-0"
+                data-testid="voice-input-device-select"
+                aria-label={intl.formatMessage({ id: "settings.voiceInput.device.title" })}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="" data-testid="voice-input-device-default">
+                  {intl.formatMessage({ id: "settings.voiceInput.device.default" })}
+                </SelectItem>
+                {devices.map((device, index) => (
+                  <SelectItem key={device.deviceId || index} value={device.deviceId}>
+                    {device.label ||
+                      intl.formatMessage(
+                        { id: "settings.voiceInput.device.unnamed" },
+                        { index: index + 1 },
+                      )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
+        {permissionSupported ? (
           <SettingsRow
-            label={intl.formatMessage({ id: "settings.voiceInput.unsupported.title" })}
+            label={intl.formatMessage({ id: "settings.voiceInput.permission.title" })}
             description={
-              snapshot.unsupportedReason ??
-              intl.formatMessage({ id: "settings.voiceInput.unsupported.description" })
+              permissionBlocked
+                ? intl.formatMessage({ id: "settings.voiceInput.permission.deniedDescription" })
+                : undefined
             }
-            control={<span aria-hidden="true" />}
+            control={
+              <div className="flex items-center gap-2">
+                {permissionLabelId ? (
+                  <span
+                    className={cn(
+                      "flex items-center gap-1.5 text-ui-sm",
+                      permissionBlocked ? "text-warning" : "text-fg-subtle",
+                    )}
+                    data-testid="voice-mic-permission-status"
+                  >
+                    {permissionBlocked ? (
+                      <ShieldAlertIcon className="size-4" aria-hidden />
+                    ) : micPermission === "granted" ? (
+                      <CheckCircle2Icon className="size-4 text-success" aria-hidden />
+                    ) : (
+                      <CircleIcon className="size-4" aria-hidden />
+                    )}
+                    {intl.formatMessage({ id: permissionLabelId })}
+                  </span>
+                ) : null}
+                {permissionBlocked ? (
+                  <Button type="button" variant="outline" size="xs" onClick={handleOpenMicSettings}>
+                    {intl.formatMessage({ id: "settings.voiceInput.permission.openSettings" })}
+                  </Button>
+                ) : null}
+              </div>
+            }
           />
         ) : null}
-        <div className="divide-y divide-border-subtle">
-          {VOICE_MODEL_MANIFESTS.map((manifest) => {
-            const install = snapshot?.models.find(
-              (entry) => entry.modelId === manifest.id,
-            )?.install;
-            const status = install?.status ?? "not-installed";
-            const downloading = install?.status === "downloading" ? install : null;
-            const isSelected = selectedModelId === manifest.id;
-            return (
-              <div
-                key={manifest.id}
-                data-testid={`voice-model-card-${manifest.id}`}
-                data-install-state={status}
-                className="flex flex-col gap-2 px-4 py-3"
-              >
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    aria-label={intl.formatMessage({ id: "settings.voiceInput.model.select" })}
-                    disabled={status !== "installed"}
-                    onClick={() =>
-                      void update({ voiceInputModelId: manifest.id } satisfies Partial<AppSettings>)
-                    }
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                  >
-                    {isSelected ? (
-                      <CheckCircle2Icon className="size-4 shrink-0 text-brand" aria-hidden />
-                    ) : (
-                      <CircleIcon
-                        className={cn(
-                          "size-4 shrink-0",
-                          status === "installed" ? "text-fg-subtle" : "text-fg-subtlest",
-                        )}
-                        aria-hidden
-                      />
-                    )}
-                    <span className="min-w-0 truncate text-ui-base font-medium text-foreground">
-                      {intl.formatMessage({ id: manifest.labelKey })}
-                    </span>
-                    <span className="shrink-0 rounded-full bg-surface px-2 py-0.5 text-ui-xs text-fg-subtle">
-                      {intl.formatMessage({
-                        id: `settings.voiceInput.model.${manifest.id}.tag`,
-                      })}
-                    </span>
-                  </button>
-                  {downloading ? (
-                    <Button type="button" variant="ghost" size="xs" disabled>
-                      <LoaderIcon className="size-4 animate-spin" aria-hidden />
-                      {`${Math.floor((downloading.receivedBytes / downloading.totalBytes) * 100)}%`}
-                    </Button>
-                  ) : status === "installed" ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      aria-label={intl.formatMessage({ id: "settings.voiceInput.model.delete" })}
-                      onClick={() => void handleDelete(manifest.id)}
-                    >
-                      <Trash2Icon className="size-4" aria-hidden />
-                    </Button>
-                  ) : status === "error" ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      onClick={() => void handleDownload(manifest.id)}
-                    >
-                      {intl.formatMessage({ id: "settings.voiceInput.download.retry" })}
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      onClick={() => void handleDownload(manifest.id)}
-                    >
-                      <DownloadIcon className="size-4" aria-hidden />
-                      {intl.formatMessage({ id: "settings.voiceInput.download.action" })}
-                    </Button>
-                  )}
-                </div>
-                <div className="pl-6 text-ui-sm text-fg-subtle">
-                  {intl.formatMessage({
-                    id: `settings.voiceInput.model.${manifest.id}.description`,
-                  })}
-                  <span className="ml-1 text-fg-subtlest">
-                    {intl.formatMessage({
-                      id: `settings.voiceInput.model.${manifest.id}.license`,
-                    })}
-                  </span>
-                </div>
-                <div className="pl-6 flex flex-wrap gap-x-4 gap-y-1 text-ui-xs text-fg-subtlest">
-                  <span>
-                    {intl.formatMessage({ id: "settings.voiceInput.model.disk" })}
-                    {formatMb(manifest.approxDiskMb)}
-                  </span>
-                  <span>
-                    {intl.formatMessage({ id: "settings.voiceInput.model.memory" })}
-                    {formatMb(manifest.approxRuntimeMemMb[0])}–
-                    {formatMb(manifest.approxRuntimeMemMb[1])}
-                  </span>
-                  <span>
-                    {intl.formatMessage({
-                      id: manifest.streaming
-                        ? "settings.voiceInput.model.streaming"
-                        : "settings.voiceInput.model.segmented",
-                    })}
-                  </span>
-                  {downloading ? (
-                    <span className="text-brand">
-                      {intl.formatMessage(
-                        { id: "settings.voiceInput.download.progress" },
-                        {
-                          file: downloading.activeFile,
-                          percent: Math.floor(
-                            (downloading.receivedBytes / downloading.totalBytes) * 100,
-                          ),
-                        },
-                      )}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
-        </div>
       </SettingsGroupCard>
 
       <SettingsGroupCard>

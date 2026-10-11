@@ -167,14 +167,33 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
   };
 
   const setupMic = async (onFrame: (frame: Int16Array) => void): Promise<void> => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
+    // 指定设备用 exact 约束；设备已拔出时 getUserMedia 抛 OverconstrainedError，
+    // 回退一次系统默认而不是让整次录音失败（spec §3.4）。
+    const deviceId = latest.current.settings?.voiceInputDeviceId;
+    const requestMic = (withDevice: boolean) =>
+      navigator.mediaDevices.getUserMedia({
+        audio: {
+          ...(withDevice && deviceId ? { deviceId: { exact: deviceId } } : {}),
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+    let stream: MediaStream;
+    try {
+      stream = await requestMic(true);
+    } catch (error) {
+      if (deviceId && error instanceof OverconstrainedError) {
+        logger.warn("voice mic device unavailable; falling back to system default", {
+          deviceId,
+          error: String(error),
+        });
+        stream = await requestMic(false);
+      } else {
+        throw error;
+      }
+    }
     let context: AudioContext;
     try {
       // Chromium 支持任意采样率 AudioContext，直接让管线重采样到 16k。
@@ -255,6 +274,15 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
     if (!workspace) {
       failWith("voice.error.noWorkspace");
       return;
+    }
+    // macOS TCC 预检（spec §3.5）：denied 时不再烧一次会话启动与 getUserMedia，
+    // 直接给可引导的错误；not-determined 时 main 弹系统授权框。非 darwin 恒通过。
+    if (currentPlatform.voiceEnsureMicPermission) {
+      const permission = await currentPlatform.voiceEnsureMicPermission().catch(() => null);
+      if (permission && permission.status !== "granted" && permission.status !== "unsupported") {
+        failWith("voice.error.micDenied");
+        return;
+      }
     }
     const modelId = latest.current.settings?.voiceInputModelId ?? DEFAULT_VOICE_MODEL_ID;
     useVoiceInputStore.setState({
@@ -369,6 +397,12 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
   };
 
   const cancel = () => {
+    // 错误态（如「未识别到语音」）允许关闭按钮/ESC 消隐——所有关闭路径都汇聚到
+    // cancel，旧实现只在 preparing/listening 生效，error 态点 X 毫无反应（真机实测）。
+    if (phaseRef.current === "error") {
+      resetToIdle();
+      return;
+    }
     const session = sessionRef.current;
     stopMic();
     if (session) {
@@ -445,8 +479,11 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
           void finish();
         } else if (phase === "preparing") {
           cancel();
+        } else if (phase === "error") {
+          // 错误态点麦克风 = 消隐错误（不立刻开录，防误触连开；spec §3.2）。
+          cancel();
         }
-        // finishing/error：不可取消（秒级），error 自动消隐。
+        // finishing：不可取消（秒级）。
       },
       cancel: () => {
         const phase = phaseRef.current;
