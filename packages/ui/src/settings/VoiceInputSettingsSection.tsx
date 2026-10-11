@@ -39,6 +39,12 @@ import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 
 const MODEL_ITEM_NEVER_LOCKED = () => false;
 
+/**
+ * 「使用系统默认」的哨兵值：Radix Select 的 SelectItem value 不允许空字符串
+ * （空串保留给“清除选择”语义，传了会抛错），而设置里空串=系统默认，进出各映射一次。
+ */
+const DEVICE_SYSTEM_DEFAULT = "__system-default__";
+
 export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean }) {
   const { intl } = useZCodeIntl();
   const { settings, update } = useSettings();
@@ -146,7 +152,10 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
   const refreshDevices = useCallback(() => {
     navigator.mediaDevices
       ?.enumerateDevices()
-      .then((all) => setDevices(all.filter((device) => device.kind === "audioinput")))
+      .then((all) =>
+        // deviceId 为空的条目不进下拉：Radix SelectItem 不接受空串 value（同默认项哨兵原因）。
+        setDevices(all.filter((device) => device.kind === "audioinput" && device.deviceId !== "")),
+      )
       .catch(() => undefined);
   }, []);
   const selectedDeviceId = settings?.voiceInputDeviceId ?? "";
@@ -245,9 +254,11 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
           }
           control={
             <Select
-              value={selectedDeviceId}
+              value={selectedDeviceId || DEVICE_SYSTEM_DEFAULT}
               onValueChange={(value) =>
-                void update({ voiceInputDeviceId: value } satisfies Partial<AppSettings>)
+                void update({
+                  voiceInputDeviceId: value === DEVICE_SYSTEM_DEFAULT ? "" : value,
+                } satisfies Partial<AppSettings>)
               }
             >
               <SelectTrigger
@@ -258,11 +269,11 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="" data-testid="voice-input-device-default">
+                <SelectItem value={DEVICE_SYSTEM_DEFAULT} data-testid="voice-input-device-default">
                   {intl.formatMessage({ id: "settings.voiceInput.device.default" })}
                 </SelectItem>
                 {devices.map((device, index) => (
-                  <SelectItem key={device.deviceId || index} value={device.deviceId}>
+                  <SelectItem key={device.deviceId} value={device.deviceId}>
                     {device.label ||
                       intl.formatMessage(
                         { id: "settings.voiceInput.device.unnamed" },
