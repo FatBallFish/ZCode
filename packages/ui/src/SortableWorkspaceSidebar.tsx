@@ -32,6 +32,8 @@ export const SortableWorkspaceSidebarItem = memo(function SortableWorkspaceSideb
   reconnectingRemoteWorkspaceLogsByWorkspaceKey,
   onReconnectRemoteWorkspace,
   onOpenFileTree,
+  isProjectPinned,
+  onToggleProjectPinned,
 }: {
   tab: WorkspaceTabState;
   isActiveWorkspace: boolean;
@@ -62,6 +64,8 @@ export const SortableWorkspaceSidebarItem = memo(function SortableWorkspaceSideb
     workspaceIdentity?: string;
     workspaceRemoteSessionId?: string;
   }) => void;
+  isProjectPinned?: boolean;
+  onToggleProjectPinned?: (workspaceKey: string, pinned: boolean) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: tab.id,
@@ -125,6 +129,8 @@ export const SortableWorkspaceSidebarItem = memo(function SortableWorkspaceSideb
       reconnectingRemoteWorkspaceLogsByWorkspaceKey={reconnectingRemoteWorkspaceLogsByWorkspaceKey}
       onReconnectRemoteWorkspace={onReconnectRemoteWorkspace}
       onOpenFileTree={onOpenFileTree}
+      isProjectPinned={isProjectPinned}
+      onToggleProjectPinned={onToggleProjectPinned}
       itemRef={setNodeRef}
       itemStyle={style}
       sortableBindings={sortableBindings}
