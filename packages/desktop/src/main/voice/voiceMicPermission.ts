@@ -1,6 +1,6 @@
 /**
  * 麦克风权限（specs/desktop/voice-input.md §3.5）。
- * macOS 走 TCC（getMediaAccessStatus / askForMediaAccessPermission）；
+ * macOS 走 TCC（getMediaAccessStatus / askForMediaAccess）；
  * Windows 无逐应用预检（桌面应用受全局麦克风隐私开关控制，仅提供设置深链引导）；
  * Linux 无统一权限体系（普通构建无需授权）。
  * 依赖注入 systemPreferences/shell/platform 以便单测（同 desktopVoiceService 的注入模式）。
@@ -11,7 +11,9 @@ export interface MicPermissionDeps {
   /** process.platform 注入。 */
   platform: NodeJS.Platform;
   getMediaAccessStatus(mediaType: "microphone"): string;
-  askForMediaAccessPermission(mediaType: "microphone"): Promise<boolean>;
+  /** Electron 41+ 的 API 名是 askForMediaAccess（旧名 askForMediaAccessPermission 已不存在，
+   *  调用会同步抛 TypeError 并被 ensure 捕获成 denied——表现为"永不弹框、瞬间被拒"）。 */
+  askForMediaAccess(mediaType: "microphone"): Promise<boolean>;
   openExternal(url: string): Promise<unknown>;
 }
 
@@ -55,7 +57,7 @@ export function createVoiceMicPermission(deps: MicPermissionDeps) {
     if (current !== "not-determined") return { status: current };
     // ask 返回布尔（用户选择），以实际授予为准；异常按拒绝处理（不向上抛打崩调用链）。
     try {
-      const granted = await deps.askForMediaAccessPermission("microphone");
+      const granted = await deps.askForMediaAccess("microphone");
       return { status: granted ? "granted" : "denied" };
     } catch {
       return { status: "denied" };

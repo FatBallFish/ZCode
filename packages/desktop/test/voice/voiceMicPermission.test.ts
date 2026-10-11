@@ -12,7 +12,7 @@ function makeDeps(
   const deps = {
     platform: "darwin" as NodeJS.Platform,
     getMediaAccessStatus: () => "granted",
-    askForMediaAccessPermission: async () => {
+    askForMediaAccess: async () => {
       asked += 1;
       if (askBehavior instanceof Error) throw askBehavior;
       return askBehavior;
