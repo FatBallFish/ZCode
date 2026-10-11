@@ -73,7 +73,7 @@
   - macOS：**先补一次 TCC 请求再跳设置**——`not-determined` 时调 `askForMediaAccessPermission`（系统授权框直接点“允许”即完成授权，无需进设置；点“不允许”也会把本应用写入麦克风列表，避免列表里找不到应用而需手动添加）。`denied`（记录已存在）直接跳 `Privacy_Microphone` 面板。返回最终 status，授权成功时浮窗自动消隐、设置页即时刷新。
   - Windows：无逐应用 TCC（桌面应用受全局“桌面应用访问麦克风”开关控制），跳 `ms-settings:privacy-microphone`。
   - Linux：无统一权限体系（普通构建无需授权），no-op。
-  - 注意：开发构建（ad-hoc 签名随构建变化）的 TCC 记录可能随重构建失效，属签名身份问题，不在应用层解决。
+  - dev bundle 签名：`prepareDevElectronAppBundle` 改写 Info.plist 后必须对副本 ad-hoc 重签名（`codesign --force --sign -`）——签名无效的 bundle 被 macOS 静默拒绝 TCC 授权：ask 不弹框直接 false、隐私列表无记录也无手动添加入口（真机实测死局）。重拷导致 cdhash 变化时 TCC 回到 not-determined 重新弹框，属预期。正式构建由 electron-builder 以 Developer ID 真实签名，不受影响。
 - Windows/Linux：无 macOS 式预检（`voiceGetMicPermissionStatus` 返回 `unsupported`，设置页不显示权限行），授权交给 getUserMedia 的系统级提示；Windows 上反复 NotAllowedError 时经「去开启」跳全局麦克风隐私设置。
 
 ## 4. 状态与所有者

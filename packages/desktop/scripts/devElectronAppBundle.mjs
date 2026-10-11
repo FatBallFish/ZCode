@@ -1,5 +1,9 @@
 import { access, cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { dirname, join } from "node:path";
+
+const execFileAsync = promisify(execFile);
 
 // 双 scheme 注册（与正式版 electron-builder 保持一致）：
 // zcode:// 承载智谱 OAuth 回调，mikiko:// 承接自有深链（分享导入/工作区打开）。
@@ -7,7 +11,8 @@ export const DEV_ELECTRON_PROTOCOL_SCHEMES = ["zcode", "mikiko"];
 export const DEV_ELECTRON_APP_NAME = "Mikiko Dev";
 export const DEV_ELECTRON_APP_BUNDLE_ID = "dev.mikiko.app.development";
 // 副本布局版本，见 prepareDevElectronAppBundle 中的指纹说明。
-export const DEV_ELECTRON_BUNDLE_FORMAT = 3;
+// v4：副本在改写 Info.plist 后增加 ad-hoc 重签名（TCC 要求，见 prepare 内注释）。
+export const DEV_ELECTRON_BUNDLE_FORMAT = 4;
 
 function escapeXml(value) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
@@ -113,6 +118,12 @@ export async function prepareDevElectronAppBundle({
     await cp(electronAppPath, appPath, { recursive: true, verbatimSymlinks: true });
     const patchedInfoPlist = patchDevElectronInfoPlist(await readFile(infoPlistPath, "utf8"));
     await writeFile(infoPlistPath, patchedInfoPlist, "utf8");
+    // 改写 Info.plist 令原 Developer ID 签名的资源密封失效，签名无效的 bundle 会被
+    // macOS 静默拒绝 TCC 授权（麦克风等）：askForMediaAccessPermission 不弹框直接
+    // false、隐私列表里也不出现本应用且无手动添加入口（真机实测）。改写后必须对
+    // 副本做 ad-hoc 重签名恢复密封；每次重拷都会重签，cdhash 变化只会让 TCC 回到
+    // not-determined（重新弹框授权），不会出现"拒绝但列表无记录"的死局。
+    await execFileAsync("codesign", ["--force", "--sign", "-", appPath]);
     // 指纹最后写：中途失败时下次仍会判定为需要重拷，不会留下半成品缓存。
     if (sourceStamp !== undefined) await writeFile(sourceStampPath, sourceStamp, "utf8");
   }
