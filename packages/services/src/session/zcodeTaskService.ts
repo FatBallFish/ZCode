@@ -648,6 +648,21 @@ export interface IZCodeTaskService {
     sessionIds: string[];
   }): Promise<ZCodeImportSessionsResult>;
 
+  /** 扫描可导入的 Codex CLI 原生 session（~/.codex/sessions）；可选按 workspace 过滤。 */
+  scanImportableCodexSessions(params: {
+    workspacePath?: string;
+    workspaceIdentity?: string;
+    modifiedSince?: number;
+    limit?: number;
+  }): Promise<ZCodeImportableSessionCandidate[]>;
+
+  /** 导入选中的 Codex CLI 原生 session；不传 workspacePath 时按原始 workspace 导入。 */
+  importCodexSessions(params: {
+    workspacePath?: string;
+    workspaceIdentity?: string;
+    sessionIds: string[];
+  }): Promise<ZCodeImportSessionsResult>;
+
   /** 切换 task 模式 */
   setMode(params: { taskId: string; mode: ZCodeTaskMode }): Promise<void>;
 

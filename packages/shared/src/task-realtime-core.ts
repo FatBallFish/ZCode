@@ -29,6 +29,7 @@ const zcodeTaskModeRealtimeValues = [
 ] as const satisfies readonly ZCodeTaskMode[];
 const zcodeTaskMigrationSourceRealtimeValues = [
   "claudeCode",
+  "codex",
 ] as const satisfies readonly ZCodeTaskMigrationSource[];
 const zcodeTaskChangeSummaryRealtimeSchema = z
   .object({

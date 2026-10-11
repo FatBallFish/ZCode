@@ -164,7 +164,13 @@ import {
 import { claudeNativeSessionImportRepo } from "#src/session/claude-native/claudeNativeSessionImportRepo.js";
 import { importClaudeNativeSessions } from "#src/session/claude-native/claudeNativeSessionImportService.js";
 import { buildImportedClaudeTaskId } from "#src/session/claude-native/buildImportedClaudeTaskFile.js";
-import { repairImportedClaudeSessionSnapshot } from "#src/session/claude-native/importedClaudeHistoryRepair.js";
+import { codexNativeSessionImportRepo } from "#src/session/codex-native/codexNativeSessionImportRepo.js";
+import { importCodexNativeSessions } from "#src/session/codex-native/codexNativeSessionImportService.js";
+import { buildImportedCodexTaskId } from "#src/session/codex-native/buildImportedCodexTaskFile.js";
+import {
+  readLegacyImportedClaudeHistory,
+  repairImportedClaudeSessionSnapshot,
+} from "#src/session/claude-native/importedClaudeHistoryRepair.js";
 import { safeParseLegacyTaskSessionFile } from "#src/session/legacyTaskSessionFile.js";
 import {
   MODEL_CONFIG_ID,
@@ -3118,6 +3124,72 @@ export function createZCodeTaskServiceAdapter(
             },
             meta,
             // 导入沿用 task_meta_changed 旧语义。
+            "task_meta_changed",
+          );
+        },
+      });
+    },
+
+    async scanImportableCodexSessions(params: {
+      workspacePath?: string;
+      workspaceIdentity?: string;
+      modifiedSince?: number;
+      limit?: number;
+    }): Promise<ZCodeImportableSessionCandidate[]> {
+      // 与 Claude 扫描同理：workspaceIdentity 仅影响导入落盘目录，扫描按 rollout 内 cwd 过滤。
+      void params.workspaceIdentity;
+      return codexNativeSessionImportRepo.scanImportableSessions({
+        workspacePath: params.workspacePath,
+        modifiedSince: params.modifiedSince,
+        limit: params.limit,
+      });
+    },
+
+    async importCodexSessions(params: {
+      workspacePath?: string;
+      workspaceIdentity?: string;
+      sessionIds: string[];
+    }): Promise<ZCodeImportSessionsResult> {
+      return importCodexNativeSessions({
+        taskIndexRepo,
+        workspacePath: params.workspacePath,
+        workspaceIdentity: params.workspaceIdentity,
+        sessionIds: params.sessionIds,
+        createImportedSession: async (source) => {
+          const targetWorkspaceIdentity = params.workspacePath
+            ? params.workspaceIdentity
+            : undefined;
+          const snapshot = await options.zcodeAgentService.createSession({
+            workspacePath: source.workspacePath,
+            workspaceIdentity: targetWorkspaceIdentity,
+            sessionId: buildImportedCodexTaskId(source.workspacePath, source.sessionId),
+            sessionTraceId: createSessionTraceId(),
+            persistence: "immediate",
+            importedHistory: {
+              source: "codex",
+              title: source.title,
+              createdAt: source.createdAt,
+              updatedAt: source.updatedAt,
+              messages: source.messages.map((message) => ({
+                role: message.role,
+                content: message.content,
+                timestamp: message.timestamp,
+              })),
+            },
+          });
+          const meta = await syncTaskIndexSnapshot(snapshot);
+          // 与 Claude 导入同理：真实 ZCode session + migrationSource 识别迁移来源。
+          return syncTaskIndexMeta({ ...meta, migrationSource: "codex" });
+        },
+        onTaskImported: (meta) => {
+          rememberIndexedTaskMeta(meta);
+          emitWorkspaceTaskListChanged(
+            {
+              workspacePath: meta.workspacePath,
+              workspaceIdentity: meta.workspaceIdentity,
+              taskId: meta.taskId,
+            },
+            meta,
             "task_meta_changed",
           );
         },
