@@ -60,6 +60,15 @@ UI 菜单打开 → loadEditors + loadFileApps（并行、各自只发一次）
 - Cmd/Ctrl+点击 .docx 直接唤起系统默认应用（如 WPS）；无默认应用或 Web 端时回落内置预览；不可预览格式在预览侧栏展示既有「不支持」占位。
 - 远端 workspace：不出现「用默认应用打开」与格式应用。
 
+## 顶部「在编辑器中打开」按钮：文件管理器条目用主题化单色图标（2026-10-11 补）
+
+客户反馈（Windows 深色模式）：顶栏 `WorkspaceEditorButtonGroup` 直接渲染系统位图
+（`app.getFileIcon(explorer.exe)` 的饱和黄色文件夹），位图不继承主题色，与顶栏其余
+lucide 单色图标冲突。规则：文件管理器条目（`PINNED_OPEN_WITH_EDITOR_IDS`：
+finder/qspace/qspace-pro/explorer）在顶栏按钮与下拉菜单中统一渲染 lucide `FolderOpen`
+单色图标（随 currentColor 适配明暗主题，与文件树菜单「在资源管理器中打开」一致）；
+IDE/编辑器类条目保留品牌位图（`iconDataUrl`），品牌识别优先于主题一致性。
+
 ## 后续项（本轮不做）
 
 - 工具摘要行（ToolSummaryRow）的修饰键+点击：需将 `onOpenFileLink` 回调签名扩展为携带事件，涉及 renderers 全链路。

@@ -1,7 +1,7 @@
 import { createOpenInEditorRemoteTarget, type EditorInfo, type RemoteTarget } from "@zcode/shared";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button.js";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, FolderOpen } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -146,11 +146,18 @@ export function WorkspaceEditorButtonGroup({
           intl.formatMessage({ id: "appHeader.openInEditor" }, { editor: selectedEditor.name })
         }
       >
-        <img
-          src={selectedEditor.iconDataUrl}
-          alt={selectedEditor.name}
-          className={editorIconClassName}
-        />
+        {isFileManagerOpenTarget(selectedEditor) ? (
+          // 文件管理器条目（Finder/资源管理器/QSpace）此前渲染系统位图（explorer.exe 全彩
+          // 黄色图标），位图不继承主题色，Windows 深色模式下与顶栏其余单色图标冲突
+          // （客户反馈）。统一改为主题化的 FolderOpen；IDE 条目保留品牌位图。
+          <FolderOpen className={editorIconClassName} aria-hidden="true" />
+        ) : (
+          <img
+            src={selectedEditor.iconDataUrl}
+            alt={selectedEditor.name}
+            className={editorIconClassName}
+          />
+        )}
       </Button>
 
       <DropdownMenu>
@@ -182,11 +189,15 @@ export function WorkspaceEditorButtonGroup({
           >
             {availableEditors.map((editor) => (
               <DropdownMenuRadioItem key={editor.id} value={editor.id}>
-                <img
-                  src={editor.iconDataUrl}
-                  alt={editor.name}
-                  className={editorMenuIconClassName}
-                />
+                {isFileManagerOpenTarget(editor) ? (
+                  <FolderOpen className={editorMenuIconClassName} aria-hidden="true" />
+                ) : (
+                  <img
+                    src={editor.iconDataUrl}
+                    alt={editor.name}
+                    className={editorMenuIconClassName}
+                  />
+                )}
                 {editor.name}
               </DropdownMenuRadioItem>
             ))}
