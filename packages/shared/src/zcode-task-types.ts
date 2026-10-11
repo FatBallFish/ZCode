@@ -92,8 +92,8 @@ export interface ZCodeTaskCreateResult extends ZCodeTaskMeta {
   initialSlashCommands?: ZCodeSlashCommand[];
 }
 
-/** 外部原生 session 导入的来源 provider；与 agent runtime 的 ZCodeProvider 解耦，当前仅 Claude Code。 */
-export type ZCodeImportSessionSourceProvider = "claude";
+/** 外部原生 session 导入的来源 provider；与 agent runtime 的 ZCodeProvider 解耦（Claude Code / Codex CLI）。 */
+export type ZCodeImportSessionSourceProvider = "claude" | "codex";
 
 /** 外部原生 session 的导入候选。 */
 export interface ZCodeImportableSessionCandidate {

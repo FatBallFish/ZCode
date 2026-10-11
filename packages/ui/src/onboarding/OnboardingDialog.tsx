@@ -117,6 +117,11 @@ export function OnboardingDialog(props: {
       const current = byWorkspace.get(candidate.workspacePath);
       if (current) {
         current.sessionCount += 1;
+        if (candidate.provider === "codex") {
+          current.providerCounts.codex += 1;
+        } else {
+          current.providerCounts.claude += 1;
+        }
         continue;
       }
 
@@ -124,6 +129,10 @@ export function OnboardingDialog(props: {
         workspacePath: candidate.workspacePath,
         label: getPathLeaf(candidate.workspacePath),
         sessionCount: 1,
+        providerCounts: {
+          claude: candidate.provider === "codex" ? 0 : 1,
+          codex: candidate.provider === "codex" ? 1 : 0,
+        },
       });
     }
 

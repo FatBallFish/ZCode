@@ -59,7 +59,8 @@ const enUS: Record<string, string> = {
   "occupationOnboarding.preferences": "Personalize your work assistant",
   "occupationOnboarding.preferencesDescription": "Choose which features to enable.",
   "occupationOnboarding.migration": "Migrate conversations",
-  "occupationOnboarding.migrationDescription": "Migrate conversation history from Claude Code",
+  "occupationOnboarding.migrationDescription":
+    "Migrate conversation history from Claude Code and Codex CLI",
   "occupationOnboarding.memory": "Enable Workspace Memory",
   "occupationOnboarding.memoryDescription":
     "Let Mikiko remember your preferences and work context.",
@@ -2508,20 +2509,20 @@ const enUS: Record<string, string> = {
   "sidebar.settings.theme.mikiko-dark": "Dark theme",
   "sidebar.settings.theme.dark": "Dark theme",
   "settings.migration.title": "Migration",
-  "settings.migration.sectionTitle": "Claude History Migration",
+  "settings.migration.sectionTitle": "Claude / Codex History Migration",
   "settings.migration.sectionDescription":
-    "Scan native Claude Code history on this machine, optionally filter by workspace and activity window, then import the selected sessions into their matching Mikiko task lists.",
-  "settings.migration.badge.localOnly": "Local Claude records",
+    "Scan native Claude Code (~/.claude/projects) and Codex CLI (~/.codex/sessions) history on this machine, optionally filter by workspace and activity window, then import the selected sessions into their matching Mikiko task lists.",
+  "settings.migration.badge.localOnly": "Local records",
   "settings.migration.badge.manualOnly": "Manual only",
   "settings.migration.currentWorkspace": "Current workspace",
   "settings.migration.currentWorkspaceDescription":
-    "This is only an optional filter. If you do not choose the current workspace, the scan covers all Claude records.",
+    "This is only an optional filter. If you do not choose the current workspace, the scan covers all records.",
   "settings.migration.workspaceEmpty":
     "No active workspace on this page. You can still scan all records.",
   "settings.migration.sourceDirectory": "Source directory",
   "settings.migration.noticeTitle": "How migration works",
   "settings.migration.noticeDescription":
-    "Migration copies the native jsonl files and generates minimal task snapshots. Without a workspace filter, the scan covers all Claude records and imports each session back into its own source workspace.",
+    "Migration copies the native jsonl files and generates minimal task snapshots. Without a workspace filter, the scan covers all Claude and Codex records and imports each session back into its own source workspace.",
   "settings.migration.unsupported.title": "Migration is unavailable here",
   "settings.migration.unsupported.desktopOnly": "Migration is currently available on desktop only.",
   "settings.migration.filtersTitle": "Filters",
@@ -4832,6 +4833,7 @@ const enUS: Record<string, string> = {
   "onboarding.sessions.empty":
     "No workspaces yet. Scan local history, then pick workspaces to migrate.",
   "onboarding.sessions.count": "{count} sessions",
+  "onboarding.sessions.providerBreakdown": "Claude Code {claudeCount} · Codex {codexCount}",
   "onboarding.sessions.unlimited": "Unlimited",
   "onboarding.sessions.chooseWorkspace": "Choose workspace",
   "onboarding.agentSettings.empty":

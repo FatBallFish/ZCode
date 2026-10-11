@@ -742,6 +742,17 @@ export const zcodeSessionImportHistorySchema = z.discriminatedUnion("source", [
       messages: z.array(zcodeSessionImportMessageSchema).min(1),
     })
     .strict(),
+  // Codex CLI（~/.codex/sessions rollout）导入。消息结构与 claudeCode 相同；单独成 variant
+  // 是为了让持久化层的 metadata.migrationSource 保留来源，任务列表/重导入清理按来源隔离。
+  z
+    .object({
+      source: z.literal("codex"),
+      title: z.string().optional(),
+      createdAt: timestampMsSchema.optional(),
+      updatedAt: timestampMsSchema.optional(),
+      messages: z.array(zcodeSessionImportMessageSchema).min(1),
+    })
+    .strict(),
   z
     .object({
       source: z.literal("sharedContext"),

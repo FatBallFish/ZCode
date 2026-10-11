@@ -29,6 +29,8 @@ export interface OnboardingWorkspaceCandidate {
   workspacePath: string;
   label: string;
   sessionCount: number;
+  /** 按来源拆分的会话数（Claude Code / Codex CLI），卡片上分开展示。 */
+  providerCounts: { claude: number; codex: number };
 }
 
 export interface FinishExecutionState {
@@ -208,6 +210,17 @@ export function OnboardingSessionsStep(props: {
                           { count: String(workspace.sessionCount) },
                         )}
                       </Badge>
+                      {workspace.providerCounts.codex > 0 ? (
+                        <span className="shrink-0 text-ui-sm text-foreground-subtlest">
+                          {intl.formatMessage(
+                            { id: "onboarding.sessions.providerBreakdown" },
+                            {
+                              claudeCount: String(workspace.providerCounts.claude),
+                              codexCount: String(workspace.providerCounts.codex),
+                            },
+                          )}
+                        </span>
+                      ) : null}
                     </div>
                     {/* 长路径是连续文本，父级 flex 子项如果不允许收缩，会把整张卡片横向撑出容器，所以这里补齐 min-w-0 让 truncate 真正生效。 */}
                     <div className="w-full truncate text-ui-base text-foreground-subtlest">

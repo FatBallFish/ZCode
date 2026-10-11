@@ -1010,16 +1010,17 @@ async function persistImportedSessionHistory(params: {
   const workspace = params.record.workspace;
   const workspaceIdentity = workspace.workspaceIdentity?.trim();
   const now = Date.now();
+  // claudeCode/codex 两个消息型来源共用同一套时间戳收敛；sharedContext 只有单一时间点。
   const createdAt =
     importedHistory.createdAt ??
-    (importedHistory.source === "claudeCode"
-      ? importedHistory.messages[0]?.timestamp
-      : undefined) ??
+    (importedHistory.source === "sharedContext"
+      ? undefined
+      : importedHistory.messages[0]?.timestamp) ??
     now;
   const updatedAt =
-    importedHistory.source === "claudeCode"
-      ? (importedHistory.updatedAt ?? importedHistory.messages.at(-1)?.timestamp ?? createdAt)
-      : createdAt;
+    importedHistory.source === "sharedContext"
+      ? createdAt
+      : (importedHistory.updatedAt ?? importedHistory.messages.at(-1)?.timestamp ?? createdAt);
   // 历史导入不执行模型；未绑定时保留消息内容，不能要求当前选择或伪造消息来源。
   const currentModel = optionalModelSelectionFromString(params.record.app.getModel());
   const providerId = currentModel?.providerId as ModelProviderId | undefined;
