@@ -1,11 +1,12 @@
 /**
  * 语音输入浮窗 —— specs/desktop/voice-input.md §3.2。
  * 底部居中的无边框浮层：监听波浪动效 + 实时识别文案 + 状态行 + 关闭按钮；
- * ESC / 关闭按钮取消本次输入。App 级单例挂载（fixed 定位，聚焦 composer 上方）。
+ * ESC / 关闭按钮取消本次输入。App 级单例挂载（fixed 定位，锚定 composer 上方）。
  */
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { LoaderIcon, MicIcon, XIcon } from "lucide-react";
+import { TID_V4_COMPOSER } from "@zcode/shared";
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
@@ -38,14 +39,41 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
     if (node) node.scrollTop = node.scrollHeight;
   }, [partialText]);
 
+  const visible = phase !== "idle";
+
+  // 锚定 composer 顶边之上：bottom dock 在 composer 下方还有建议 chips 行，
+  // 固定 bottom-36 会压住快捷操作区（真机 E2E 实测）；找不到 composer 时回退 bottom-36。
+  const [anchorBottomPx, setAnchorBottomPx] = useState<number | null>(null);
+  useEffect(() => {
+    if (!visible) return;
+    const updateAnchor = () => {
+      const composer = document.querySelector(`[data-testid="${TID_V4_COMPOSER}"]`);
+      if (!(composer instanceof HTMLElement)) {
+        setAnchorBottomPx(null);
+        return;
+      }
+      const top = composer.getBoundingClientRect().top;
+      setAnchorBottomPx(Math.max(window.innerHeight - top + 12, 16));
+    };
+    updateAnchor();
+    window.addEventListener("resize", updateAnchor);
+    return () => window.removeEventListener("resize", updateAnchor);
+  }, [visible]);
+
   // ESC 取消（capture：先于 composer 的 ESC 处理；录制快捷键态由 useAppKeyboard 统一抑制）。
   useEffect(() => {
     if (phase !== "preparing" && phase !== "listening") return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       // 对话框/弹层打开时 ESC 属于它们（关闭弹层而不是取消录音）。
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('[role="dialog"], [data-radix-popper-content-wrapper]')) return;
+      // target 可能是非 Element（如合成事件落在 window 上）：closest 不存在时视作无弹层。
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('[role="dialog"], [data-radix-popper-content-wrapper]')
+      ) {
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       cancel();
@@ -53,8 +81,6 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, [phase, cancel]);
-
-  const visible = phase !== "idle";
 
   let statusText: string;
   if (phase === "preparing") {
@@ -97,6 +123,7 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
           transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
           data-testid="voice-input-overlay"
           data-voice-phase={phase}
+          style={anchorBottomPx != null ? { bottom: anchorBottomPx } : undefined}
           className="pointer-events-auto fixed bottom-36 left-1/2 z-40 w-[min(560px,calc(100vw-32px))] -translate-x-1/2"
         >
           <div

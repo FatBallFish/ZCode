@@ -49,7 +49,10 @@ export const ComposerVoiceInputButton = memo(function ComposerVoiceInputButton({
         className={cn(
           "h-7 w-fit justify-center gap-1 rounded-lg px-1.5 py-1.5 text-ui-base",
           "data-[composer-compact=true]:size-7 data-[composer-compact=true]:p-0",
-          listening && "text-brand",
+          // 监听点亮态：品牌色填充 + 呼吸动画（spec §3.2）。仅 text-brand 色调在浅色
+          // 主题下与空闲态几乎不可辨（真机 E2E 截图实测），必须整钮填充才能读出「录音中」。
+          listening &&
+            "animate-pulse rounded-full bg-brand px-0 text-foreground-inverse hover:bg-brand/80",
         )}
       >
         {phase === "error" ? (
@@ -57,7 +60,7 @@ export const ComposerVoiceInputButton = memo(function ComposerVoiceInputButton({
         ) : phase === "finishing" || phase === "preparing" ? (
           <LoaderIcon className="size-4 shrink-0 animate-spin" aria-hidden />
         ) : (
-          <MicIcon className={cn("size-4 shrink-0", listening && "animate-pulse")} aria-hidden />
+          <MicIcon className="size-4 shrink-0" aria-hidden />
         )}
       </Button>
     </ControlHintTooltip>
