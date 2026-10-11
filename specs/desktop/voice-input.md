@@ -66,14 +66,17 @@
 
 - **开始录音前预检**（含切换输入设备后的首次录音，统一走 begin 入口）：renderer 调 `voiceEnsureMicPermission`（main 侧 `systemPreferences`）：
   - `granted` → 继续开录；
-  - `not-determined` → main 调 `askForMediaAccessPermission("microphone")` 弹系统授权框，返回最终状态；
+  - `not-determined` → main 调 `askForMediaAccess("microphone")`（Electron 41+ API 名）弹系统授权框，返回最终状态；
   - `denied`/`restricted` → 不再发起 getUserMedia（必然失败），浮窗错误态 `voice.error.micDenied`，并附「去开启」按钮直接跳系统设置的麦克风隐私面板。
 - **设置页权限状态行**：展示当前状态（已授权/未授权/尚未请求），未授权时提供「去系统设置开启」按钮与提示文案：**系统设置中开启后如仍无法录音，需重启应用生效**（macOS TCC 对运行中进程的授权变更不即时生效）。
 - **「去开启」按钮行为**（VoiceOpenMicPermissionSettings，按平台）：
-  - macOS：**先补一次 TCC 请求再跳设置**——`not-determined` 时调 `askForMediaAccessPermission`（系统授权框直接点“允许”即完成授权，无需进设置；点“不允许”也会把本应用写入麦克风列表，避免列表里找不到应用而需手动添加）。`denied`（记录已存在）直接跳 `Privacy_Microphone` 面板。返回最终 status，授权成功时浮窗自动消隐、设置页即时刷新。
+  - macOS：**先补一次 TCC 请求再跳设置**——`not-determined` 时调 `askForMediaAccess`（系统授权框直接点“允许”即完成授权，无需进设置；点“不允许”也会把本应用写入麦克风列表，避免列表里找不到应用而需手动添加）。`denied`（记录已存在）直接跳 `Privacy_Microphone` 面板。返回最终 status，授权成功时浮窗自动消隐、设置页即时刷新。
   - Windows：无逐应用 TCC（桌面应用受全局“桌面应用访问麦克风”开关控制），跳 `ms-settings:privacy-microphone`。
   - Linux：无统一权限体系（普通构建无需授权），no-op。
-  - dev bundle 签名：`prepareDevElectronAppBundle` 改写 Info.plist 后必须对副本 ad-hoc 重签名（`codesign --force --sign -`）——签名无效的 bundle 被 macOS 静默拒绝 TCC 授权：ask 不弹框直接 false、隐私列表无记录也无手动添加入口（真机实测死局）。重拷导致 cdhash 变化时 TCC 回到 not-determined 重新弹框，属预期。正式构建由 electron-builder 以 Developer ID 真实签名，不受影响。
+  - **API 名（Electron 41+）**：申请用 `systemPreferences.askForMediaAccess(mediaType)`——旧名 `askForMediaAccessPermission` 不存在，调用同步抛 TypeError；ensure 的 catch 会把它映射成 denied，表象是"瞬间被拒、永不弹框"（真机踩坑）。注入式单测掩盖过此错名，IPC 装配处注释已标注。
+  - **TCC 弹框的 responsibility 门槛（tccd 日志实证）**：弹框归属按"责任进程"（responsible）判定。hardened runtime 的责任进程缺少 `com.apple.security.device.audio-input` entitlement 时，tccd 策略**直接拒绝且不弹框**（`Policy disallows prompt`），TCC 库不留记录、设置列表无入口。因此：
+    - 正式包 entitlements（`build/entitlements.mac.plist` + `inherit`）必须包含 `com.apple.security.device.audio-input`；
+    - 从 ZCode.app 内（如 agent 子进程）启动的 dev 实例，责任进程是未带该 entitlement 的宿主 ZCode.app，弹框被禁——**验证麦克风授权流程必须从用户自己的终端启动 `pnpm dev:desktop`**（责任进程为终端，正常弹框）。曾被误判为 dev bundle 签名问题并加过 ad-hoc 重签名，已证伪回退（无签名副本被 macOS 按"未签名应用"正常弹框）。
 - Windows/Linux：无 macOS 式预检（`voiceGetMicPermissionStatus` 返回 `unsupported`，设置页不显示权限行），授权交给 getUserMedia 的系统级提示；Windows 上反复 NotAllowedError 时经「去开启」跳全局麦克风隐私设置。
 
 ## 4. 状态与所有者
@@ -140,7 +143,7 @@ finishing = transcribing(必经,ms~s 级) → [cleanup(可选,≤60s)] → inser
 | `VoiceCancelSession`             | invoke | `{sessionId}` → void                                                                                                                        |
 | `VoiceUnloadEngine`              | invoke | void → void（设置页「立即释放」）                                                                                                           |
 | `VoiceGetMicPermissionStatus`    | invoke | void → `{status: "granted"\|"denied"\|"not-determined"\|"restricted"\|"unsupported"}`（macOS TCC 查询，不弹框；非 darwin 返回 unsupported） |
-| `VoiceEnsureMicPermission`       | invoke | void → `{status}`；`not-determined` 时弹系统授权框（`askForMediaAccessPermission`）后返回最终状态；非 darwin 恒 granted                     |
+| `VoiceEnsureMicPermission`       | invoke | void → `{status}`；`not-determined` 时弹系统授权框（`askForMediaAccess`）后返回最终状态；非 darwin 恒 granted                               |
 | `VoiceOpenMicPermissionSettings` | invoke | void → void；打开系统设置麦克风隐私面板（仅 darwin 有意义）                                                                                 |
 | `VoiceStateChanged`              | event  | `VoiceStateSnapshot`（模型下载进度/引擎加载/卸载）                                                                                          |
 | `VoiceSessionEvent`              | event  | `{sessionId, kind, text?, progress?, error?}`                                                                                               |

@@ -96,11 +96,11 @@ export function registerVoiceIpc(options: { service: DesktopVoiceService }): voi
   ipcMain.handle(PlatformChannels.VoiceUnloadEngine, () => service.unloadEngine());
 
   // 麦克风权限（§3.5）：main 侧 systemPreferences 是唯一事实源，renderer 只读+发命令。
+  // 注意 Electron 41 的申请 API 是 askForMediaAccess（旧名 askForMediaAccessPermission 不存在）。
   const micPermission = createVoiceMicPermission({
     platform: process.platform,
     getMediaAccessStatus: (mediaType) => systemPreferences.getMediaAccessStatus(mediaType),
-    askForMediaAccessPermission: (mediaType) =>
-      systemPreferences.askForMediaAccessPermission(mediaType),
+    askForMediaAccess: (mediaType) => systemPreferences.askForMediaAccess(mediaType),
     openExternal: (url) => shell.openExternal(url),
   });
   ipcMain.handle(PlatformChannels.VoiceGetMicPermissionStatus, () => micPermission.getStatus());
