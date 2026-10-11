@@ -633,13 +633,22 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
   }
 
   function feedAudio(sessionId: string, samples: Int16Array): void {
-    if (!activeSession || activeSession.sessionId !== sessionId || !engine) return;
+    const currentEngine = engine;
+    if (!activeSession || activeSession.sessionId !== sessionId || !currentEngine) return;
+    // 注意：utilityProcess.postMessage 的第二参数只接受 MessagePortMain 数组（与 Web Worker
+    // 的 Transferable 语义不同），传 ArrayBuffer 会同步抛 "Port at index 0 is not a valid port"
+    // 并作为未捕获异常打崩 main。Float32Array 走 structured clone 拷贝即可（100ms/3.2KB 帧）。
     const floats = new Float32Array(samples.length);
     for (let index = 0; index < samples.length; index += 1) {
       floats[index] = samples[index]! / 32768;
     }
-    const seq = engine.workerSeq;
-    engine.child.postMessage({ type: "feed", seq, samples: floats }, [floats.buffer]);
+    const seq = currentEngine.workerSeq;
+    try {
+      currentEngine.child.postMessage({ type: "feed", seq, samples: floats });
+    } catch (error) {
+      // worker 通信异常不允许上抛成未捕获异常（E2E 实测旧实现打崩过 main）。
+      logger.warn(`[voice] feedAudio 投递失败：${(error as Error)?.message ?? error}`);
+    }
   }
 
   async function finishSession(

@@ -131,7 +131,10 @@ function recognizeOfflineSamples(samples: Float32Array): string {
 function drainVadSegments(state: OfflineSessionState): OfflineSegmentRecord[] {
   const recognized: OfflineSegmentRecord[] = [];
   while (vad && !vad.isEmpty()) {
-    const segment = vad.front();
+    // front(false) 强制拷贝：默认返回的 external buffer 由 N-API 外部内存背书，
+    // 在 Electron utilityProcess 里传入 acceptWaveform 会抛
+    // "External buffers are not allowed"（E2E 实测），plain Node 不复现。
+    const segment = vad.front(false);
     vad.pop();
     const text = recognizeOfflineSamples(segment.samples);
     if (text.length > 0) {

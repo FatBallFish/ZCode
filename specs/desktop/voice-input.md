@@ -39,7 +39,8 @@
 ### 3.2 会话框麦克风按钮与浮窗
 
 - 麦克风图标按钮位于输入框底部左侧动作区（`ConversationComposer` 的 `leadingActionsNode`，紧随 CUA 入口）；空闲态常规 ghost 按钮。
-- 点击开始语音输入：按钮持续点亮（品牌色 + 呼吸/脉冲动画），弹出**底部无边框浮窗**（portal 到会话视图 bottom dock 上方，不参与布局挤压）。
+- 点击开始语音输入：按钮持续点亮（品牌色填充 `bg-brand` + 前景反色 + `animate-pulse` 呼吸动画；仅 `text-brand` 色调在浅色主题下与常态几乎不可辨，真机 E2E 实测不达标），弹出**底部无边框浮窗**。
+  - 浮窗为 App 级 fixed 浮层，**运行时测量 composer 顶边锚定其上方**（查询 `[data-testid="v4-composer"]` 的 `getBoundingClientRect().top`，`bottom = 视口高 - top + 12px`，下限 16px；窗口 resize 重算）。固定 `bottom-36` 的写法在草稿态会压到 composer 下方的建议 chips 区（真机 E2E 实测），仅作找不到 composer 时（如设置页错误提示态）的回退。浮层不参与布局挤压。
   - 浮窗内容：波浪监听动效（多根音条随振幅起伏，`prefers-reduced-motion` 时退化为静态指示）+ 实时识别文案（partial 文本滚动）+ 关闭按钮 + 状态文案（准备中[含下载进度]/监听中/识别中/整理中）。
 - 再次点击图标（或快捷键）结束：浮窗进入「识别中」→「整理中」（若开启），完成后文案回填**聚焦会话**的输入框（在现有草稿末尾追加），浮窗关闭、按钮熄灭；输入框在整理期间展示 loading 指示（composer 短暂禁用发送？——否：仅麦克风按钮转 spinner，发送可用原始草稿不受影响）。
 - 未开启语义整理：识别完成后直接回填原始文案。
@@ -128,7 +129,7 @@ preload 暴露于 `window.zcode.voice.*`（invoke + `onVoiceStateChanged`/`onVoi
 
 utilityProcess 内运行 `voiceEngineWorker.js`：
 
-- main→worker（`postMessage`）：`{type:"load", modelType, modelDir, vadModelPath, numThreads}` / `{type:"feed", sessionId, samples: Float32Array(transfer)}` / `{type:"finish", sessionId}` / `{type:"reset", sessionId}` / `{type:"dispose"}`
+- main→worker（`postMessage`）：`{type:"load", modelType, modelDir, vadModelPath, numThreads}` / `{type:"feed", seq, samples: Float32Array（structured clone 拷贝；utilityProcess.postMessage 的 transfer 只支持 MessagePortMain，传 ArrayBuffer 会抛 "not a valid port" 打崩 main）}` / `{type:"finish", seq}` / `{type:"reset"}` / `{type:"dispose"}`
 - worker→main（`process.parentPort` message）：`{type:"loaded", ...}` / `{type:"partial", sessionId, text}` / `{type:"final", sessionId, text, segments}` / `{type:"error", message}` / `{type:"unloaded"}`
 - worker 内部：
   - `senseVoice` / `qwen3Asr`：`Vad`（silero，windowSize 512）滑动分段；每收满一段（speech segment）跑 `OfflineRecognizer.decode`，产出该段文本 → `partial`（累计文本 = 已完成段拼接，**文本变化才发**，静默期不刷）；`finish` 时 flush 尾段 + 全段重拼为 `final`。
