@@ -18,6 +18,7 @@ import type { ArmsCustomEventPayload, RendererTelemetryEventPayload } from "./te
 import type {
   VoiceFinalResult,
   VoiceMicPermissionResult,
+  VoiceMicPermissionStatus,
   VoiceSessionEvent,
   VoiceSessionStartResult,
   VoiceStateSnapshot,
@@ -555,8 +556,8 @@ export interface IPlatformService {
   voiceGetMicPermissionStatus?(): Promise<VoiceMicPermissionResult>;
   /** 麦克风权限：not-determined 时弹系统授权框后返回最终状态。 */
   voiceEnsureMicPermission?(): Promise<VoiceMicPermissionResult>;
-  /** 麦克风权限：打开系统设置的麦克风隐私面板（未授权引导）。 */
-  voiceOpenMicPermissionSettings?(): Promise<{ ok: boolean }>;
+  /** 麦克风权限：打开系统设置的麦克风隐私面板（未授权引导）；darwin 补请求后返回最终状态。 */
+  voiceOpenMicPermissionSettings?(): Promise<{ ok: boolean; status?: VoiceMicPermissionStatus }>;
   onVoiceStateChanged?(handler: (snapshot: VoiceStateSnapshot) => void): () => void;
   onVoiceSessionEvent?(
     handler: (payload: { sessionId: string; event: VoiceSessionEvent }) => void,

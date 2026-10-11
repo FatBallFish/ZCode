@@ -113,8 +113,11 @@ declare global {
       voiceGetMicPermissionStatus?(): Promise<import("@zcode/shared").VoiceMicPermissionResult>;
       /** 语音输入：确保麦克风权限（not-determined 时弹系统授权框） */
       voiceEnsureMicPermission?(): Promise<import("@zcode/shared").VoiceMicPermissionResult>;
-      /** 语音输入：打开系统设置的麦克风隐私面板 */
-      voiceOpenMicPermissionSettings?(): Promise<{ ok: boolean }>;
+      /** 语音输入：打开系统设置的麦克风隐私面板；darwin 补请求后返回最终状态 */
+      voiceOpenMicPermissionSettings?(): Promise<{
+        ok: boolean;
+        status?: import("@zcode/shared").VoiceMicPermissionStatus;
+      }>;
       /** 语音输入：订阅模型下载进度/引擎加载状态，返回 disposer */
       onVoiceStateChanged?(callback: (snapshot: VoiceStateSnapshot) => void): () => void;
       /** 语音输入：订阅会话内事件（engine-loading/listening/partial/error），返回 disposer */

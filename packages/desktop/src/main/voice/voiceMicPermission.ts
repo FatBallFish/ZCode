@@ -1,7 +1,8 @@
 /**
  * 麦克风权限（specs/desktop/voice-input.md §3.5）。
  * macOS 走 TCC（getMediaAccessStatus / askForMediaAccessPermission）；
- * 其余平台无预检语义（授权交给 getUserMedia 的系统级提示）。
+ * Windows 无逐应用预检（桌面应用受全局麦克风隐私开关控制，仅提供设置深链引导）；
+ * Linux 无统一权限体系（普通构建无需授权）。
  * 依赖注入 systemPreferences/shell/platform 以便单测（同 desktopVoiceService 的注入模式）。
  */
 import type { VoiceMicPermissionResult, VoiceMicPermissionStatus } from "@zcode/shared";
@@ -18,6 +19,9 @@ export interface MicPermissionDeps {
 export const MAC_MIC_PERMISSION_SETTINGS_URL =
   "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
 
+/** Windows 11/10 麦克风隐私设置（桌面应用受其中全局开关控制）。 */
+export const WIN_MIC_PERMISSION_SETTINGS_URL = "ms-settings:privacy-microphone";
+
 function normalizeDarwinStatus(raw: string): VoiceMicPermissionStatus {
   switch (raw) {
     case "granted":
@@ -29,6 +33,12 @@ function normalizeDarwinStatus(raw: string): VoiceMicPermissionStatus {
       // 未知枚举值按未授权处理，保守拒绝而不是误放行。
       return "denied";
   }
+}
+
+export interface OpenMicSettingsResult {
+  ok: boolean;
+  /** darwin 补请求后的最终状态（供 renderer 刷新/浮窗消隐）；未涉及授权时缺省。 */
+  status?: VoiceMicPermissionStatus;
 }
 
 export function createVoiceMicPermission(deps: MicPermissionDeps) {
@@ -52,13 +62,32 @@ export function createVoiceMicPermission(deps: MicPermissionDeps) {
     }
   }
 
-  async function openSystemSettings(): Promise<{ ok: boolean }> {
+  /**
+   * 「去开启」：macOS 隐私列表只显示申请过权限的应用——若从未触发 TCC 请求，
+   * 用户在设置里找不到本应用、只能手动添加。因此 not-determined 时先补一次
+   * ask（允许则直接授权完成，拒绝也会把应用写入列表），再跳设置面板；
+   * denied（记录已存在）直接跳。
+   */
+  async function openSystemSettings(): Promise<OpenMicSettingsResult> {
+    if (deps.platform === "win32") {
+      try {
+        await deps.openExternal(WIN_MIC_PERMISSION_SETTINGS_URL);
+        return { ok: true };
+      } catch {
+        return { ok: false };
+      }
+    }
     if (deps.platform !== "darwin") return { ok: false };
+    const final = await ensure();
+    if (final.status === "granted") {
+      // 授权框里已点允许：无需再进设置页。
+      return { ok: true, status: "granted" };
+    }
     try {
       await deps.openExternal(MAC_MIC_PERMISSION_SETTINGS_URL);
-      return { ok: true };
+      return { ok: true, status: final.status };
     } catch {
-      return { ok: false };
+      return { ok: false, status: final.status };
     }
   }
 
