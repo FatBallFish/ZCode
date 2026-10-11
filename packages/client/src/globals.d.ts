@@ -109,6 +109,12 @@ declare global {
       voiceCancelSession?(sessionId: string): Promise<void>;
       /** 语音输入：立即卸载引擎 worker */
       voiceUnloadEngine?(): Promise<{ ok: boolean; error?: string }>;
+      /** 语音输入：查询麦克风权限状态（macOS TCC；不弹框） */
+      voiceGetMicPermissionStatus?(): Promise<import("@zcode/shared").VoiceMicPermissionResult>;
+      /** 语音输入：确保麦克风权限（not-determined 时弹系统授权框） */
+      voiceEnsureMicPermission?(): Promise<import("@zcode/shared").VoiceMicPermissionResult>;
+      /** 语音输入：打开系统设置的麦克风隐私面板 */
+      voiceOpenMicPermissionSettings?(): Promise<{ ok: boolean }>;
       /** 语音输入：订阅模型下载进度/引擎加载状态，返回 disposer */
       onVoiceStateChanged?(callback: (snapshot: VoiceStateSnapshot) => void): () => void;
       /** 语音输入：订阅会话内事件（engine-loading/listening/partial/error），返回 disposer */

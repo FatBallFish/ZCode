@@ -813,6 +813,14 @@ contextBridge.exposeInMainWorld("zcode", {
     ipcRenderer.invoke(PlatformChannels.VoiceCancelSession, { sessionId }),
   /** 语音输入：立即卸载引擎 worker（空闲内存释放）。 */
   voiceUnloadEngine: () => ipcRenderer.invoke(PlatformChannels.VoiceUnloadEngine),
+  /** 语音输入：查询麦克风权限状态（macOS TCC；不弹框）。 */
+  voiceGetMicPermissionStatus: () =>
+    ipcRenderer.invoke(PlatformChannels.VoiceGetMicPermissionStatus),
+  /** 语音输入：确保麦克风权限（not-determined 时弹系统授权框）。 */
+  voiceEnsureMicPermission: () => ipcRenderer.invoke(PlatformChannels.VoiceEnsureMicPermission),
+  /** 语音输入：打开系统设置的麦克风隐私面板。 */
+  voiceOpenMicPermissionSettings: () =>
+    ipcRenderer.invoke(PlatformChannels.VoiceOpenMicPermissionSettings),
   /** 语音输入：订阅模型下载进度/引擎加载状态；返回 disposer。 */
   onVoiceStateChanged: (
     callback: (snapshot: import("@zcode/shared").VoiceStateSnapshot) => void,

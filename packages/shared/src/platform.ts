@@ -17,6 +17,7 @@ import type { AppSettings, Locale } from "./protocol.js";
 import type { ArmsCustomEventPayload, RendererTelemetryEventPayload } from "./telemetry.js";
 import type {
   VoiceFinalResult,
+  VoiceMicPermissionResult,
   VoiceSessionEvent,
   VoiceSessionStartResult,
   VoiceStateSnapshot,
@@ -550,6 +551,12 @@ export interface IPlatformService {
   ): Promise<{ ok: true; result: VoiceFinalResult } | { ok: false; error: string }>;
   voiceCancelSession?(sessionId: string): Promise<void>;
   voiceUnloadEngine?(): Promise<{ ok: boolean; error?: string }>;
+  /** 麦克风权限（§3.5）：查询 TCC 状态（不弹框）；非 darwin 返回 unsupported。 */
+  voiceGetMicPermissionStatus?(): Promise<VoiceMicPermissionResult>;
+  /** 麦克风权限：not-determined 时弹系统授权框后返回最终状态。 */
+  voiceEnsureMicPermission?(): Promise<VoiceMicPermissionResult>;
+  /** 麦克风权限：打开系统设置的麦克风隐私面板（未授权引导）。 */
+  voiceOpenMicPermissionSettings?(): Promise<{ ok: boolean }>;
   onVoiceStateChanged?(handler: (snapshot: VoiceStateSnapshot) => void): () => void;
   onVoiceSessionEvent?(
     handler: (payload: { sessionId: string; event: VoiceSessionEvent }) => void,

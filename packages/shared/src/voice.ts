@@ -315,3 +315,24 @@ export const voiceCleanupSelectionSchema = z
   .strict();
 
 export type VoiceCleanupSelection = z.infer<typeof voiceCleanupSelectionSchema>;
+
+// ── 麦克风权限（specs/desktop/voice-input.md §3.5）──
+
+/**
+ * `unsupported`：平台无 TCC 式预检（Windows/Linux，授权交给 getUserMedia 的系统提示）。
+ * 其余值对应 macOS `systemPreferences.getMediaAccessStatus("microphone")`。
+ */
+export type VoiceMicPermissionStatus =
+  | "granted"
+  | "denied"
+  | "not-determined"
+  | "restricted"
+  | "unsupported";
+
+export interface VoiceMicPermissionResult {
+  status: VoiceMicPermissionStatus;
+}
+
+export const voiceMicPermissionResultSchema = z.object({
+  status: z.enum(["granted", "denied", "not-determined", "restricted", "unsupported"]),
+});

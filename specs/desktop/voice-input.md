@@ -45,6 +45,7 @@
 - 再次点击图标（或快捷键）结束：浮窗进入「识别中」→「整理中」（若开启），完成后文案回填**聚焦会话**的输入框（在现有草稿末尾追加），浮窗关闭、按钮熄灭；输入框在整理期间展示 loading 指示（composer 短暂禁用发送？——否：仅麦克风按钮转 spinner，发送可用原始草稿不受影响）。
 - 未开启语义整理：识别完成后直接回填原始文案。
 - **取消**：监听中按 ESC（浮窗内 capture keydown）或点关闭按钮 → 停止麦克风、终止会话、丢弃已识别文案、浮窗关闭、按钮熄灭。「识别中/整理中」阶段不可取消（时长秒级）。
+- **错误态可关闭**（`error` phase）：关闭按钮、ESC、再次点击麦克风均立即消隐错误并回 idle（不立刻开始新录音，防误触连开）；3s 自动消隐保留。曾出现「空结果提示一直显示、点取消无反应」——错误态所有关闭路径都路由到 controller.cancel，旧实现只在 preparing/listening 生效，error 态全部失效。
 - 快捷键（`voiceInput`，window 通道）在任意聚焦态触发同「点击图标」的 toggle；快捷键录制态（`isShortcutRecordingActive`）下不响应。
 
 ### 3.3 语义整理管线
@@ -53,7 +54,22 @@
 - Prompt 约束：删除语气词/口癖/无意义重复与停顿；恢复标点与分段；不改原意、不翻译（中英混说保留原文）；输出只有整理后正文。
 - SenseVoice 的情绪/事件标记（`<|laugh|>` 等）由引擎 worker 在产出文本时剥离，不进 LLM。
 - 失败降级：整理调用失败/超时（上限 60s + AbortSignal）→ 回填原始转录文案，logger.warn，浮窗正常关闭，不打断用户。
-- 转录为空（用户没说话/全是静音）→ 不整理、不回填，浮窗直接关闭并提示「未识别到语音」。
+- 转录为空（用户没说话/全是静音）→ 不整理、不回填，浮窗进入错误态提示「未识别到语音」（可关闭/3s 自动消隐，见 §3.2 错误态）。
+
+### 3.4 输入设备选择
+
+- 设置页「输入设备」下拉：`navigator.mediaDevices.enumerateDevices()` 过滤 `audioinput`；首项固定「使用系统默认」（value `""`，跟随系统默认输入设备），其余按 `label`（未授权时 label 为空，显示「输入设备 N」占位——首次录音授权后即可见名称）。
+- 选择持久化 `AppSettings.voiceInputDeviceId`（`""`/缺省 = 系统默认）；监听 `devicechange` 事件刷新列表。
+- 采集约束：`getUserMedia({ audio: { deviceId: { exact: <选中值> }, ... } })`；设备已拔出时抛 `OverconstrainedError` → 回退一次系统默认（不中断本次录音），logger.warn 记录。选中设备从列表消失时保留设置值（下拉显示占位），采集回退逻辑兜底。
+
+### 3.5 麦克风权限（macOS TCC）
+
+- **开始录音前预检**（含切换输入设备后的首次录音，统一走 begin 入口）：renderer 调 `voiceEnsureMicPermission`（main 侧 `systemPreferences`）：
+  - `granted` → 继续开录；
+  - `not-determined` → main 调 `askForMediaAccessPermission("microphone")` 弹系统授权框，返回最终状态；
+  - `denied`/`restricted` → 不再发起 getUserMedia（必然失败），浮窗错误态 `voice.error.micDenied`，并附「去开启」按钮直接跳系统设置的麦克风隐私面板。
+- **设置页权限状态行**：展示当前状态（已授权/未授权/尚未请求），未授权时提供「去系统设置开启」按钮（`shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")`）与提示文案：**系统设置中开启后如仍无法录音，需重启应用生效**（macOS TCC 对运行中进程的授权变更不即时生效）。
+- Windows/Linux：无预检（`voiceGetMicPermissionStatus` 返回 `unsupported`，设置页不显示权限行），授权交给 getUserMedia 的系统级提示。
 
 ## 4. 状态与所有者
 
@@ -66,7 +82,9 @@
 | 语音会话（feed/finish/cancel、partial/final 事件）  | desktop main `VoiceService`                          | 全局同时最多 1 个活动会话（麦克风互斥） |
 | UI 会话状态机（idle/preparing/listening/finishing） | renderer `voiceInputStore`（zustand 单例）           | 快捷键/麦克风按钮/浮窗共用              |
 | 麦克风采集（getUserMedia/AudioWorklet/16k 重采样）  | renderer `useVoiceInputController`（App 级单例挂载） | 挂 App root，向 focused workspace 回填  |
-| 整理模型选择、开关、识别模型选择                    | `AppSettings`（voiceInput\* 字段）                   | setting.json 持久化                     |
+| 整理模型选择、开关、识别模型选择、输入设备选择      | `AppSettings`（voiceInput\* 字段）                   | setting.json 持久化                     |
+| 输入设备枚举（enumerateDevices/devicechange）       | renderer（Web API，会话页/设置页共用）               | device label 依赖已授权                 |
+| 麦克风权限状态查询/系统授权框/跳系统设置            | desktop main（`systemPreferences`/`shell`）          | renderer 只读状态 + 发命令              |
 
 ### 状态机（renderer，voiceInputStore）
 
@@ -106,24 +124,27 @@ finishing = transcribing(必经,ms~s 级) → [cleanup(可选,≤60s)] → inser
 
 ### 5.1 IPC 通道（`PlatformChannels` + `PlatformChannelMap`）
 
-| 通道                 | 方向   | request → response                                                                                                                |
-| -------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `VoiceGetState`      | invoke | void → `VoiceStateSnapshot`（模型状态数组 + 引擎 loadedModelId + 活动会话摘要）                                                   |
-| `VoiceDownloadModel` | invoke | `{modelId}` → `{ok, error?}`（进度走事件）                                                                                        |
-| `VoiceDeleteModel`   | invoke | `{modelId}` → `{ok, error?}`                                                                                                      |
-| `VoiceStartSession`  | invoke | `{modelId?}` → `{sessionId}` \| `{error}`（busy/engine/dl-failed/arch）                                                           |
-| `VoiceFeedAudio`     | send   | `{sessionId, pcm: Int16Array(base64? → 见下)}；`用 Electron IPC 传 Buffer（structured clone 支持 typed array，直接传 Int16Array） |
-| `VoiceFinishSession` | invoke | `{sessionId}` → `VoiceFinalResult{text, segments, durationMs}`                                                                    |
-| `VoiceCancelSession` | invoke | `{sessionId}` → void                                                                                                              |
-| `VoiceUnloadEngine`  | invoke | void → void（设置页「立即释放」）                                                                                                 |
-| `VoiceStateChanged`  | event  | `VoiceStateSnapshot`（模型下载进度/引擎加载/卸载）                                                                                |
-| `VoiceSessionEvent`  | event  | `{sessionId, kind, text?, progress?, error?}`                                                                                     |
+| 通道                             | 方向   | request → response                                                                                                                          |
+| -------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VoiceGetState`                  | invoke | void → `VoiceStateSnapshot`（模型状态数组 + 引擎 loadedModelId + 活动会话摘要）                                                             |
+| `VoiceDownloadModel`             | invoke | `{modelId}` → `{ok, error?}`（进度走事件）                                                                                                  |
+| `VoiceDeleteModel`               | invoke | `{modelId}` → `{ok, error?}`                                                                                                                |
+| `VoiceStartSession`              | invoke | `{modelId?}` → `{sessionId}` \| `{error}`（busy/engine/dl-failed/arch）                                                                     |
+| `VoiceFeedAudio`                 | send   | `{sessionId, pcm: Int16Array(base64? → 见下)}；`用 Electron IPC 传 Buffer（structured clone 支持 typed array，直接传 Int16Array）           |
+| `VoiceFinishSession`             | invoke | `{sessionId}` → `VoiceFinalResult{text, segments, durationMs}`                                                                              |
+| `VoiceCancelSession`             | invoke | `{sessionId}` → void                                                                                                                        |
+| `VoiceUnloadEngine`              | invoke | void → void（设置页「立即释放」）                                                                                                           |
+| `VoiceGetMicPermissionStatus`    | invoke | void → `{status: "granted"\|"denied"\|"not-determined"\|"restricted"\|"unsupported"}`（macOS TCC 查询，不弹框；非 darwin 返回 unsupported） |
+| `VoiceEnsureMicPermission`       | invoke | void → `{status}`；`not-determined` 时弹系统授权框（`askForMediaAccessPermission`）后返回最终状态；非 darwin 恒 granted                     |
+| `VoiceOpenMicPermissionSettings` | invoke | void → void；打开系统设置麦克风隐私面板（仅 darwin 有意义）                                                                                 |
+| `VoiceStateChanged`              | event  | `VoiceStateSnapshot`（模型下载进度/引擎加载/卸载）                                                                                          |
+| `VoiceSessionEvent`              | event  | `{sessionId, kind, text?, progress?, error?}`                                                                                               |
 
 preload 暴露于 `window.zcode.voice.*`（invoke + `onVoiceStateChanged`/`onVoiceSessionEvent` 订阅，disposer 模式）；`IPlatformService` 增加可选 `voice*` 方法；desktop renderer `desktopPlatform.ts` 实现；UI 经 `usePlatform()` 消费。
 
 ### 5.2 shared 类型（`packages/shared/src/voice.ts`）
 
-`VoiceModelManifest`（id/引擎子类型/语言/流式/磁盘内存预估/download{files[{path,url,mirrorUrl,sizeBytes,sha256}]}）、`VoiceModelState`（installed/downloading{progress}/error、lastUsedAt）、`VoiceStateSnapshot`、`VoiceFinalResult`、`VOICE_MODEL_MANIFESTS`（内置清单常量）、zod schema（运行时校验 manifest 与 IPC payload）。语义整理模型存 `AppSettings`：`voiceInputModelId?: string`、`voiceCleanupEnabled?: boolean`、`voiceCleanupSelection?: {providerId, modelId}`（同 `modelSelectionSchema` 形状，不含 reasoningLevel）。
+`VoiceModelManifest`（id/引擎子类型/语言/流式/磁盘内存预估/download{files[{path,url,mirrorUrl,sizeBytes,sha256}]}）、`VoiceModelState`（installed/downloading{progress}/error、lastUsedAt）、`VoiceStateSnapshot`、`VoiceFinalResult`、`VOICE_MODEL_MANIFESTS`（内置清单常量）、zod schema（运行时校验 manifest 与 IPC payload）。语义整理模型存 `AppSettings`：`voiceInputModelId?: string`、`voiceInputDeviceId?: string`（`""`/缺省 = 系统默认输入设备）、`voiceCleanupEnabled?: boolean`、`voiceCleanupSelection?: {providerId, modelId}`（同 `modelSelectionSchema` 形状，不含 reasoningLevel）。
 
 ### 5.3 引擎 worker 协议（desktop 包内 `voiceEngineProtocol.ts`，非跨端协议）
 
@@ -150,7 +171,7 @@ utilityProcess 内运行 `voiceEngineWorker.js`：
 
 ## 7. 边界与降级
 
-1. 无麦克风/权限拒绝：`getUserMedia` 失败 → preparing 失败，浮窗错误条「麦克风不可用」。
+1. 无麦克风/权限拒绝：macOS 先走 §3.5 预检（denied 直接引导，不烧一次会话启动）；预检通过后 `getUserMedia` 失败 → preparing 失败，浮窗错误条「麦克风不可用」。
 2. 下载失败（断网/校验失败）：保留 `.part` 临时文件机制（下载到 `<file>.part`，校验通过后 rename），失败清理；可重试。
 3. Windows arm64：模型清单标记不可用，start 返回 `arch-unsupported`。
 4. 活动会话期间第二个入口（快捷键/另一窗口）：main 返回 `busy`——同一窗口的 toggle 语义在 renderer 层短路（store 状态已 listening 时 stop）；跨窗口由 main busy 兜底，后触发窗口的浮窗短暂显示「忙碌」错误后自动关闭（约 3s；比无反馈更友好）。`startSession` 在 main 侧整体串行化：busy 判定与 activeSession 赋值之间隔着下载/引擎加载等多个 await，串行链 + 复检彻底关死双 worker 竞态。
@@ -171,7 +192,10 @@ utilityProcess 内运行 `voiceEngineWorker.js`：
 7. 模型切换：选中 zipformer → 下次录音 worker 重启加载 zipformer（浮窗出字节奏变为连续 partial）；下载 qwen3 → 切换 → 高精度出字；删除模型文件回收磁盘。
 8. 下载失败：断网下载 → 进度停滞/失败可重试；校验失败自动清理重下。
 9. 双窗口：A 窗录音中 B 窗点麦克风 → B 提示忙碌不弹浮窗。
-10. `pnpm typecheck` / `pnpm lint` / `pnpm architecture:check --changed` 通过；新增单测（manifest 完整性、worker 协议序列化、voice store 状态机、下载状态机 fake fetch）全绿。
+10. 空结果可关闭：开录音后不说话直接停 → 「未识别到语音内容」出现；点关闭按钮/ESC/再点麦克风任一方式立即消隐，且下一次点击麦克风可立即重新开录。
+11. 输入设备：设置页下拉含「使用系统默认」+ 全部 audioinput；选中指定设备后录音走该设备；拔出该设备后开录自动回退系统默认（日志 warn）不失败；插拔设备下拉列表即时刷新。
+12. 麦克风权限（macOS）：未授权状态开录 → 弹系统授权框，拒绝后浮窗提示未授权并可一键跳系统设置；设置页权限行展示状态并可引导；系统设置中改为允许后按提示重启应用可正常录音。
+13. `pnpm typecheck` / `pnpm lint` / `pnpm architecture:check --changed` 通过；新增单测（manifest 完整性、worker 协议序列化、voice store 状态机、下载状态机 fake fetch、麦克风权限状态映射）全绿。
 
 ## 9. 许可与署名
 
