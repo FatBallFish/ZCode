@@ -45,6 +45,11 @@ const BUILTIN_CONFIG_MAX_BYTES = 20 * 1024 * 1024;
 const DEFAULT_CLIENT_CONFIGS = {
   dynamicWorkflow: { mode: "alwaysOn" },
   share: { publishPerMinutePerIp: 3 },
+  // ChatGPT/Codex 请求的版本号兜底（spec specs/desktop/chatgpt-oauth.md §10）：
+  // 上游存在最小版本门槛，客户端另有代码内置 fallback，此处仅维护推荐最新值。
+  // client_version 同时是 /codex/models 的内容协商键（旧版本只回旧模型集），
+  // 由 scheduled 定时从 GitHub releases 同步最新稳定版（见 syncCodexClientVersion）。
+  codex: { clientVersion: "0.162.1" },
 } as const;
 
 const DYNAMIC_WORKFLOW_MODES = new Set(["disabled", "onDemand", "alwaysOn"]);
@@ -64,6 +69,7 @@ interface BuiltinConfigRecord {
 interface ClientConfigs {
   dynamicWorkflow: { mode: string };
   share: { publishPerMinutePerIp: number };
+  codex: { clientVersion: string };
 }
 
 interface Env {
@@ -170,7 +176,15 @@ export default {
       return jsonResponse({ code: 500, msg: "internal" }, 500);
     }
   },
-} satisfies { fetch: (request: Request, env: Env) => Promise<Response> };
+
+  // 定时任务目前只有 Codex 版本号同步（wrangler.toml [triggers] 每 6 小时）。
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    await syncCodexClientVersion(env);
+  },
+} satisfies {
+  fetch: (request: Request, env: Env) => Promise<Response>;
+  scheduled: (controller: ScheduledController, env: Env) => Promise<void>;
+};
 
 function methodNotAllowed(): Response {
   return jsonResponse({ error: "method_not_allowed" }, 405);
@@ -381,9 +395,94 @@ async function handleAdminPutClientConfigs(request: Request, env: Env): Promise<
   const normalized: ClientConfigs = {
     dynamicWorkflow: { mode },
     share: { publishPerMinutePerIp: limit },
+    codex: normalizeCodexClientVersion(merged.codex),
   };
   await env.MIKIKO_CLIENT_CONFIG.put(CLIENT_CONFIGS_KEY, JSON.stringify(normalized));
   return jsonResponse({ ok: true, configs: normalized });
+}
+
+/** Codex 版本号校验：语义化三段（0.146.0）；非法值回落默认，不拒绝整次写入。 */
+function normalizeCodexClientVersion(input: unknown): { clientVersion: string } {
+  const version = (input as { clientVersion?: unknown } | undefined)?.clientVersion;
+  if (typeof version === "string" && /^\d+\.\d+\.\d+$/u.test(version.trim())) {
+    return { clientVersion: version.trim() };
+  }
+  return { clientVersion: DEFAULT_CLIENT_CONFIGS.codex.clientVersion };
+}
+
+/** scheduled 同步写入的 KV key：记录「同步链路最后写入的版本」，用于区分 admin 手写值。 */
+const CODEX_VERSION_SYNCED_KEY = "codex-client-version-synced";
+const CODEX_VERSION_SYNC_REPO = "openai/codex";
+const CODEX_VERSION_SYNC_TAG_PREFIX = "rust-v";
+/** 同仓库预发布极密集（两个稳定版之间隔 20+ alpha），30 条里稳定版常排到 26 位以后。 */
+const CODEX_VERSION_SYNC_PER_PAGE = 30;
+
+/**
+ * 从 GitHub releases 同步官方 Codex CLI 最新稳定版到 client-configs（spec §10）。
+ * 对齐 sub2api OpenAICodexVersionSyncService 的口径：tag 前缀 rust-v + 非 prerelease。
+ * admin 手写的版本优先——仅当当前值仍是默认值或上次同步值时才覆盖；拉取/校验失败
+ * 一律保留旧值（fail-open），只记日志。
+ */
+async function syncCodexClientVersion(env: Env): Promise<void> {
+  let latest: string | null = null;
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${CODEX_VERSION_SYNC_REPO}/releases?per_page=${CODEX_VERSION_SYNC_PER_PAGE}`,
+      {
+        headers: {
+          accept: "application/vnd.github+json",
+          "user-agent": "mikiko-cloud-codex-version-sync",
+        },
+      },
+    );
+    if (!response.ok) throw new Error(`github HTTP ${response.status}`);
+    const releases = (await response.json()) as Array<{
+      tag_name?: unknown;
+      prerelease?: unknown;
+    }>;
+    for (const release of releases) {
+      const tag = typeof release.tag_name === "string" ? release.tag_name : "";
+      if (!tag.startsWith(CODEX_VERSION_SYNC_TAG_PREFIX) || release.prerelease === true) continue;
+      const version = tag.slice(CODEX_VERSION_SYNC_TAG_PREFIX.length).trim();
+      if (/^\d+\.\d+\.\d+$/u.test(version)) {
+        latest = version;
+        break;
+      }
+    }
+  } catch (error) {
+    console.log("codex version sync fetch failed", error instanceof Error ? error.message : error);
+    return;
+  }
+  if (latest == null) {
+    console.log("codex version sync: no stable rust-v release found");
+    return;
+  }
+
+  const synced = await env.MIKIKO_CLIENT_CONFIG.get(CODEX_VERSION_SYNCED_KEY);
+  const stored = (await env.MIKIKO_CLIENT_CONFIG.get(
+    CLIENT_CONFIGS_KEY,
+    "json",
+  )) as ClientConfigs | null;
+  const current = stored?.codex?.clientVersion;
+  // admin 手写了别的版本（既非默认也非常次同步值）时尊重手写，只刷新 synced 标记。
+  const isSyncOwned =
+    current === DEFAULT_CLIENT_CONFIGS.codex.clientVersion || current === synced || synced == null;
+  if (isSyncOwned && current !== latest) {
+    const next: ClientConfigs = {
+      dynamicWorkflow: {
+        mode: stored?.dynamicWorkflow?.mode ?? DEFAULT_CLIENT_CONFIGS.dynamicWorkflow.mode,
+      },
+      share: {
+        publishPerMinutePerIp:
+          stored?.share?.publishPerMinutePerIp ??
+          DEFAULT_CLIENT_CONFIGS.share.publishPerMinutePerIp,
+      },
+      codex: { clientVersion: latest },
+    };
+    await env.MIKIKO_CLIENT_CONFIG.put(CLIENT_CONFIGS_KEY, JSON.stringify(next));
+    console.log(`codex client version synced: ${current ?? "-"} -> ${latest}`);
+  }
+  await env.MIKIKO_CLIENT_CONFIG.put(CODEX_VERSION_SYNCED_KEY, latest);
 }
 
 async function readCurrentBuiltin(env: Env): Promise<BuiltinConfigRecord | null> {
