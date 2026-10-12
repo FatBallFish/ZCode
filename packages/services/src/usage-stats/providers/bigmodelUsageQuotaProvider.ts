@@ -315,10 +315,17 @@ export class BigModelUsageQuotaProvider {
 
   private async resolveRequestAccountAccess(
     accountAccess: UsageEntitlementRequest["accountAccess"],
-  ): Promise<ZCodeAccountAccess | undefined> {
+  ): Promise<Exclude<ZCodeAccountAccess, { type: "chatgpt-account" }> | undefined> {
     if (!accountAccess) return undefined;
-    if (!("mode" in accountAccess)) return accountAccess;
-    return (await this.accountRequestAuthService.resolveAccessCurrent(accountAccess)) ?? undefined;
+    if ("mode" in accountAccess) {
+      // provider 静态访问不含 ChatGPT 变体（chatgpt-account 无 mode 字段）。
+      const resolved = await this.accountRequestAuthService.resolveAccessCurrent(accountAccess);
+      // ChatGPT 账号不参与智谱 Coding Plan 额度/重置链路（其用量走 ChatGPTAccountService）。
+      if (!resolved || resolved.type === "chatgpt-account") return undefined;
+      return resolved;
+    }
+    if (accountAccess.type === "chatgpt-account") return undefined;
+    return accountAccess;
   }
 
   /**

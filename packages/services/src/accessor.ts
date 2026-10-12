@@ -41,6 +41,7 @@ import type { IPromptAttachmentTransferService } from "./prompt-attachment-trans
 import type { IWindowControllerService } from "./window-controller/windowController.js";
 import type { IOnboardingRecordService } from "./onboarding/onboardingRecord.js";
 import type { IConversationShareService } from "./conversation-share/conversationShare.js";
+import type { IChatGPTAccountService } from "./chatgpt/chatgptAccount.js";
 
 /** UI 层消费的统一服务接口 */
 export interface IServiceAccessor {
@@ -68,6 +69,8 @@ export interface IServiceAccessor {
   readonly botsService: IBotsService;
   readonly fileWatcherService: IFileWatcherService;
   readonly oauthService: IOAuthService;
+  /** ChatGPT OAuth 账号（授权/导入/信息刷新/重置/退出）；旧 host 可不提供。 */
+  readonly chatgptAccountService?: IChatGPTAccountService;
   /** 当前 Environment 的 Provider 配置与设置视图。 */
   readonly providerSettingsService: IProviderSettingsService;
   /** 当前 Environment Registry 发布的唯一模型选择 View。 */

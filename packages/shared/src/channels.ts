@@ -107,6 +107,8 @@ export const ServiceChannels = {
   FileWatcher: "file-watcher",
   /** OAuth 认证服务 */
   OAuth: "oauth",
+  /** ChatGPT OAuth 账号服务（授权/导入/信息刷新/重置/退出） */
+  ChatGPTAccount: "chatgpt-account",
   /** 新 Provider Config 的设置读写 Facade */
   ProviderSettings: "provider-settings",
   /** 新 Provider Registry 的模型选择 Facade */

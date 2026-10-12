@@ -260,6 +260,12 @@ export interface AppSettings {
   httpProxyNoProxy?: string;
   /** 自定义 PEM 根证书路径；下次启动 app/agent 时用于 renderer 校验与 agent NODE_EXTRA_CA_CERTS。 */
   httpProxyCaCertPath?: string;
+  /** ChatGPT/Codex 请求是否模拟官方 Codex 客户端身份头（originator/user-agent/version）。 */
+  chatgptCodexUaSimulation?: boolean;
+  /** Codex 版本号手动覆写（如 0.146.0）；空 = 远端配置或内置兜底。 */
+  chatgptCodexVersionOverride?: string;
+  /** ChatGPT 模型 service_tier 全局默认：auto=不发送；fast=priority 别名；flex=低优先级档。 */
+  chatgptServiceTier?: "auto" | "fast" | "flex";
   /**
    * 内置浏览器忽略 HTTPS 证书校验错误（自签名、过期、域名不匹配等），用于访问内网测试站点。
    * 只影响内置浏览器出口，不影响 ZCode 自身对后端与模型 API 的请求。默认关闭，重启后生效。

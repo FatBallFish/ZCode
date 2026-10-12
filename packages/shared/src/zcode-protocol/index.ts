@@ -845,18 +845,36 @@ export const zcodeAccountAccessSchema = z.discriminatedUnion("planKind", [
       projectId: nonEmptyString,
     })
     .strict(),
+  // ChatGPT OAuth 账号：host 侧请求期解析出的执行访问；planKind 固定 chatgpt 便于判别分发。
+  z
+    .object({
+      type: z.literal("chatgpt-account"),
+      planKind: z.literal("chatgpt"),
+      accountId: nonEmptyString,
+    })
+    .strict(),
 ]);
 export type ZCodeAccountAccess = z.infer<typeof zcodeAccountAccessSchema>;
 
 /** Active Model 固定的账号访问类别；当前商品和 Team scope 由账号服务在请求期解析。 */
-export const zcodeProviderAccountAccessSchema = z
-  .object({
-    type: z.literal("zhipu-account"),
-    accountType: z.enum(["zai", "bigmodel"]),
-    mode: z.enum(["start-plan", "individual-coding-plan", "team-coding-plan", "off-peak"]),
-    entitled: z.boolean(),
-  })
-  .strict();
+export const zcodeProviderAccountAccessSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("zhipu-account"),
+      accountType: z.enum(["zai", "bigmodel"]),
+      mode: z.enum(["start-plan", "individual-coding-plan", "team-coding-plan", "off-peak"]),
+      entitled: z.boolean(),
+    })
+    .strict(),
+  // ChatGPT OAuth 账号：Registry 动态 provider（account:chatgpt:{accountId}）的访问类别。
+  z
+    .object({
+      type: z.literal("chatgpt-account"),
+      accountId: nonEmptyString,
+      entitled: z.boolean(),
+    })
+    .strict(),
+]);
 export type ZCodeProviderAccountAccess = z.infer<typeof zcodeProviderAccountAccessSchema>;
 
 export type ZCodeSessionMode = z.infer<typeof zcodeSessionModeSchema>;
@@ -2443,6 +2461,61 @@ export type ZCodeProviderRuntimeHeadersResponse = z.infer<
   typeof zcodeProviderRuntimeHeadersResponseSchema
 >;
 
+// ── ChatGPT 账号请求结果上报（Agent 发起、host 自动响应、零 UI）──
+// 与 interaction/requestProviderRuntimeHeaders 同类；transport 收到 401/403/402、
+// 429 usage_limit_reached 或限流头族时上报，由 host 更新账号状态与 usage 快照
+//（spec specs/desktop/chatgpt-oauth.md §7.5）。
+export const zcodeChatGPTRequestOutcomeNotifySchema = z
+  .object({
+    providerId: nonEmptyString,
+    kind: z.enum(["auth-error", "usage"]),
+    status: z.number().int().optional(),
+    errorCode: z.string().optional(),
+    message: z.string().optional(),
+    usageLimit: z
+      .object({
+        planType: z.string().optional(),
+        resetsAt: z.string().optional(),
+        limitWindowMinutes: z.number().optional(),
+        rateLimitReachedType: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+    rateLimitHeaders: z
+      .object({
+        activeLimit: z.string().optional(),
+        primary: z
+          .object({
+            usedPercent: z.number(),
+            windowMinutes: z.number().optional(),
+            resetAfterSeconds: z.number().optional(),
+            resetAt: z.string().optional(),
+          })
+          .strict()
+          .optional(),
+        secondary: z
+          .object({
+            usedPercent: z.number(),
+            windowMinutes: z.number().optional(),
+            resetAfterSeconds: z.number().optional(),
+            resetAt: z.string().optional(),
+          })
+          .strict()
+          .optional(),
+        hasCredits: z.boolean().optional(),
+        unlimitedCredits: z.boolean().optional(),
+        creditsBalance: z.string().optional(),
+        rateLimitReachedType: z.string().optional(),
+        promoMessage: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+export type ZCodeChatGPTRequestOutcomeNotify = z.infer<
+  typeof zcodeChatGPTRequestOutcomeNotifySchema
+>;
+
 // ── 官方 Server MCP 鉴权──
 // Agent 进程不是用户身份权威：它把 (pluginId, mcpKey, targetOrigin) 报给 host，由 host
 // 解析当前 Coding Plan 凭证并回传本次请求的身份头。请求侧不含任何秘密。
@@ -3672,6 +3745,8 @@ export const zcodeProtocolMethods = {
   interactionRequestUserInput: "interaction/requestUserInput",
   interactionRequestProviderRuntimeHeaders: "interaction/requestProviderRuntimeHeaders",
   interactionRequestOfficialMcpAuthHeaders: "interaction/requestOfficialMcpAuthHeaders",
+  // ChatGPT 账号请求结果上报（fire-and-forget 语义，host 回空结果）。
+  interactionReportChatGPTRequestOutcome: "interaction/reportChatGPTRequestOutcome",
   // browser-use 反向请求由 agent 发起，host 转给 main 中的 CDP executor。
   interactionBrowserList: "interaction/browserList",
   interactionBrowserExecute: "interaction/browserExecute",

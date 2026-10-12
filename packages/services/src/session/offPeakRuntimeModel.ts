@@ -179,6 +179,7 @@ export async function resolveOffPeakCredentials(
 
     if (
       !provider ||
+      provider.access.type !== "zhipu-account" ||
       provider.access.family !== selection.providerFamily ||
       (selection.kind.endsWith("-team")
         ? provider.access.planKind !== "team-coding-plan"

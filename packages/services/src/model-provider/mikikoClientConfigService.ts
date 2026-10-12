@@ -27,6 +27,7 @@ interface MikikoClientConfigsPayload {
   readonly configs?: {
     readonly dynamicWorkflow?: unknown;
     readonly share?: { readonly publishPerMinutePerIp?: unknown };
+    readonly codex?: { readonly clientVersion?: unknown };
   } | null;
 }
 
@@ -35,7 +36,9 @@ export interface MikikoClientConfigService {
     readonly forceRefresh?: boolean;
   }): Promise<DynamicWorkflowClientConfig>;
   /** 分享发布限流（次/分钟/IP）：缺失/非法/源不可用返回 null，由服务端强制兜底。 */
-  getSharePublishRateLimit(options?: { readonly forceRefresh?: boolean }): Promise<number | null>;
+  getSharePublishRateLimit(options?: { forceRefresh?: boolean }): Promise<number | null>;
+  /** ChatGPT/Codex 请求版本号：缺失/非法/源不可用返回 null，由调用方回落代码内置值。 */
+  getCodexClientVersion(options?: { forceRefresh?: boolean }): Promise<string | null>;
 }
 
 export function createMikikoClientConfigService(dependencies: {
@@ -117,6 +120,17 @@ export function createMikikoClientConfigService(dependencies: {
         const payload = await loadSnapshot(options);
         const limit = payload?.configs?.share?.publishPerMinutePerIp;
         return typeof limit === "number" && Number.isInteger(limit) && limit >= 1 ? limit : null;
+      } catch {
+        return null;
+      }
+    },
+    async getCodexClientVersion(options) {
+      try {
+        const payload = await loadSnapshot(options);
+        const version = payload?.configs?.codex?.clientVersion;
+        return typeof version === "string" && /^\d+\.\d+\.\d+$/u.test(version.trim())
+          ? version.trim()
+          : null;
       } catch {
         return null;
       }

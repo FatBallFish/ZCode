@@ -153,6 +153,19 @@ export type {
   CodingPlanFamilyAvailabilityResolverOptions,
 } from "./model-provider/accountProviderConnectionResolver.js";
 export {
+  IChatGPTAccountService,
+  type ChatGPTAuthorizationResult,
+  type ChatGPTAuthorizationSession,
+  type ChatGPTImportedAccountResult,
+  type ChatGPTImportResult,
+} from "./chatgpt/chatgptAccount.js";
+export { createChatGPTAccountService } from "./chatgpt/chatgptAccountService.js";
+export { createChatGPTAccountRuntime } from "./chatgpt/chatgptAccountRuntime.js";
+export { createChatGPTAccountRepository } from "./chatgpt/chatgptAccountRepository.js";
+export { createChatGPTBackendClient } from "./chatgpt/chatgptBackendClient.js";
+export { createChatGPTIdentityResolver } from "./chatgpt/chatgptIdentity.js";
+export { createChatGPTAccountConfigSource } from "./chatgpt/chatgptAccountConfigSource.js";
+export {
   createProviderConfigRuntime,
   ProviderConfigRuntime,
 } from "./model-provider/providerConfigRuntime.js";
@@ -399,6 +412,13 @@ import {
 } from "./model-provider/providerFacadeServices.js";
 import { ISub2ApiService } from "./sub2api/sub2api.js";
 import { createSub2ApiService } from "./sub2api/sub2apiService.js";
+import { IChatGPTAccountService } from "./chatgpt/chatgptAccount.js";
+import { createChatGPTAccountService } from "./chatgpt/chatgptAccountService.js";
+import { createChatGPTAccountRuntime } from "./chatgpt/chatgptAccountRuntime.js";
+import { createChatGPTAccountRepository } from "./chatgpt/chatgptAccountRepository.js";
+import { createChatGPTBackendClient } from "./chatgpt/chatgptBackendClient.js";
+import { createChatGPTIdentityResolver } from "./chatgpt/chatgptIdentity.js";
+import { createChatGPTAccountConfigSource } from "./chatgpt/chatgptAccountConfigSource.js";
 import { createProviderSettingsConnectivityTester } from "./model-provider/providerSettingsConnectivity.js";
 import {
   createProviderProvisioningSource,
@@ -471,7 +491,9 @@ import {
 import {
   createOfficialMcpTrustedOriginRegistry,
   OFFICIAL_MCP_DEV_TRUSTED_ORIGINS_ENV,
+  type ChatGPTAccountView,
 } from "@zcode/shared";
+import { Emitter } from "@zcode/rpc";
 import {
   BROKER_SOCKET_ENV,
   BROKER_UNAVAILABLE_ENV,
@@ -1510,6 +1532,9 @@ export function createLocalServices(options: {
     const oauthProviderId = family === "zai" ? ZAI_PROVIDER_ID : BIGMODEL_PROVIDER_ID;
     return (await oauthCredentialRepo.loadUserProfile(oauthProviderId))?.id ?? null;
   };
+  // ChatGPT 运行时在 provider 装配之后创建；请求期鉴权经 holder 前向引用绑定
+  //（与 offPeakTaskServiceForAgent 同模式，请求只会发生在装配完成后）。
+  let chatGPTAccountRuntimeForAuth: ReturnType<typeof createChatGPTAccountRuntime> | undefined;
   const accountRequestAuthService = createAccountRequestAuthService(
     createAccountProviderRequestAuthService({
       resolveCurrentAccountAccess: (access) =>
@@ -1531,6 +1556,10 @@ export function createLocalServices(options: {
       },
       resolveTeamPlanApiKey: (access) =>
         resolveAccountTeamPlanRuntimeApiKey({ apiClient, credentialService, access }),
+      loadChatGPTRequestAuth: (accountId) =>
+        chatGPTAccountRuntimeForAuth
+          ? chatGPTAccountRuntimeForAuth.resolveRequestAuth(accountId)
+          : Promise.reject(new Error("ChatGPT 账号运行时未装配")),
     }),
   );
   const providerConfigLog = createServiceLogger("provider-config");
@@ -1596,6 +1625,38 @@ export function createLocalServices(options: {
       credentialService,
     }),
   });
+  // ── ChatGPT OAuth 账号栈（spec specs/desktop/chatgpt-oauth.md）──
+  // 账号事实唯一 owner = repository（加密 credentials.json）；此处装配身份解析、
+  // 运行时（定时刷新/outcome/信封投影）与 RPC 服务，并把动态账号 provider 合并进
+  // 既有 Account 快照（复用 providerUpdateAccountConfig 推送链路，不另建写路径）。
+  const mikikoClientConfigService = createMikikoClientConfigService({ apiClient });
+  const chatGPTAccountsChangedEmitter = new Emitter<ChatGPTAccountView[]>();
+  const chatGPTIdentityResolver = createChatGPTIdentityResolver({
+    settingService,
+    mikikoClientConfigService,
+    appVersion: ZCODE_VERSION,
+  });
+  const chatGPTBackendClient = createChatGPTBackendClient();
+  const chatGPTAccountRepository = createChatGPTAccountRepository({ credentialService });
+  const chatGPTAccountRuntime = createChatGPTAccountRuntime({
+    repository: chatGPTAccountRepository,
+    identity: chatGPTIdentityResolver,
+    accountsChangedEmitter: chatGPTAccountsChangedEmitter,
+  });
+  const chatGPTAccountService = createChatGPTAccountService({
+    repository: chatGPTAccountRepository,
+    backendClient: chatGPTBackendClient,
+    identity: chatGPTIdentityResolver,
+    runtime: chatGPTAccountRuntime,
+    accountsChangedEmitter: chatGPTAccountsChangedEmitter,
+  });
+  chatGPTAccountRuntime.start();
+  chatGPTAccountRuntimeForAuth = chatGPTAccountRuntime;
+  const effectiveAccountProviderConfigSource = createChatGPTAccountConfigSource({
+    base: accountProviderConfigSource,
+    runtime: chatGPTAccountRuntime,
+    onChatGPTAccountsChanged: chatGPTAccountsChangedEmitter.event,
+  });
   const accountProviderRuntimeLog = createServiceLogger("account-provider-runtime");
   const modelSelectionConfiguredDefaultSource = new NodeModelSelectionConfigRepository({
     personalRepository: providerConfigRuntime.personalRepository,
@@ -1640,7 +1701,7 @@ export function createLocalServices(options: {
     | undefined;
   const providerRuntime = createProviderRuntimeFromConfigRuntime({
     configRuntime: providerConfigRuntime,
-    accountSource: accountProviderConfigSource,
+    accountSource: effectiveAccountProviderConfigSource,
     modelSelectionConfiguredDefaultSource,
     disposeModelSelectionConfiguredDefaultSource: () =>
       modelSelectionConfiguredDefaultSource.dispose(),
@@ -1655,7 +1716,8 @@ export function createLocalServices(options: {
     disposeAccountSource: () => {
       disposeAccountProviderInvalidation();
       accountProviderRefreshErrorDispose();
-      accountProviderConfigSource.dispose();
+      chatGPTAccountRuntime.dispose();
+      effectiveAccountProviderConfigSource.dispose();
     },
   });
   handleOAuthProviderLogout = createOAuthProviderLogoutHandler({
@@ -1692,7 +1754,7 @@ export function createLocalServices(options: {
   // 只要当前进程已经装配 Provider Runtime，就由该 Environment 自己的 Selection View
   // 决定执行就绪状态。Desktop-attached remote 也读取远端自己的 Config/Account Facts。
   const modelSelectionReadinessSource = providerRuntime.modelSelection;
-  const agentAccountProviderConfigSource = accountProviderConfigSource;
+  const agentAccountProviderConfigSource = effectiveAccountProviderConfigSource;
   // ===== Computer Use Helper lifecycle 层（port 自 feat）=====
   // 根因修复：app 启动时预 spawn 的 agent 早于 broker ready → buildCuaProductHelperAgentEnv 在
   // 1s grace 内拿不到 ready helper → 返回 BROKER_UNAVAILABLE → 那些 agent 的 computer-use MCP
@@ -2086,7 +2148,7 @@ export function createLocalServices(options: {
     apiClient,
     credentialService,
     // 动态工作流灰度等自建功能配置（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.1）。
-    mikikoClientConfigService: createMikikoClientConfigService({ apiClient }),
+    mikikoClientConfigService,
     resolveOffPeakModelSelectionView: async () => {
       await providerRuntime.start();
       return buildOffPeakModelSelectionView(providerRuntime.registryService.getView());
@@ -2108,6 +2170,7 @@ export function createLocalServices(options: {
       ? { accountProviderConfigSource: agentAccountProviderConfigSource }
       : {}),
     accountRequestAuthService,
+    reportChatGPTRequestOutcome: (outcome) => chatGPTAccountRuntime.applyRequestOutcome(outcome),
     ...(modelSelectionReadinessSource ? { modelSelectionReadinessSource } : {}),
     authorizeLocalMediaPreviewPath: options?.authorizeLocalMediaPreviewPath,
     ...offPeakToolWiring,
@@ -2511,6 +2574,7 @@ export function createLocalServices(options: {
     )
     .register(IFileWatcherService, createFileWatcherService())
     .register(IOAuthService, oauthService)
+    .register(IChatGPTAccountService, chatGPTAccountService)
     .register(
       IUsageStatsService,
       createUsageStatsService({
@@ -2677,7 +2741,7 @@ export function createLocalServices(options: {
       createProviderProvisioningTarget({
         providerRuntime,
         personalRepository: providerConfigRuntime.personalRepository,
-        accountProviderSource: accountProviderConfigSource,
+        accountProviderSource: effectiveAccountProviderConfigSource,
         credentialService,
         settingService,
         personalConfigFilePath: join(resolveAppConfigDir(), PERSONAL_PROVIDER_CONFIG_FILE_NAME),

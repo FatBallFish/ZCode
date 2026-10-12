@@ -23,6 +23,7 @@ import { withOpenRouterAttributionHeaders } from "@zcode/shared";
 import { createAnthropicCompatFetch } from "./anthropic-stream-compat.js";
 import { createOpenAIResponsesJsonCompatFetch } from "./openai-responses-json-compat.js";
 import { createModelOptionMapFetch, type RawRequestBodyCapture } from "./model-option-map-fetch.js";
+import { createChatGPTResponsesTransportFetch } from "./chatgpt-responses-transport.js";
 import { createNetworkProxyFetch } from "../network/proxy-fetch.js";
 import { createOfficialCodingPlanGatewayFetch } from "./official-coding-plan-gateway.js";
 import { normalizeModelTlsFailure } from "./failure-tls.js";
@@ -283,7 +284,12 @@ export class AiSdkModelExecution {
         const provider = createOpenAI({
           apiKey,
           baseURL: providerConfig.baseURL,
-          fetch: createOpenAIResponsesJsonCompatFetch(optionFetch),
+          // ChatGPT OAuth 账号走专用传输：请求体改写 + CF cookie + 错误矩阵上报（§7.2-7.5）。
+          fetch: createOpenAIResponsesJsonCompatFetch(
+            providerConfig.access.type === "chatgpt-account"
+              ? createChatGPTResponsesTransportFetch({ providerId })
+              : optionFetch,
+          ),
           headers,
         });
         return provider.responses as LanguageModelFactory;
@@ -352,7 +358,10 @@ function toAiSdkProviderConfig(
   config: RegistryProviderConfig,
 ): AiSdkProviderConfig {
   const common = {
-    ...(config.access.type !== "zhipu-account" && config.access.apiKey
+    // 账号型（智谱/ChatGPT）不取静态 apiKey：鉴权材料每次请求经 requestAuth 注入。
+    ...(config.access.type !== "zhipu-account" &&
+      config.access.type !== "chatgpt-account" &&
+      config.access.apiKey
       ? { apiKey: config.access.apiKey }
       : {}),
     baseURL: config.api.baseUrl,

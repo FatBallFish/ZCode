@@ -52,6 +52,8 @@ interface AccountProviderRequestAuthServiceOptions {
   resolveTeamPlanApiKey(
     access: Extract<ZCodeAccountAccess, { planKind: "team-coding-plan" }>,
   ): Promise<string | null>;
+  /** ChatGPT OAuth 账号请求期鉴权（含惰性刷新）；缺省即 ChatGPT 账号不可用。 */
+  loadChatGPTRequestAuth?: (accountId: string) => Promise<AccountRequestAuthMaterial>;
 }
 
 class AccountProviderRequestAuthService implements AccountRequestAuthResolver {
@@ -67,6 +69,12 @@ class AccountProviderRequestAuthService implements AccountRequestAuthResolver {
 
   async resolveCurrent(input: AccountRequestAuthInput): Promise<AccountRequestAuthMaterial> {
     const providerId = input.providerId.trim();
+    // ChatGPT 账号：无套餐档位，直接由 ChatGPT 运行时给出 token + 身份头（§7.4）。
+    if (input.accountAccess.type === "chatgpt-account") {
+      const material = await this.#options.loadChatGPTRequestAuth?.(input.accountAccess.accountId);
+      if (!material) throw new AccountRequestCredentialUnavailableError(providerId);
+      return material;
+    }
     const access = await this.#resolveAccess(input.accountAccess);
     if (!access) throw new AccountRequestCredentialUnavailableError(providerId);
 
@@ -80,11 +88,22 @@ class AccountProviderRequestAuthService implements AccountRequestAuthResolver {
       return { apiKey: requireApiKey(apiKey, providerId) };
     }
 
+    if (access.planKind === "chatgpt") {
+      // chatgpt 已在 resolveCurrent 入口分流；此分支仅为类型完备（不可达）。
+      throw new AccountRequestCredentialUnavailableError(providerId);
+    }
+
     const apiKey = await this.#options.resolveTeamPlanApiKey(access);
     return { apiKey: requireApiKey(apiKey, providerId) };
   }
 
   async assertCurrent(input: AccountAccessIdentityInput): Promise<void> {
+    if (input.accountAccess.type === "chatgpt-account") {
+      if (!this.#options.loadChatGPTRequestAuth) {
+        throw new AccountRequestCredentialUnavailableError(input.providerId);
+      }
+      return;
+    }
     if (!(await this.#resolveAccess(input.accountAccess))) {
       throw new AccountRequestCredentialUnavailableError(input.providerId);
     }
@@ -93,6 +112,13 @@ class AccountProviderRequestAuthService implements AccountRequestAuthResolver {
   #resolveAccess(
     access: ZCodeProviderAccountAccess | ZCodeAccountAccess,
   ): Promise<ZCodeAccountAccess | null> {
+    if (access.type === "chatgpt-account") {
+      return Promise.resolve(
+        "planKind" in access
+          ? (access as ZCodeAccountAccess)
+          : { type: "chatgpt-account", planKind: "chatgpt", accountId: access.accountId },
+      );
+    }
     return "mode" in access
       ? this.#options.resolveCurrentAccountAccess(access)
       : Promise.resolve(access);
