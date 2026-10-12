@@ -34,7 +34,7 @@ export async function createWorkerSelectionIntegration() {
   let deliveryPaused = false;
   const runtimePaths = {
     zcodeBuiltinFilePath: resolve("../../config/provider/zcode-builtin.json"),
-    personalFilePath: join(home, ".zcode/v2/provider_config.json"),
+    personalFilePath: join(home, ".mikiko/v2/provider_config.json"),
   };
   const runtime = new NodeProviderRegistryRuntime({
     ...runtimePaths,
@@ -93,7 +93,7 @@ export async function createWorkerSelectionIntegration() {
       env: {
         HOME: home,
         USERPROFILE: home,
-        ZCODE_DATA_BASE_DIR: home,
+        MIKIKO_DATA_BASE_DIR: home,
         ZCODE_RUNTIME_ENV: "development",
         ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: runtimePaths.zcodeBuiltinFilePath,
         ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: runtimePaths.personalFilePath,

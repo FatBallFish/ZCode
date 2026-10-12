@@ -15,7 +15,7 @@ export function resolveE2EHomeDir({
 }: ResolveE2EHomeDirOptions = {}): string {
   const configuredHome =
     env.ZCODE_E2E_HOME_DIR?.trim() ||
-    env.ZCODE_DATA_BASE_DIR?.trim() ||
+    env.MIKIKO_DATA_BASE_DIR?.trim() ||
     env.ZCODE_DESKTOP_HOME_DIR?.trim();
   return resolve(cwd, configuredHome || ".e2e-home");
 }
@@ -23,7 +23,7 @@ export function resolveE2EHomeDir({
 export function resolveE2EStorageRoot(e2eHomeDir = resolveE2EHomeDir()): string {
   // Bug 根因：回滚 storage profile 时删除了仍被 E2E 用例依赖的路径 helper。
   // E2E 继续隔离 HOME，但 CLI 根固定使用历史目录 .zcode，不再区分 dev/stable profile。
-  return join(e2eHomeDir, ".zcode");
+  return join(e2eHomeDir, ".mikiko");
 }
 
 export function resolveE2ERuntimeRoot(e2eHomeDir = resolveE2EHomeDir()): string {

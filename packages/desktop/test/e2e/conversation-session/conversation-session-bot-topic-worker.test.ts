@@ -336,7 +336,7 @@ describe("BOT-E2E-TP-04/05 real topic worker", () => {
       expect(host.reverseResources).toHaveLength(1);
       const taskId = host.bot.readState().bots[key]!.activeTaskId!;
       // Node SQLite 只提供同步查询；只读隔离 CLI 持久工具结果并立即关闭。
-      const database = new DatabaseSync(join(host.home, ".zcode/cli/db/db.sqlite"), {
+      const database = new DatabaseSync(join(host.home, ".mikiko/cli/db/db.sqlite"), {
         readOnly: true,
       });
       let resource: { fileName: string; path: string; bytes: number };

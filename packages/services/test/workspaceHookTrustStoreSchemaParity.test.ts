@@ -40,7 +40,7 @@ function setupWorkspaceWithHook(): { home: string; workspace: string } {
   const home = makeRoot();
   const workspace = makeRoot();
   mkdirSync(join(workspace, ".git"));
-  writeJson(join(workspace, ".zcode", "config.json"), {
+  writeJson(join(workspace, ".mikiko", "config.json"), {
     hooks: {
       enabled: true,
       events: {
@@ -54,7 +54,7 @@ function setupWorkspaceWithHook(): { home: string; workspace: string } {
 }
 
 function trustStorePath(home: string): string {
-  return join(home, ".zcode", "security", "workspace-hook-trust-v1.json");
+  return join(home, ".mikiko", "security", "workspace-hook-trust-v1.json");
 }
 
 const VALID_DIGEST = "a".repeat(64);
@@ -89,7 +89,7 @@ const STRUCTURALLY_INVALID_SAMPLES: Array<{ name: string; file: unknown }> = [
           grantedAt: "2026-08-17T09:00:00.000Z",
           eventAtGrant: "SessionStart",
           displayCommandAtGrant: "node recorder.mjs",
-          sourcePathAtGrant: ".zcode/config.json",
+          sourcePathAtGrant: ".mikiko/config.json",
         },
       ],
     },
@@ -107,7 +107,7 @@ const STRUCTURALLY_INVALID_SAMPLES: Array<{ name: string; file: unknown }> = [
           grantedAt: "not-a-timestamp",
           eventAtGrant: "SessionStart",
           displayCommandAtGrant: "node recorder.mjs",
-          sourcePathAtGrant: ".zcode/config.json",
+          sourcePathAtGrant: ".mikiko/config.json",
         },
       ],
     },
@@ -137,7 +137,7 @@ const STRUCTURALLY_INVALID_SAMPLES: Array<{ name: string; file: unknown }> = [
           grantedAt: "2026-08-17T09:00:00.000Z",
           eventAtGrant: "SessionStart",
           displayCommandAtGrant: "node recorder.mjs",
-          sourcePathAtGrant: ".zcode/config.json",
+          sourcePathAtGrant: ".mikiko/config.json",
           injected: true,
         },
       ],
@@ -201,7 +201,7 @@ describe("trust store schema parity：services 与 runtime 对同一文件必须
           grantedAt: "2026-08-17T09:00:00.000Z",
           eventAtGrant: "SessionStart",
           displayCommandAtGrant: "echo hello",
-          sourcePathAtGrant: ".zcode/config.json",
+          sourcePathAtGrant: ".mikiko/config.json",
         },
       ],
     };
@@ -230,7 +230,7 @@ describe("trust store schema parity：services 与 runtime 对同一文件必须
           grantedAt: "2026-08-17T09:00:00.000Z",
           eventAtGrant: "SessionStart",
           displayCommandAtGrant: "echo hello",
-          sourcePathAtGrant: ".zcode/config.json",
+          sourcePathAtGrant: ".mikiko/config.json",
         },
       ],
     };

@@ -40,7 +40,7 @@ describe("conversation share preview client", () => {
   });
 
   it("builds a Deep Link containing only the share code", () => {
-    expect(buildShareImportDeepLink("share-1")).toBe("zcode://share/import?code=share-1");
+    expect(buildShareImportDeepLink("share-1")).toBe("mikiko://share/import?code=share-1");
     expect(() => buildShareImportDeepLink("share/1")).toThrow();
   });
 

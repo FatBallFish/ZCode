@@ -113,6 +113,14 @@ const startPlanRecommendation = vi.hoisted(() => {
   };
 });
 
+vi.mock("@/store/TabStoreProvider.js", async (importOriginal) => {
+  const api = { getState: () => ({ tabs: [], activeTabId: null }), setState: () => {}, subscribe: () => () => {} };
+  return {
+    ...(await importOriginal<typeof import("@/store/TabStoreProvider.js")>()),
+    useTabStoreApi: () => api,
+    useTabStore: (selector: (state: unknown) => unknown) => selector(api.getState()),
+  };
+});
 vi.mock("@/hooks/useStartPlanRecommendation.js", () => ({
   useStartPlanRecommendation: () => startPlanRecommendation.recommend,
 }));
@@ -150,6 +158,7 @@ vi.mock("@/v4/V4ConversationContext.js", () => ({
 
 vi.mock("@/store/StoreProvider.js", () => ({
   useZCodeStoreWithDefault: (_selector: unknown, fallback: unknown) => fallback,
+  useZCodeStore: (selector: (state: Record<string, unknown>) => unknown) => selector({}),
 }));
 
 vi.mock("@/v4/composer/useDraftConfigControl.js", () => ({

@@ -16,6 +16,20 @@ const projectionState = vi.hoisted(() => ({
   } | null,
 }));
 
+vi.mock("@/feedback/feedbackStore.js", () => ({
+  // custom 反馈入口默认关闭；本用例专测订阅错误态的反馈快捷入口，恢复开关。
+  FEEDBACK_ENTRY_ENABLED: true,
+  useFeedbackStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({ openSubmit: () => {} }),
+}));
+vi.mock("@/store/TabStoreProvider.js", async (importOriginal) => {
+  const api = { getState: () => ({ tabs: [], activeTabId: null }), setState: () => {}, subscribe: () => () => {} };
+  return {
+    ...(await importOriginal<typeof import("@/store/TabStoreProvider.js")>()),
+    useTabStoreApi: () => api,
+    useTabStore: (selector: (state: unknown) => unknown) => selector(api.getState()),
+  };
+});
 vi.mock("@/v4/useConversationProjection.js", () => ({
   useConversationProjection: () => projectionState.current,
 }));
@@ -32,6 +46,7 @@ vi.mock("@/v4/V4ConversationContext.js", () => ({
 
 vi.mock("@/store/StoreProvider.js", () => ({
   useZCodeStoreWithDefault: (_selector: unknown, fallback: unknown) => fallback,
+  useZCodeStore: (selector: (state: Record<string, unknown>) => unknown) => selector({}),
 }));
 
 vi.mock("@/hooks/useSettingService.js", () => ({

@@ -96,7 +96,7 @@ describe("Server CLI routing", () => {
 
   it("treats stop as an idempotent no-op after the supervisor socket is gone", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-r2-cli-stop-"));
-    vi.stubEnv("ZCODE_DATA_BASE_DIR", root);
+    vi.stubEnv("MIKIKO_DATA_BASE_DIR", root);
     const layout = resolveServerLayout();
     await mkdir(layout.runDir, { recursive: true });
     await writeFile(layout.statusFile, `${JSON.stringify({
@@ -128,7 +128,7 @@ describe("Server CLI routing", () => {
 
   it("uses an explicit absolute --server-root for status instead of the process default", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-r2-cli-explicit-root-"));
-    const serverRoot = join(root, ".zcode", "server");
+    const serverRoot = join(root, ".mikiko", "server");
     const layout = resolveServerLayout(serverRoot);
     await mkdir(layout.runDir, { recursive: true });
     await writeFile(layout.statusFile, `${JSON.stringify({
@@ -167,7 +167,7 @@ describe("Server CLI routing", () => {
 
   it("rejects update before fetching or installing when tasks are running", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-r2-cli-update-guard-"));
-    const layout = resolveServerLayout(join(root, ".zcode", "server"));
+    const layout = resolveServerLayout(join(root, ".mikiko", "server"));
     const commands: string[] = [];
     const control = await createControlServer(layout.controlEndpoint, async (request) => {
       commands.push(request.command);
@@ -320,7 +320,7 @@ describe("Server CLI routing", () => {
 
   it("returns a successful up-to-date outcome without sending apply-update", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-r2-cli-up-to-date-"));
-    const layout = resolveServerLayout(join(root, ".zcode", "server"));
+    const layout = resolveServerLayout(join(root, ".mikiko", "server"));
     const releases = new ReleaseManager(layout);
     await releases.ensure();
     const releaseDir = join(layout.releasesDir, "current");
@@ -395,7 +395,7 @@ describe("Server CLI routing", () => {
 
   it("reports a clear source error when neither catalog nor pending release exists", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-r2-cli-no-source-"));
-    const layout = resolveServerLayout(join(root, ".zcode", "server"));
+    const layout = resolveServerLayout(join(root, ".mikiko", "server"));
     const errors: string[] = [];
     vi.stubEnv("ZCODE_SERVER_RELEASE_MANIFEST_URL", "");
     const control = await createControlServer(layout.controlEndpoint, async (request) => {
@@ -416,7 +416,7 @@ describe("Server CLI routing", () => {
 
   it("applies an offline pending release when no catalog is configured", async () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-r2-offline-"));
-    const layout = resolveServerLayout(join(root, ".zcode", "server"));
+    const layout = resolveServerLayout(join(root, ".mikiko", "server"));
     const releases = new ReleaseManager(layout);
     await releases.ensure();
     const releaseDir = join(layout.releasesDir, "offline");
@@ -454,7 +454,7 @@ describe("Server CLI routing", () => {
 
   it("cancels uninstall unless both confirmations are exactly DELETE (R2-CLI-10)", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-r2-cli-uninstall-cancel-"));
-    vi.stubEnv("ZCODE_DATA_BASE_DIR", root);
+    vi.stubEnv("MIKIKO_DATA_BASE_DIR", root);
     const errors: string[] = [];
     try {
       const layout = resolveServerLayout();
@@ -493,7 +493,7 @@ describe("Server CLI routing", () => {
 
   it("uninstalls offline data, writes the uninstalled marker and keeps user files (R2-CLI-11)", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-r2-cli-uninstall-"));
-    vi.stubEnv("ZCODE_DATA_BASE_DIR", root);
+    vi.stubEnv("MIKIKO_DATA_BASE_DIR", root);
     try {
       const layout = resolveServerLayout();
       await new ReleaseManager(layout).ensure();
@@ -532,7 +532,7 @@ describe("Server CLI routing", () => {
 
   it("fails closed when control is unavailable and the lock is malformed", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-r2-cli-uninstall-corrupt-lock-"));
-    vi.stubEnv("ZCODE_DATA_BASE_DIR", root);
+    vi.stubEnv("MIKIKO_DATA_BASE_DIR", root);
     try {
       const layout = resolveServerLayout();
       await new ReleaseManager(layout).ensure();
@@ -553,7 +553,7 @@ describe("Server CLI routing", () => {
 
   it("fails closed when a live lock owner is present even if status is corrupt", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-r2-cli-uninstall-live-lock-"));
-    vi.stubEnv("ZCODE_DATA_BASE_DIR", root);
+    vi.stubEnv("MIKIKO_DATA_BASE_DIR", root);
     const layout = resolveServerLayout();
     const lock = new DataRootLock(layout.lockFile);
     try {

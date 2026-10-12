@@ -149,7 +149,7 @@ function setSessionTargetForE2E(
   objective: string,
   status: GoalStatusForE2E,
 ) {
-  const dbPath = join(homedir(), ".zcode", "cli", "db", "db.sqlite");
+  const dbPath = join(homedir(), ".mikiko", "cli", "db", "db.sqlite");
   const db = new DatabaseSync(dbPath);
   const now = Date.now();
   const targetId = `target_e2e_${randomUUID()}`;
@@ -234,7 +234,7 @@ function readTaskIndexMetaForE2E(
 }
 
 function taskIndexDbPath() {
-  return join(homedir(), ".zcode", "v2", "tasks-index.sqlite");
+  return join(homedir(), ".mikiko", "v2", "tasks-index.sqlite");
 }
 
 async function injectRendererTaskMetaTargetForE2E(

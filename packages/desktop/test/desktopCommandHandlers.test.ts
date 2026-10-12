@@ -280,8 +280,8 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     await openChangelog("zh-CN");
     await openChangelog("en-US");
 
-    expect(shell.openExternal).toHaveBeenNthCalledWith(1, "https://zcode.z.ai/cn/changelog");
-    expect(shell.openExternal).toHaveBeenNthCalledWith(2, "https://zcode.z.ai/en/changelog");
+    expect(shell.openExternal).toHaveBeenNthCalledWith(1, "https://agent.mikiko.ai/changelog");
+    expect(shell.openExternal).toHaveBeenNthCalledWith(2, "https://agent.mikiko.ai/changelog");
   });
 
   it("changelog 按当前非生产 endpoint 打开", async () => {
@@ -297,7 +297,7 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
       currentApplicationLocale: "en-US",
     });
 
-    expect(shell.openExternal).toHaveBeenCalledWith("https://zcode.z.ai/en/changelog");
+    expect(shell.openExternal).toHaveBeenCalledWith("https://agent.mikiko.ai/changelog");
   });
 
   it("relaunch app 命令交给主进程重启回调", async () => {
@@ -380,7 +380,7 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
   it("系统缩放命令会限制在缩小 3 档和放大 5 档之间", async () => {
     stubProcessPlatform("darwin");
     const { updateDesktopZoomLevel } = await import("../src/main/desktopCommandHandlers.js");
-    const targetWindow = createZoomWindow(Math.pow(1.1, 4));
+    const targetWindow = createZoomWindow(Math.pow(1.1, 4), { nativeOverlay: true });
 
     updateDesktopZoomLevel(targetWindow, "in");
     expect(targetWindow.webContents.setZoomFactor).toHaveBeenLastCalledWith(Math.pow(1.1, 5));
@@ -433,6 +433,7 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     stubProcessPlatform("win32");
     const { updateDesktopZoomLevel } = await import("../src/main/desktopCommandHandlers.js");
     const targetWindow = createZoomWindow(Math.pow(1.1, 4));
+    await registerOverlayWindow(targetWindow);
 
     updateDesktopZoomLevel(targetWindow, "in");
 
@@ -483,6 +484,7 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
       const customWindow = createZoomWindow(Math.pow(1.1, initialLevel));
       const nativeWindow = createZoomWindow(Math.pow(1.1, initialLevel));
       registerCustomWindowsControls(customWindow);
+      await registerOverlayWindow(nativeWindow);
 
       updateDesktopZoomLevel(customWindow, action);
       updateDesktopZoomLevel(nativeWindow, action);
@@ -536,6 +538,14 @@ function createZoomWindow(initialZoomFactor: number) {
       send: vi.fn(),
     },
   } as never;
+}
+
+// custom 登记制：beforeEach 有 resetModules，登记必须与被测模块同一动态实例。
+async function registerOverlayWindow(win: object): Promise<void> {
+  const { registerNativeWindowsTitleBarOverlay } = await import(
+    "../src/main/desktopWindowTitleBarOverlay.js"
+  );
+  registerNativeWindowsTitleBarOverlay(win);
 }
 
 function createCommandOptions(options?: {

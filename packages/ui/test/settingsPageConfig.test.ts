@@ -34,7 +34,16 @@ describe("settingsPageConfig", () => {
     ).toEqual([
       {
         id: "basics",
-        sections: ["general", "appearance", "modelProvider", "browser", "shortcuts"],
+        sections: [
+          "general",
+          "appearance",
+          "modelProvider",
+          "chatgpt",
+          "browser",
+          "worktrees",
+          "pet",
+          "shortcuts",
+        ],
       },
       {
         id: "agentCapabilities",
@@ -42,7 +51,7 @@ describe("settingsPageConfig", () => {
       },
       {
         id: "dataAndStats",
-        sections: ["usage"],
+        sections: ["archived", "usage"],
       },
     ]);
 
@@ -50,6 +59,7 @@ describe("settingsPageConfig", () => {
       "general",
       "appearance",
       "modelProvider",
+      "chatgpt",
       "memory",
       "subagents",
       "plugin",
@@ -58,6 +68,9 @@ describe("settingsPageConfig", () => {
       "commands",
       "hooks",
       "browser",
+      "worktrees",
+      "archived",
+      "pet",
       "shortcuts",
       "usage",
     ]);
@@ -71,6 +84,7 @@ describe("settingsPageConfig", () => {
       "general",
       "appearance",
       "modelProvider",
+      "chatgpt",
       "memory",
       "subagents",
       "plugin",
@@ -79,6 +93,9 @@ describe("settingsPageConfig", () => {
       "commands",
       "hooks",
       "browser",
+      "worktrees",
+      "archived",
+      "pet",
       "shortcuts",
       "usage",
     ]);
@@ -139,7 +156,10 @@ describe("settingsPageConfig", () => {
       "general",
       "appearance",
       "modelProvider",
+      "chatgpt",
       "browser",
+      "worktrees",
+      "pet",
       "computerUse",
       "shortcuts",
     ]);

@@ -102,8 +102,8 @@ const SECOND_PROJECT_MEMORY_ROOT = join(
 const SECOND_PROJECT_MEMORY_INDEX = join(SECOND_PROJECT_MEMORY_ROOT, "MEMORY.md");
 const SECOND_PROJECT_MEMORY_FACT = join(SECOND_PROJECT_MEMORY_ROOT, "incident-review-policy.md");
 const REFRESHED_FILE = join(SECOND_PROJECT_MEMORY_ROOT, "manual-refresh.md");
-const PROFILE_FILE = join(DEFAULT_WORKSPACE, ".zcode", "agents", `${PROFILE_NAME}.md`);
-const CUSTOM_MEMORY_ROOT = join(DEFAULT_WORKSPACE, ".zcode", "agent-memory", PROFILE_NAME);
+const PROFILE_FILE = join(DEFAULT_WORKSPACE, ".mikiko", "agents", `${PROFILE_NAME}.md`);
+const CUSTOM_MEMORY_ROOT = join(DEFAULT_WORKSPACE, ".mikiko", "agent-memory", PROFILE_NAME);
 const CUSTOM_MEMORY_FILE = join(CUSTOM_MEMORY_ROOT, "review-convention.md");
 let providerCaptureStartIndex = 0;
 
@@ -124,7 +124,7 @@ describe("Desktop Memory continuous 链路 WDIO", () => {
     await browser.electron.restoreAllMocks();
     await rm(PROJECT_MEMORY_ROOT, { force: true, recursive: true });
     await rm(SECOND_PROJECT_MEMORY_ROOT, { force: true, recursive: true });
-    await rm(join(DEFAULT_WORKSPACE, ".zcode"), {
+    await rm(join(DEFAULT_WORKSPACE, ".mikiko"), {
       force: true,
       recursive: true,
     });

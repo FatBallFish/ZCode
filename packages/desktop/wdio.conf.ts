@@ -196,8 +196,16 @@ const E2E_HOME_DIR = resolve(
 const E2E_PACKAGED_APP_BINARY_PATH = process.env.ZCODE_E2E_PACKAGED_APP_PATH?.trim()
   ? resolve(process.env.ZCODE_E2E_PACKAGED_APP_PATH)
   : null;
-// 目录隔离已回滚：所有 Desktop E2E 继续使用历史 ~/.zcode 布局。
-const E2E_STORAGE_ROOT = resolve(E2E_HOME_DIR, ".zcode");
+
+// Chromedriver 版本必须与 Electron 内置 Chromium 大版本一致（Electron 41 = Chrome 147）。
+// PATH 上常有旧的全局 chromedriver（如 146），wdio 会优先取用导致 session 建立超时；
+// 这里优先用项目缓存内与当前 Electron 匹配的驱动，缺席时回落 PATH（CI 容器内由镜像保证）。
+const LOCAL_CHROMEDRIVER_147 = resolve(DESKTOP_DIR, ".e2e-cache", "chromedriver", "chromedriver-147");
+const ELECTRON_CHROMEDRIVER_BINARY = existsSync(LOCAL_CHROMEDRIVER_147)
+  ? LOCAL_CHROMEDRIVER_147
+  : undefined;
+// 目录隔离已回滚：所有 Desktop E2E 继续使用历史 ~/.mikiko 布局。
+const E2E_STORAGE_ROOT = resolve(E2E_HOME_DIR, ".mikiko");
 const E2E_APP_CONFIG_DIR = resolve(E2E_STORAGE_ROOT, "v2");
 const E2E_APP_SETTINGS_FILE = resolve(E2E_APP_CONFIG_DIR, "setting.json");
 const E2E_APP_CREDENTIALS_FILE = resolve(E2E_APP_CONFIG_DIR, "credentials.json");
@@ -605,7 +613,7 @@ process.env.HOME = E2E_HOME_DIR;
 process.env.USERPROFILE = E2E_HOME_DIR;
 process.env.ZCODE_E2E_HOME_DIR = E2E_HOME_DIR;
 process.env.ZCODE_E2E_RUN_ID = E2E_RUN_ID;
-process.env.ZCODE_DATA_BASE_DIR = E2E_HOME_DIR;
+process.env.MIKIKO_DATA_BASE_DIR = E2E_HOME_DIR;
 process.env.ZCODE_DESKTOP_APPLICATION_NAME = "ZCode E2E";
 process.env.ZCODE_DESKTOP_HOME_DIR = E2E_HOME_DIR;
 process.env.ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA = "1";
@@ -3156,9 +3164,9 @@ function seedE2EPluginCdnZipMarketplace(specs: string[] = []) {
 }
 
 // 把插件 MCP skill lifecycle spec 需要的 installed_plugins.json 写到
-// `~/.zcode/cli/plugins/installed_plugins.json`；仅在 spec 命中且 state != not-installed
-// 时执行。注意 storageRoot 在 agent 视角是 `<home>/.zcode`，而 pluginStorageRoot
-// 是 `<home>/.zcode/cli/plugins`，installed_plugins.json 必须落在后者下面才会被
+// `~/.mikiko/cli/plugins/installed_plugins.json`；仅在 spec 命中且 state != not-installed
+// 时执行。注意 storageRoot 在 agent 视角是 `<home>/.mikiko`，而 pluginStorageRoot
+// 是 `<home>/.mikiko/cli/plugins`，installed_plugins.json 必须落在后者下面才会被
 // bootstrap 的 `listInstalledPluginRecords(pluginStorageRoot)` 读到（见
 // `apps/zcode-cli/packages/adapters/src/plugins/marketplace.ts:347`）。
 function seedE2EPluginMcpSkillInstalledPlugins(specs: string[] = []) {
@@ -3171,7 +3179,7 @@ function seedE2EPluginMcpSkillInstalledPlugins(specs: string[] = []) {
   const fixturePath = resolve(DESKTOP_DIR, "test/e2e/fixtures/plugin-mcp-skill", templateName);
   const pluginRoot = resolve(DESKTOP_DIR, "test/e2e/fixtures/plugin-mcp-skill/e2e-plugin-mcp-ping");
   const template = readFileSync(fixturePath, "utf-8").replaceAll("__INSTALL_PATH__", pluginRoot);
-  // pluginStorageRoot = <home>/.zcode/cli/plugins
+  // pluginStorageRoot = <home>/.mikiko/cli/plugins
   const targetDir = resolve(E2E_STORAGE_ROOT, "cli/plugins");
   mkdirSync(targetDir, { recursive: true });
   writeFileSync(resolve(targetDir, "installed_plugins.json"), template, "utf-8");
@@ -3521,7 +3529,7 @@ function resolvePluginMcpSkillState(
 
 // 状态 A 不需要写任何文件；B/C 才落 fixture。
 // 这一段必须在 `seedUpstreamE2EModelConfig` 之后调用，因为它要 patch
-// 我们刚写好的 `~/.zcode/cli/config.json`，把 `plugins.enabledPlugins[id]`
+// 我们刚写好的 `~/.mikiko/cli/config.json`，把 `plugins.enabledPlugins[id]`
 // 置为 false 以表达"已安装但关闭"。
 function seedE2EPluginMcpSkillState(specs: string[] = []) {
   const state = resolvePluginMcpSkillState(specs);
@@ -3563,10 +3571,10 @@ function seedE2EWorkspacePluginState(specs: string[] = []) {
 
   const workspacePath = resolve(E2E_HOME_DIR, "ZCodeProject");
   const userConfigPath = resolve(E2E_CLI_CONFIG_DIR, "config.json");
-  const workspaceConfigPath = resolve(workspacePath, ".zcode", "config.json");
+  const workspaceConfigPath = resolve(workspacePath, ".mikiko", "config.json");
   const pluginId = "e2e-plugin-mcp-ping@e2e-fixture";
   const pluginRoot = resolve(DESKTOP_DIR, "test/e2e/fixtures/plugin-mcp-skill/e2e-plugin-mcp-ping");
-  mkdirSync(resolve(workspacePath, ".zcode"), { recursive: true });
+  mkdirSync(resolve(workspacePath, ".mikiko"), { recursive: true });
   const userConfig = JSON.parse(readFileSync(userConfigPath, "utf-8")) as Record<string, unknown>;
   const userPlugins = (userConfig.plugins as Record<string, unknown> | undefined) ?? {};
   const userEnabledPlugins =
@@ -3647,10 +3655,10 @@ function seedE2EBuiltinWorkspacePluginDisable(specs: string[] = []) {
   userConfig.plugins = userPlugins;
   writeFileSync(E2E_CLI_CONFIG_FILE, `${JSON.stringify(userConfig, null, 2)}\n`, "utf-8");
 
-  mkdirSync(resolve(workspaceA, ".zcode"), { recursive: true });
+  mkdirSync(resolve(workspaceA, ".mikiko"), { recursive: true });
   mkdirSync(workspaceB, { recursive: true });
   writeFileSync(
-    resolve(workspaceA, ".zcode", "config.json"),
+    resolve(workspaceA, ".mikiko", "config.json"),
     `${JSON.stringify(
       {
         plugins: {
@@ -4093,7 +4101,7 @@ This child must fail before sending a provider request when the Team scope is un
 
   for (const agentsDir of [E2E_USER_AGENTS_DIR, E2E_CLI_AGENTS_DIR]) {
     // 修复原因：CLI runtime 从 storageRoot/agents 加载用户 subagent profile，
-    // 而设置页/历史路径曾使用 .zcode/cli/agents。双写只作用于本复现 spec，
+    // 而设置页/历史路径曾使用 .mikiko/cli/agents。双写只作用于本复现 spec，
     // 避免路径差异让 case 停在 agent type not found，而不是 provider registry 缺失。
     mkdirSync(agentsDir, { recursive: true });
     for (const profile of profileEntries) {
@@ -4459,7 +4467,7 @@ export const config: WebdriverIO.Config = {
     VITE_ZCODE_E2E_STORE_BRIDGE: "1",
     ZCODE_AGENT_SERVER_ARGS_JSON: "",
     ZCODE_AGENT_SERVER_COMMAND: "",
-    ZCODE_DATA_BASE_DIR: E2E_HOME_DIR,
+    MIKIKO_DATA_BASE_DIR: E2E_HOME_DIR,
     ZCODE_BUILTIN_PROVIDER_CONFIG_FILE:
       INITIAL_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE ?? E2E_DEFAULT_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE,
     ZCODE_DESKTOP_APPLICATION_NAME: "ZCode E2E",
@@ -4531,14 +4539,12 @@ export const config: WebdriverIO.Config = {
         windowTypes: ["page"],
         args: [...(containerE2E ? containerChromeArgs : [])],
       },
-      ...(containerE2E
-        ? {
-            "wdio:chromedriverOptions": {
-              // 修复原因：固定容器 cache，避免每轮从 /tmp 重新下载 Chromedriver。
-              cacheDir: E2E_BROWSER_DRIVER_CACHE_DIR,
-            },
-          }
-        : {}),
+      "wdio:chromedriverOptions": {
+        // 修复原因：固定容器 cache，避免每轮从 /tmp 重新下载 Chromedriver。
+        ...(containerE2E ? { cacheDir: E2E_BROWSER_DRIVER_CACHE_DIR } : {}),
+        // 本机开发：Electron 41=Chrome147，须避开 PATH 上的旧 chromedriver（146）。
+        ...(ELECTRON_CHROMEDRIVER_BINARY ? { binary: ELECTRON_CHROMEDRIVER_BINARY } : {}),
+      },
     },
   ],
   specs: configuredE2ESpecs,
@@ -4683,7 +4689,7 @@ export const config: WebdriverIO.Config = {
     });
   },
   async beforeSession(_config, capabilities, specs, cid) {
-    // Bugfix: 现有 e2e 会读写 ~/.zcode/v2；如果多个 spec 复用真实 HOME，
+    // Bugfix: 现有 e2e 会读写 ~/.mikiko/v2；如果多个 spec 复用真实 HOME，
     // 上一个 spec 的凭据、最近项目和 localStorage 会串到下一个 spec，
     // 既污染开发者本机数据，也让“首次启动”类断言变得随机。
     // 这里为 e2e 单独准备隔离 HOME，并在每个 session 启动前重置，保证每个 spec 都从干净环境开始。

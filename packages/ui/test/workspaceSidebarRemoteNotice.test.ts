@@ -21,6 +21,18 @@ const {
   },
 }));
 
+vi.mock("@/store/TabStoreProvider.js", async (importOriginal) => {
+  const api = { getState: () => ({ tabs: [], activeTabId: null }), setState: () => {}, subscribe: () => () => {} };
+  return {
+    ...(await importOriginal<typeof import("@/store/TabStoreProvider.js")>()),
+    useTabStoreApi: () => api,
+    useTabStore: (selector: (state: unknown) => unknown) => selector(api.getState()),
+  };
+});
+vi.mock("@/hooks/usePlatform.js", () => ({
+  usePlatform: () => ({ openExternal: vi.fn(async () => {}), executeDesktopCommand: vi.fn(async () => {}), platform: "darwin" }),
+  useOptionalPlatform: () => null,
+}));
 vi.mock("border-beam", () => ({
   BorderBeam: ({ children }: { children: unknown }) =>
     createElement("div", { "data-testid": "border-beam" }, children),

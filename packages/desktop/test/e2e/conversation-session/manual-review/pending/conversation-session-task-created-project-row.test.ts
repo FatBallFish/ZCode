@@ -91,7 +91,7 @@ function readWorkspaceTaskCount(): number {
 
 function readWorkspaceTaskIds(): string[] {
   // Node 当前内置 SQLite 只提供 DatabaseSync；E2E 轮询每次都立即关闭只读句柄。
-  const database = new DatabaseSync(join(homedir(), ".zcode", "v2", "tasks-index.sqlite"), {
+  const database = new DatabaseSync(join(homedir(), ".mikiko", "v2", "tasks-index.sqlite"), {
     readOnly: true,
   });
   try {

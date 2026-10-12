@@ -82,8 +82,8 @@ describe("stdio Desktop presentation surface", () => {
       "--stdio",
     ]);
     const zcodeBuiltinProviderConfigFilePath = join(home, "zcode-builtin.json");
-    const personalConfigFilePath = join(home, ".zcode", "v2", "provider_config.json");
-    await mkdir(join(home, ".zcode", "v2"), { recursive: true });
+    const personalConfigFilePath = join(home, ".mikiko", "v2", "provider_config.json");
+    await mkdir(join(home, ".mikiko", "v2"), { recursive: true });
     await writeFile(
       personalConfigFilePath,
       JSON.stringify({

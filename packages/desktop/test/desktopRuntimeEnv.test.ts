@@ -35,7 +35,7 @@ vi.mock("@zcode/shared", () => ({
     bundledResourceDir: "glm",
     version: "0.0.0-test",
     spawnArgs: ["app-server", "--stdio"],
-    nativeConfigDir: ".zcode/cli",
+    nativeConfigDir: ".mikiko/cli",
     nativeConfigFileName: "config.json",
     missingBinaryMessage: "[ZCode Agent] missing test binary",
     resolveEntrySegments: (platform: string) => [
@@ -205,6 +205,10 @@ function isAmbientHostEnvKey(key: string): boolean {
     AMBIENT_TOOL_PASSTHROUGH_ENV_KEYS.has(upperKey) ||
     upperKey.startsWith("OTEL_") ||
     upperKey.startsWith("ZCODE_TELEMETRY_") ||
+    // 在 ZCode 桌面内跑测试时，宿主会把 CUA Helper 等运行时路径注入环境；
+    // 不清理会让“dev 免签回退 ZCODE_HOME”用例被宿主路径劫持（环境密闭性）。
+    upperKey.startsWith("ZCODE_CUA_") ||
+    upperKey === "ZCODE_HOME" ||
     AMBIENT_PACKAGE_MANAGER_PROXY_ENV_PATTERN.test(key)
   );
 }
@@ -306,10 +310,10 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
 
       expect(dirs.mockCdnDir).toMatch(/[\\/]mock-cdn$/);
       expect(dirs.remoteCdnBaseUrl).toBe(
-        "http://intranet.example.invalid:12345/ssh-remote-assets/0.0.0-test",
+        "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
       );
       expect(dirs.remoteCdnBaseUrls).toEqual([
-        "http://intranet.example.invalid:12345/ssh-remote-assets/0.0.0-test",
+        "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
       ]);
       expect(dirs.remoteCacheDir).toMatch(/[\\/]userData[\\/]remote-assets-cache$/);
     });
@@ -325,10 +329,10 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
 
       expect(dirs.mockCdnDir).toBeUndefined();
       expect(dirs.remoteCdnBaseUrl).toBe(
-        "http://intranet.example.invalid:12345/ssh-remote-assets/0.0.0-test",
+        "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
       );
       expect(dirs.remoteCdnBaseUrls).toEqual([
-        "http://intranet.example.invalid:12345/ssh-remote-assets/0.0.0-test",
+        "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
       ]);
       expect(dirs.remoteCacheDir).toMatch(/[\\/]userData[\\/]remote-assets-cache$/);
     });
@@ -343,10 +347,10 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
 
     expect(dirs.mockCdnDir).toBeUndefined();
     expect(dirs.remoteCdnBaseUrl).toBe(
-      "http://intranet.example.invalid:12345/ssh-remote-assets/0.0.0-test",
+      "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
     );
     expect(dirs.remoteCdnBaseUrls).toEqual([
-      "http://intranet.example.invalid:12345/ssh-remote-assets/0.0.0-test",
+      "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
     ]);
     expect(dirs.remoteCacheDir).toMatch(/[\\/]userData[\\/]remote-assets-cache$/);
   });
@@ -976,13 +980,13 @@ describe("desktopRuntimeEnv runtime identity", () => {
     } = await import("../src/main/desktopRuntimeEnv.js");
 
     expect(isPreviewPackagedRuntime).toBe(true);
-    expect(runtimeApplicationName).toBe("ZCode Preview");
+    expect(runtimeApplicationName).toBe("Mikiko Preview");
     // Bugfix：这两条路径由实现用宿主 path.join 从 app.getPath("appData") 拼出，
     // Windows 上是 `\mock\appData\ZCode Preview`，写死 POSIX 字面量必然失败。
     // 用例要断言的是「Preview 单独占一个 Electron 数据目录」的目录结构，与分隔符无关，
     // 所以用同样的 join 表达；在 POSIX 上是恒等变换。
-    expect(runtimeUserDataPath).toBe(join("/mock/appData", "ZCode Preview"));
-    expect(runtimeSessionDataPath).toBe(join("/mock/appData", "ZCode Preview", "session"));
+    expect(runtimeUserDataPath).toBe(join("/mock/appData", "Mikiko Preview"));
+    expect(runtimeSessionDataPath).toBe(join("/mock/appData", "Mikiko Preview", "session"));
   });
 
   it("e2e 可保留 Chromedriver 注入的 Electron userData 目录", async () => {

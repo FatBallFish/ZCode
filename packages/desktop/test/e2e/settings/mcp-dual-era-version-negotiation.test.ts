@@ -23,7 +23,7 @@ const BUILT_IN_NODE_REPL_SERVER_NAME = "node_repl";
 const E2E_PATHS = getE2EAppDataPaths();
 // 修复原因：WDIO 为每轮运行注入隔离 HOME，但 CLI 数据根实际是 HOME/.zcode。
 // 这里沿用 desktop-app 的 storageRoot 合同；直接从 homeDir 再拼 .zcode 会在
-// 当前 fixture layout 下绕过 runner 已创建的 .zcode/cli，导致写入前 ENOENT。
+// 当前 fixture layout 下绕过 runner 已创建的 .mikiko/cli，导致写入前 ENOENT。
 const CLI_CONFIG_FILE = join(E2E_PATHS.storageRoot, "cli", "config.json");
 const CASE_ROOT = join(E2E_PATHS.workspace, "mcp-dual-era-version-negotiation-e2e");
 const MODERN_WIRE_LOG = join(CASE_ROOT, "modern-wire.ndjson");
@@ -257,7 +257,7 @@ async function waitForConnectedLogs(
 
 async function readConnectedLogs(): Promise<Map<string, McpConnectedLog>> {
   const logDir =
-    process.env.ZCODE_LOG_DIR?.trim() || join(E2E_PATHS.homeDir, ".zcode", "cli", "log");
+    process.env.ZCODE_LOG_DIR?.trim() || join(E2E_PATHS.homeDir, ".mikiko", "cli", "log");
   const result = new Map<string, McpConnectedLog>();
   const files = await readdir(logDir).catch(() => []);
   for (const file of files) {

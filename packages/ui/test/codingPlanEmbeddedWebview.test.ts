@@ -233,7 +233,7 @@ describe("coding plan embedded webview bridge", () => {
 
   it("trusts PayPal callback pages that return to the embedded Coding Plan page", () => {
     const returnTo = encodeURIComponent(
-      "/coding-plan?provider=zai&embedded=app&lang=cn&theme=zai-dark",
+      "/coding-plan?provider=zai&embedded=app&lang=cn&theme=mikiko-dark",
     );
     expect(
       isTrustedCodingPlanEmbeddedWebviewUrl(
@@ -309,7 +309,7 @@ describe("coding plan embedded webview bridge", () => {
     expect(script).toContain('"app_version":"9.8.7"');
     expect(script).toContain("reportContext: zcodeReportContext");
     expect(script).toContain('document.documentElement.classList.toggle("dark"');
-    expect(script).toContain('localStorage.setItem("zcode-theme", zcodeTheme)');
+    expect(script).toContain('localStorage.setItem("mikiko-theme", zcodeTheme)');
     expect(script).toContain('localStorage.removeItem("oauth:bigmodel:access_token")');
   });
 
@@ -495,7 +495,7 @@ describe("coding plan embedded webview bridge", () => {
 
     const webview = view.getByTestId("coding-plan-embedded-webview");
     const initialSrc = webview.getAttribute("src");
-    expect(initialSrc).toContain("theme=zai-light");
+    expect(initialSrc).toContain("theme=mikiko-light");
 
     h.theme = "zai-dark";
     view.rerender(createElement(CodingPlanEmbeddedWebviewDialog, props));

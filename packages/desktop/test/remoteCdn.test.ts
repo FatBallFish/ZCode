@@ -1,77 +1,52 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isUtcPlusEightTimeZone,
   resolveRemoteCdnBaseUrls,
   shouldPreferDomesticRemoteCdn,
 } from "../src/main/remoteCdn.js";
 
+// custom 语义（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5）：远端组件下载
+// 单一基址，MIKIKO_CDN_BASE_URL 环境变量优先，缺省回落自建分发域；不再做国内/海外
+// CDN 双根排序。时区助手仍保留（供将来分区调度复用）并保持既有判定语义。
+
 describe("remoteCdn", () => {
-  it("中文且东八区时应优先国内 CDN", () => {
-    expect(
-      shouldPreferDomesticRemoteCdn({
-        locale: "zh-CN",
-        timeZone: "Asia/Shanghai",
-      }),
-    ).toBe(true);
-    expect(
-      resolveRemoteCdnBaseUrls({
-        env: "production",
-        locale: "zh-CN",
-        timeZone: "Asia/Shanghai",
-        version: "0.0.0-test",
-      }),
-    ).toEqual([
-      "https://cdn.codegeex.cn/zcode/electron/releases/0.0.0-test",
-      "https://cdn-zcode.z.ai/zcode/electron/releases/0.0.0-test",
-    ]);
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
-  it("非中文或非东八区时应优先海外 CDN", () => {
-    expect(
-      shouldPreferDomesticRemoteCdn({
-        locale: "en-US",
-        timeZone: "Asia/Shanghai",
-      }),
-    ).toBe(false);
-    expect(
-      shouldPreferDomesticRemoteCdn({
-        locale: "zh-CN",
-        timeZone: "America/Los_Angeles",
-      }),
-    ).toBe(false);
-    expect(
-      resolveRemoteCdnBaseUrls({
-        env: "production",
-        locale: "zh-CN",
-        timeZone: "America/Los_Angeles",
-        version: "0.0.0-test",
-      }),
-    ).toEqual([
-      "https://cdn-zcode.z.ai/zcode/electron/releases/0.0.0-test",
-      "https://cdn.codegeex.cn/zcode/electron/releases/0.0.0-test",
-    ]);
-  });
-
-  it("东八区判断应按 UTC 偏移而不是固定城市名单", () => {
+  it("时区助手按 UTC 偏移判断而不是固定城市名单", () => {
     expect(isUtcPlusEightTimeZone("Asia/Shanghai")).toBe(true);
     expect(isUtcPlusEightTimeZone("Asia/Singapore")).toBe(true);
     expect(isUtcPlusEightTimeZone("Asia/Tokyo")).toBe(false);
+    expect(shouldPreferDomesticRemoteCdn({ locale: "zh-CN", timeZone: "Asia/Shanghai" })).toBe(
+      true,
+    );
+    expect(shouldPreferDomesticRemoteCdn({ locale: "en-US", timeZone: "Asia/Shanghai" })).toBe(
+      false,
+    );
   });
 
-  it("测试产品环境应固定使用内网 SSH remote assets 根目录", () => {
+  it("缺省回落自建分发域并拼接版本路径", () => {
     expect(
       resolveRemoteCdnBaseUrls({
-        env: "test",
-        locale: "zh-CN",
-        timeZone: "Asia/Shanghai",
+        env: "production",
         version: "0.0.0-test",
       }),
-    ).toEqual([
-      "http://intranet.example.invalid:12345/ssh-remote-assets/0.0.0-test",
-    ]);
+    ).toEqual(["https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test"]);
   });
 
-  it("显式覆盖 CDN 基址时不再按产品环境选择默认值", () => {
+  it("MIKIKO_CDN_BASE_URL 优先于缺省基址", () => {
+    vi.stubEnv("MIKIKO_CDN_BASE_URL", "https://cdn.mikiko.example/assets/");
+    expect(
+      resolveRemoteCdnBaseUrls({
+        env: "production",
+        version: "0.0.0-test",
+      }),
+    ).toEqual(["https://cdn.mikiko.example/assets/zcode/electron/releases/0.0.0-test"]);
+  });
+
+  it("显式覆盖 CDN 基址时不再读取环境与缺省值，并归一化尾斜杠", () => {
+    vi.stubEnv("MIKIKO_CDN_BASE_URL", "https://cdn.mikiko.example/assets/");
     expect(
       resolveRemoteCdnBaseUrls({
         env: "test",
@@ -79,5 +54,11 @@ describe("remoteCdn", () => {
         version: "0.0.0-test",
       }),
     ).toEqual(["https://cdn.example.com/releases"]);
+  });
+
+  it("未传版本时使用当前应用版本", () => {
+    const urls = resolveRemoteCdnBaseUrls({ env: "production" });
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toMatch(/\/zcode\/electron\/releases\/[^/]+$/u);
   });
 });

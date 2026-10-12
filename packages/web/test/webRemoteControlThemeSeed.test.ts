@@ -6,18 +6,18 @@ describe("resolveWebRemoteControlInitialTheme", () => {
     expect(
       resolveWebRemoteControlInitialTheme({
         storedTheme: null,
-        qrTheme: "zai-dark",
+        qrTheme: "mikiko-dark",
       }),
-    ).toBe("zai-dark");
+    ).toBe("mikiko-dark");
   });
 
   it("keeps the mobile local theme once the phone has chosen one", () => {
     expect(
       resolveWebRemoteControlInitialTheme({
         storedTheme: "light",
-        qrTheme: "zai-dark",
+        qrTheme: "mikiko-dark",
       }),
-    ).toBe("zai-light");
+    ).toBe("mikiko-light");
   });
 
   it("treats removed theme values as invalid", () => {
@@ -26,7 +26,7 @@ describe("resolveWebRemoteControlInitialTheme", () => {
         storedTheme: null,
         qrTheme: "legacy-dark",
       }),
-    ).toBe("zai-dark");
+    ).toBe("mikiko-dark");
   });
 
   it("falls back to the web default when neither side provides a valid theme", () => {
@@ -35,7 +35,7 @@ describe("resolveWebRemoteControlInitialTheme", () => {
         storedTheme: "midnight",
         qrTheme: undefined,
       }),
-    ).toBe("zai-dark");
+    ).toBe("mikiko-dark");
   });
 
   it("allows the share page to default to light without overriding an explicit theme", () => {
@@ -43,15 +43,15 @@ describe("resolveWebRemoteControlInitialTheme", () => {
       resolveWebRemoteControlInitialTheme({
         storedTheme: "midnight",
         qrTheme: undefined,
-        defaultTheme: "zai-light",
+        defaultTheme: "mikiko-light",
       }),
-    ).toBe("zai-light");
+    ).toBe("mikiko-light");
     expect(
       resolveWebRemoteControlInitialTheme({
-        storedTheme: "zai-dark",
+        storedTheme: "mikiko-dark",
         qrTheme: undefined,
-        defaultTheme: "zai-light",
+        defaultTheme: "mikiko-light",
       }),
-    ).toBe("zai-dark");
+    ).toBe("mikiko-dark");
   });
 });

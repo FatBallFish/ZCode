@@ -2434,7 +2434,9 @@ async function bootstrapWebApp() {
   // 手机远控（spec specs/remote/mobile-remote-control.md §8.2）：二维码票据入口。
   // relay WS 基址解析顺序（spec §5.3 增补）：票据 URL ws 参数（须 wss?://，防参数注入异常值）
   // > 构建期注入 > 同源（本地调试经 vite proxy）；域名迁移免重新构建手机页。
-  if (params.has("sid") && params.has("hash")) {
+  // 判定须带 ws 参数：自建 relay 签发的票据必带 relay WS 基址，与上游 /remote 链路
+  //（同样使用 sid/hash 布局但不带 ws）区分，避免误劫持上游流。
+  if (params.has("sid") && params.has("hash") && params.has("ws")) {
     const ticketWs = params.get("ws")?.trim() ?? "";
     const relayWsBase =
       (/^wss?:\/\//.test(ticketWs) ? ticketWs : "") ||

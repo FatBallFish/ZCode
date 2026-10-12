@@ -197,7 +197,7 @@ describe("Composer 七档压缩", () => {
             localePreference: "zh-CN",
           }),
         );
-        const configFile = join(paths.homeDir, ".zcode", "cli", "config.json");
+        const configFile = join(paths.homeDir, ".mikiko", "cli", "config.json");
         const config = JSON.parse(
           await readFile(configFile, "utf8").catch((error: NodeJS.ErrnoException) => {
             if (error.code === "ENOENT") return "{}";

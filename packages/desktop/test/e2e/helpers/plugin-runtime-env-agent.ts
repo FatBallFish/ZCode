@@ -86,7 +86,7 @@ export async function createPluginRuntimeEnvFixture(
 async function primeDefaultPluginMarketplacesForE2E(homeDir: string): Promise<void> {
   const path = join(
     homeDir,
-    ".zcode",
+    ".mikiko",
     "cli",
     "plugins",
     "known_marketplaces.json",

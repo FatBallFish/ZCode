@@ -1,3 +1,32 @@
+// custom 反馈入口默认关闭且 openSubmit 在模块内部读常量绑定，importOriginal 覆盖不动它；
+// 本文件专测订阅错误面板的反馈动作，直接给可驱动的最小 store 桩。
+vi.mock("@/feedback/feedbackStore.js", () => {
+  const state = {
+    open: false,
+    submitDraft: null as unknown,
+    openSubmit: (draft?: unknown) => {
+      Object.assign(state, { open: true, submitDraft: draft ?? null });
+      for (const listener of listeners) listener();
+    },
+  };
+  const listeners = new Set<() => void>();
+  const useFeedbackStore = ((selector: (s: typeof state) => unknown) => selector(state)) as {
+    (selector: (s: typeof state) => unknown): unknown;
+    getState: () => typeof state;
+    setState: (patch: Partial<typeof state>) => void;
+    subscribe: (listener: () => void) => () => void;
+  };
+  useFeedbackStore.getState = () => state;
+  useFeedbackStore.setState = (patch: Partial<typeof state>) => Object.assign(state, patch);
+  useFeedbackStore.subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  };
+  return {
+    FEEDBACK_ENTRY_ENABLED: true,
+    useFeedbackStore,
+  };
+});
 // @vitest-environment jsdom
 
 import type { IPlatformService } from "@zcode/shared";

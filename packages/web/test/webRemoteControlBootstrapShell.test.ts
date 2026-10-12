@@ -21,7 +21,7 @@ function readCssRule(source: string, selector: string): string {
   return match?.groups?.body ?? "";
 }
 
-function createBootstrapDocument(theme: "zai-dark" | "zai-light"): JSDOM {
+function createBootstrapDocument(theme: "mikiko-dark" | "mikiko-light"): JSDOM {
   return new JSDOM(readWebIndexHtml(), {
     beforeParse(window) {
       window.localStorage.setItem("zcode-theme", theme);
@@ -60,8 +60,8 @@ describe("web remote control bootstrap shell", () => {
   });
 
   it.each([
-    ["zai-dark", "dark", "#161616"],
-    ["zai-light", "light", "#f8f8f8"],
+    ["mikiko-dark", "dark", "#161616"],
+    ["mikiko-light", "light", "#f8f8f8"],
   ] as const)(
     "在业务 bundle 执行前把 %s 同步到浏览器主题表面",
     (storedTheme, resolvedTheme, expectedColor) => {

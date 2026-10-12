@@ -19,16 +19,27 @@ const mockFooterSettings = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("@/hooks/useServices.js", () => ({
+  useOptionalServices: () => null,
+  useServices: () => ({
+    modelSelectionService: { read: async () => null },
+    zcodeSessionService: {}, zcodeTaskService: {}, usageStatsService: {},
+    conversationShareService: {}, highspeedCardService: {},
+  }),
+  ServiceProvider: ({ children }: { children: unknown }) => children,
+}));
 vi.mock("@/ControlHintTooltip.js", () => ({
   ControlHintTooltip: ({ children, title }: { children: unknown; title: string }) =>
     createElement("span", { "data-tooltip-title": title }, children),
 }));
 
-vi.mock("@/WorkspaceWebRemoteControlTrigger.js", () => ({
-  WorkspaceWebRemoteControlTrigger: () =>
-    createElement("button", {
-      "data-testid": "web-remote-control-trigger",
-    }),
+vi.mock("@/remoteControl/useRemoteControl.js", () => ({
+  // custom footer 的远控入口按 available 门控；这里置可用以验证触发器渲染与提示归属。
+  useRemoteControl: () => ({
+    available: true,
+    state: null,
+    open: () => {},
+  }),
 }));
 
 vi.mock("@/hooks/usePlatform.js", () => ({
@@ -419,8 +430,8 @@ describe("WorkspaceSidebarFooter web remote control tooltip", () => {
       }),
     );
 
-    expect(html).toContain('data-testid="web-remote-control-trigger"');
-    expect(html).not.toContain('data-tooltip-title="webRemoteControl.trigger"');
+    expect(html).toContain('data-testid="remote-control-trigger"');
+    expect(html).toContain('data-tooltip-title="remoteControl.title"');
   });
 
   it("shows desktop zoom commands under an interface zoom submenu", () => {
@@ -484,11 +495,9 @@ describe("WorkspaceSidebarFooter web remote control tooltip", () => {
     );
     const usageIndex = footerSource.indexOf("<WorkspaceSidebarFooterUsageSummary");
 
-    // 偏好设置与用量之间由 summary 统一管理分隔线，账号操作组另有分隔线。
+    // custom footer：偏好设置与用量之间由 sub2api 分组引入分隔线（账号操作组边界），
+    // 分隔线归属 footer 源码；summary 组件仍负责用量区内部排版。
     const preferencesIndex = footerSource.indexOf('id: "settings.locale"');
-    expect(footerSource.slice(preferencesIndex, usageIndex)).not.toContain(
-      "<DropdownMenuSeparator />",
-    );
     expect(summarySource).toContain("<DropdownMenuSeparator />");
     expect(summarySource.indexOf("sidebar.usage.plan.openStats")).toBeLessThan(
       summarySource.indexOf("onUpgradeClick?.("),

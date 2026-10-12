@@ -8,7 +8,7 @@
   "fileFixtures": [
     {
       "kind": "app-config-seed",
-      "path": "~/.zcode/v2/credentials.json",
+      "path": "~/.mikiko/v2/credentials.json",
       "purpose": "冷启动前写入完整 OAuth 缓存与已过期 zcodejwttoken，验证清理和重新认证交互。"
     }
   ],

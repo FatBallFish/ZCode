@@ -1,4 +1,4 @@
-import getPluginSandboxHost from "./pluginSandbox/index.js";
+import { getPluginSandboxHost } from "./pluginSandbox/index.js";
 /* eslint-disable max-lines -- 桌面命令分发需要共享窗口与平台上下文，集中维护更便于一致性 */
 import {
   readZCodeStdioTapDevState,
@@ -30,15 +30,15 @@ import {
   session,
   shell,
 } from "electron";
-import readFile from "node:fs/promises";
-import join from "node:path";
-import showAboutDialog from "./about.js";
-import checkForUpdateMenuClick from "./autoUpdater.js";
-import MIKIKO_CHANGELOG_URL from "./desktopExternalLinks.js";
-import exportLogs from "./exportLogs.js";
-import openResourceManager from "./resourceManagerWindow.js";
-import resolveCuaOsSupport from "./cuaOsSupport.js";
-import syncWindowControlsOverlayForZoomLevel from "./desktopWindowButtonPosition.js";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { showAboutDialog } from "./about.js";
+import { checkForUpdateMenuClick } from "./autoUpdater.js";
+import { MIKIKO_CHANGELOG_URL } from "./desktopExternalLinks.js";
+import { exportLogs } from "./exportLogs.js";
+import { openResourceManager } from "./resourceManagerWindow.js";
+import { resolveCuaOsSupport } from "./cuaOsSupport.js";
+import { syncWindowControlsOverlayForZoomLevel } from "./desktopWindowButtonPosition.js";
 import {
   DEFAULT_DESKTOP_WINDOW_HEIGHT,
   DEFAULT_DESKTOP_WINDOW_WIDTH,

@@ -10,6 +10,15 @@ import { ChatErrorBanner } from "@/ChatErrorBanner.js";
 import { PlatformProvider } from "@/hooks/usePlatform.js";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 
+vi.mock("@/hooks/useServices.js", () => ({
+  useOptionalServices: () => null,
+  useServices: () => ({
+    modelSelectionService: { read: async () => null },
+    zcodeSessionService: {}, zcodeTaskService: {}, usageStatsService: {},
+    conversationShareService: {}, highspeedCardService: {},
+  }),
+  ServiceProvider: ({ children }: { children: unknown }) => children,
+}));
 vi.mock("@/components/ui/toast.js", () => ({
   toast: vi.fn(),
 }));

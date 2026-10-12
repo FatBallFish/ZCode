@@ -41,7 +41,7 @@ import {
 
 const CUSTOM_SLASH_COMMAND_NAME = "e2e-draft-catalog";
 const CUSTOM_SLASH_OPTION_ID = `slash:${CUSTOM_SLASH_COMMAND_NAME}`;
-const CUSTOM_SLASH_COMMAND_DIR = join(getE2EAppDataPaths().homeDir, ".zcode", "commands");
+const CUSTOM_SLASH_COMMAND_DIR = join(getE2EAppDataPaths().homeDir, ".mikiko", "commands");
 const CUSTOM_SLASH_COMMAND_PATH = join(CUSTOM_SLASH_COMMAND_DIR, `${CUSTOM_SLASH_COMMAND_NAME}.md`);
 const COMPOSER_PICKER_TRIGGER_IDS = {
   mode: TID_CHAT_MODE_SELECT_TRIGGER,

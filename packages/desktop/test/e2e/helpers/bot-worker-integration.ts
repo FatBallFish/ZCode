@@ -47,7 +47,7 @@ export async function createBotWorkerIntegration(baseUrl: string, dropTextContai
     if (errors.length) throw new AggregateError(errors, "Bot worker fixture cleanup failed");
   };
   try {
-    const personalFilePath = join(home, ".zcode/v2/provider_config.json");
+    const personalFilePath = join(home, ".mikiko/v2/provider_config.json");
     const modelSelection = {
       providerId: "e2e-bot-worker",
       modelId: "e2e-bot-model",
@@ -145,7 +145,7 @@ export async function createBotWorkerIntegration(baseUrl: string, dropTextContai
         env: {
           HOME: home,
           USERPROFILE: home,
-          ZCODE_DATA_BASE_DIR: home,
+          MIKIKO_DATA_BASE_DIR: home,
           ZCODE_RUNTIME_ENV: "development",
           ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtin,
           ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalFilePath,

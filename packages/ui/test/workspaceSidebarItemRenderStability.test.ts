@@ -23,6 +23,37 @@ const { taskListCalls, stableServices, zcodeSessionStoreState } = vi.hoisted(() 
   },
 }));
 
+vi.mock("@/hooks/useWorkspaceProviderConfigFile.js", () => ({
+  // custom 的 provider 配置路径探测不在稳定性测试关注面内；直接给稳定空态。
+  useWorkspaceProviderConfigFile: () => ({ path: null, exists: false, loading: false, error: null, refresh: () => {} }),
+}));
+vi.mock("@/hooks/useServices.js", () => ({
+  useOptionalServices: () => null,
+  useServices: () => ({
+    modelSelectionService: { read: async () => null },
+    zcodeSessionService: {},
+    zcodeTaskService: {
+      // custom 的 provider 配置路径探测；稳定性测试只关心 props 引用稳定。
+      getWorkspaceProviderConfigFile: async () => null,
+    },
+    usageStatsService: {},
+    conversationShareService: {},
+    highspeedCardService: {},
+  }),
+  ServiceProvider: ({ children }: { children: unknown }) => children,
+}));
+vi.mock("@/store/TabStoreProvider.js", async (importOriginal) => {
+  const api = { getState: () => ({ tabs: [], activeTabId: null }), setState: () => {}, subscribe: () => () => {} };
+  return {
+    ...(await importOriginal<typeof import("@/store/TabStoreProvider.js")>()),
+    useTabStoreApi: () => api,
+    useTabStore: (selector: (state: unknown) => unknown) => selector(api.getState()),
+  };
+});
+vi.mock("@/hooks/usePlatform.js", () => ({
+  usePlatform: () => ({ openExternal: vi.fn(async () => {}), executeDesktopCommand: vi.fn(async () => {}), platform: "darwin" }),
+  useOptionalPlatform: () => null,
+}));
 vi.mock("border-beam", () => ({
   BorderBeam: ({ children }: { children: ReactNode }) => createElement("div", null, children),
 }));

@@ -111,26 +111,25 @@ export function WorkspaceHelpMenuButton({
               <MessageSquareIcon className="size-4" />
               {intl.formatMessage({ id: "workspaceHeader.help.issueReport" })}
             </DropdownMenuItem>
+            {(vulnerabilityReportLoading || vulnerabilityReportUrl) && (
+              <DropdownMenuItem
+                disabled={vulnerabilityReportLoading}
+                aria-busy={vulnerabilityReportLoading}
+                onSelect={
+                  vulnerabilityReportUrl
+                    ? () => platform.openExternal(vulnerabilityReportUrl)
+                    : undefined
+                }
+              >
+                <ShieldAlertIcon className="size-4" />
+                {intl.formatMessage({ id: "workspaceHeader.help.reportVulnerability" })}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onSelect={openFeatureRequest}>
               <LightbulbIcon className="size-4" />
               {intl.formatMessage({ id: "workspaceHeader.help.productRequest" })}
             </DropdownMenuItem>
           </>
-        ) : null}
-
-        {FEEDBACK_ENTRY_ENABLED && (vulnerabilityReportLoading || vulnerabilityReportUrl) ? (
-          <DropdownMenuItem
-            disabled={vulnerabilityReportLoading}
-            aria-busy={vulnerabilityReportLoading}
-            onSelect={
-              vulnerabilityReportUrl
-                ? () => platform.openExternal(vulnerabilityReportUrl)
-                : undefined
-            }
-          >
-            <ShieldAlertIcon className="size-4" />
-            {intl.formatMessage({ id: "workspaceHeader.help.reportVulnerability" })}
-          </DropdownMenuItem>
         ) : null}
         {/* Windows/Linux 没有原生菜单栏，自绘标题栏箭头菜单也已下线，
             资源管理器只能从这里进；Web 端没有该窗口，不渲染。 */}

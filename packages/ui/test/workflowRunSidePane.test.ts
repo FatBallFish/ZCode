@@ -18,6 +18,18 @@ import type { WorkflowRunSidePaneTab } from "@/lib/workspaceSidePane.js";
 vi.mock("@/logger.js", () => ({
   logger: { debug: vi.fn(), warn: vi.fn() },
 }));
+vi.mock("@/hooks/useServices.js", () => ({
+  useServices: () => ({
+    modelSelectionService: { read: async () => null },
+    zcodeSessionService: {},
+    zcodeTaskService: {},
+    usageStatsService: {},
+    conversationShareService: {},
+    highspeedCardService: {},
+  }),
+  useOptionalServices: () => null,
+  ServiceProvider: ({ children }: { children: unknown }) => children,
+}));
 
 // 提示只渲染 children（不改 DOM 形状），但把 title / description 记下来：Stop 钮的第二行
 // 「停下的运行可以恢复」只活在提示里。
@@ -455,7 +467,7 @@ describe("WorkflowRunSidePane 状态头与阶段清单", () => {
         toolCallId: "tool-wf-1",
         name: "Fan-out review",
         scope: "project" as const,
-        path: "/workspace/.zcode/workflows/fan-out-review.dwf.ts",
+        path: "/workspace/.mikiko/workflows/fan-out-review.dwf.ts",
         display: graphRow.display,
         script: "export default async function main() {}",
       },
@@ -477,7 +489,7 @@ describe("WorkflowRunSidePane 状态头与阶段清单", () => {
       toolCallId: "tool-wf-1",
       name: "Fan-out review",
       scope: "global" as const,
-      path: "/home/u/.zcode/workflows/fan-out-review.dwf.ts",
+      path: "/home/u/.mikiko/workflows/fan-out-review.dwf.ts",
       description: "Review a change from several angles.",
       args: { topic: "adaptive concurrency", depth: 3 },
       display: graphRow.display,

@@ -63,8 +63,8 @@ export const HOOKS_RELATIVE_PATHS = {
 
 const HOOKS_CASE_ROOT = join(DEFAULT_WORKSPACE, "hooks-full-e2e");
 
-const WORKSPACE_ZCODE_DIR = join(DEFAULT_WORKSPACE, ".zcode");
-const USER_CONFIG_DIR = join(dirname(DEFAULT_WORKSPACE), ".zcode", "cli");
+const WORKSPACE_ZCODE_DIR = join(DEFAULT_WORKSPACE, ".mikiko");
+const USER_CONFIG_DIR = join(dirname(DEFAULT_WORKSPACE), ".mikiko", "cli");
 const CONFIG_PATH = join(USER_CONFIG_DIR, "config.json");
 const RECORDER_PATH = join(WORKSPACE_ZCODE_DIR, "hooks-full-e2e-recorder.mjs");
 const TRACE_PATH = join(WORKSPACE_ZCODE_DIR, "hooks-full-e2e-trace.jsonl");

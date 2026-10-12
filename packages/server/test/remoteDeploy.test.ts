@@ -238,7 +238,7 @@ class FakeRemoteBackend implements IRemoteBackend {
       );
     }
 
-    const versionCommand = `"${"$HOME"}"'/.zcode/server/node' "${"$HOME"}"'/.zcode/server/zcode-server.cjs' --version`;
+    const versionCommand = `"${"$HOME"}"'/.mikiko/server/node' "${"$HOME"}"'/.mikiko/server/zcode-server.cjs' --version`;
     if (command === versionCommand) {
       const versionSource =
         this.serverVersions.length > 1
@@ -266,8 +266,8 @@ class FakeRemoteBackend implements IRemoteBackend {
   async exists(remotePath: string): Promise<boolean> {
     return (
       this.remoteFiles.has(remotePath) ||
-      remotePath === "~/.zcode/server/node" ||
-      remotePath === "~/.zcode/server/zcode-server.cjs"
+      remotePath === "~/.mikiko/server/node" ||
+      remotePath === "~/.mikiko/server/zcode-server.cjs"
     );
   }
 
@@ -342,9 +342,9 @@ class FailFirstGlmUploadRemoteBackend extends FakeRemoteBackend {
   override async upload(localPath: string, remotePath: string): Promise<void> {
     if (
       this.shouldFailGlmUpload &&
-      (remotePath === "~/.zcode/server/agents/glm/zcode.cjs.new" ||
+      (remotePath === "~/.mikiko/server/agents/glm/zcode.cjs.new" ||
         remotePath.startsWith(
-          "~/.zcode/server/agents/glm/zcode.cjs.new-",
+          "~/.mikiko/server/agents/glm/zcode.cjs.new-",
         ))
     ) {
       this.shouldFailGlmUpload = false;
@@ -562,17 +562,17 @@ function createFullyDeployedRemoteFiles(
 ): Record<string, string> {
   const [platform] = platformKey.split("-") as ["linux" | "darwin", string];
   const files: Record<string, string> = {
-    "~/.zcode/server/build/Release/pty.node": "deployed node-pty",
+    "~/.mikiko/server/build/Release/pty.node": "deployed node-pty",
   };
   if (platform === "darwin") {
-    files["~/.zcode/server/build/Release/spawn-helper"] =
+    files["~/.mikiko/server/build/Release/spawn-helper"] =
       "deployed spawn helper";
   }
 
   for (const [provider, runtime] of Object.entries(
     LEGACY_REMOTE_TEST_AGENT_RUNTIME,
   )) {
-    const remoteProviderDir = `~/.zcode/server/agents/${runtime.bundledResourceDir}`;
+    const remoteProviderDir = `~/.mikiko/server/agents/${runtime.bundledResourceDir}`;
     files[`${remoteProviderDir}/.version`] = `${runtime.version}\n`;
     if (runtime.binaryKind === "node-script") {
       files[`${remoteProviderDir}/.bundle-meta.json`] = JSON.stringify({
@@ -610,13 +610,13 @@ function createFullyDeployedRemoteFiles(
   }
 
   for (const { runtime, version } of getRemoteRuntimeToolsForPlatform(platform)) {
-    files[`~/.zcode/server/tools/${runtime.bundledResourceDir}/.version`] =
+    files[`~/.mikiko/server/tools/${runtime.bundledResourceDir}/.version`] =
       `${version}\n`;
     const entrySegments = runtime.resolveEntrySegments(platform);
     const binaryName = entrySegments[entrySegments.length - 1];
     if (binaryName) {
       files[
-        `~/.zcode/server/tools/${runtime.bundledResourceDir}/${binaryName}`
+        `~/.mikiko/server/tools/${runtime.bundledResourceDir}/${binaryName}`
       ] = `${runtime.bundledResourceDir} binary`;
     }
   }
@@ -653,7 +653,7 @@ function addMatchingGlmArtifactIdentity(
   if (!glm) {
     throw new Error("missing glm component in staged manifest");
   }
-  remoteFiles["~/.zcode/server/.asset-components/glm.json"] = JSON.stringify({
+  remoteFiles["~/.mikiko/server/.asset-components/glm.json"] = JSON.stringify({
     id: "glm",
     version,
     sha256: glm.sha256,
@@ -667,7 +667,7 @@ function addMatchingServerBundleArtifactIdentity(
   platformKey: RemotePlatformKey,
 ): void {
   const serverBundle = findManifestComponent(manifest, "server-bundle");
-  remoteFiles["~/.zcode/server/.asset-components/server-bundle.json"] =
+  remoteFiles["~/.mikiko/server/.asset-components/server-bundle.json"] =
     JSON.stringify({
       id: "server-bundle",
       version: serverBundle.version,
@@ -756,7 +756,7 @@ function resolveRemoteComponentCacheDirForTest(
     .update(componentVersion)
     .digest("hex")
     .slice(0, 16);
-  return `~/.zcode/server/asset-cache/components/${platformArch}/${componentId}/${cacheSegment}`;
+  return `~/.mikiko/server/asset-cache/components/${platformArch}/${componentId}/${cacheSegment}`;
 }
 
 async function stageRemoteAssetArchive(
@@ -1356,8 +1356,8 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
 
   it("node-runtime 已安装语义版本时应忽略 expectedVersion 的内容 hash 后缀", async () => {
     const backend = new FakeRemoteBackend({
-      "~/.zcode/server/node": "node",
-      "~/.zcode/server/.asset-components/node-runtime.json":
+      "~/.mikiko/server/node": "node",
+      "~/.mikiko/server/.asset-components/node-runtime.json":
         '{"id":"node-runtime","version":"v22.16.0+aaaaaaaaaaaa","platformArch":"linux-arm64"}\n',
     });
     const installed: string[] = [];
@@ -1408,14 +1408,14 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/agents/glm/zcode.cjs.new",
+        "~/.mikiko/server/agents/glm/zcode.cjs.new",
       ),
     ).toBe(true);
     expect(
       backend.uploads.some(
         (upload) =>
           upload.remotePath ===
-          `~/.zcode/server/${retiredProxyRuntimeId}.tar.gz`,
+          `~/.mikiko/server/${retiredProxyRuntimeId}.tar.gz`,
       ),
     ).toBe(false);
     expect(
@@ -1446,7 +1446,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/build/Release/pty.node.new",
+        "~/.mikiko/server/build/Release/pty.node.new",
       ),
     ).toBe(true);
   });
@@ -1482,7 +1482,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/zcode-server.cjs.new",
+        "~/.mikiko/server/zcode-server.cjs.new",
       ),
     ).toBe(true);
     expect(backend.commands.join("\n")).toContain("skill-sync");
@@ -1523,7 +1523,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/agents/glm/zcode.cjs.new",
+        "~/.mikiko/server/agents/glm/zcode.cjs.new",
       ),
     ).toBe(true);
     expect(
@@ -1534,32 +1534,32 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/build/Release/pty.node.new",
+        "~/.mikiko/server/build/Release/pty.node.new",
       ),
     ).toBe(true);
     expect(
       backend.uploads.some(
         (upload) =>
           upload.remotePath ===
-          `~/.zcode/server/${retiredProxyRuntimeId}.tar.gz`,
+          `~/.mikiko/server/${retiredProxyRuntimeId}.tar.gz`,
       ),
     ).toBe(false);
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/tools/bfs/bfs.new",
+        "~/.mikiko/server/tools/bfs/bfs.new",
       ),
     ).toBe(true);
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/tools/ripgrep/rg.new",
+        "~/.mikiko/server/tools/ripgrep/rg.new",
       ),
     ).toBe(true);
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/tools/ugrep/ugrep.new",
+        "~/.mikiko/server/tools/ugrep/ugrep.new",
       ),
     ).toBe(true);
   });
@@ -1588,17 +1588,17 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/build/Release/spawn-helper.new",
+        "~/.mikiko/server/build/Release/spawn-helper.new",
       ),
     ).toBe(true);
     expect(
       backend.uploads.some((upload) =>
-        upload.remotePath.includes("~/.zcode/server/tools/bfs/"),
+        upload.remotePath.includes("~/.mikiko/server/tools/bfs/"),
       ),
     ).toBe(false);
     expect(
       backend.uploads.some((upload) =>
-        upload.remotePath.includes("~/.zcode/server/tools/ugrep/"),
+        upload.remotePath.includes("~/.mikiko/server/tools/ugrep/"),
       ),
     ).toBe(false);
   });
@@ -1611,8 +1611,8 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     await mkdir(mockCdnDir, { recursive: true });
 
     const backend = new FakeRemoteBackend({
-      "~/.zcode/server/agents/codex/.version": `${LEGACY_REMOTE_TEST_AGENT_RUNTIME.codex.version}\n`,
-      "~/.zcode/server/agents/codex/.bundle-meta.json": JSON.stringify({
+      "~/.mikiko/server/agents/codex/.version": `${LEGACY_REMOTE_TEST_AGENT_RUNTIME.codex.version}\n`,
+      "~/.mikiko/server/agents/codex/.bundle-meta.json": JSON.stringify({
         provider: "codex",
         version: LEGACY_REMOTE_TEST_AGENT_RUNTIME.codex.version,
         platform: "darwin-arm64",
@@ -1634,19 +1634,19 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(deployed).toBe(false);
     expect(
       backend.uploads.some(
-        (upload) => upload.remotePath === "~/.zcode/server/agents/codex.tar.gz",
+        (upload) => upload.remotePath === "~/.mikiko/server/agents/codex.tar.gz",
       ),
     ).toBe(false);
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/agents/glm/zcode.cjs.new",
+        "~/.mikiko/server/agents/glm/zcode.cjs.new",
       ),
     ).toBe(true);
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/tools/ripgrep/rg.new",
+        "~/.mikiko/server/tools/ripgrep/rg.new",
       ),
     ).toBe(true);
   });
@@ -1664,12 +1664,12 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       platform: "linux-arm64",
     });
     const backend = new FakeRemoteBackend({
-      "~/.zcode/server/agents/codex/.version": `${LEGACY_REMOTE_TEST_AGENT_RUNTIME.codex.version}\n`,
-      "~/.zcode/server/agents/codex/.bundle-meta.json": matchingMeta,
-      [`~/.zcode/server/agents/codex/node_modules/@zed-industries/codex-${retiredProtocolPrefix}/bin/codex-${retiredProtocolPrefix}.js`]:
+      "~/.mikiko/server/agents/codex/.version": `${LEGACY_REMOTE_TEST_AGENT_RUNTIME.codex.version}\n`,
+      "~/.mikiko/server/agents/codex/.bundle-meta.json": matchingMeta,
+      [`~/.mikiko/server/agents/codex/node_modules/@zed-industries/codex-${retiredProtocolPrefix}/bin/codex-${retiredProtocolPrefix}.js`]:
         "codex entry",
-      "~/.zcode/server/tools/ripgrep/.version": "v14.1.1-1\n",
-      "~/.zcode/server/tools/ripgrep/rg": "ripgrep binary",
+      "~/.mikiko/server/tools/ripgrep/.version": "v14.1.1-1\n",
+      "~/.mikiko/server/tools/ripgrep/rg": "ripgrep binary",
     });
 
     const deployed = await deployServer(
@@ -1687,13 +1687,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(deployed).toBe(false);
     expect(
       backend.uploads.some(
-        (upload) => upload.remotePath === "~/.zcode/server/agents/codex.tar.gz",
+        (upload) => upload.remotePath === "~/.mikiko/server/agents/codex.tar.gz",
       ),
     ).toBe(false);
     expect(
       backend.uploads.some(
         (upload) =>
-          upload.remotePath === "~/.zcode/server/tools/ripgrep/rg.new",
+          upload.remotePath === "~/.mikiko/server/tools/ripgrep/rg.new",
       ),
     ).toBe(false);
   });
@@ -1714,12 +1714,12 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       platform: "darwin-arm64",
     });
     const backend = new FakeRemoteBackend({
-      "~/.zcode/server/agents/codex/.version": `${LEGACY_REMOTE_TEST_AGENT_RUNTIME.codex.version}\n`,
-      "~/.zcode/server/agents/codex/.bundle-meta.json": matchingMeta,
-      [`~/.zcode/server/agents/codex/node_modules/@zed-industries/codex-${retiredProtocolPrefix}/bin/codex-${retiredProtocolPrefix}.js`]:
+      "~/.mikiko/server/agents/codex/.version": `${LEGACY_REMOTE_TEST_AGENT_RUNTIME.codex.version}\n`,
+      "~/.mikiko/server/agents/codex/.bundle-meta.json": matchingMeta,
+      [`~/.mikiko/server/agents/codex/node_modules/@zed-industries/codex-${retiredProtocolPrefix}/bin/codex-${retiredProtocolPrefix}.js`]:
         "codex entry",
-      "~/.zcode/server/tools/ripgrep/.version": "v13.0.0-10\n",
-      "~/.zcode/server/tools/ripgrep/rg": "ripgrep binary",
+      "~/.mikiko/server/tools/ripgrep/.version": "v13.0.0-10\n",
+      "~/.mikiko/server/tools/ripgrep/rg": "ripgrep binary",
     });
 
     const deployed = await deployServer(
@@ -1737,13 +1737,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(deployed).toBe(false);
     expect(
       backend.uploads.some(
-        (upload) => upload.remotePath === "~/.zcode/server/agents/codex.tar.gz",
+        (upload) => upload.remotePath === "~/.mikiko/server/agents/codex.tar.gz",
       ),
     ).toBe(false);
     expect(
       backend.uploads.some(
         (upload) =>
-          upload.remotePath === "~/.zcode/server/tools/ripgrep/rg.new",
+          upload.remotePath === "~/.mikiko/server/tools/ripgrep/rg.new",
       ),
     ).toBe(false);
   });
@@ -1764,10 +1764,10 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       platform: "linux-x64",
     });
     const backend = new FakeRemoteBackend({
-      [`~/.zcode/server/agents/${retiredProtocolPrefix}/.version`]: `${LEGACY_REMOTE_TEST_AGENT_RUNTIME.claude.version}\n`,
-      [`~/.zcode/server/agents/${retiredProtocolPrefix}/.bundle-meta.json`]:
+      [`~/.mikiko/server/agents/${retiredProtocolPrefix}/.version`]: `${LEGACY_REMOTE_TEST_AGENT_RUNTIME.claude.version}\n`,
+      [`~/.mikiko/server/agents/${retiredProtocolPrefix}/.bundle-meta.json`]:
         matchingMeta,
-      [`~/.zcode/server/agents/${retiredProtocolPrefix}/dist/index.js`]:
+      [`~/.mikiko/server/agents/${retiredProtocolPrefix}/dist/index.js`]:
         "claude entry",
     });
 
@@ -1788,7 +1788,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       backend.uploads.some(
         (upload) =>
           upload.remotePath ===
-          `~/.zcode/server/agents/${retiredProtocolPrefix}.tar.gz`,
+          `~/.mikiko/server/agents/${retiredProtocolPrefix}.tar.gz`,
       ),
     ).toBe(false);
   });
@@ -1826,15 +1826,15 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     );
 
     const backend = new FakeRemoteBackend({
-      [`~/.zcode/server/agents/${retiredProtocolPrefix}/.version`]: `${LEGACY_REMOTE_TEST_AGENT_RUNTIME.claude.version}\n`,
-      [`~/.zcode/server/agents/${retiredProtocolPrefix}/.bundle-meta.json`]:
+      [`~/.mikiko/server/agents/${retiredProtocolPrefix}/.version`]: `${LEGACY_REMOTE_TEST_AGENT_RUNTIME.claude.version}\n`,
+      [`~/.mikiko/server/agents/${retiredProtocolPrefix}/.bundle-meta.json`]:
         JSON.stringify({
           provider: "claude",
           version: LEGACY_REMOTE_TEST_AGENT_RUNTIME.claude.version,
           platform: "linux-x64",
           patchFingerprint: "patch-old",
         }),
-      [`~/.zcode/server/agents/${retiredProtocolPrefix}/dist/index.js`]:
+      [`~/.mikiko/server/agents/${retiredProtocolPrefix}/dist/index.js`]:
         "claude entry",
     });
 
@@ -1855,13 +1855,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       backend.uploads.some(
         (upload) =>
           upload.remotePath ===
-          `~/.zcode/server/agents/${retiredProtocolPrefix}.tar.gz`,
+          `~/.mikiko/server/agents/${retiredProtocolPrefix}.tar.gz`,
       ),
     ).toBe(false);
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/agents/glm/zcode.cjs.new",
+        "~/.mikiko/server/agents/glm/zcode.cjs.new",
       ),
     ).toBe(true);
   });
@@ -1899,19 +1899,19 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     );
 
     expect(installedFiles).toEqual([
-      "glm:~/.zcode/server/agents/glm/zcode.cjs",
+      "glm:~/.mikiko/server/agents/glm/zcode.cjs",
     ]);
     expect(installedDirectories).toEqual([
       {
         componentId: "glm",
-        remoteDir: "~/.zcode/server/agents/glm/packages",
+        remoteDir: "~/.mikiko/server/agents/glm/packages",
         sourceRelativePath: "glm/linux-arm64/packages",
       },
     ]);
     expect(
       backend.uploads.some(
         (upload) =>
-          upload.remotePath === "~/.zcode/server/agents/glm/zcode-agent.new",
+          upload.remotePath === "~/.mikiko/server/agents/glm/zcode-agent.new",
       ),
     ).toBe(false);
 
@@ -1919,7 +1919,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       backend.commands.some(
         (command) =>
           command.includes(
-            `/.zcode/server/agents/${retiredProtocolPrefix}/.version`,
+            `/.mikiko/server/agents/${retiredProtocolPrefix}/.version`,
           ) &&
           command.includes(LEGACY_REMOTE_TEST_AGENT_RUNTIME.claude.version),
       ),
@@ -1984,7 +1984,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       { log: () => undefined, logWarn: () => undefined },
     );
 
-    const wrapperTempPath = `~/.zcode/server/agents/glm/${REMOTE_AGENT_WRAPPER_FILE_NAME}.new`;
+    const wrapperTempPath = `~/.mikiko/server/agents/glm/${REMOTE_AGENT_WRAPPER_FILE_NAME}.new`;
     expect(backend.uploads.map((upload) => upload.remotePath)).toContain(
       wrapperTempPath,
     );
@@ -1995,7 +1995,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       '"$runtime_root/node"',
     );
     expect(installedDirectories).toEqual([
-      "glm:~/.zcode/server/agents/glm/packages",
+      "glm:~/.mikiko/server/agents/glm/packages",
     ]);
     expect(
       backend.commands.some(
@@ -2009,9 +2009,9 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
   it("WSL 已有坏 wrapper 时即使版本匹配也应重写", async () => {
     const remoteFiles = createFullyDeployedRemoteFiles("linux-arm64");
     remoteFiles[
-      `~/.zcode/server/agents/glm/${REMOTE_AGENT_WRAPPER_FILE_NAME}`
+      `~/.mikiko/server/agents/glm/${REMOTE_AGENT_WRAPPER_FILE_NAME}`
     ] =
-      '#!/bin/sh\nset -eu\nruntime_root="/home/dev/.zcode/server"\nexec "/node" "/home/dev/.zcode/server/agents/glm/zcode.cjs" ""\n';
+      '#!/bin/sh\nset -eu\nruntime_root="/home/dev/.mikiko/server"\nexec "/node" "/home/dev/.mikiko/server/agents/glm/zcode.cjs" ""\n';
     const backend = new FakeWslRemoteBackend(remoteFiles);
     const installedFiles: string[] = [];
     const installedDirectories: string[] = [];
@@ -2036,22 +2036,22 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     );
 
     expect(installedFiles).toEqual([
-      "glm:~/.zcode/server/agents/glm/zcode.cjs",
+      "glm:~/.mikiko/server/agents/glm/zcode.cjs",
     ]);
     expect(backend.uploads.map((upload) => upload.remotePath)).toContain(
-      `~/.zcode/server/agents/glm/${REMOTE_AGENT_WRAPPER_FILE_NAME}.new`,
+      `~/.mikiko/server/agents/glm/${REMOTE_AGENT_WRAPPER_FILE_NAME}.new`,
     );
     expect(installedDirectories).toEqual([
-      "glm:~/.zcode/server/agents/glm/packages",
+      "glm:~/.mikiko/server/agents/glm/packages",
     ]);
   });
 
   it("ZCode Agent 版本匹配但远端缺 builtin plugin 资产时应复用 cache 补部署 packages", async () => {
-    const remoteOfficialPluginDir = "~/.zcode/server/agents/glm/packages";
+    const remoteOfficialPluginDir = "~/.mikiko/server/agents/glm/packages";
     const remoteFiles = createFullyDeployedRemoteFiles("linux-arm64");
     remoteFiles[remoteOfficialPluginDir] = "directory marker";
     delete remoteFiles[
-      "~/.zcode/server/agents/glm/packages/skill-creator-plugin/.zcode-plugin/plugin.json"
+      "~/.mikiko/server/agents/glm/packages/skill-creator-plugin/.zcode-plugin/plugin.json"
     ];
     // SSH / Docker backend 的 exists 契约只检查普通文件，目录即使存在也会返回 false。
     const backend = new FakeFileOnlyExistsRemoteBackend(remoteFiles, [
@@ -2099,13 +2099,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         componentId: "glm",
         forceRefresh: false,
         kind: "file",
-        remotePath: "~/.zcode/server/agents/glm/zcode.cjs",
+        remotePath: "~/.mikiko/server/agents/glm/zcode.cjs",
       },
       {
         componentId: "glm",
         forceRefresh: false,
         kind: "directory",
-        remoteDir: "~/.zcode/server/agents/glm/packages",
+        remoteDir: "~/.mikiko/server/agents/glm/packages",
       },
     ]);
     const permissionRepairCommand = backend.commands.find((command) =>
@@ -2115,15 +2115,15 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect.stringContaining("if [ -d "),
     );
     expect(permissionRepairCommand).toContain(
-      "/.zcode/server/agents/glm/packages",
+      "/.mikiko/server/agents/glm/packages",
     );
-    expect(permissionRepairCommand).not.toContain("/.zcode/plugins");
+    expect(permissionRepairCommand).not.toContain("/.mikiko/plugins");
   });
 
   it("GLM 制品 hash 和 builtin plugin 资产都匹配时不应修复权限", async () => {
     const remoteFiles = createFullyDeployedRemoteFiles("linux-arm64");
-    remoteFiles["~/.zcode/server/agents/glm/.version"] = "旧版本标签\n";
-    remoteFiles["~/.zcode/server/.asset-components/glm.json"] = JSON.stringify({
+    remoteFiles["~/.mikiko/server/agents/glm/.version"] = "旧版本标签\n";
+    remoteFiles["~/.mikiko/server/.asset-components/glm.json"] = JSON.stringify({
       id: "glm",
       version: "旧版本标签",
       sha256: TEST_GLM_ARTIFACT_SHA256,
@@ -2164,7 +2164,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
 
   it("GLM 版本相同但制品 hash 变化时应重新部署并修复旧目录权限", async () => {
     const remoteFiles = createFullyDeployedRemoteFiles("linux-arm64");
-    remoteFiles["~/.zcode/server/.asset-components/glm.json"] = JSON.stringify({
+    remoteFiles["~/.mikiko/server/.asset-components/glm.json"] = JSON.stringify({
       id: "glm",
       version: ZCODE_AGENT_RUNTIME.version,
       sha256: "b".repeat(64),
@@ -2221,27 +2221,27 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     );
     expect(permissionRepairCommandIndex).toBeGreaterThanOrEqual(0);
     expect(backend.commands[permissionRepairCommandIndex]).toContain(
-      "/.zcode/server/agents/glm/packages",
+      "/.mikiko/server/agents/glm/packages",
     );
     expect(installRequests).toEqual([
       {
         componentId: "glm",
         forceRefresh: false,
         kind: "file",
-        remotePath: "~/.zcode/server/agents/glm/zcode.cjs",
+        remotePath: "~/.mikiko/server/agents/glm/zcode.cjs",
       },
       {
         componentId: "glm",
         forceRefresh: false,
         kind: "directory",
-        remoteDir: "~/.zcode/server/agents/glm/packages",
+        remoteDir: "~/.mikiko/server/agents/glm/packages",
       },
     ]);
   });
 
   it("ZCode Agent 升级时权限修复失败仍应尝试替换 packages", async () => {
     const remoteFiles = createFullyDeployedRemoteFiles("linux-arm64");
-    remoteFiles["~/.zcode/server/agents/glm/.version"] = "3.3.3\n";
+    remoteFiles["~/.mikiko/server/agents/glm/.version"] = "3.3.3\n";
     const backend = new FakeRemoteBackend(remoteFiles, {
       commandPlans: [
         {
@@ -2279,14 +2279,14 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       ),
     ).toBe(true);
     expect(installRequests).toEqual([
-      "glm:directory:~/.zcode/server/agents/glm/packages",
-      "glm:file:~/.zcode/server/agents/glm/zcode.cjs",
+      "glm:directory:~/.mikiko/server/agents/glm/packages",
+      "glm:file:~/.mikiko/server/agents/glm/zcode.cjs",
     ]);
   });
 
   it("ZCode Agent 升级时 chmod 失败后 packages 替换失败不应继续更新 bundle", async () => {
     const remoteFiles = createFullyDeployedRemoteFiles("linux-arm64");
-    remoteFiles["~/.zcode/server/agents/glm/.version"] = "3.3.3\n";
+    remoteFiles["~/.mikiko/server/agents/glm/.version"] = "3.3.3\n";
     const backend = new FakeRemoteBackend(remoteFiles, {
       commandPlans: [
         {
@@ -2321,7 +2321,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     ).rejects.toThrow("packages replace failed");
 
     expect(installRequests).toEqual([
-      "glm:directory:~/.zcode/server/agents/glm/packages",
+      "glm:directory:~/.mikiko/server/agents/glm/packages",
     ]);
   });
 
@@ -2454,9 +2454,9 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(installedFiles).toEqual([]);
     const devBundleUpload = backend.uploads.find(
       (upload) =>
-        upload.remotePath === "~/.zcode/server/agents/glm/zcode.cjs.new" ||
+        upload.remotePath === "~/.mikiko/server/agents/glm/zcode.cjs.new" ||
         upload.remotePath.startsWith(
-          "~/.zcode/server/agents/glm/zcode.cjs.new-",
+          "~/.mikiko/server/agents/glm/zcode.cjs.new-",
         ),
     );
     expect(
@@ -2475,7 +2475,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       upload.remotePath.includes("/agents/glm/packages.tar.gz-"),
     );
     expect(officialPluginUpload?.remotePath).toMatch(
-      /^~\/.zcode\/server\/agents\/glm\/packages\.tar\.gz-[\w-]+$/u,
+      /^~\/.mikiko\/server\/agents\/glm\/packages\.tar\.gz-[\w-]+$/u,
     );
     expect(
       backend.commands.some(
@@ -2532,15 +2532,15 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       cliBundlePath,
     );
     const backend = new FakeRemoteBackend({
-      "~/.zcode/server/agents/glm/.version": `${ZCODE_AGENT_RUNTIME.version}\n`,
-      "~/.zcode/server/agents/glm/.dev-version": `${devVersion}\n`,
-      "~/.zcode/server/agents/glm/zcode-agent": "dev wrapper",
-      "~/.zcode/server/agents/glm/zcode.cjs": bundleMatches
+      "~/.mikiko/server/agents/glm/.version": `${ZCODE_AGENT_RUNTIME.version}\n`,
+      "~/.mikiko/server/agents/glm/.dev-version": `${devVersion}\n`,
+      "~/.mikiko/server/agents/glm/zcode-agent": "dev wrapper",
+      "~/.mikiko/server/agents/glm/zcode.cjs": bundleMatches
         ? "console.log('same dev zcode agent');\n"
         : "old published bundle without PAT support",
       ...Object.fromEntries(
         OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS.map((relativePath) => [
-          `~/.zcode/server/agents/glm/packages/${relativePath}`,
+          `~/.mikiko/server/agents/glm/packages/${relativePath}`,
           `dev official plugin ${relativePath}`,
         ]),
       ),
@@ -2602,7 +2602,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/build/Release/spawn-helper.new",
+        "~/.mikiko/server/build/Release/spawn-helper.new",
       ),
     ).toBe(true);
   });
@@ -2718,7 +2718,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
 
   it("生产态未接入 CDN 下载占位时应抛出明确错误", async () => {
     const backend = new FakeRemoteBackend({
-      "~/.zcode/server/agents/codex/.version": "0.0.0\n",
+      "~/.mikiko/server/agents/codex/.version": "0.0.0\n",
     });
 
     await expect(
@@ -2737,7 +2737,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
 
   it("生产态 remoteCdnBaseUrl 固定到旧版本时应前置报错", async () => {
     const backend = new FakeRemoteBackend({
-      "~/.zcode/server/agents/codex/.version": "0.0.0\n",
+      "~/.mikiko/server/agents/codex/.version": "0.0.0\n",
     });
 
     await expect(
@@ -2773,7 +2773,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     }
     try {
       const remoteFiles = {
-        "~/.zcode/server/agents/codex/.version": "0.0.0\n",
+        "~/.mikiko/server/agents/codex/.version": "0.0.0\n",
       };
       addMatchingServerBundleArtifactIdentity(
         remoteFiles,
@@ -2798,19 +2798,19 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/agents/glm/zcode.cjs.new",
+          "~/.mikiko/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(
         backend.uploads.some(
           (upload) =>
-            upload.remotePath === "~/.zcode/server/agents/codex.tar.gz",
+            upload.remotePath === "~/.mikiko/server/agents/codex.tar.gz",
         ),
       ).toBe(false);
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/tools/ripgrep/rg.new",
+          "~/.mikiko/server/tools/ripgrep/rg.new",
         ),
       ).toBe(true);
       expect(
@@ -2887,7 +2887,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/agents/glm/zcode.cjs.new",
+          "~/.mikiko/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
     } finally {
@@ -2962,7 +2962,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       );
 
       const nodeUpload = backend.uploads.find((upload) =>
-        upload.remotePath.startsWith("~/.zcode/server/node.new-"),
+        upload.remotePath.startsWith("~/.mikiko/server/node.new-"),
       );
       expect(deployed).toBe(true);
       expect(nodeUpload?.localPath).toContain(remoteCacheDir);
@@ -3041,7 +3041,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/agents/glm/zcode.cjs.new",
+          "~/.mikiko/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(backend.commands.join("\n")).toContain(cdnGlm?.sha256);
@@ -3105,7 +3105,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       "linux-arm64",
     );
     delete remoteFiles[
-      "~/.zcode/server/agents/glm/packages/skill-creator-plugin/.zcode-plugin/plugin.json"
+      "~/.mikiko/server/agents/glm/packages/skill-creator-plugin/.zcode-plugin/plugin.json"
     ];
     const cdnServer = await createStaticFileServer(cdnRoot);
 
@@ -3126,7 +3126,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         backend.uploads.some((upload) =>
           upload.remotePath.startsWith(
-            "~/.zcode/server/agents/glm/packages.tar.gz-",
+            "~/.mikiko/server/agents/glm/packages.tar.gz-",
           ),
         ),
       ).toBe(true);
@@ -3263,12 +3263,12 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
 
     try {
       const remoteFiles = {
-        "~/.zcode/server/version.txt": `${ZCODE_VERSION}\n`,
-        "~/.zcode/server/node": "node",
-        "~/.zcode/server/.asset-components/node-runtime.json":
+        "~/.mikiko/server/version.txt": `${ZCODE_VERSION}\n`,
+        "~/.mikiko/server/node": "node",
+        "~/.mikiko/server/.asset-components/node-runtime.json":
           '{"id":"node-runtime","version":"24.10.0-node-runtime","platformArch":"linux-arm64"}\n',
-        "~/.zcode/server/build/Release/pty.node": "pty",
-        "~/.zcode/server/.asset-components/node-pty.json":
+        "~/.mikiko/server/build/Release/pty.node": "pty",
+        "~/.mikiko/server/.asset-components/node-pty.json":
           '{"id":"node-pty","version":"1.0.0-node-pty","platformArch":"linux-arm64"}\n',
       };
       addMatchingServerBundleArtifactIdentity(
@@ -3323,7 +3323,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     try {
       const backend = new FakeRemoteBackend({
         ...createFullyDeployedRemoteFiles("linux-arm64"),
-        [`~/.zcode/server/agents/${retiredProtocolPrefix}/.version`]: "0.0.0\n",
+        [`~/.mikiko/server/agents/${retiredProtocolPrefix}/.version`]: "0.0.0\n",
       });
 
       const deployed = await deployServer(
@@ -3345,7 +3345,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         backend.uploads.some(
           (upload) =>
             upload.remotePath ===
-            `~/.zcode/server/agents/${retiredProtocolPrefix}.tar.gz`,
+            `~/.mikiko/server/agents/${retiredProtocolPrefix}.tar.gz`,
         ),
       ).toBe(false);
       expect(
@@ -3374,7 +3374,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
           Object.entries(LEGACY_REMOTE_TEST_AGENT_RUNTIME)
             .filter(([, runtime]) => runtime.binaryKind === "node-script")
             .map(([provider, runtime]) => [
-              `~/.zcode/server/agents/${runtime.bundledResourceDir}/.bundle-meta.json`,
+              `~/.mikiko/server/agents/${runtime.bundledResourceDir}/.bundle-meta.json`,
               JSON.stringify({
                 provider,
                 version: runtime.version,
@@ -3463,12 +3463,12 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       "linux-x64",
     );
     delete deployedFiles[
-      `~/.zcode/server/agents/${retiredProtocolPrefix}/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude`
+      `~/.mikiko/server/agents/${retiredProtocolPrefix}/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude`
     ];
     const backend = new FakeRemoteBackend(
       {
         ...deployedFiles,
-        [`~/.zcode/server/.asset-components/${retiredProtocolPrefix}-claude.json`]:
+        [`~/.mikiko/server/.asset-components/${retiredProtocolPrefix}-claude.json`]:
           JSON.stringify({
             id: `${retiredProtocolPrefix}-claude`,
             version: claudeBundle.version,
@@ -3525,14 +3525,14 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         backend.commands.some((command) =>
           command.includes(
-            `rm -rf "$HOME"'/.zcode/server/asset-cache/components/linux-x64/${retiredProtocolPrefix}-claude/${cachedComponentDir.split("/").at(-1) ?? ""}'`,
+            `rm -rf "$HOME"'/.mikiko/server/asset-cache/components/linux-x64/${retiredProtocolPrefix}-claude/${cachedComponentDir.split("/").at(-1) ?? ""}'`,
           ),
         ),
       ).toBe(false);
       expect(
         backend.commands.some((command) =>
           command.includes(
-            `test -e "$HOME"'/.zcode/server/agents/${retiredProtocolPrefix}/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude'`,
+            `test -e "$HOME"'/.mikiko/server/agents/${retiredProtocolPrefix}/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude'`,
           ),
         ),
       ).toBe(false);
@@ -3594,7 +3594,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     const backend = new FakeRemoteBackend(
       {
         ...remoteFiles,
-        [`~/.zcode/server/.asset-components/${retiredProtocolPrefix}-claude.json`]:
+        [`~/.mikiko/server/.asset-components/${retiredProtocolPrefix}-claude.json`]:
           JSON.stringify({
             id: `${retiredProtocolPrefix}-claude`,
             version: "0.29.2+oldhash000000",
@@ -3814,7 +3814,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
 
     try {
       const remoteFiles = {
-        "~/.zcode/server/agents/codex/.version": "0.0.0\n",
+        "~/.mikiko/server/agents/codex/.version": "0.0.0\n",
       };
       addMatchingServerBundleArtifactIdentity(
         remoteFiles,
@@ -3934,7 +3934,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/agents/glm/zcode.cjs.new",
+          "~/.mikiko/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(
@@ -3979,7 +3979,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       await expect(
         deployServer(
           new FakeRemoteBackend({
-            "~/.zcode/server/agents/codex/.version": "0.0.0\n",
+            "~/.mikiko/server/agents/codex/.version": "0.0.0\n",
           }),
           { platform: "linux", arch: "arm64" },
           {
@@ -4032,7 +4032,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     try {
       await deployServer(
         new FakeRemoteBackend({
-          "~/.zcode/server/agents/codex/.version": "0.0.0\n",
+          "~/.mikiko/server/agents/codex/.version": "0.0.0\n",
         }),
         { platform: "linux", arch: "arm64" },
         {
@@ -4046,7 +4046,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       );
       await deployServer(
         new FakeRemoteBackend({
-          "~/.zcode/server/agents/codex/.version": "0.0.0\n",
+          "~/.mikiko/server/agents/codex/.version": "0.0.0\n",
         }),
         { platform: "linux", arch: "arm64" },
         {
@@ -4089,13 +4089,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       const backend = new FakeRemoteBackend(
         {
           ...createFullyDeployedRemoteFiles("linux-arm64"),
-          "~/.zcode/server/.asset-components/node-runtime.json":
+          "~/.mikiko/server/.asset-components/node-runtime.json":
             createRemoteAssetComponentMeta(
               "node-runtime",
               findManifestComponent(manifest, "node-runtime").version,
               "linux-arm64",
             ),
-          "~/.zcode/server/.asset-components/node-pty.json":
+          "~/.mikiko/server/.asset-components/node-pty.json":
             createRemoteAssetComponentMeta(
               "node-pty",
               findManifestComponent(manifest, "node-pty").version,
@@ -4121,13 +4121,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(backend.uploads.map((upload) => upload.remotePath)).toEqual(
         expect.arrayContaining([
           expect.stringMatching(
-            /^~\/.zcode\/server\/zcode-server\.cjs\.new-[\w-]+$/u,
+            /^~\/.mikiko\/server\/zcode-server\.cjs\.new-[\w-]+$/u,
           ),
           expect.stringMatching(
-            /^~\/.zcode\/server\/agents\/glm\/zcode\.cjs\.new-[\w-]+$/u,
+            /^~\/.mikiko\/server\/agents\/glm\/zcode\.cjs\.new-[\w-]+$/u,
           ),
           expect.stringMatching(
-            /^~\/.zcode\/server\/agents\/glm\/packages\.tar\.gz-[\w-]+$/u,
+            /^~\/.mikiko\/server\/agents\/glm\/packages\.tar\.gz-[\w-]+$/u,
           ),
         ]),
       );
@@ -4215,13 +4215,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         manifest,
         "linux-arm64",
       );
-      remoteFiles["~/.zcode/server/.asset-components/node-runtime.json"] =
+      remoteFiles["~/.mikiko/server/.asset-components/node-runtime.json"] =
         createRemoteAssetComponentMeta(
           "node-runtime",
           findManifestComponent(manifest, "node-runtime").version,
           "linux-arm64",
         );
-      remoteFiles["~/.zcode/server/.asset-components/node-pty.json"] =
+      remoteFiles["~/.mikiko/server/.asset-components/node-pty.json"] =
         createRemoteAssetComponentMeta(
           "node-pty",
           findManifestComponent(manifest, "node-pty").version,
@@ -4255,13 +4255,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/agents/glm/zcode.cjs.new",
+          "~/.mikiko/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/agents/glm/packages.tar.gz",
+          "~/.mikiko/server/agents/glm/packages.tar.gz",
         ),
       ).toBe(true);
     } finally {
@@ -4286,13 +4286,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       manifest,
       "linux-arm64",
     );
-    remoteFiles["~/.zcode/server/.asset-components/node-runtime.json"] =
+    remoteFiles["~/.mikiko/server/.asset-components/node-runtime.json"] =
       createRemoteAssetComponentMeta(
         "node-runtime",
         findManifestComponent(manifest, "node-runtime").version,
         "linux-arm64",
       );
-    remoteFiles["~/.zcode/server/.asset-components/node-pty.json"] =
+    remoteFiles["~/.mikiko/server/.asset-components/node-pty.json"] =
       createRemoteAssetComponentMeta(
         "node-pty",
         findManifestComponent(manifest, "node-pty").version,
@@ -4315,7 +4315,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
           exitCode: 0,
           onExec: () => {
             backend.remoteFiles.set(
-              "~/.zcode/server/.asset-components/glm.json",
+              "~/.mikiko/server/.asset-components/glm.json",
               JSON.stringify({
                 id: "glm",
                 platformArch: "linux-arm64",
@@ -4342,7 +4342,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(remoteServerVersion).toBe(ZCODE_VERSION);
       expect(
         backend.remoteFiles.get(
-          "~/.zcode/server/.asset-components/glm.json",
+          "~/.mikiko/server/.asset-components/glm.json",
         ),
       ).toContain("pendingRefreshAppVersion");
       expect(
@@ -4390,13 +4390,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/agents/glm/zcode.cjs.new",
+          "~/.mikiko/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/agents/glm/packages.tar.gz",
+          "~/.mikiko/server/agents/glm/packages.tar.gz",
         ),
       ).toBe(true);
       expect(
@@ -4424,8 +4424,8 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     const cdnServer = await createStaticFileServer(cdnRoot);
     const serverBundle = findManifestComponent(manifest, "server-bundle");
     const glm = findManifestComponent(manifest, "glm");
-    const serverBundleCacheDir = `~/.zcode/server/asset-cache/components/linux-arm64/server-bundle/${serverBundle.sha256}`;
-    const glmCacheDir = `~/.zcode/server/asset-cache/components/linux-arm64/glm/${glm.sha256}`;
+    const serverBundleCacheDir = `~/.mikiko/server/asset-cache/components/linux-arm64/server-bundle/${serverBundle.sha256}`;
+    const glmCacheDir = `~/.mikiko/server/asset-cache/components/linux-arm64/glm/${glm.sha256}`;
     const remoteFiles = createFullyDeployedRemoteFiles("linux-arm64");
     addMatchingGlmAndServerArtifactIdentities(
       remoteFiles,
@@ -4434,13 +4434,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     );
     remoteFiles[`${serverBundleCacheDir}/.ready`] = "ready";
     remoteFiles[`${glmCacheDir}/.ready`] = "ready";
-    remoteFiles["~/.zcode/server/.asset-components/node-runtime.json"] =
+    remoteFiles["~/.mikiko/server/.asset-components/node-runtime.json"] =
       createRemoteAssetComponentMeta(
         "node-runtime",
         findManifestComponent(manifest, "node-runtime").version,
         "linux-arm64",
       );
-    remoteFiles["~/.zcode/server/.asset-components/node-pty.json"] =
+    remoteFiles["~/.mikiko/server/.asset-components/node-pty.json"] =
       createRemoteAssetComponentMeta(
         "node-pty",
         findManifestComponent(manifest, "node-pty").version,
@@ -4478,7 +4478,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         backend.commands.some((command) =>
           command.includes(
-            `rm -rf "$HOME"'/.zcode/server/asset-cache/components/linux-arm64/server-bundle/${serverBundle.sha256}'`,
+            `rm -rf "$HOME"'/.mikiko/server/asset-cache/components/linux-arm64/server-bundle/${serverBundle.sha256}'`,
           ),
         ),
       ).toBe(true);
@@ -4493,7 +4493,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         backend.commands.some((command) =>
           command.includes(
-            `rm -rf "$HOME"'/.zcode/server/asset-cache/components/linux-arm64/glm/${glm.sha256}'`,
+            `rm -rf "$HOME"'/.mikiko/server/asset-cache/components/linux-arm64/glm/${glm.sha256}'`,
           ),
         ),
       ).toBe(true);
@@ -4525,12 +4525,12 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       "linux-arm64",
     );
     remoteFiles[
-      `~/.zcode/server/asset-cache/components/linux-arm64/server-bundle/${serverBundle.sha256}/.ready`
+      `~/.mikiko/server/asset-cache/components/linux-arm64/server-bundle/${serverBundle.sha256}/.ready`
     ] = "ready";
     remoteFiles[
-      `~/.zcode/server/asset-cache/components/linux-arm64/glm/${glm.sha256}/.ready`
+      `~/.mikiko/server/asset-cache/components/linux-arm64/glm/${glm.sha256}/.ready`
     ] = "ready";
-    remoteFiles["~/.zcode/server/.asset-components/node-runtime.json"] =
+    remoteFiles["~/.mikiko/server/.asset-components/node-runtime.json"] =
       createRemoteAssetComponentMeta(
         "node-runtime",
         findManifestComponent(manifest, "node-runtime").version,
@@ -4558,7 +4558,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
           exitCode: 0,
           onExec: () => {
             backend.remoteFiles.set(
-              "~/.zcode/server/.asset-components/glm.json",
+              "~/.mikiko/server/.asset-components/glm.json",
               JSON.stringify({
                 id: "glm",
                 platformArch: "linux-arm64",
@@ -4606,7 +4606,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         backend.commands.some((command) =>
           command.includes(
-            `rm -rf "$HOME"'/.zcode/server/asset-cache/components/linux-arm64/glm/${glm.sha256}'`,
+            `rm -rf "$HOME"'/.mikiko/server/asset-cache/components/linux-arm64/glm/${glm.sha256}'`,
           ),
         ),
       ).toBe(true);
@@ -4636,7 +4636,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       const backend = new FakeRemoteBackend(
         {
           ...createFullyDeployedRemoteFiles("linux-arm64"),
-          "~/.zcode/server/.asset-components/node-runtime.json":
+          "~/.mikiko/server/.asset-components/node-runtime.json":
             createRemoteAssetComponentMeta(
               "node-runtime",
               nodeRuntime.version,
@@ -4658,7 +4658,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       );
 
       expect(backend.uploads.map((upload) => upload.remotePath)).not.toContain(
-        "~/.zcode/server/node.new",
+        "~/.mikiko/server/node.new",
       );
       const warnLines = warnSpy.mock.calls.map((args) =>
         args.map((arg) => String(arg)).join(" "),
@@ -4697,13 +4697,13 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       const backend = new FakeRemoteBackend(
         {
           ...createFullyDeployedRemoteFiles("linux-arm64"),
-          "~/.zcode/server/.asset-components/node-runtime.json":
+          "~/.mikiko/server/.asset-components/node-runtime.json":
             createRemoteAssetComponentMeta(
               "node-runtime",
               "old-node-version",
               "linux-arm64",
             ),
-          "~/.zcode/server/.asset-components/node-pty.json":
+          "~/.mikiko/server/.asset-components/node-pty.json":
             createRemoteAssetComponentMeta(
               "node-pty",
               "1.0.0-node-pty",
@@ -4726,7 +4726,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       );
 
       expect(
-        hasUploadForStagingTarget(backend, "~/.zcode/server/node.new"),
+        hasUploadForStagingTarget(backend, "~/.mikiko/server/node.new"),
       ).toBe(true);
       expect(
         cdnServer.getRequestCount(
@@ -4763,7 +4763,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     await stageRemoteRuntimeRelease(mockCdnDir);
 
     const remoteFiles = createFullyDeployedRemoteFiles("linux-arm64");
-    delete remoteFiles["~/.zcode/server/tools/ripgrep/rg"];
+    delete remoteFiles["~/.mikiko/server/tools/ripgrep/rg"];
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const backend = new FakeRemoteBackend(remoteFiles);
@@ -4780,7 +4780,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/tools/ripgrep/rg.new",
+          "~/.mikiko/server/tools/ripgrep/rg.new",
         ),
       ).toBe(true);
       const warnLines = warnSpy.mock.calls.map((args) =>
@@ -4815,7 +4815,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       manifest,
       "linux-arm64",
     );
-    delete remoteFiles["~/.zcode/server/agents/glm/zcode-agent"];
+    delete remoteFiles["~/.mikiko/server/agents/glm/zcode-agent"];
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const backend = new FakeRemoteBackend(remoteFiles);
@@ -4832,7 +4832,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/agents/glm/zcode.cjs.new",
+          "~/.mikiko/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       const warnLines = warnSpy.mock.calls.map((args) =>
@@ -4882,7 +4882,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.zcode/server/agents/glm/zcode.cjs.new",
+        "~/.mikiko/server/agents/glm/zcode.cjs.new",
       ),
     ).toBe(false);
     expect(
@@ -4893,7 +4893,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       backend.uploads.some(
         (upload) =>
-          upload.remotePath === "~/.zcode/server/agents/opencode/opencode.new",
+          upload.remotePath === "~/.mikiko/server/agents/opencode/opencode.new",
       ),
     ).toBe(false);
   });
@@ -5167,7 +5167,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/agents/glm/zcode.cjs.new",
+          "~/.mikiko/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(
@@ -5227,12 +5227,12 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.zcode/server/zcode-server.cjs.new",
+          "~/.mikiko/server/zcode-server.cjs.new",
         ),
       ).toBe(true);
       const initialServerUpload = findUploadForStagingTarget(
         backend,
-        "~/.zcode/server/zcode-server.cjs.new",
+        "~/.mikiko/server/zcode-server.cjs.new",
       );
       await expect(
         readFile(initialServerUpload?.localPath ?? "", "utf8"),
@@ -5244,8 +5244,8 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         "linux-arm64",
       );
       backend.remoteFiles.set(
-        "~/.zcode/server/.asset-components/server-bundle.json",
-        remoteFiles["~/.zcode/server/.asset-components/server-bundle.json"] ??
+        "~/.mikiko/server/.asset-components/server-bundle.json",
+        remoteFiles["~/.mikiko/server/.asset-components/server-bundle.json"] ??
           "",
       );
 
@@ -5279,7 +5279,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
 
       const serverUpload = findUploadForStagingTarget(
         backend,
-        "~/.zcode/server/zcode-server.cjs.new",
+        "~/.mikiko/server/zcode-server.cjs.new",
       );
       expect(serverUpload).toBeDefined();
       await expect(readFile(serverUpload?.localPath ?? "", "utf8")).resolves
@@ -5977,7 +5977,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       await expect(
         deployServer(
           new FakeRemoteBackend({
-            "~/.zcode/server/agents/codex/.version": "0.0.0\n",
+            "~/.mikiko/server/agents/codex/.version": "0.0.0\n",
           }),
           { platform: "linux", arch: "arm64" },
           {
@@ -6012,7 +6012,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     try {
       await deployServer(
         new FakeRemoteBackend({
-          "~/.zcode/server/agents/codex/.version": "0.0.0\n",
+          "~/.mikiko/server/agents/codex/.version": "0.0.0\n",
         }),
         { platform: "linux", arch: "arm64" },
         {

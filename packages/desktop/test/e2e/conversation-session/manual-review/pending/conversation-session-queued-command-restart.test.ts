@@ -111,7 +111,7 @@ async function waitForSessionInput(
 }
 
 function readSessionInput(sessionId: string): SessionInputRow | null {
-  const database = new DatabaseSync(join(homedir(), ".zcode", "cli", "db", "db.sqlite"), {
+  const database = new DatabaseSync(join(homedir(), ".mikiko", "cli", "db", "db.sqlite"), {
     readOnly: true,
   });
   try {

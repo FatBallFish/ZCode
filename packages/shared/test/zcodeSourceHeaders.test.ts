@@ -22,7 +22,7 @@ describe("buildZCodeSourceHeadersFromContext", () => {
     ).toEqual({
       ...ZCODE_SOURCE_HEADERS,
       "HTTP-Referer": "https://zcode.z.ai",
-      "User-Agent": "ZCode/2.14.0",
+      "User-Agent": "Mikiko/2.14.0",
       "X-ZCode-App-Version": "2.14.0",
       "X-Title": "Z Code@cli",
       "X-Platform": "darwin-arm64",
@@ -46,7 +46,7 @@ describe("buildZCodeSourceHeadersFromContext", () => {
     });
 
     expect(headers).toMatchObject({
-      "User-Agent": "ZCode/unknown",
+      "User-Agent": "Mikiko/unknown",
       "X-Client-Language": "unknown",
       "X-Client-Timezone": "unknown",
       "X-Os-Category": "windows",

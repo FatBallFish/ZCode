@@ -107,6 +107,20 @@ const servicesMock = vi.hoisted(() => ({
 }));
 
 // 本组隔离编辑/设置行为，群投递服务由独立单测及 Host/CLI E2E 覆盖。
+vi.mock("@/store/TabStoreProvider.js", async (importOriginal) => {
+  // custom SessionPane 依赖 useTabStoreApi/useTabStore；单测不挂真实 Tab 树，
+  // 给最小 zustand 形状的桩（选择器读空 state）。
+  const api = {
+    getState: () => ({ tabs: [], activeTabId: null }),
+    setState: () => {},
+    subscribe: () => () => {},
+  };
+  return {
+    ...(await importOriginal<typeof import("@/store/TabStoreProvider.js")>()),
+    useTabStoreApi: () => api,
+    useTabStore: (selector: (state: unknown) => unknown) => selector(api.getState()),
+  };
+});
 vi.mock("@/v4/BotGroupDeliveryAction.js", () => ({
   BotGroupDeliveryProvider: ({ children }: { children: unknown }) => children,
   ConnectedBotGroupDeliveryAction: () => null,
@@ -146,6 +160,8 @@ vi.mock("@/v4/V4ConversationContext.js", () => ({
 
 vi.mock("@/store/StoreProvider.js", () => ({
   useZCodeStoreWithDefault: (_selector: unknown, fallback: unknown) => fallback,
+  useZCodeStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({}),
 }));
 
 vi.mock("@/v4/composer/useDraftConfigControl.js", () => ({

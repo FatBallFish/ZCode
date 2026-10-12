@@ -77,7 +77,7 @@ export function seedProviderReadinessHistoryFixture(
         ...process.env,
         HOME: options.e2eHomeDir,
         USERPROFILE: options.e2eHomeDir,
-        ZCODE_DATA_BASE_DIR: options.e2eHomeDir,
+        MIKIKO_DATA_BASE_DIR: options.e2eHomeDir,
       },
       input: "",
       timeout: 30_000,
@@ -87,7 +87,7 @@ export function seedProviderReadinessHistoryFixture(
 
   const databasePath = join(
     options.e2eHomeDir,
-    ".zcode",
+    ".mikiko",
     "cli",
     "db",
     "db.sqlite",
@@ -233,7 +233,7 @@ function writeTaskIndex(
   timestamps: ProviderReadinessHistoryTimestamps,
   history: ProviderReadinessHistoryFixture,
 ): void {
-  const appConfigDir = join(options.e2eHomeDir, ".zcode", "v2");
+  const appConfigDir = join(options.e2eHomeDir, ".mikiko", "v2");
   mkdirSync(appConfigDir, { recursive: true });
   const database = new DatabaseSync(join(appConfigDir, "tasks-index.sqlite"));
   const meta = {

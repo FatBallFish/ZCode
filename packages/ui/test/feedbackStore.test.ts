@@ -17,49 +17,25 @@ describe("feedback store", () => {
     resetFeedbackStore();
   });
 
-  it("keeps feature request and issue report dialogs mutually exclusive", () => {
+  it("入口关闭期间：互斥对话框与新建表单行为全部 no-op（FEEDBACK_ENTRY_ENABLED=false）", () => {
+    // custom 反馈暂时关闭（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）：
+    // openSubmit/openFeatureRequest/openSubmissionJob 均直接 return，状态恒为关闭。
+    // 恢复开关时，把本用例改回上游互斥/新建表单/按 jobId 打开三组断言。
     useFeedbackStore.getState().openFeatureRequest();
     expect(useFeedbackStore.getState()).toMatchObject({
       open: false,
-      featureRequestOpen: true,
-    });
-
-    useFeedbackStore.getState().openSubmit({ includeLogs: true });
-    expect(useFeedbackStore.getState()).toMatchObject({
-      open: true,
       featureRequestOpen: false,
-      tab: "submit",
-    });
-
-    useFeedbackStore.getState().openFeatureRequest();
-    expect(useFeedbackStore.getState()).toMatchObject({
-      open: false,
-      featureRequestOpen: true,
-    });
-  });
-
-  it("always opens issue reports as a new form instead of reusing a background submission", () => {
-    useFeedbackStore.getState().openSubmissionJob("feedback-job-a");
-    expect(useFeedbackStore.getState()).toMatchObject({
-      open: true,
-      tab: "submit",
-      submissionJobId: "feedback-job-a",
     });
 
     useFeedbackStore.getState().openSubmit({ includeLogs: true });
     expect(useFeedbackStore.getState()).toMatchObject({
-      open: true,
-      tab: "submit",
+      open: false,
+      featureRequestOpen: false,
+      submitDraft: null,
       submissionJobId: null,
-      submitDraft: { includeLogs: true },
     });
-  });
 
-  it("opens each background submission by its own job id", () => {
     useFeedbackStore.getState().openSubmissionJob("feedback-job-a");
-    expect(useFeedbackStore.getState().submissionJobId).toBe("feedback-job-a");
-
-    useFeedbackStore.getState().openSubmissionJob("feedback-job-b");
-    expect(useFeedbackStore.getState().submissionJobId).toBe("feedback-job-b");
+    expect(useFeedbackStore.getState().submissionJobId).toBe(null);
   });
 });

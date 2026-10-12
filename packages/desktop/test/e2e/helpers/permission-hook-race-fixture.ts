@@ -13,8 +13,8 @@ export const PERMISSION_HOOK_RACE_RESULT_CONTENT =
 const BLOCKING_HOOK_SLEEP_MS = 120000;
 const BLOCKING_HOOK_TIMEOUT_MS = 130000;
 
-const WORKSPACE_ZCODE_DIR = join(DEFAULT_WORKSPACE, ".zcode");
-const USER_CONFIG_DIR = join(dirname(DEFAULT_WORKSPACE), ".zcode", "cli");
+const WORKSPACE_ZCODE_DIR = join(DEFAULT_WORKSPACE, ".mikiko");
+const USER_CONFIG_DIR = join(dirname(DEFAULT_WORKSPACE), ".mikiko", "cli");
 const CONFIG_PATH = join(USER_CONFIG_DIR, "config.json");
 const BLOCKER_PATH = join(
   WORKSPACE_ZCODE_DIR,

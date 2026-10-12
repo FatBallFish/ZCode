@@ -11,6 +11,15 @@ const buttonMock = vi.hoisted(() => ({
   props: [] as Array<Record<string, unknown>>,
 }));
 
+vi.mock("@/hooks/useServices.js", () => ({
+  useOptionalServices: () => null,
+  useServices: () => ({
+    modelSelectionService: { read: async () => null },
+    zcodeSessionService: {}, zcodeTaskService: {}, usageStatsService: {},
+    conversationShareService: {}, highspeedCardService: {},
+  }),
+  ServiceProvider: ({ children }: { children: unknown }) => children,
+}));
 vi.mock("@/components/ui/button.js", async () => {
   const React = await import("react");
   return {

@@ -40,6 +40,14 @@ const toolCallBlockCapture = vi.hoisted(() => ({
   props: [] as Array<Record<string, unknown>>,
 }));
 
+vi.mock("@/store/TabStoreProvider.js", async (importOriginal) => {
+  const api = { getState: () => ({ tabs: [], activeTabId: null }), setState: () => {}, subscribe: () => () => {} };
+  return {
+    ...(await importOriginal<typeof import("@/store/TabStoreProvider.js")>()),
+    useTabStoreApi: () => api,
+    useTabStore: (selector: (state: unknown) => unknown) => selector(api.getState()),
+  };
+});
 vi.mock("@/AssistantPreviewCards.js", async () => {
   const React = await import("react");
   return {

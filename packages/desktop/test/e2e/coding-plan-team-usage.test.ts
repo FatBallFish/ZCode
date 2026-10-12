@@ -32,7 +32,7 @@ import { skipOccupationOnboardingIfPresent } from "./helpers/occupation-onboardi
 
 // 修复原因：WDIO 为每个 run 注入隔离 HOME，但 os.homedir() 在 Node 进程中不会
 // 随环境变量动态变化。沿用 homedir() 会把场景设置和 provider seed 写到开发机的
-// ~/.zcode，Electron 读取的却是本轮隔离 HOME；同时新版 Personal Config 文件名是
+// ~/.mikiko，Electron 读取的却是本轮隔离 HOME；同时新版 Personal Config 文件名是
 // provider_config.json，不是旧的 config.json。统一复用 desktop-app 的路径合同，确保
 // 测试写入和应用读取的是同一份 fixture。
 const E2E_APP_DATA_PATHS = getE2EAppDataPaths();

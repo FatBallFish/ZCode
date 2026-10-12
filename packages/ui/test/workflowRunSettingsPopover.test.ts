@@ -11,6 +11,19 @@ import type { CommandAck, WorkflowRunState } from "@zcode/shared/zcode-protocol-
 import type { WorkflowRunCardSummary } from "@/ToolCallBlocks/shared.js";
 
 vi.mock("@/logger.js", () => ({ logger: { debug: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
+vi.mock("@/hooks/useServices.js", () => ({
+  // 弹层内嵌的模型选择 UI 经 useServices 取服务；单测无 ServiceProvider，给最小桩。
+  useServices: () => ({
+    modelSelectionService: { read: async () => null },
+    zcodeSessionService: {},
+    zcodeTaskService: {},
+    usageStatsService: {},
+    conversationShareService: {},
+    highspeedCardService: {},
+  }),
+  useOptionalServices: () => undefined,
+  useBaseWorkspaceServices: () => undefined,
+}));
 vi.mock("@/ControlHintTooltip.js", () => ({
   ControlHintTooltip: ({ children }: { children?: ReactNode }) => children,
 }));

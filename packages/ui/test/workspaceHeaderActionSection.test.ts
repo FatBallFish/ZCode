@@ -83,6 +83,8 @@ vi.mock("@/components/ui/toast.js", () => ({
 }));
 
 vi.mock("@/feedback/feedbackStore.js", () => ({
+  // custom 关闭反馈入口；本文件专测反馈菜单行为，恢复开关为 true。
+  FEEDBACK_ENTRY_ENABLED: true,
   useFeedbackStore: (
     selector: (state: {
       openSubmit: (draft?: unknown) => void;

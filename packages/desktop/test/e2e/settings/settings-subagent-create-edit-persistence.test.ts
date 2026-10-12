@@ -85,7 +85,7 @@ const USER_REMOVED_MODEL = {
 const USER_AGENT_ROOT = join(resolveE2EStorageRoot(), "agents");
 const PLUGIN_JUDGE_AGENT_NAME = "document-skills:judge";
 const PLUGIN_JUDGE_AGENT_ID = "plugin:document-skills@zcode-plugins-official:judge";
-const WORKSPACE_AGENT_ROOT = join(DEFAULT_WORKSPACE, ".zcode", "agents");
+const WORKSPACE_AGENT_ROOT = join(DEFAULT_WORKSPACE, ".mikiko", "agents");
 const SUBAGENT_FORM_SELECTOR = `form:has(input[type="text"]):has(${sel(
   TID_CHAT_MODEL_SELECT_TRIGGER,
 )})`;

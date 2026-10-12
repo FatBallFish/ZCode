@@ -16,6 +16,14 @@ import {
   setSelectionSideChatBlocked,
 } from "@/lib/selectionSideChatRuntime.js";
 
+vi.mock("@/store/TabStoreProvider.js", async (importOriginal) => {
+  const api = { getState: () => ({ tabs: [], activeTabId: null }), setState: () => {}, subscribe: () => () => {} };
+  return {
+    ...(await importOriginal<typeof import("@/store/TabStoreProvider.js")>()),
+    useTabStoreApi: () => api,
+    useTabStore: (selector: (state: unknown) => unknown) => selector(api.getState()),
+  };
+});
 vi.mock("@/lib/conversationSelectionReference.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/conversationSelectionReference.js")>()),
   dispatchConversationSelectionAdd: vi.fn(),
@@ -120,6 +128,7 @@ vi.mock("@/v4/V4ConversationContext.js", () => ({
 
 vi.mock("@/store/StoreProvider.js", () => ({
   useZCodeStoreWithDefault: (_selector: unknown, fallback: unknown) => fallback,
+  useZCodeStore: (selector: (state: Record<string, unknown>) => unknown) => selector({}),
 }));
 
 vi.mock("@/v4/composer/useDraftConfigControl.js", () => ({

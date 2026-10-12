@@ -67,7 +67,7 @@ async function waitForHttpClosed(port: number): Promise<boolean> {
 describe.skipIf(process.platform === "win32")("runtime update integration", () => {
   it("收口 Supervisor IPC 断连后的 Core，避免遗留孤儿监听进程", async () => {
     const root = await mkdtemp(join("/tmp", "zcode-orphan-"));
-    const layout = resolveServerLayout(join(root, ".zcode", "server"));
+    const layout = resolveServerLayout(join(root, ".mikiko", "server"));
     await new ReleaseManager(layout).ensure();
     const coreEntry = fileURLToPath(new URL("../src/server-core/entry.ts", import.meta.url));
     const zcodeBuiltinProviderConfigFilePath = fileURLToPath(
@@ -75,7 +75,7 @@ describe.skipIf(process.platform === "win32")("runtime update integration", () =
     );
     const harness = [
       "import { fork } from 'node:child_process';",
-      `const core = fork(${JSON.stringify(coreEntry)}, ['1'], { execArgv: ['--import', 'tsx'], env: { ...process.env, ZCODE_SERVER_ROOT: ${JSON.stringify(layout.serverRoot)}, ZCODE_DATA_BASE_DIR: ${JSON.stringify(layout.dataBaseDir)}, ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: ${JSON.stringify(zcodeBuiltinProviderConfigFilePath)} }, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });`,
+      `const core = fork(${JSON.stringify(coreEntry)}, ['1'], { execArgv: ['--import', 'tsx'], env: { ...process.env, ZCODE_SERVER_ROOT: ${JSON.stringify(layout.serverRoot)}, MIKIKO_DATA_BASE_DIR: ${JSON.stringify(layout.dataBaseDir)}, MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE: ${JSON.stringify(zcodeBuiltinProviderConfigFilePath)} }, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });`,
       "core.on('message', (message) => { if (message && message.type === 'ready') process.stdout.write(JSON.stringify(message)); });",
     ].join("\n");
     const supervisor = spawn(process.execPath, ["--input-type=module", "-e", harness], {
@@ -127,7 +127,7 @@ describe.skipIf(process.platform === "win32")("runtime update integration", () =
     const root = await mkdtemp(
       join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-runtime-"),
     );
-    const layout = resolveServerLayout(join(root, ".zcode", "server"));
+    const layout = resolveServerLayout(join(root, ".mikiko", "server"));
     const canonicalLayout = await resolveCanonicalServerLayout(layout.serverRoot);
     const releases = new ReleaseManager(layout);
     await releases.ensure();

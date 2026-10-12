@@ -23,6 +23,9 @@ process.env.GIT_CONFIG_VALUE_1 = "lf";
 process.env.ZCODE_TEST_RELEASE_TARGET = process.env.ZCODE_TEST_RELEASE_TARGET ?? "darwin";
 process.env.ZCODE_TEST_RELEASE_ARCH = process.env.ZCODE_TEST_RELEASE_ARCH ?? "aarch64";
 process.env.ZCODE_TEST_CLIENT_CONFIG_PLATFORM = process.env.ZCODE_TEST_CLIENT_CONFIG_PLATFORM ?? "darwin-aarch64";
+// 遥测核 gating：report 端点为空即整体跳过上报（custom env.ts 读运行时变量而非构建宏）。
+// 这里给测试注入固定假端点，fetch 在各用例内均被 mock，不会真实出网。
+process.env.ZCODE_TELEMETRY_REPORT_ENDPOINT ??= "https://zcode.z.ai/api/v1/event/report";
 // Bugfix: 桌面端会把自定义 dataBaseDir 通过环境变量注入到 host/git 子进程。
 // 很多服务层单测只通过覆盖 HOME 来隔离临时目录；若保留该变量，路径解析会继续优先命中真实 dataBaseDir，
 // 从而导致“终端本地跑通过，但应用内 git push 触发 pre-push 时大量用例误写到同一目录”。

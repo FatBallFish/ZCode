@@ -308,7 +308,7 @@ export async function waitForV4DraftModelConfig(params: { model: string; thought
 }
 
 export async function waitForPlanModelIoRequest(expectedText: string) {
-  const debugDir = join(paths.homeDir, ".zcode", "cli", "debug");
+  const debugDir = join(paths.homeDir, ".mikiko", "cli", "debug");
   let matched: { model?: string; thinking?: { type?: string } } | null = null;
   await browser.waitUntil(
     async () => {

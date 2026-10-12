@@ -93,9 +93,13 @@ export async function prepareDevElectronAppBundle({
     const existingInfoPlist = await readFile(infoPlistPath, "utf8");
     await access(existingExecutablePath);
     const existingStamp = await readFile(sourceStampPath, "utf8");
+    // 修复原因：这里原本引用不存在的旧常量 DEV_ELECTRON_PROTOCOL_SCHEME（改名复数后漏改），
+    // ReferenceError 被 catch 吞掉后 needsCopy 恒为 true，bundle 缓存失效、每次 dev 启动都重拷。
     needsCopy =
       !existingInfoPlist.includes(`<string>${DEV_ELECTRON_APP_BUNDLE_ID}</string>`) ||
-      !existingInfoPlist.includes(`<string>${DEV_ELECTRON_PROTOCOL_SCHEME}</string>`) ||
+      !DEV_ELECTRON_PROTOCOL_SCHEMES.every((scheme) =>
+        existingInfoPlist.includes(`<string>${scheme}</string>`),
+      ) ||
       sourceStamp === undefined ||
       existingStamp !== sourceStamp;
   } catch {

@@ -1,6 +1,6 @@
 import { ZCODE_VERSION, type ZCodeEnv } from "@zcode/shared";
 
-declare const __ZCODE_REMOTE_CDN_RELEASE_ROOTS__: readonly string[] | undefined;
+declare const __ZCODE_CDN_BASE_URL__: string | undefined;
 
 const REMOTE_CDN_RELEASE_ROOTS = {
   domestic: "https://cdn.codegeex.cn/zcode/electron/releases",
@@ -41,6 +41,25 @@ export function shouldPreferDomesticRemoteCdn(
 ): boolean {
   const timeZone = options.timeZone ?? resolveLocalTimeZone();
   return isChineseLocale(options.locale) && isUtcPlusEightTimeZone(timeZone, options.now);
+}
+
+/** 缺省远端组件下载基址：Mikiko 自建分发域（spec specs/update/update-service.md）。 */
+const DEFAULT_CDN_BASE_URL = "https://agent-dl.mikiko.ai";
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.trim().replace(/\/+$/u, "");
+}
+
+function resolveTimeZoneOffsetMinutes(timeZone: string, now: Date): number {
+  // 用 Intl 在指定时区的给定时刻格式化出偏移（如 GMT+08:00），再解析为分钟。
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "longOffset",
+  }).format(now);
+  const match = /GMT([+-])(\d{2}):(\d{2})/.exec(formatted);
+  if (!match) return 0;
+  const sign = match[1] === "-" ? -1 : 1;
+  return sign * (Number(match[2]) * 60 + Number(match[3]));
 }
 
 export function resolveRemoteCdnBaseUrls(options: ResolveRemoteCdnOptions = {}): string[] {

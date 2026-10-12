@@ -38,7 +38,7 @@ describe("desktop main logger", () => {
       expect(() => logger.info("main log append fault")).not.toThrow();
       expect(() => webRemoteControlRelayLogger.warn("relay log append fault")).not.toThrow();
 
-      const logDir = join(tempRoot, ".zcode", "v2", "logs");
+      const logDir = join(tempRoot, ".mikiko", "v2", "logs");
       await expect(readdir(logDir)).resolves.toEqual(["web-remote-control"]);
       await expect(readdir(join(logDir, "web-remote-control"))).resolves.toEqual([]);
 

@@ -320,7 +320,7 @@ async function setSessionTargetForE2E(
   objective: string,
   status: "active" | "paused" | "budget_limited" | "complete",
 ) {
-  const dbPath = join(homedir(), ".zcode", "cli", "db", "db.sqlite");
+  const dbPath = join(homedir(), ".mikiko", "cli", "db", "db.sqlite");
   const db = new DatabaseSync(dbPath);
   const now = Date.now();
   const targetId = `target_e2e_${randomUUID()}`;
@@ -573,7 +573,7 @@ async function injectRendererQueuedPromptForE2E(
 function readSessionTargetForE2E(
   sessionId: string,
 ): { objective: string; status: string } | null {
-  const dbPath = join(homedir(), ".zcode", "cli", "db", "db.sqlite");
+  const dbPath = join(homedir(), ".mikiko", "cli", "db", "db.sqlite");
   const db = new DatabaseSync(dbPath);
   try {
     return (

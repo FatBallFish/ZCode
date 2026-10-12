@@ -304,7 +304,7 @@ describe("IntlProvider locale preference sync", () => {
       expect(screen.getByTestId("locale").textContent).toBe("en-US");
       expect(screen.getByTestId("localePreference").textContent).toBe("en-US");
     });
-    expect(localStorage.getItem("zcode-locale-preference")).toBe("en-US");
+    expect(localStorage.getItem("mikiko-locale-preference")).toBe("en-US");
     expect(settingService.update).toHaveBeenCalledWith({
       locale: "en-US",
       localePreference: "en-US",
@@ -357,7 +357,7 @@ describe("IntlProvider locale preference sync", () => {
 
     expect(screen.getByTestId("locale").textContent).toBe("zh-CN");
     expect(screen.getByTestId("localePreference").textContent).toBe("system");
-    expect(localStorage.getItem("zcode-locale-preference")).toBe("system");
+    expect(localStorage.getItem("mikiko-locale-preference")).toBe("system");
   });
 
   it("settingService 持久化延迟时不会阻塞跨窗口广播", async () => {

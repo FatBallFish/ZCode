@@ -76,7 +76,8 @@ export class AccountRequestRetry {
   }
 
   canRecoverProjectToken(error: unknown, blocked = false): boolean {
-    const mode = this.model.accountAccess?.mode;
+    const access = this.model.accountAccess;
+    const mode = access && "mode" in access ? access.mode : undefined;
     if (
       blocked ||
       this.#used ||
@@ -92,7 +93,9 @@ export class AccountRequestRetry {
   }
 
   #token(auth: ModelRequestAuth): string | undefined {
-    return this.model.accountAccess?.mode === "off-peak"
+    return (this.model.accountAccess && "mode" in this.model.accountAccess
+      ? this.model.accountAccess.mode
+      : undefined) === "off-peak"
       ? Object.entries(auth.headers ?? {}).find(
           ([key]) => key.toLowerCase() === "x-coding-plan-api-key",
         )?.[1]

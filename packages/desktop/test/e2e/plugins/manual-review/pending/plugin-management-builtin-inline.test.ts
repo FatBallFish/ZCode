@@ -112,7 +112,7 @@ describe("PLM-LC-006/009 Builtin 抑制恢复与 inline smoke E2E", () => {
 
 async function seedBuiltinUserState(): Promise<void> {
   const { homeDir } = getE2EAppDataPaths();
-  const configPath = join(homeDir, ".zcode", "cli", "config.json");
+  const configPath = join(homeDir, ".mikiko", "cli", "config.json");
   const config = JSON.parse(await readFile(configPath, "utf-8")) as Record<string, unknown>;
   const plugins = isRecord(config.plugins) ? config.plugins : {};
   const options = isRecord(plugins.options) ? plugins.options : {};
@@ -124,7 +124,7 @@ async function seedBuiltinUserState(): Promise<void> {
 }
 
 async function builtinOptionsExist(): Promise<boolean> {
-  const configPath = join(getE2EAppDataPaths().homeDir, ".zcode", "cli", "config.json");
+  const configPath = join(getE2EAppDataPaths().homeDir, ".mikiko", "cli", "config.json");
   const config = JSON.parse(await readFile(configPath, "utf-8")) as Record<string, unknown>;
   const plugins = isRecord(config.plugins) ? config.plugins : {};
   const options = isRecord(plugins.options) ? plugins.options : {};

@@ -278,7 +278,7 @@ describe("connectRemote", () => {
     });
     connection.dispose();
 
-    expect(backend.commands[0]).toContain('ZCODE_SERVER_RUNTIME_ROOT="$HOME/.zcode/server"');
+    expect(backend.commands[0]).toContain('ZCODE_SERVER_RUNTIME_ROOT="$HOME/.mikiko/server"');
     expect(backend.commands[0]).not.toContain(retiredProxyEnvName);
   });
 
@@ -418,7 +418,7 @@ describe("connectRemote", () => {
   it("远端 server 握手前退出时应把 stderr 和退出码带到错误信息", async () => {
     const backend = new FakeConnectBackend({
       code: 126,
-      stderr: "/bin/sh: 1: /root/.zcode/server/node: Text file busy\n",
+      stderr: "/bin/sh: 1: /root/.mikiko/server/node: Text file busy\n",
     });
 
     await expect(

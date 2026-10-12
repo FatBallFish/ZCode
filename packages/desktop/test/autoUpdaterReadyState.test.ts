@@ -347,18 +347,17 @@ describe("autoUpdater ready state sync", () => {
     initAutoUpdater({
       settingService: settingServiceMock,
       deviceMid: "mid-1",
-      resolveEndpointOrigin: () => "https://endpoint.example.test",
     });
 
+    // custom：更新固定走自建更新服务（agent-update.mikiko.ai），不接受动态 endpoint
+    // 解析回调——动态解析曾导致检查请求打到官方源（见 autoUpdater.ts 注释）。
     const options = autoUpdaterMock.setFeedURL.mock.calls[0]?.[0] as {
       deviceMid?: string;
-      resolveEndpointOrigin?: () => string | Promise<string>;
+      endpointOrigin?: string;
       resolveReleaseChannel?: () => Promise<string>;
     };
     expect(options.deviceMid).toBe("mid-1");
-    await expect(Promise.resolve(options.resolveEndpointOrigin?.())).resolves.toBe(
-      "https://endpoint.example.test",
-    );
+    expect(options.endpointOrigin).toBe("https://agent-update.mikiko.ai");
     await expect(options.resolveReleaseChannel?.()).resolves.toBe("preview");
   });
 
@@ -709,6 +708,8 @@ describe("autoUpdater ready state sync", () => {
   });
 
   it("启动参数中的 update feed URL 优先于环境变量", async () => {
+    // 覆盖仅开发构建生效：正式包按 isPackaged 忽略（见实现注释）。
+    appMock.isPackaged = false;
     const { resolveUpdateFeedSourceFromStartupConfig } = await import("../src/main/autoUpdater.js");
 
     expect(
@@ -719,7 +720,7 @@ describe("autoUpdater ready state sync", () => {
           "https://arg.example.test/api/v1/releases/electron/manifest",
         ],
         env: {
-          ZCODE_UPDATE_FEED_URL: "https://env.example.test/api/v1/releases/electron/manifest",
+          MIKIKO_UPDATE_FEED_URL: "https://env.example.test/api/v1/releases/electron/manifest",
         },
       }),
     ).toEqual({
@@ -740,7 +741,7 @@ describe("autoUpdater ready state sync", () => {
       resolveUpdateFeedSourceFromStartupConfig({
         argv: ["ZCode"],
         env: {
-          ZCODE_UPDATE_FEED_URL: "https://env.example.test/api/v1/releases/electron/manifest",
+          MIKIKO_UPDATE_FEED_URL: "https://env.example.test/api/v1/releases/electron/manifest",
         },
       }),
     ).toEqual({
@@ -1963,7 +1964,7 @@ describe("autoUpdater ready state sync", () => {
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1);
   });
 
-  it("启动后会注册 15 分钟轮询，并在空闲时再次检查更新", async () => {
+  it("启动后会注册 1 小时轮询，并在空闲时再次检查更新", async () => {
     vi.useFakeTimers();
     try {
       const { initAutoUpdater } = await import("../src/main/autoUpdater.js");
@@ -1971,7 +1972,7 @@ describe("autoUpdater ready state sync", () => {
       initAutoUpdater();
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1);
 
-      await vi.advanceTimersByTimeAsync(FIFTEEN_MINUTES_MS);
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
 
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2);
     } finally {
@@ -2093,7 +2094,7 @@ describe("autoUpdater ready state sync", () => {
         total: 10240,
       });
 
-      await vi.advanceTimersByTimeAsync(FIFTEEN_MINUTES_MS);
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
 
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1);
     } finally {

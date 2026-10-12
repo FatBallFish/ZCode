@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ZCODE_DYNAMIC_WORKFLOW_MODE_ENV, type ApiClient } from "@zcode/shared";
-import { BigModelCodingPlanSubscriptionProvider } from "../src/coding-plan-subscription/bigmodelCodingPlanSubscriptionProvider.js";
-import { createCodingPlanSubscriptionService } from "../src/coding-plan-subscription/codingPlanSubscriptionService.js";
+import { createMikikoClientConfigService } from "../src/model-provider/mikikoClientConfigService.js";
 
-// 动态工作流灰度快照的 Host 侧读取（docs/dynamic-workflow/launch.md「Gray release」）：
-// 复用 client/configs 通道，本地覆盖短路远端，失败 fail-closed 且不抛给调用方。
+// 动态工作流灰度数据源已切 Mikiko 自建 client/configs（spec specs/mikiko-cloud/
+// agent-endpoint-plan.md §4.1）：本地 env 覆盖最高优先且先于任何网络动作；快照缓存
+// 1h + in-flight 合并；失败语义 fail-open（工作流入口不可因配置面故障被关闭），
+// 仅「远端成功但未下发 dynamicWorkflow key」视为服务端明确关闭。
 
 function createConfigsResponse(dynamicWorkflow: unknown): Response {
   return new Response(
@@ -17,11 +18,8 @@ function createConfigsResponse(dynamicWorkflow: unknown): Response {
   );
 }
 
-function createProvider(apiClient: ApiClient) {
-  return new BigModelCodingPlanSubscriptionProvider({
-    apiClient,
-    credentialService: { load: vi.fn() },
-  });
+function createService(apiClient: ApiClient) {
+  return createMikikoClientConfigService({ apiClient });
 }
 
 describe("getDynamicWorkflowClientConfig", () => {
@@ -31,23 +29,23 @@ describe("getDynamicWorkflowClientConfig", () => {
     vi.restoreAllMocks();
   });
 
-  it("本地覆盖命中时直接返回，不打远端（无 TTL、无首次 Host 竞态）", async () => {
+  it("本地覆盖命中时直接返回，不打远端（先于任何网络动作）", async () => {
     vi.stubEnv(ZCODE_DYNAMIC_WORKFLOW_MODE_ENV, "alwaysOn");
     const apiClient: ApiClient = {
       request: vi.fn(async () => {
         throw new Error("override must not request remote client config");
       }),
     };
-    const provider = createProvider(apiClient);
+    const service = createService(apiClient);
 
-    await expect(provider.getDynamicWorkflowClientConfig()).resolves.toEqual({
+    await expect(service.getDynamicWorkflowClientConfig()).resolves.toEqual({
       mode: "alwaysOn",
       enabled: true,
       source: "override",
       offeredMode: "alwaysOn",
     });
     await expect(
-      provider.getDynamicWorkflowClientConfig({ forceRefresh: true }),
+      service.getDynamicWorkflowClientConfig({ forceRefresh: true }),
     ).resolves.toMatchObject({ source: "override" });
     expect(apiClient.request).not.toHaveBeenCalled();
   });
@@ -58,7 +56,7 @@ describe("getDynamicWorkflowClientConfig", () => {
       request: vi.fn(async () => createConfigsResponse({ mode: "onDemand" })),
     };
 
-    await expect(createProvider(apiClient).getDynamicWorkflowClientConfig()).resolves.toEqual({
+    await expect(createService(apiClient).getDynamicWorkflowClientConfig()).resolves.toEqual({
       mode: "onDemand",
       enabled: true,
       source: "remote",
@@ -72,7 +70,7 @@ describe("getDynamicWorkflowClientConfig", () => {
       request: vi.fn(async () => createConfigsResponse({ mode: "alwaysOn" })),
     };
 
-    await expect(createProvider(apiClient).getDynamicWorkflowClientConfig()).resolves.toEqual({
+    await expect(createService(apiClient).getDynamicWorkflowClientConfig()).resolves.toEqual({
       mode: "alwaysOn",
       enabled: true,
       source: "remote",
@@ -85,7 +83,7 @@ describe("getDynamicWorkflowClientConfig", () => {
       request: vi.fn(async () => createConfigsResponse(undefined)),
     };
 
-    await expect(createProvider(apiClient).getDynamicWorkflowClientConfig()).resolves.toEqual({
+    await expect(createService(apiClient).getDynamicWorkflowClientConfig()).resolves.toEqual({
       mode: "disabled",
       enabled: false,
       source: "default",
@@ -100,34 +98,34 @@ describe("getDynamicWorkflowClientConfig", () => {
         .mockResolvedValueOnce(createConfigsResponse({ mode: "disabled" }))
         .mockResolvedValueOnce(createConfigsResponse({ mode: "alwaysOn" })),
     };
-    const provider = createProvider(apiClient);
+    const service = createService(apiClient);
 
-    await expect(provider.getDynamicWorkflowClientConfig()).resolves.toMatchObject({
+    await expect(service.getDynamicWorkflowClientConfig()).resolves.toMatchObject({
       enabled: false,
     });
-    await expect(provider.getDynamicWorkflowClientConfig()).resolves.toMatchObject({
+    await expect(service.getDynamicWorkflowClientConfig()).resolves.toMatchObject({
       enabled: false,
     });
     expect(apiClient.request).toHaveBeenCalledTimes(1);
 
     await expect(
-      provider.getDynamicWorkflowClientConfig({ forceRefresh: true }),
+      service.getDynamicWorkflowClientConfig({ forceRefresh: true }),
     ).resolves.toMatchObject({ mode: "alwaysOn", enabled: true, source: "remote" });
     expect(apiClient.request).toHaveBeenCalledTimes(2);
   });
 
-  it("远端请求失败时 fail-closed 返回 default，不抛给调用方", async () => {
+  it("远端请求失败时 fail-open 返回 alwaysOn，不抛给调用方（工作流入口不得被关闭）", async () => {
     const apiClient: ApiClient = {
       request: vi.fn(async () => {
         throw new Error("network down");
       }),
     };
 
-    await expect(createProvider(apiClient).getDynamicWorkflowClientConfig()).resolves.toEqual({
-      mode: "disabled",
-      enabled: false,
+    await expect(createService(apiClient).getDynamicWorkflowClientConfig()).resolves.toEqual({
+      mode: "alwaysOn",
+      enabled: true,
       source: "default",
-      offeredMode: "disabled",
+      offeredMode: "alwaysOn",
     });
   });
 
@@ -139,7 +137,7 @@ describe("getDynamicWorkflowClientConfig", () => {
       }),
     };
 
-    await expect(createProvider(apiClient).getDynamicWorkflowClientConfig()).resolves.toEqual({
+    await expect(createService(apiClient).getDynamicWorkflowClientConfig()).resolves.toEqual({
       mode: "disabled",
       enabled: false,
       source: "override",
@@ -148,24 +146,18 @@ describe("getDynamicWorkflowClientConfig", () => {
     expect(apiClient.request).not.toHaveBeenCalled();
   });
 
-  it("service 把 options 原样委托给 bigmodel provider", async () => {
+  it("自建源被显式 disabled 时同样 fail-open 回落 alwaysOn", async () => {
+    vi.stubEnv("MIKIKO_CLIENT_CONFIG_URL", "disabled");
     const apiClient: ApiClient = {
-      request: vi
-        .fn()
-        .mockResolvedValueOnce(createConfigsResponse({ mode: "disabled" }))
-        .mockResolvedValueOnce(createConfigsResponse({ mode: "alwaysOn" })),
+      request: vi.fn(async () => createConfigsResponse({ mode: "disabled" })),
     };
-    const service = createCodingPlanSubscriptionService({
-      apiClient,
-      credentialService: { load: vi.fn() },
-    });
 
-    await expect(service.getDynamicWorkflowClientConfig()).resolves.toMatchObject({
-      enabled: false,
+    await expect(createService(apiClient).getDynamicWorkflowClientConfig()).resolves.toEqual({
+      mode: "alwaysOn",
+      enabled: true,
+      source: "default",
+      offeredMode: "alwaysOn",
     });
-    await expect(
-      service.getDynamicWorkflowClientConfig({ forceRefresh: true }),
-    ).resolves.toMatchObject({ enabled: true, source: "remote" });
-    expect(apiClient.request).toHaveBeenCalledTimes(2);
+    expect(apiClient.request).not.toHaveBeenCalled();
   });
 });

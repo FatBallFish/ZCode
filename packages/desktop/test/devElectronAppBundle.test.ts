@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   DEV_ELECTRON_APP_BUNDLE_ID,
   DEV_ELECTRON_APP_NAME,
-  DEV_ELECTRON_PROTOCOL_SCHEME,
+  DEV_ELECTRON_PROTOCOL_SCHEMES,
   DEV_ELECTRON_BUNDLE_FORMAT,
   patchDevElectronInfoPlist,
   prepareDevElectronAppBundle,
@@ -38,7 +38,9 @@ describe("dev Electron app bundle", () => {
     expect(patched).toContain(`<string>${DEV_ELECTRON_APP_NAME}</string>`);
     expect(patched).toContain(`<string>${DEV_ELECTRON_APP_BUNDLE_ID}</string>`);
     expect(patched).toContain("<key>CFBundleURLTypes</key>");
-    expect(patched).toContain(`<string>${DEV_ELECTRON_PROTOCOL_SCHEME}</string>`);
+    for (const scheme of DEV_ELECTRON_PROTOCOL_SCHEMES) {
+      expect(patched).toContain(`<string>${scheme}</string>`);
+    }
     expect((patched.match(/<key>CFBundleURLTypes<\/key>/gu) ?? []).length).toBe(1);
   });
 
@@ -49,7 +51,7 @@ describe("dev Electron app bundle", () => {
         electronVersion: "41.0.3",
         arch: "arm64",
       }),
-    ).toBe("/tmp/zcode-runtime/41.0.3-arm64/ZCode Dev.app");
+    ).toBe("/tmp/zcode-runtime/41.0.3-arm64/Mikiko Dev.app");
   });
 
   it("makes the macOS dev launcher use the prepared bundle executable", async () => {
@@ -84,12 +86,12 @@ describe("dev Electron app bundle", () => {
       arch: "arm64",
     });
 
-    expect(result.appPath).toBe(`${outputRoot}/41.0.3-arm64/ZCode Dev.app`);
+    expect(result.appPath).toBe(`${outputRoot}/41.0.3-arm64/Mikiko Dev.app`);
     expect(result.executablePath).toBe(
-      `${outputRoot}/41.0.3-arm64/ZCode Dev.app/Contents/MacOS/Electron`,
+      `${outputRoot}/41.0.3-arm64/Mikiko Dev.app/Contents/MacOS/Electron`,
     );
     const plist = await readFile(join(result.appPath, "Contents", "Info.plist"), "utf8");
-    expect(plist).toContain("dev.zcode.app.development");
+    expect(plist).toContain("dev.mikiko.app.development");
     expect(plist).toContain("<string>zcode</string>");
   });
 

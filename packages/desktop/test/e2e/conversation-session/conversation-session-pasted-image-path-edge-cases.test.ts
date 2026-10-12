@@ -43,13 +43,13 @@ const VALID_BMP_BASE64 =
   "Qk06AAAAAAAAADYAAAAoAAAAAQAAAAEAAAABABgAAAAAAAQAAAATCwAAEwsAAAAAAAAAAAAAAAD/AA==";
 const artifactRoot = join(
   getE2EAppDataPaths().homeDir,
-  ".zcode",
+  ".mikiko",
   "cli",
   "artifacts",
 );
 const imageCacheRoot = join(
   getE2EAppDataPaths().homeDir,
-  ".zcode",
+  ".mikiko",
   "cli",
   "image-cache",
 );

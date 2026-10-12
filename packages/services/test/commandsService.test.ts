@@ -27,7 +27,7 @@ function officialPluginRoot(
 ): string {
   return join(
     home,
-    ".zcode",
+    ".mikiko",
     "cli",
     "plugins",
     "cache",
@@ -45,7 +45,7 @@ function marketplacePluginRoot(
 ): string {
   return join(
     home,
-    ".zcode",
+    ".mikiko",
     "cli",
     "plugins",
     "cache",
@@ -88,7 +88,7 @@ function writeInstalledPluginRecord(
     version?: string;
   },
 ): void {
-  const pluginsRoot = join(home, ".zcode", "cli", "plugins");
+  const pluginsRoot = join(home, ".mikiko", "cli", "plugins");
   mkdirSync(pluginsRoot, { recursive: true });
   writeFileSync(
     join(pluginsRoot, "installed_plugins.json"),
@@ -117,8 +117,8 @@ function writeInstalledPluginRecord(
 }
 
 function writeCliConfig(home: string, config: Record<string, unknown>): void {
-  const configPath = join(home, ".zcode", "cli", "config.json");
-  mkdirSync(join(home, ".zcode", "cli"), { recursive: true });
+  const configPath = join(home, ".mikiko", "cli", "config.json");
+  mkdirSync(join(home, ".mikiko", "cli"), { recursive: true });
   writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
 }
 
@@ -146,17 +146,17 @@ describe("commandsService", () => {
   it("lists user commands and workspace project commands", async () => {
     const home = makeTempRoot();
     const workspacePath = join(makeTempRoot(), "workspace");
-    mkdirSync(join(home, ".zcode", "commands"), { recursive: true });
-    mkdirSync(join(workspacePath, ".zcode", "commands", "ops"), {
+    mkdirSync(join(home, ".mikiko", "commands"), { recursive: true });
+    mkdirSync(join(workspacePath, ".mikiko", "commands", "ops"), {
       recursive: true,
     });
     writeFileSync(
-      join(home, ".zcode", "commands", "global.md"),
+      join(home, ".mikiko", "commands", "global.md"),
       "---\ndescription: Global command\n---\n\nRun globally",
       "utf-8",
     );
     writeFileSync(
-      join(workspacePath, ".zcode", "commands", "ops", "deploy.md"),
+      join(workspacePath, ".mikiko", "commands", "ops", "deploy.md"),
       "---\ndescription: Deploy command\nargument-hint: <env>\n---\n\nDeploy project",
       "utf-8",
     );
@@ -178,7 +178,7 @@ describe("commandsService", () => {
           location: expect.objectContaining({
             source: "zcode",
             scope: "user",
-            directoryPath: join(home, ".zcode", "commands"),
+            directoryPath: join(home, ".mikiko", "commands"),
           }),
         }),
         expect.objectContaining({
@@ -191,7 +191,7 @@ describe("commandsService", () => {
           location: expect.objectContaining({
             source: "zcode",
             scope: "project",
-            directoryPath: join(workspacePath, ".zcode", "commands"),
+            directoryPath: join(workspacePath, ".mikiko", "commands"),
           }),
         }),
       ]),
@@ -204,10 +204,10 @@ describe("commandsService", () => {
   it("returns project commands even when the user commands directory is missing", async () => {
     const home = makeTempRoot();
     const workspacePath = join(makeTempRoot(), "workspace");
-    mkdirSync(join(workspacePath, ".zcode", "commands"), { recursive: true });
+    mkdirSync(join(workspacePath, ".mikiko", "commands"), { recursive: true });
     mkdirSync(join(workspacePath, ".agents", "commands"), { recursive: true });
     writeFileSync(
-      join(workspacePath, ".zcode", "commands", "project-only.md"),
+      join(workspacePath, ".mikiko", "commands", "project-only.md"),
       "Project command",
       "utf-8",
     );
@@ -224,7 +224,7 @@ describe("commandsService", () => {
         location: expect.objectContaining({
           source: "zcode",
           scope: "project",
-          directoryPath: join(workspacePath, ".zcode", "commands"),
+          directoryPath: join(workspacePath, ".mikiko", "commands"),
         }),
       }),
     ]);
@@ -233,14 +233,14 @@ describe("commandsService", () => {
   it("reads .zcode command directories first and skips .agents/.claude when zcode has commands", async () => {
     const home = makeTempRoot();
     const workspacePath = join(makeTempRoot(), "workspace");
-    mkdirSync(join(home, ".zcode", "commands"), { recursive: true });
+    mkdirSync(join(home, ".mikiko", "commands"), { recursive: true });
     mkdirSync(join(home, ".agents", "commands"), { recursive: true });
     mkdirSync(join(home, ".claude", "commands"), { recursive: true });
-    mkdirSync(join(workspacePath, ".zcode", "commands"), { recursive: true });
+    mkdirSync(join(workspacePath, ".mikiko", "commands"), { recursive: true });
     mkdirSync(join(workspacePath, ".agents", "commands"), { recursive: true });
     mkdirSync(join(workspacePath, ".claude", "commands"), { recursive: true });
     writeFileSync(
-      join(home, ".zcode", "commands", "review.md"),
+      join(home, ".mikiko", "commands", "review.md"),
       "ZCode review",
       "utf-8",
     );
@@ -270,7 +270,7 @@ describe("commandsService", () => {
       "utf-8",
     );
     writeFileSync(
-      join(workspacePath, ".zcode", "commands", "project.md"),
+      join(workspacePath, ".mikiko", "commands", "project.md"),
       "ZCode project",
       "utf-8",
     );
@@ -308,16 +308,16 @@ describe("commandsService", () => {
       agentSource: "zcodeAgent",
     });
 
-    expect(directory.path).toBe(join(home, ".zcode", "commands"));
+    expect(directory.path).toBe(join(home, ".mikiko", "commands"));
     expect(created.command).toMatchObject({
       agentSource: "zcodeAgent",
-      filePath: join(home, ".zcode", "commands", "ship-it.md"),
+      filePath: join(home, ".mikiko", "commands", "ship-it.md"),
       id: "zcodeAgent:zcode:global:/ship-it",
       name: "/ship-it",
       location: expect.objectContaining({
         source: "zcode",
         scope: "user",
-        directoryPath: join(home, ".zcode", "commands"),
+        directoryPath: join(home, ".mikiko", "commands"),
       }),
     });
     expect(readFileSync(created.command.filePath, "utf-8")).toContain(
@@ -331,18 +331,18 @@ describe("commandsService", () => {
 
     const directory = await service.getPrimaryUserCommandsDirectory();
 
-    expect(directory.path).toBe(join(home, ".zcode", "commands"));
+    expect(directory.path).toBe(join(home, ".mikiko", "commands"));
     expect(statSync(directory.path).isDirectory()).toBe(true);
   });
 
-  it("skips .agents/commands when .zcode/commands has any valid command", async () => {
+  it("skips .agents/commands when .mikiko/commands has any valid command", async () => {
     const home = makeTempRoot();
     const workspacePath = join(makeTempRoot(), "workspace");
-    mkdirSync(join(workspacePath, ".zcode", "commands"), { recursive: true });
+    mkdirSync(join(workspacePath, ".mikiko", "commands"), { recursive: true });
     mkdirSync(join(workspacePath, ".agents", "commands"), { recursive: true });
     // 同一 scope 中 .zcode 读到命令后，.agents 不再参与，即便包含不同命令名。
     writeFileSync(
-      join(workspacePath, ".zcode", "commands", "dup.md"),
+      join(workspacePath, ".mikiko", "commands", "dup.md"),
       "---\ndescription: from zcode\n---\n\nzcode body",
       "utf-8",
     );
@@ -370,10 +370,10 @@ describe("commandsService", () => {
     );
   });
 
-  it("falls back to .agents/commands when .zcode/commands has no valid command", async () => {
+  it("falls back to .agents/commands when .mikiko/commands has no valid command", async () => {
     const home = makeTempRoot();
     const workspacePath = join(makeTempRoot(), "workspace");
-    mkdirSync(join(workspacePath, ".zcode", "commands"), { recursive: true });
+    mkdirSync(join(workspacePath, ".mikiko", "commands"), { recursive: true });
     mkdirSync(join(workspacePath, ".agents", "commands"), { recursive: true });
     writeFileSync(
       join(workspacePath, ".agents", "commands", "agents-only.md"),
@@ -402,10 +402,10 @@ describe("commandsService", () => {
     const home = makeTempRoot();
     const workspacePath = join(makeTempRoot(), "workspace");
     const pluginRoot = officialPluginRoot(home, "ios-simulator");
-    mkdirSync(join(home, ".zcode", "commands"), { recursive: true });
+    mkdirSync(join(home, ".mikiko", "commands"), { recursive: true });
     mkdirSync(join(pluginRoot, "commands", "ios"), { recursive: true });
     writeFileSync(
-      join(home, ".zcode", "commands", "local-review.md"),
+      join(home, ".mikiko", "commands", "local-review.md"),
       "---\ndescription: Local review\n---\n\nReview locally",
       "utf-8",
     );
@@ -566,7 +566,7 @@ describe("commandsService", () => {
     });
 
     const saved = JSON.parse(
-      readFileSync(join(home, ".zcode", "cli", "config.json"), "utf-8"),
+      readFileSync(join(home, ".mikiko", "cli", "config.json"), "utf-8"),
     );
     expect(saved.command[created.command.filePath]).toEqual({ enable: false });
 
@@ -582,7 +582,7 @@ describe("commandsService", () => {
     });
     const enabled = await service.list({});
     const reenabledConfig = JSON.parse(
-      readFileSync(join(home, ".zcode", "cli", "config.json"), "utf-8"),
+      readFileSync(join(home, ".mikiko", "cli", "config.json"), "utf-8"),
     ) as { command?: Record<string, { enable?: boolean }> };
     expect(enabled.userCommands[0]).toEqual(
       expect.objectContaining({ enabled: true }),

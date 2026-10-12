@@ -161,7 +161,7 @@ async function waitForTaskIndexUnread(
 }
 
 function readTaskIndexUnread(taskId: string): number | null | undefined {
-  const db = new DatabaseSync(join(homedir(), ".zcode", "v2", "tasks-index.sqlite"));
+  const db = new DatabaseSync(join(homedir(), ".mikiko", "v2", "tasks-index.sqlite"));
   try {
     const row = db.prepare("select unread_at from tasks where task_id = ?").get(taskId) as
       | { unread_at?: number | null }

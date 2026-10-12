@@ -11,6 +11,47 @@ const captured = vi.hoisted(() => ({
   modelControlsProps: null as Record<string, unknown> | null,
 }));
 
+vi.mock("@/hooks/useSettingService.js", () => ({
+  useSettings: () => ({
+    settings: { zcodeInteractionBehavior: "queue" },
+    loading: false,
+  }),
+}));
+vi.mock("@/hooks/useServices.js", () => ({
+  useOptionalServices: () => null,
+  useServices: () => ({
+    modelSelectionService: { read: async () => null },
+    zcodeSessionService: {},
+    zcodeTaskService: {},
+    usageStatsService: {},
+    conversationShareService: {},
+    highspeedCardService: {},
+  }),
+  ServiceProvider: ({ children }: { children: unknown }) => children,
+}));
+vi.mock("@/hooks/usePlatform.js", () => ({
+  // custom Composer 树内有组件读平台能力；单测给最小桩。
+  usePlatform: () => ({
+    openExternal: vi.fn(async () => {}),
+    executeDesktopCommand: vi.fn(async () => {}),
+    platform: "darwin",
+  }),
+  useOptionalPlatform: () => null,
+}));
+vi.mock("@/store/TabStoreProvider.js", async (importOriginal) => {
+  // custom SessionPane 依赖 useTabStoreApi/useTabStore；单测不挂真实 Tab 树，
+  // 给最小 zustand 形状的桩（选择器读空 state）。
+  const api = {
+    getState: () => ({ tabs: [], activeTabId: null }),
+    setState: () => {},
+    subscribe: () => () => {},
+  };
+  return {
+    ...(await importOriginal<typeof import("@/store/TabStoreProvider.js")>()),
+    useTabStoreApi: () => api,
+    useTabStore: (selector: (state: unknown) => unknown) => selector(api.getState()),
+  };
+});
 vi.mock("@/ChatErrorBanner.js", async () => {
   const React = await import("react");
   return {

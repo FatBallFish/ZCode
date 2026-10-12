@@ -223,7 +223,7 @@ describe(`${CASE_MARKER}: SSH remote workspace P0`, () => {
 async function readProvisioningRecordCount(config: SSHRuntimeConfig): Promise<number> {
   const result = await runSSHCommand(
     config,
-    'if [ -f "$HOME/.zcode/v2/runtime/provider/provisioning.json" ]; then cat "$HOME/.zcode/v2/runtime/provider/provisioning.json"; else printf \'{"records":[]}\'; fi',
+    'if [ -f "$HOME/.mikiko/v2/runtime/provider/provisioning.json" ]; then cat "$HOME/.mikiko/v2/runtime/provider/provisioning.json"; else printf \'{"records":[]}\'; fi',
   );
   if (result.code !== 0) {
     throw new Error(`${CASE_MARKER}: 读取远端 Provisioning 状态失败：${result.stderr}`);

@@ -46,11 +46,11 @@ function writeSkillMeta(basePath: string, folder: string, metadata: unknown): vo
 }
 
 function workspaceSkillRoot(workspacePath: string): string {
-  return join(workspacePath, ".zcode", "skills");
+  return join(workspacePath, ".mikiko", "skills");
 }
 
 function userSkillRoot(home: string): string {
-  return join(home, ".zcode", "skills");
+  return join(home, ".mikiko", "skills");
 }
 
 function userAgentsSkillRoot(home: string): string {
@@ -60,7 +60,7 @@ function userAgentsSkillRoot(home: string): string {
 function officialPluginRoot(home: string, pluginName: string, version = "0.1.0"): string {
   return join(
     home,
-    ".zcode",
+    ".mikiko",
     "cli",
     "plugins",
     "cache",
@@ -78,7 +78,7 @@ function marketplacePluginRoot(
 ): string {
   return join(
     home,
-    ".zcode",
+    ".mikiko",
     "cli",
     "plugins",
     "cache",
@@ -115,7 +115,7 @@ function writeInstalledPluginRecord(
     version?: string;
   },
 ): void {
-  const pluginsRoot = join(home, ".zcode", "cli", "plugins");
+  const pluginsRoot = join(home, ".mikiko", "cli", "plugins");
   mkdirSync(pluginsRoot, { recursive: true });
   writeFileSync(
     join(pluginsRoot, "installed_plugins.json"),
@@ -144,8 +144,8 @@ function writeInstalledPluginRecord(
 }
 
 function writeCliConfig(home: string, config: Record<string, unknown>): void {
-  const configPath = join(home, ".zcode", "cli", "config.json");
-  mkdirSync(join(home, ".zcode", "cli"), { recursive: true });
+  const configPath = join(home, ".mikiko", "cli", "config.json");
+  mkdirSync(join(home, ".mikiko", "cli"), { recursive: true });
   writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
 }
 
@@ -163,7 +163,7 @@ afterEach(() => {
 });
 
 describe("skillsService", () => {
-  it("workspace 同层合并读取 .zcode 与 .agents，并忽略废弃和 Claude 技能目录", async () => {
+  it("workspace 同层合并读取 .mikiko 与 .agents，并忽略废弃和 Claude 技能目录", async () => {
     const home = makeTempHome();
     const workspacePath = join(home, "workspace");
     writeSkill(
@@ -176,7 +176,7 @@ description: from zcode
 zcode-body`,
     );
     writeSkill(
-      join(workspacePath, ".zcode", "cli", "skills"),
+      join(workspacePath, ".mikiko", "cli", "skills"),
       "old-glm",
       `---
 name: old-glm
@@ -220,7 +220,7 @@ claude-body`,
   });
 
   it.skipIf(process.platform === "win32")(
-    "workspace .zcode/skills 软链导入的技能可被 / 和 $ 面板发现",
+    "workspace .mikiko/skills 软链导入的技能可被 / 和 $ 面板发现",
     async () => {
       const home = makeTempHome();
       const workspacePath = join(home, "workspace");
@@ -406,7 +406,7 @@ body`,
     });
   });
 
-  it("桌面 runtime 同时读取用户级 ~/.zcode/skills 和 ~/.agents/skills", async () => {
+  it("桌面 runtime 同时读取用户级 ~/.mikiko/skills 和 ~/.agents/skills", async () => {
     const home = makeTempHome();
     const workspacePath = join(home, "workspace");
     writeSkill(
@@ -464,7 +464,7 @@ description: agents version
 agents-review-body`,
     );
     writeSkill(
-      join(home, ".zcode", "cli", "skills"),
+      join(home, ".mikiko", "cli", "skills"),
       "old-global",
       `---
 name: old-global
@@ -484,13 +484,13 @@ body`,
       "zcode-global",
     ]);
     expect(result.skills.find((skill) => skill.name === "copied-global")?.path)
-      .toContain(join(home, ".zcode", "skills", "copied-global"));
+      .toContain(join(home, ".mikiko", "skills", "copied-global"));
     expect(result.skills.find((skill) => skill.name === "shared-review")?.path)
-      .toContain(join(home, ".zcode", "skills", "current-review"));
+      .toContain(join(home, ".mikiko", "skills", "current-review"));
     expect(result.skills.every((skill) => skill.scope === "user")).toBe(true);
   });
 
-  it("桌面 runtime 用户级 ~/.zcode/skills 没有技能时 fallback 到 ~/.agents/skills", async () => {
+  it("桌面 runtime 用户级 ~/.mikiko/skills 没有技能时 fallback 到 ~/.agents/skills", async () => {
     const home = makeTempHome();
     const workspacePath = join(home, "workspace");
     writeSkill(
@@ -905,7 +905,7 @@ body`,
       provider: "glm",
     });
     const config = JSON.parse(
-      readFileSync(join(home, ".zcode", "cli", "config.json"), "utf-8"),
+      readFileSync(join(home, ".mikiko", "cli", "config.json"), "utf-8"),
     ) as { skills?: Record<string, { enable?: boolean }> };
     expect(disabled.skills[0]?.enabled).toBe(false);
     expect(enabled.skills[0]?.enabled).toBe(false);
@@ -926,7 +926,7 @@ body`,
       provider: "glm",
     });
     const reenabledConfig = JSON.parse(
-      readFileSync(join(home, ".zcode", "cli", "config.json"), "utf-8"),
+      readFileSync(join(home, ".mikiko", "cli", "config.json"), "utf-8"),
     ) as { skills?: Record<string, { enable?: boolean }> };
     expect(reenabled.skills[0]?.enabled).toBe(true);
     expect(reenabledConfig.skills?.[skill.path]).toBeUndefined();
@@ -936,8 +936,8 @@ body`,
     const home = makeTempHome();
     const workspacePath = join(home, "workspace");
     const legacySkillId = "workspace:legacy-skill";
-    const legacyStatePath = join(home, ".zcode", "v2", "skills-state.json");
-    mkdirSync(join(home, ".zcode", "v2"), { recursive: true });
+    const legacyStatePath = join(home, ".mikiko", "v2", "skills-state.json");
+    mkdirSync(join(home, ".mikiko", "v2"), { recursive: true });
     writeFileSync(
       legacyStatePath,
       JSON.stringify({ disabledByWorkspace: { [workspacePath]: [legacySkillId] } }),
@@ -951,7 +951,7 @@ body`,
       disabledByWorkspace?: Record<string, string[]>;
     };
     expect(state.disabledByWorkspace).toEqual({ [workspacePath]: [legacySkillId] });
-    expect(existsSync(join(home, ".zcode", "cli", "config.json"))).toBe(false);
+    expect(existsSync(join(home, ".mikiko", "cli", "config.json"))).toBe(false);
   });
 
   it("buildPromptContext 只注入启用且被提及的技能正文", async () => {
@@ -988,7 +988,7 @@ plan-body`,
     expect(context.prompt).toContain("review-body");
     expect(context.prompt).not.toContain("plan-body");
     expect(context.activatedSkillNames).toEqual(["code-review"]);
-    expect(existsSync(join(home, ".zcode", "v2", "skills-audit.log"))).toBe(true);
+    expect(existsSync(join(home, ".mikiko", "v2", "skills-audit.log"))).toBe(true);
   });
 
   it("被禁用的技能即便被提及也不会注入", async () => {
@@ -1168,7 +1168,7 @@ second-body`,
     ).toBe(false);
   });
 
-  it("worktree 内子目录扫描会向上汇集祖先 .zcode/skills", async () => {
+  it("worktree 内子目录扫描会向上汇集祖先 .mikiko/skills", async () => {
     const home = makeTempHome();
     const repoRoot = join(home, "repo");
     mkdirSync(join(repoRoot, ".git"), { recursive: true });
@@ -1201,7 +1201,7 @@ body`,
     ]);
   });
 
-  it("deleteSkill 删除 .zcode/skills 工作区技能目录", async () => {
+  it("deleteSkill 删除 .mikiko/skills 工作区技能目录", async () => {
     const home = makeTempHome();
     const workspacePath = join(home, "workspace");
     const skillDir = join(workspaceSkillRoot(workspacePath), "repo-review");
@@ -1228,7 +1228,7 @@ body`,
   });
 
   it.skipIf(process.platform === "win32")(
-    "deleteSkill 删除用户级 ~/.zcode/skills 软链技能：只删链接、保留外部目标",
+    "deleteSkill 删除用户级 ~/.mikiko/skills 软链技能：只删链接、保留外部目标",
     async () => {
       const home = makeTempHome();
       const workspacePath = join(home, "workspace");
@@ -1265,7 +1265,7 @@ body`,
   );
 
   it.skipIf(process.platform === "win32")(
-    "deleteSkill 删除工作区 .zcode/skills 软链技能：只删链接、保留外部目标",
+    "deleteSkill 删除工作区 .mikiko/skills 软链技能：只删链接、保留外部目标",
     async () => {
       const home = makeTempHome();
       const workspacePath = join(home, "workspace");
@@ -1300,7 +1300,7 @@ body`,
   it.skipIf(process.platform === "win32")(
     "deleteSkill 拒绝经由“软链祖先目录”删除，保护外部目标数据",
     async () => {
-      // 用户把一整个外部目录软链进 ~/.zcode/skills（分组软链），
+      // 用户把一整个外部目录软链进 ~/.mikiko/skills（分组软链），
       // 其下的技能扫描时会被发现。删除时若顺着分组软链 rm，会删掉外部真实目录里的子技能——数据丢失。
       // 本用例断言这种情况被安全拦截：抛错、且外部目标完好。
       const home = makeTempHome();
@@ -1316,7 +1316,7 @@ description: nested under a symlinked group dir
 body`,
       );
       mkdirSync(userSkillRoot(home), { recursive: true });
-      // ~/.zcode/skills/mygroup -> /external-agent/group
+      // ~/.mikiko/skills/mygroup -> /external-agent/group
       symlinkSync(externalGroup, join(userSkillRoot(home), "mygroup"), "dir");
 
       const service = await createSkillsServiceInEnv(home, { isDesktopRuntime: true });

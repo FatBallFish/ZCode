@@ -15,7 +15,7 @@ describe("Bot v3 单向导入与回滚文件隔离", () => {
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), "bot-v3-"));
     setDataBaseDir(root);
-    dir = join(root, ".zcode", "v2");
+    dir = join(root, ".mikiko", "v2");
     await mkdir(dir, { recursive: true });
   });
   afterEach(async () => {

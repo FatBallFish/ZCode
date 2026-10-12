@@ -7,7 +7,7 @@ import { setDataBaseDir } from "../src/paths.js";
 import { resolveModelIODirs } from "../src/zcode-agent/modelTrajectoryFileTail.js";
 // agent 契约直接读源文件保持单一事实源：apps/zcode-cli 子 workspace 无独立测试基建，
 // 这里锚定「agent 写入根」与「host 读取根」一致，防止任一侧路径再次漂移（写读失配会让
-// 调用轨迹全量读空，2026-10-08 的 storage.dir=~/.zcode 与读取侧 ~/.mikiko 失配即此事故）。
+// 调用轨迹全量读空，2026-10-08 的 storage.dir=~/.mikiko 与读取侧 ~/.mikiko 失配即此事故）。
 import { DefaultRuntimeConfig as DefaultConfig } from "../../../apps/zcode-cli/packages/contracts/src/config/index.js";
 import {
   SAVED_WORKFLOW_GLOBAL_DIR,
@@ -42,7 +42,7 @@ test("host 调用轨迹读取根与 agent model-io 写入根一致", () => {
   for (const dir of dirs) {
     assert.ok(
       dir.includes(".mikiko"),
-      `读取根 ${dir} 必须落在 Mikiko 数据根下，不允许回到共享的 ~/.zcode`,
+      `读取根 ${dir} 必须落在 Mikiko 数据根下，不允许回到共享的 ~/.mikiko`,
     );
   }
 });

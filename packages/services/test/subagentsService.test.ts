@@ -31,7 +31,7 @@ async function writeOfficialPluginFixture(
 ): Promise<string> {
   const root = join(
     home,
-    ".zcode",
+    ".mikiko",
     "cli",
     "plugins",
     "cache",
@@ -39,7 +39,7 @@ async function writeOfficialPluginFixture(
     pluginName,
     version,
   );
-  await mkdir(join(home, ".zcode", "cli", "plugins"), { recursive: true });
+  await mkdir(join(home, ".mikiko", "cli", "plugins"), { recursive: true });
   await mkdir(join(root, ".zcode-plugin"), { recursive: true });
   await mkdir(join(root, "agents"), { recursive: true });
   await writeFile(
@@ -76,8 +76,8 @@ describe("subagent markdown helpers", () => {
     const home = await makeTempHome();
     const workspacePath = join(home, "workspace");
     for (const [scope, root] of [
-      ["user", join(home, ".zcode", "agents")],
-      ["project", join(workspacePath, ".zcode", "agents")],
+      ["user", join(home, ".mikiko", "agents")],
+      ["project", join(workspacePath, ".mikiko", "agents")],
     ] as const) {
       await mkdir(join(root, "nested"), { recursive: true });
       for (const nested of [false, true]) {
@@ -131,7 +131,7 @@ describe("subagent markdown helpers", () => {
     // browser-use 默认启用，但被用户「卸载」进入 suppressedBuiltins，同样不能贡献 agent。
     await writeOfficialPluginFixture(home, "browser-use", "0.5.0", "browser-auditor");
     await writeFile(
-      join(home, ".zcode", "cli", "config.json"),
+      join(home, ".mikiko", "cli", "config.json"),
       JSON.stringify({
         plugins: {
           suppressedBuiltins: ["browser-use@zcode-plugins-official"],
@@ -158,7 +158,7 @@ describe("subagent markdown helpers", () => {
       result.agents.filter((agent) => agent.source === "plugin").map((agent) => agent.name),
     ).toEqual(["documents:visual-judge", "visual-judge"]);
     await writeFile(
-      join(home, ".zcode", "cli", "config.json"),
+      join(home, ".mikiko", "cli", "config.json"),
       JSON.stringify({
         plugins: {
           enabledPlugins: { "documents@zcode-plugins-official": false },
@@ -173,8 +173,8 @@ describe("subagent markdown helpers", () => {
     const home = await makeTempHome();
     const workspacePath = join(home, "workspace");
     await writeOfficialPluginFixture(home, "documents", "0.1.4", "visual-judge");
-    const projectPath = join(workspacePath, ".zcode", "agents", "project.md");
-    await mkdir(join(workspacePath, ".zcode", "agents"), { recursive: true });
+    const projectPath = join(workspacePath, ".mikiko", "agents", "project.md");
+    await mkdir(join(workspacePath, ".mikiko", "agents"), { recursive: true });
     const projectContent =
       "---\nname: project\nmodel: builtin:zai-coding-plan/GLM-5.3\n---\nProject.";
     await writeFile(projectPath, projectContent);
@@ -206,7 +206,7 @@ describe("subagent markdown helpers", () => {
       "utf8",
     );
     await writeFile(
-      join(home, ".zcode", "cli", "plugins", "installed_plugins.json"),
+      join(home, ".mikiko", "cli", "plugins", "installed_plugins.json"),
       JSON.stringify({
         version: 1,
         plugins: [
@@ -223,7 +223,7 @@ describe("subagent markdown helpers", () => {
       "utf8",
     );
     await writeFile(
-      join(home, ".zcode", "cli", "config.json"),
+      join(home, ".mikiko", "cli", "config.json"),
       JSON.stringify({
         plugins: { enabledPlugins: { "documents@zcode-plugins-official": true } },
       }),
@@ -237,7 +237,7 @@ describe("subagent markdown helpers", () => {
       join(installedRoot, "agents", "visual-judge.md"),
     ]);
     await writeFile(
-      join(home, ".zcode", "cli", "config.json"),
+      join(home, ".mikiko", "cli", "config.json"),
       JSON.stringify({
         plugins: {
           enabledPlugins: { "documents@zcode-plugins-official": true },
@@ -247,7 +247,7 @@ describe("subagent markdown helpers", () => {
     );
     expect((await service.list({ workspacePath, provider: "glm" })).pluginAgents).toEqual([]);
     await writeFile(
-      join(home, ".zcode", "cli", "config.json"),
+      join(home, ".mikiko", "cli", "config.json"),
       JSON.stringify({
         plugins: { enabledPlugins: { "documents@zcode-plugins-official": false } },
       }),
@@ -258,7 +258,7 @@ describe("subagent markdown helpers", () => {
   it("插件覆盖按稳定身份原子保存，别名一致，清除后回到未修改的插件默认", async () => {
     const home = await makeTempHome();
     const pluginRoot = join(home, "installed", "fixture");
-    const pluginStorage = join(home, ".zcode", "cli", "plugins");
+    const pluginStorage = join(home, ".mikiko", "cli", "plugins");
     const pluginId = "fixture@personal";
     const agentId = "plugin:fixture@personal:visual-judge";
     const path = join(pluginRoot, "agents", "visual-judge.md");
@@ -280,7 +280,7 @@ describe("subagent markdown helpers", () => {
       }),
     );
     await writeFile(
-      join(home, ".zcode", "cli", "config.json"),
+      join(home, ".mikiko", "cli", "config.json"),
       JSON.stringify({
         plugins: { enabledPlugins: { [pluginId]: true } },
       }),
@@ -541,9 +541,9 @@ describe("subagent storage roots", () => {
   it("uses runtime storage.dir agents root for user subagents", async () => {
     const home = await makeTempHome();
     const storageRoot = join(home, "custom-storage");
-    await mkdir(join(home, ".zcode", "cli"), { recursive: true });
+    await mkdir(join(home, ".mikiko", "cli"), { recursive: true });
     await writeFile(
-      join(home, ".zcode", "cli", "config.json"),
+      join(home, ".mikiko", "cli", "config.json"),
       JSON.stringify({ storage: { dir: storageRoot } }),
       "utf8",
     );
@@ -562,7 +562,7 @@ describe("createSubagentsService", () => {
     const home = await makeTempHome();
     const userRoot = await resolveUserSubagentRoot({ homeDir: home });
     const workspacePath = join(home, "workspace");
-    const projectRoot = join(workspacePath, ".zcode", "agents");
+    const projectRoot = join(workspacePath, ".mikiko", "agents");
     await mkdir(userRoot, { recursive: true });
     await mkdir(projectRoot, { recursive: true });
     const content =
@@ -599,7 +599,7 @@ describe("createSubagentsService", () => {
   it("损坏的 Subagent state 不阻塞整个会话启动，也不覆盖原文件", async () => {
     const home = await makeTempHome();
     const path = await resolveSubagentStateFile({ homeDir: home });
-    await mkdir(join(home, ".zcode", "v2"), { recursive: true });
+    await mkdir(join(home, ".mikiko", "v2"), { recursive: true });
     const original = '{"builtInModelOverrides":';
     await writeFile(path, original);
     await expect(
@@ -611,7 +611,7 @@ describe("createSubagentsService", () => {
   it("启动准备将旧内置选择落盘，让独立 Agent loader 不必等待用户编辑", async () => {
     const home = await makeTempHome();
     const statePath = await resolveSubagentStateFile({ homeDir: home });
-    await mkdir(join(home, ".zcode", "v2"), { recursive: true });
+    await mkdir(join(home, ".mikiko", "v2"), { recursive: true });
     const legacy = {
       builtInModelOverrides: { Explore: "custom:builtin%3Azai-coding-plan:GLM-5.3-Flash" },
       builtInThoughtLevelOverrides: { Explore: "high" },
@@ -639,7 +639,7 @@ describe("createSubagentsService", () => {
   it("并发启动导入与新版手动清空，写队列保留用户结果", async () => {
     const home = await makeTempHome();
     const statePath = await resolveSubagentStateFile({ homeDir: home });
-    await mkdir(join(home, ".zcode", "v2"), { recursive: true });
+    await mkdir(join(home, ".mikiko", "v2"), { recursive: true });
     await writeFile(
       statePath,
       JSON.stringify({ builtInModelOverrides: { Explore: "custom:builtin%3Azai-coding-plan:m" } }),
@@ -658,7 +658,7 @@ describe("createSubagentsService", () => {
   it("旧内置模型覆盖导入并随正常保存固定；旧字段仅保留供回滚", async () => {
     const home = await makeTempHome();
     const statePath = await resolveSubagentStateFile({ homeDir: home });
-    await mkdir(join(home, ".zcode", "v2"), { recursive: true });
+    await mkdir(join(home, ".mikiko", "v2"), { recursive: true });
     const legacy = {
       builtInModelOverrides: { Explore: "custom:builtin%3Azai-coding-plan:GLM-5.3-Flash" },
       builtInThoughtLevelOverrides: { Explore: "high" },
@@ -810,10 +810,10 @@ describe("createSubagentsService", () => {
   it("settings user-only list hides workspace agents but keeps built-ins and user agents", async () => {
     const home = await makeTempHome();
     const workspacePath = join(home, "workspace");
-    await mkdir(join(home, ".zcode", "agents"), { recursive: true });
-    await mkdir(join(workspacePath, ".zcode", "agents"), { recursive: true });
+    await mkdir(join(home, ".mikiko", "agents"), { recursive: true });
+    await mkdir(join(workspacePath, ".mikiko", "agents"), { recursive: true });
     await writeFile(
-      join(home, ".zcode", "agents", "code-reviewer.md"),
+      join(home, ".mikiko", "agents", "code-reviewer.md"),
       serializeSubagentMarkdown({
         name: "code-reviewer",
         description: "提交前审查代码",
@@ -822,7 +822,7 @@ describe("createSubagentsService", () => {
       "utf8",
     );
     await writeFile(
-      join(workspacePath, ".zcode", "agents", "workspace-reviewer.md"),
+      join(workspacePath, ".mikiko", "agents", "workspace-reviewer.md"),
       serializeSubagentMarkdown({
         name: "workspace-reviewer",
         description: "工作区审查",
@@ -870,7 +870,7 @@ describe("createSubagentsService", () => {
     const workspacePath = join(home, "workspace");
     const pluginRoot = join(
       home,
-      ".zcode",
+      ".mikiko",
       "cli",
       "plugins",
       "cache",
@@ -878,11 +878,11 @@ describe("createSubagentsService", () => {
       "feature-dev",
       "0.0.0",
     );
-    await mkdir(join(home, ".zcode", "cli", "plugins"), { recursive: true });
+    await mkdir(join(home, ".mikiko", "cli", "plugins"), { recursive: true });
     await mkdir(join(pluginRoot, ".claude-plugin"), { recursive: true });
     await mkdir(join(pluginRoot, "agents"), { recursive: true });
     await writeFile(
-      join(home, ".zcode", "cli", "config.json"),
+      join(home, ".mikiko", "cli", "config.json"),
       JSON.stringify({
         plugins: {
           enabledPlugins: {
@@ -893,7 +893,7 @@ describe("createSubagentsService", () => {
       "utf8",
     );
     await writeFile(
-      join(home, ".zcode", "cli", "plugins", "installed_plugins.json"),
+      join(home, ".mikiko", "cli", "plugins", "installed_plugins.json"),
       JSON.stringify({
         version: 1,
         plugins: [
@@ -958,7 +958,7 @@ tools:
     // browser-use 默认启用，但被用户「卸载」进入 suppressedBuiltins，同样不能贡献 agent。
     await writeOfficialPluginFixture(home, "browser-use", "0.5.0", "browser-auditor");
     await writeFile(
-      join(home, ".zcode", "cli", "config.json"),
+      join(home, ".mikiko", "cli", "config.json"),
       JSON.stringify({
         plugins: {
           suppressedBuiltins: ["browser-use@zcode-plugins-official"],
@@ -1004,7 +1004,7 @@ tools:
       "utf8",
     );
     await writeFile(
-      join(home, ".zcode", "cli", "plugins", "installed_plugins.json"),
+      join(home, ".mikiko", "cli", "plugins", "installed_plugins.json"),
       JSON.stringify({
         version: 1,
         plugins: [
@@ -1021,7 +1021,7 @@ tools:
       "utf8",
     );
     await writeFile(
-      join(home, ".zcode", "cli", "config.json"),
+      join(home, ".mikiko", "cli", "config.json"),
       JSON.stringify({
         plugins: { enabledPlugins: { "documents@zcode-plugins-official": true } },
       }),
@@ -1107,7 +1107,7 @@ tools:
       },
     });
 
-    expect(result.agent.path).toBe(join(home, ".zcode", "agents", "code-reviewer.md"));
+    expect(result.agent.path).toBe(join(home, ".mikiko", "agents", "code-reviewer.md"));
     await expect(readFile(result.agent.path, "utf8")).resolves.toContain("你是严格的代码审查员。");
   });
 
@@ -1133,7 +1133,7 @@ tools:
     expect(created.agent).toMatchObject({
       scope: "workspace",
       projectPath: workspacePath,
-      path: join(workspacePath, ".zcode", "agents", "workspace-reviewer.md"),
+      path: join(workspacePath, ".mikiko", "agents", "workspace-reviewer.md"),
     });
 
     const updated = await service.updateAgent({
@@ -1151,7 +1151,7 @@ tools:
     });
     expect(updated.agent.scope).toBe("workspace");
     expect(updated.agent.path).toBe(
-      join(workspacePath, ".zcode", "agents", "workspace-reviewer-v2.md"),
+      join(workspacePath, ".mikiko", "agents", "workspace-reviewer-v2.md"),
     );
     await expect(readFile(updated.agent.path, "utf8")).resolves.toContain(
       "Review workspace changes carefully.",

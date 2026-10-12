@@ -1149,14 +1149,14 @@ export async function createFeedbackLogArchiveFromExportLogs(
       { directory: getZCodeCliLogDir(), archivePrefix: ".mikiko/cli/log" },
       {
         directory: getZCodeCliDir(),
-        archivePrefix: ".zcode/cli",
+        archivePrefix: ".mikiko/cli",
         includeFileNames: ["config.json"],
         onlyCurrentDay: false,
         contentPolicy: "cli-config",
       },
       {
         directory: join(getZCodeCliDir(), "rollout"),
-        archivePrefix: ".zcode/cli/rollout",
+        archivePrefix: ".mikiko/cli/rollout",
       },
       {
         directory: getCuaHelperRunDir(),

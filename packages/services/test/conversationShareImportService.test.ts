@@ -172,12 +172,12 @@ describe("ConversationShareService import", () => {
       "operation-1",
     );
     expect(imported.sessionId).toBe("imported-session");
-    const shareRootEntries = await readdir(join(imported.workspacePath, ".zcode-share"));
+    const shareRootEntries = await readdir(join(imported.workspacePath, ".mikiko-share"));
     expect(shareRootEntries).toHaveLength(1);
     expect(
       (
         await stat(
-          join(imported.workspacePath, ".zcode-share", shareRootEntries[0]!, "shared-artifacts"),
+          join(imported.workspacePath, ".mikiko-share", shareRootEntries[0]!, "shared-artifacts"),
         )
       ).isDirectory(),
     ).toBe(true);
@@ -185,9 +185,9 @@ describe("ConversationShareService import", () => {
       readFile(
         join(
           imported.workspacePath,
-          ".zcode-share",
+          ".mikiko-share",
           shareRootEntries[0]!,
-          ".zcode-share-import.json",
+          ".mikiko-share-import.json",
         ),
       ),
     ).rejects.toThrow();
@@ -550,8 +550,8 @@ describe("ConversationShareService import", () => {
     );
     const artifactDir = join(
       imported.workspacePath,
-      ".zcode-share",
-      (await readdir(join(imported.workspacePath, ".zcode-share")))[0]!,
+      ".mikiko-share",
+      (await readdir(join(imported.workspacePath, ".mikiko-share")))[0]!,
       "shared-artifacts",
     );
     expect(await readdir(artifactDir)).toHaveLength(1);
@@ -881,10 +881,10 @@ describe("ConversationShareService import", () => {
       `https://zcode.example.test/cn/share/${encodeURIComponent(share.share_code)}`,
     );
 
-    // 未显式指定时按环境推导：origin 必须与 API base 用的同一个解析器一致，
-    // 路径仍是规范 /cn/share/<code>（sharedContextImport schema 要求）。
-    // 必须真的切一个非生产 endpoint，否则推导值与旧的写死值恰好相同，测不出回归。
-    vi.stubEnv("ZCODE_BASE_URL", "https://zcode.z.ai");
+    // 未显式指定时按环境推导（custom：MIKIKO_ 前缀，spec agent-endpoint-plan §4.5）：
+    // origin 必须与 API base 用的同一个解析器一致；路径仍是规范 /cn/share/<code>。
+    // 必须真的切一个非默认 endpoint，否则推导值与缺省值恰好相同，测不出回归。
+    vi.stubEnv("MIKIKO_SHARE_WEB_URL", "https://share-env.mikiko.example");
     const derived = build();
     const secondShare = await derived.publish(
       {
@@ -903,7 +903,7 @@ describe("ConversationShareService import", () => {
       "operation-endpoint-2",
     );
     const derivedUrl = new URL(derivedImport.shareUrl);
-    expect(derivedUrl.origin).toBe("https://zcode.z.ai");
+    expect(derivedUrl.origin).toBe("https://share-env.mikiko.example");
     expect(derivedUrl.origin).toBe(resolveRuntimeZCodeEndpointOrigin(process.env));
     expect(derivedUrl.pathname).toBe(`/cn/share/${encodeURIComponent(secondShare.share_code)}`);
     vi.unstubAllEnvs();
@@ -989,9 +989,9 @@ describe("ConversationShareService import", () => {
       subscription.dispose();
     }
 
-    const shareRootEntries = await readdir(join(root, ".zcode-share"));
+    const shareRootEntries = await readdir(join(root, ".mikiko-share"));
     expect(shareRootEntries).toHaveLength(1);
-    const importRoot = join(root, ".zcode-share", shareRootEntries[0]!);
+    const importRoot = join(root, ".mikiko-share", shareRootEntries[0]!);
     expect((await stat(join(importRoot, "shared-artifacts"))).isDirectory()).toBe(true);
     await expect(readFile(join(importRoot, "shared-conversation.json"), "utf8")).resolves.toContain(
       "formatVersion",
@@ -1063,7 +1063,7 @@ describe("ConversationShareService import", () => {
       );
 
     // 用真实文件系统冲突让 rename 失败：索引路径先被一个非空目录占住。
-    const indexPath = join(root, ".zcode-share-imports.json");
+    const indexPath = join(root, ".mikiko-share-imports.json");
     await mkdir(indexPath, { recursive: true });
     await writeFile(join(indexPath, "blocker"), "blocked", "utf8");
 
@@ -1202,10 +1202,10 @@ describe("ConversationShareService import", () => {
     expect(loaded?.unsupportedRowCount).toBe(1);
 
     // 落盘副本保存原始 rows：用户升级之后能看到当时认不出的内容，不被永久抹掉。
-    const shareDirs = await readdir(join(imported.workspacePath, ".zcode-share"));
+    const shareDirs = await readdir(join(imported.workspacePath, ".mikiko-share"));
     const persistedCopy = JSON.parse(
       await readFile(
-        join(imported.workspacePath, ".zcode-share", shareDirs[0]!, "shared-conversation.json"),
+        join(imported.workspacePath, ".mikiko-share", shareDirs[0]!, "shared-conversation.json"),
         "utf8",
       ),
     ) as { rows: unknown[] };

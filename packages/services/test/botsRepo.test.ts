@@ -22,7 +22,7 @@ describe("BotsRepo", () => {
   });
 
   it("reads legacy bot-state.json but writes bot-state.v3.json", async () => {
-    const dataDir = join(tempDir!, ".zcode", "v2");
+    const dataDir = join(tempDir!, ".mikiko", "v2");
     mkdirSync(dataDir, { recursive: true });
     writeFileSync(
       join(dataDir, "bot-state.json"),

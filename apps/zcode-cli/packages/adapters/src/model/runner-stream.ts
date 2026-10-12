@@ -517,7 +517,10 @@ export async function* runStreamText(input: {
               source: diagnostics.lastErrorChunk ?? diagnostics.lastFinishChunk,
             }) ??
             createRequestVerificationEmptyStreamError({
-              accountMode: resolved.accountAccess?.mode,
+              accountMode:
+                resolved.accountAccess && "mode" in resolved.accountAccess
+                  ? resolved.accountAccess.mode
+                  : undefined,
               headers: resolved.headers,
               providerId: String(statusContext.providerId),
               providerKind: resolved.providerKind,

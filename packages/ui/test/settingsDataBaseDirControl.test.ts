@@ -28,6 +28,10 @@ const EXPECTED_MODEL_IO_FULL_RETENTION_DESCRIPTION_ZH =
 const EXPECTED_MODEL_IO_FULL_RETENTION_DESCRIPTION_EN =
   "Keep complete model requests and responses without compression, size limits, or automatic deletion.";
 
+vi.mock("@/hooks/usePlatform.js", () => ({
+  usePlatform: () => ({ openExternal: vi.fn(async () => {}), executeDesktopCommand: vi.fn(async () => {}), platform: "darwin" }),
+  useOptionalPlatform: () => null,
+}));
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
   return {

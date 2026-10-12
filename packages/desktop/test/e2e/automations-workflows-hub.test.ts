@@ -48,7 +48,7 @@ import {
 import { getV4ComposerBackgroundWorkCounts } from "./helpers/v4-conversation.js";
 
 const WORKFLOW_NAME = "release-check";
-const WORKFLOWS_DIR = join(DEFAULT_WORKSPACE, ".zcode", "workflows");
+const WORKFLOWS_DIR = join(DEFAULT_WORKSPACE, ".mikiko", "workflows");
 const WORKFLOW_FILE = join(WORKFLOWS_DIR, `${WORKFLOW_NAME}.dwf.ts`);
 const EDITED_DESCRIPTION = "发布前检查（E2E 已编辑）";
 // 脚本正文：元数据编辑只改文件顶部的 frontmatter，这一段必须逐字节保留（不变式 4）。
@@ -97,7 +97,7 @@ async function readTestIdText(currentTestId: string): Promise<string | null> {
 /**
  * 已保存工作流中枢「列表 → 详情 → 改元数据 → 删除」端到端（docs/dynamic-workflow/launch.md）。
  *
- * 只碰 UI + 项目目录里的 `.zcode/workflows/`：不发送 prompt、不依赖模型回放，因此是确定性的。
+ * 只碰 UI + 项目目录里的 `.mikiko/workflows/`：不发送 prompt、不依赖模型回放，因此是确定性的。
  * 「运行」走对话的用例在 conversation-session/ 下单独立案（需要回放 provider）。
  */
 describe("已保存工作流中枢 E2E", () => {
@@ -216,12 +216,12 @@ describe("已保存工作流中枢 E2E", () => {
 
 // ── 全局工作流：置顶「全局」组 + 全局→项目搬文件 + 项目→全局 AI 概括（docs/dynamic-workflow/launch.md）──
 // E2E_HOME_DIR 由 wdio 配置设为隔离目录并写进 HOME（wdio.conf.ts:520），app / agent 进程都继承它，
-// 因此 agent 的 os.homedir() 解析到这里，全局根 = `<E2E_HOME>/.zcode/workflows/`。
+// 因此 agent 的 os.homedir() 解析到这里，全局根 = `<E2E_HOME>/.mikiko/workflows/`。
 const E2E_HOME = dirname(DEFAULT_WORKSPACE);
 const GLOBAL_WORKFLOW_NAME = "global-note";
-const GLOBAL_WORKFLOWS_DIR = join(E2E_HOME, ".zcode", "workflows");
+const GLOBAL_WORKFLOWS_DIR = join(E2E_HOME, ".mikiko", "workflows");
 const GLOBAL_WORKFLOW_FILE = join(GLOBAL_WORKFLOWS_DIR, `${GLOBAL_WORKFLOW_NAME}.dwf.ts`);
-const GLOBAL_PROJECT_WORKFLOWS_DIR = join(DEFAULT_WORKSPACE, ".zcode", "workflows");
+const GLOBAL_PROJECT_WORKFLOWS_DIR = join(DEFAULT_WORKSPACE, ".mikiko", "workflows");
 const GLOBAL_PROJECT_WORKFLOW_FILE = join(
   GLOBAL_PROJECT_WORKFLOWS_DIR,
   `${GLOBAL_WORKFLOW_NAME}.dwf.ts`,
@@ -350,7 +350,7 @@ describe("全局工作流中枢 E2E", () => {
 });
 
 // ── 直接启动：中枢「运行」→ 新会话顶部启动卡（docs/dynamic-workflow/launch.md）─────────
-// 与前两组一样只碰 UI + 项目目录里的 `.zcode/workflows/`，且刻意用**无 agent()/模型调用**的
+// 与前两组一样只碰 UI + 项目目录里的 `.mikiko/workflows/`，且刻意用**无 agent()/模型调用**的
 // 常量工作流：run 的子代理一个都不起，因此整条路（建会话 → startSavedWorkflow → run 结算）
 // 都不需要 provider 回放，skipProvider 下即可跑到 completed。run 终态之后会触发既有的完成
 // 通知回合（那一跳才第一次要模型），本组**刻意断言到启动卡 completed 为止**，不依赖模型——

@@ -1,5 +1,5 @@
-import ingestToolExecResource from "./desktopResourceTelemetry.js";
-import ingestMcpResourceSamples from "./processResourceMcpTelemetrySource.js";
+import { ingestToolExecResource } from "./desktopResourceTelemetry.js";
+import { ingestMcpResourceSamples } from "./processResourceMcpTelemetrySource.js";
 /* eslint-disable max-lines -- host process 统一处理 main↔host 生命周期、日志、ZCode Agent，拆分前先保持跨进程消息收口。 */
 import {
   type HostAgentProcessErrorResponse,
@@ -39,35 +39,35 @@ import {
   utilityProcess as electronUtilityProcess,
   MessageChannelMain,
 } from "electron";
-import randomUUID from "node:crypto";
-import join from "node:path";
-import getMainLaunchPartialMarks from "./desktopLaunchMarks.js";
+import { randomUUID } from "node:crypto";
+import { join } from "node:path";
+import { getMainLaunchPartialMarks } from "./desktopLaunchMarks.js";
 import {
   buildExternalCdpEnvPatch,
   type ExternalCdpRuntimeConfig,
 } from "./externalCdpSettings.js";
-import BroadcastHub from "./broadcastHub.js";
-import bindDatabaseStartupRelay from "./databaseStartupRelay.js";
-import ingestHostNetworkObservations from "./desktopNetworkTelemetry.js";
+import { BroadcastHub } from "./broadcastHub.js";
+import { bindDatabaseStartupRelay } from "./databaseStartupRelay.js";
+import { ingestHostNetworkObservations } from "./desktopNetworkTelemetry.js";
 import {
   buildHostProcessEnv,
   hostModulePath,
   resolveBundledGlmBinaryPath,
 } from "./desktopRuntimeEnv.js";
-import ingestHostNetworkCapture from "./resourceManagerNetwork.js";
-import buildHostE2ECoverageEnv from "./e2eCoverage.js";
-import createFeedbackLogArchiveFromExportLogs from "./exportLogs.js";
-import createHostLogRelay from "./hostLogRelay.js";
-import ingestCliResourceSample from "./processResourceCliSource.js";
-import ingestHostSelfResourceSample from "./processResourceSelfHeapSource.js";
-import resolveHostResourceUsageResult from "./resourceManagerHostSampling.js";
+import { ingestHostNetworkCapture } from "./resourceManagerNetwork.js";
+import { buildHostE2ECoverageEnv } from "./e2eCoverage.js";
+import { createFeedbackLogArchiveFromExportLogs } from "./exportLogs.js";
+import { createHostLogRelay } from "./hostLogRelay.js";
+import { ingestCliResourceSample } from "./processResourceCliSource.js";
+import { ingestHostSelfResourceSample } from "./processResourceSelfHeapSource.js";
+import { resolveHostResourceUsageResult } from "./resourceManagerHostSampling.js";
 import {
   registerHostAgentProcess,
   registerHostProcess,
   unregisterHostAgentProcess,
   unregisterHostProcess,
 } from "./resourceManagerWindow.js";
-import type TaskRealtimeBus from "./taskRealtimeBus.js";
+import type { TaskRealtimeBus } from "./taskRealtimeBus.js";
 
 export interface WindowBootstrapOptions {
   restoreSession?: boolean;

@@ -31,7 +31,7 @@ import {
 const SESSION_SKILL_NAME = "e2e-session-skill-catalog";
 const SESSION_SKILL_DIRECTORY = join(
   getE2EAppDataPaths().workspace,
-  ".zcode",
+  ".mikiko",
   "skills",
   SESSION_SKILL_NAME,
 );

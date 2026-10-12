@@ -52,7 +52,7 @@ describe("PLM-LC-007 Desktop official CDN ZIP plugin UI lifecycle", () => {
     await installPluginThroughUi(PLUGIN_CDN_ZIP_ID);
 
     const paths = getE2EAppDataPaths();
-    const pluginStorageRoot = join(paths.homeDir, ".zcode", "cli", "plugins");
+    const pluginStorageRoot = join(paths.homeDir, ".mikiko", "cli", "plugins");
     const cacheRoot = join(
       pluginStorageRoot,
       "cache",

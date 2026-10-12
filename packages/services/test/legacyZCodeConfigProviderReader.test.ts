@@ -48,7 +48,7 @@ describe("legacyZCodeConfigProviderReader", () => {
   });
 
   it("彻底忽略 model-providers.json", async () => {
-    const legacyConfigDir = join(tempDir, ".zcode", "v2");
+    const legacyConfigDir = join(tempDir, ".mikiko", "v2");
     mkdirSync(legacyConfigDir, { recursive: true });
     writeFileSync(
       join(legacyConfigDir, "model-providers.json"),
@@ -60,13 +60,13 @@ describe("legacyZCodeConfigProviderReader", () => {
     );
     const providers = await readLegacyZCodeConfigProviders();
 
-    const configDir = join(tempDir, ".zcode", "v2");
+    const configDir = join(tempDir, ".mikiko", "v2");
     expect(providers).toEqual([]);
     expect(() => readFileSync(join(configDir, "config.json"), "utf-8")).toThrow();
   });
 
   it("只从已发布旧 config.json 读取 Provider", async () => {
-    const legacyConfigDir = join(tempDir, ".zcode", "v2");
+    const legacyConfigDir = join(tempDir, ".mikiko", "v2");
     mkdirSync(legacyConfigDir, { recursive: true });
     writeFileSync(
       join(legacyConfigDir, "config.json"),
@@ -88,7 +88,7 @@ describe("legacyZCodeConfigProviderReader", () => {
   });
 
   it("不把开发阶段曾写入 config.json 的未发布 Provider 格式当作迁移输入", async () => {
-    const configDir = join(tempDir, ".zcode", "v2");
+    const configDir = join(tempDir, ".mikiko", "v2");
     const configPath = join(configDir, "config.json");
     const document = {
       schemaVersion: 1,

@@ -30,7 +30,7 @@ describe("workspace hook config discovery 去重（#10）", () => {
   it("explicit path 与 auto-discovery 重叠时只保留一个条目", () => {
     const workspace = makeRoot();
     mkdirSync(join(workspace, ".git"));
-    const configPath = join(workspace, ".zcode", "config.json");
+    const configPath = join(workspace, ".mikiko", "config.json");
     writeJson(configPath, {
       hooks: {
         enabled: true,
@@ -61,7 +61,7 @@ describe("workspace hook config discovery 去重（#10）", () => {
   it("explicit path 指向 auto-discovery 未发现的文件时正常追加", () => {
     const workspace = makeRoot();
     mkdirSync(join(workspace, ".git"));
-    writeJson(join(workspace, ".zcode", "config.json"), {
+    writeJson(join(workspace, ".mikiko", "config.json"), {
       hooks: {
         enabled: true,
         events: {
@@ -96,7 +96,7 @@ describe("workspace hook config discovery 去重（#10）", () => {
     // 否则 auto-discovery 产生的 discoveryOrder 变化会使所有既有 trust 记录失效。
     const workspace = makeRoot();
     mkdirSync(join(workspace, ".git"));
-    writeJson(join(workspace, ".zcode", "config.json"), {
+    writeJson(join(workspace, ".mikiko", "config.json"), {
       hooks: {
         enabled: true,
         events: {
@@ -133,7 +133,7 @@ describe("workspace hook config discovery 去重（#10）", () => {
   it("explicit 重叠时 async discovery 也只产生一个 source", async () => {
     const workspace = makeRoot();
     mkdirSync(join(workspace, ".git"));
-    const configPath = join(workspace, ".zcode", "config.json");
+    const configPath = join(workspace, ".mikiko", "config.json");
     writeJson(configPath, {
       hooks: {
         enabled: true,

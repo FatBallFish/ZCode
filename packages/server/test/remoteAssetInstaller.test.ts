@@ -221,7 +221,7 @@ describe("remote asset installer command builders", () => {
     const command = buildRemoteArtifactDownloadCommand({
       tool: "curl",
       urls: ["https://cdn.example.test/a b/component.tar.gz"],
-      outputPath: "~/.zcode/server/asset-cache/staging/a b/component.tar.gz",
+      outputPath: "~/.mikiko/server/asset-cache/staging/a b/component.tar.gz",
       progressLabel: "server-bundle@1.0.0-server-bundle",
     });
 
@@ -230,7 +230,7 @@ describe("remote asset installer command builders", () => {
       "'https://cdn.example.test/a b/component.tar.gz'",
     );
     expect(command).toContain(
-      "\"$HOME\"'/.zcode/server/asset-cache/staging/a b/component.tar.gz'",
+      "\"$HOME\"'/.mikiko/server/asset-cache/staging/a b/component.tar.gz'",
     );
   });
 
@@ -238,7 +238,7 @@ describe("remote asset installer command builders", () => {
     const command = buildRemoteArtifactDownloadCommand({
       tool: "wget",
       urls: ["https://cdn.example.test/component.tar.gz"],
-      outputPath: "~/.zcode/server/asset-cache/staging/component.tar.gz",
+      outputPath: "~/.mikiko/server/asset-cache/staging/component.tar.gz",
       progressLabel: "server-bundle@1.0.0-server-bundle",
     });
 
@@ -253,7 +253,7 @@ describe("remote asset installer command builders", () => {
     const command = buildRemoteArtifactDownloadCommand({
       tool: "wget",
       urls: ["https://cdn.example.test/component.tar.gz"],
-      outputPath: "~/.zcode/server/asset-cache/staging/component.tar.gz",
+      outputPath: "~/.mikiko/server/asset-cache/staging/component.tar.gz",
       progressLabel: "server-bundle@1.0.0-server-bundle",
       totalBytes: 2 * 1024 * 1024,
     });
@@ -300,7 +300,7 @@ describe("remote asset installer command builders", () => {
     expect(
       buildRemoteChecksumCommand({
         tool: "openssl",
-        filePath: "~/.zcode/server/component.tar.gz",
+        filePath: "~/.mikiko/server/component.tar.gz",
       }),
     ).toContain("openssl dgst -sha256");
   });
@@ -337,7 +337,7 @@ describe("LocalUploadAssetInstaller", () => {
       installer.installFile({
         componentId: "server-bundle",
         sourceRelativePath: "server/zcode-server.cjs",
-        remotePath: "~/.zcode/server/zcode-server.cjs",
+        remotePath: "~/.mikiko/server/zcode-server.cjs",
       }),
     ).rejects.toMatchObject({ name: "AbortError" });
 
@@ -368,7 +368,7 @@ describe("LocalUploadAssetInstaller", () => {
     await installer.installFile({
       componentId: "server-bundle",
       sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.zcode/server/zcode-server.cjs",
+      remotePath: "~/.mikiko/server/zcode-server.cjs",
     });
 
     expect(backend.uploads[0]?.signal).toBe(controller.signal);
@@ -393,7 +393,7 @@ describe("LocalUploadAssetInstaller", () => {
     await installer.installFile({
       componentId: "server-bundle",
       sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.zcode/server/zcode-server.cjs",
+      remotePath: "~/.mikiko/server/zcode-server.cjs",
     });
 
     expect(backend.commands[0]).toContain("find");
@@ -485,7 +485,7 @@ describe("LocalUploadAssetInstaller", () => {
     const installing = installer.installFile({
       componentId: "server-bundle",
       sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.zcode/server/zcode-server.cjs",
+      remotePath: "~/.mikiko/server/zcode-server.cjs",
     });
     await uploadStarted;
     controller.abort();
@@ -536,7 +536,7 @@ describe("LocalUploadAssetInstaller", () => {
     const installing = installer.installDirectory({
       componentId: "ripgrep",
       sourceRelativePath: "tools/linux-x64/ripgrep",
-      remoteDir: "~/.zcode/server/tools/ripgrep",
+      remoteDir: "~/.mikiko/server/tools/ripgrep",
     });
     await uploadStarted;
     controller.abort();
@@ -566,7 +566,7 @@ describe("LocalUploadAssetInstaller", () => {
     await installer.installDirectory({
       componentId: "ripgrep",
       sourceRelativePath: "tools/linux-x64/ripgrep",
-      remoteDir: "~/.zcode/server/tools/ripgrep",
+      remoteDir: "~/.mikiko/server/tools/ripgrep",
     });
 
     expect(backend.commands[0]).toContain("find");
@@ -595,7 +595,7 @@ describe("LocalUploadAssetInstaller", () => {
     await installer.installDirectory({
       componentId: "ripgrep",
       sourceRelativePath: "tools/linux-x64/ripgrep",
-      remoteDir: "~/.zcode/server/tools/ripgrep",
+      remoteDir: "~/.mikiko/server/tools/ripgrep",
     });
 
     expect(backend.uploads[0]?.signal).toBe(controller.signal);
@@ -619,11 +619,11 @@ describe("LocalUploadAssetInstaller", () => {
     await installer.installFile({
       componentId: "server-bundle",
       sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.zcode/server/zcode-server.cjs",
+      remotePath: "~/.mikiko/server/zcode-server.cjs",
     });
 
     expect(backend.uploads[0]?.remotePath).toMatch(
-      /^~\/\.zcode\/server\/zcode-server\.cjs\.new-[\w-]+$/u,
+      /^~\/\.mikiko\/server\/zcode-server\.cjs\.new-[\w-]+$/u,
     );
     expect(backend.commands.join("\n")).toContain(
       backend.uploads[0]!.remotePath.split("/").at(-1),
@@ -646,7 +646,7 @@ describe("LocalUploadAssetInstaller", () => {
       installer.installFile({
         componentId: "node-runtime",
         sourceRelativePath: "node/node",
-        remotePath: "~/.zcode/server/node",
+        remotePath: "~/.mikiko/server/node",
         executable: true,
       }),
     ).rejects.toThrow("chmod denied");
@@ -738,7 +738,7 @@ describe("LocalUploadAssetInstaller", () => {
     const installParams = {
       componentId: "ripgrep",
       sourceRelativePath: "tools/linux-x64/ripgrep",
-      remoteDir: "~/.zcode/server/tools/ripgrep",
+      remoteDir: "~/.mikiko/server/tools/ripgrep",
     };
     await Promise.all([
       installer.installDirectory(installParams),
@@ -879,7 +879,7 @@ describe("RemoteDownloadAssetInstaller", () => {
       installer.installFile({
         componentId: "server-bundle",
         sourceRelativePath: "server/zcode-server.cjs",
-        remotePath: "~/.zcode/server/zcode-server.cjs",
+        remotePath: "~/.mikiko/server/zcode-server.cjs",
       }),
     ).rejects.toMatchObject({ name: "AbortError" });
 
@@ -917,7 +917,7 @@ describe("RemoteDownloadAssetInstaller", () => {
       await installer.installFile({
         componentId: "server-bundle",
         sourceRelativePath: "server/zcode-server.cjs",
-        remotePath: "~/.zcode/server/zcode-server.cjs",
+        remotePath: "~/.mikiko/server/zcode-server.cjs",
       });
 
       expect(directFetch).not.toHaveBeenCalled();
@@ -967,7 +967,7 @@ describe("RemoteDownloadAssetInstaller", () => {
     const installing = installer.installFile({
       componentId: "server-bundle",
       sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.zcode/server/zcode-server.cjs",
+      remotePath: "~/.mikiko/server/zcode-server.cjs",
     });
     await headStarted;
     controller.abort();
@@ -1000,7 +1000,7 @@ describe("RemoteDownloadAssetInstaller", () => {
     await installer.installFile({
       componentId: "server-bundle",
       sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.zcode/server/zcode-server.cjs",
+      remotePath: "~/.mikiko/server/zcode-server.cjs",
     });
 
     const command = backend.commands.join("\n");
@@ -1012,7 +1012,7 @@ describe("RemoteDownloadAssetInstaller", () => {
       "stale lock for server-bundle@1.0.0-server-bundle",
     );
     expect(command).toContain(
-      'touch "$HOME"\'/.zcode/server/asset-cache/components/linux-x64/server-bundle/',
+      'touch "$HOME"\'/.mikiko/server/asset-cache/components/linux-x64/server-bundle/',
     );
     expect(command).toContain('kill "$lock_heartbeat_pid"');
     expect(command).toMatch(/\.new-[^\s']+/u);
@@ -1046,7 +1046,7 @@ describe("RemoteDownloadAssetInstaller", () => {
     await installer.installFile({
       componentId: "server-bundle",
       sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.zcode/server/zcode-server.cjs",
+      remotePath: "~/.mikiko/server/zcode-server.cjs",
     });
 
     expect(logs).toContain(
@@ -1073,7 +1073,7 @@ describe("RemoteDownloadAssetInstaller", () => {
     await installer.installFile({
       componentId: "server-bundle",
       sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.zcode/server/zcode-server.cjs",
+      remotePath: "~/.mikiko/server/zcode-server.cjs",
     });
 
     expect(backend.commands.join("\n")).toContain("total=2097152");
@@ -1096,7 +1096,7 @@ describe("RemoteDownloadAssetInstaller", () => {
     const backend = new InstallerBackend(
       [],
       new Set([
-        `~/.zcode/server/asset-cache/components/linux-x64/server-bundle/${expectedCacheSegment}/.ready`,
+        `~/.mikiko/server/asset-cache/components/linux-x64/server-bundle/${expectedCacheSegment}/.ready`,
       ]),
     );
     const logs: string[] = [];
@@ -1117,7 +1117,7 @@ describe("RemoteDownloadAssetInstaller", () => {
     await installer.installFile({
       componentId: "server-bundle",
       sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.zcode/server/zcode-server.cjs",
+      remotePath: "~/.mikiko/server/zcode-server.cjs",
     });
 
     const commands = backend.commands.join("\n");
@@ -1151,7 +1151,7 @@ describe("RemoteDownloadAssetInstaller", () => {
     const backend = new InstallerBackend(
       [],
       new Set([
-        `~/.zcode/server/asset-cache/components/linux-x64/glm/${oldCacheSegment}/.ready`,
+        `~/.mikiko/server/asset-cache/components/linux-x64/glm/${oldCacheSegment}/.ready`,
       ]),
     );
     const logs: string[] = [];
@@ -1173,7 +1173,7 @@ describe("RemoteDownloadAssetInstaller", () => {
     await installer.installFile({
       componentId: "glm",
       sourceRelativePath: "glm/linux-x64/zcode.cjs",
-      remotePath: "~/.zcode/server/agents/glm/zcode.cjs",
+      remotePath: "~/.mikiko/server/agents/glm/zcode.cjs",
     });
 
     const commands = backend.commands.join("\n");
@@ -1182,13 +1182,13 @@ describe("RemoteDownloadAssetInstaller", () => {
       `asset-cache/components/linux-x64/glm/${expectedCacheSegment}`,
     );
     expect(commands).not.toContain(
-      `rm -rf "$HOME"'/.zcode/server/asset-cache/components/linux-x64/glm/${oldCacheSegment}'`,
+      `rm -rf "$HOME"'/.mikiko/server/asset-cache/components/linux-x64/glm/${oldCacheSegment}'`,
     );
     expect(logs).not.toContain(
       `[remote-assets] remote component cache hit: glm@${hashedVersion}`,
     );
     expect(warnings).toContain(
-      `[remote-assets] download required: component=glm reason=remote component cache missing path=~/.zcode/server/asset-cache/components/linux-x64/glm/${expectedCacheSegment}/.ready`,
+      `[remote-assets] download required: component=glm reason=remote component cache missing path=~/.mikiko/server/asset-cache/components/linux-x64/glm/${expectedCacheSegment}/.ready`,
     );
     vi.unstubAllGlobals();
   });
@@ -1213,7 +1213,7 @@ describe("RemoteDownloadAssetInstaller", () => {
       installer.installFile({
         componentId: "server-bundle",
         sourceRelativePath: "server/zcode-server.cjs",
-        remotePath: "~/.zcode/server/zcode-server.cjs",
+        remotePath: "~/.mikiko/server/zcode-server.cjs",
       }),
     ).rejects.toThrow("sha256 is invalid");
     vi.unstubAllGlobals();

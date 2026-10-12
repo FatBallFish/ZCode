@@ -172,7 +172,7 @@ async function selectProfileModel(profile: Pick<RefreshProfile, "provider" | "mo
 
 async function submitProfile(name: string, previousName?: string, workspacePath?: string) {
   const root = workspacePath
-    ? join(workspacePath, ".zcode", "agents")
+    ? join(workspacePath, ".mikiko", "agents")
     : join(getE2EAppDataPaths().storageRoot, "agents");
   const exists = await stat(root).then(
     () => true,

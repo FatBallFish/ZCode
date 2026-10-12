@@ -36,6 +36,20 @@ const shareStoreState = vi.hoisted(() => ({
   draft: undefined as unknown,
 }));
 
+vi.mock("@/store/TabStoreProvider.js", async (importOriginal) => {
+  // custom SessionPane 依赖 useTabStoreApi/useTabStore；单测不挂真实 Tab 树，
+  // 给最小 zustand 形状的桩（选择器读空 state）。
+  const api = {
+    getState: () => ({ tabs: [], activeTabId: null }),
+    setState: () => {},
+    subscribe: () => () => {},
+  };
+  return {
+    ...(await importOriginal<typeof import("@/store/TabStoreProvider.js")>()),
+    useTabStoreApi: () => api,
+    useTabStore: (selector: (state: unknown) => unknown) => selector(api.getState()),
+  };
+});
 vi.mock("@/store/conversationShareSelectionStore.js", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/store/conversationShareSelectionStore.js")>();
@@ -78,6 +92,8 @@ vi.mock("@/v4/V4ConversationContext.js", () => ({
 
 vi.mock("@/store/StoreProvider.js", () => ({
   useZCodeStoreWithDefault: (_selector: unknown, fallback: unknown) => fallback,
+  useZCodeStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({}),
 }));
 
 vi.mock("@/hooks/useSettingService.js", () => ({

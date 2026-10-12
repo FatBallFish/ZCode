@@ -100,6 +100,15 @@ function completeDisabledModelConfig() {
   };
 }
 
+vi.mock("@/hooks/useServices.js", () => ({
+  useOptionalServices: () => null,
+  useServices: () => ({
+    modelSelectionService: { read: async () => null },
+    zcodeSessionService: {}, zcodeTaskService: {}, usageStatsService: {},
+    conversationShareService: {}, highspeedCardService: {},
+  }),
+  ServiceProvider: ({ children }: { children: unknown }) => children,
+}));
 vi.mock("@/ModelConfigSelect.js", async () => {
   const React = await import("react");
   return {

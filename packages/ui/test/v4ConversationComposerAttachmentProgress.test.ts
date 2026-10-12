@@ -18,6 +18,19 @@ const attachmentState = vi.hoisted(() => ({
 
 const cuaEntryProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
+vi.mock("@/hooks/useServices.js", () => ({
+  useOptionalServices: () => null,
+  useServices: () => ({
+    modelSelectionService: { read: async () => null },
+    zcodeSessionService: {}, zcodeTaskService: {}, usageStatsService: {},
+    conversationShareService: {}, highspeedCardService: {},
+  }),
+  ServiceProvider: ({ children }: { children: unknown }) => children,
+}));
+vi.mock("@/hooks/usePlatform.js", () => ({
+  usePlatform: () => ({ openExternal: vi.fn(async () => {}), executeDesktopCommand: vi.fn(async () => {}), platform: "darwin" }),
+  useOptionalPlatform: () => null,
+}));
 vi.mock("@/ControlHintTooltip.js", async () => {
   const React = await import("react");
   return {

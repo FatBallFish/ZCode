@@ -117,7 +117,7 @@ describe("会话区 ReadSessionContext 超时边界 E2E", () => {
 
 async function seedReadSessionContextSourceSession() {
   await mkdir(DEFAULT_WORKSPACE, { recursive: true });
-  const dbPath = join(homedir(), ".zcode", "cli", "db", "db.sqlite");
+  const dbPath = join(homedir(), ".mikiko", "cli", "db", "db.sqlite");
   await mkdir(dirname(dbPath), { recursive: true });
   const db = new DatabaseSync(dbPath);
   const now = Date.now() - 10_000;

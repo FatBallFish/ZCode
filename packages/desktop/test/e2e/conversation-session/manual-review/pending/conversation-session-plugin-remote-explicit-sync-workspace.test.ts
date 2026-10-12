@@ -96,7 +96,7 @@ describe("WPL-011 remote Workspace Plugin explicit sync E2E", () => {
     const localInstalledBefore = await readFile(localInstalledPath, "utf8");
     const workspaceConfigBefore = await readRemoteFile(
       target,
-      posix.join(workspacePath, ".zcode", "config.json"),
+      posix.join(workspacePath, ".mikiko", "config.json"),
     );
 
     provider = await createSSHLifecycleProvider(target, CASE_MARKER);
@@ -128,7 +128,7 @@ describe("WPL-011 remote Workspace Plugin explicit sync E2E", () => {
       packageStatus: "missing",
       source: "missing",
     });
-    expect(await readRemoteFile(target, posix.join(workspacePath, ".zcode", "config.json"))).toBe(
+    expect(await readRemoteFile(target, posix.join(workspacePath, ".mikiko", "config.json"))).toBe(
       workspaceConfigBefore,
     );
 
@@ -151,7 +151,7 @@ describe("WPL-011 remote Workspace Plugin explicit sync E2E", () => {
         timeoutMsg: `${CASE_MARKER}: 显式同步完成后 remote package/cache 没有物化`,
       },
     );
-    expect(await readRemoteFile(target, posix.join(workspacePath, ".zcode", "config.json"))).toBe(
+    expect(await readRemoteFile(target, posix.join(workspacePath, ".mikiko", "config.json"))).toBe(
       workspaceConfigBefore,
     );
     expect(await readFile(localConfigPath, "utf8")).toBe(localConfigBefore);
@@ -227,9 +227,9 @@ async function seedRemoteWorkspace(
   const command = [
     "set -eu",
     `rm -rf -- /root/.zcode ${quoteShell(workspacePath)}`,
-    `mkdir -p -- ${quoteShell(posix.join(workspacePath, ".zcode"))}`,
+    `mkdir -p -- ${quoteShell(posix.join(workspacePath, ".mikiko"))}`,
     writeBase64Command(
-      posix.join(workspacePath, ".zcode", "config.json"),
+      posix.join(workspacePath, ".mikiko", "config.json"),
       `${JSON.stringify(config, null, 2)}\n`,
     ),
   ].join(" && ");
@@ -255,11 +255,11 @@ async function readRemotePluginStorageState(target: SSHConnectionConfig): Promis
 }> {
   const command = [
     "installed=false",
-    `if test -f "$HOME/.zcode/cli/plugins/installed_plugins.json" && grep -Fq -- ${quoteShell(PLUGIN_LIFECYCLE_ID)} "$HOME/.zcode/cli/plugins/installed_plugins.json"; then installed=true; fi`,
+    `if test -f "$HOME/.mikiko/cli/plugins/installed_plugins.json" && grep -Fq -- ${quoteShell(PLUGIN_LIFECYCLE_ID)} "$HOME/.mikiko/cli/plugins/installed_plugins.json"; then installed=true; fi`,
     "cached=false",
-    `if test -d "$HOME/.zcode/cli/plugins/cache" && find "$HOME/.zcode/cli/plugins/cache" -path ${quoteShell(`*${PLUGIN_LIFECYCLE_NAME}*`)} -print -quit | grep -q .; then cached=true; fi`,
+    `if test -d "$HOME/.mikiko/cli/plugins/cache" && find "$HOME/.mikiko/cli/plugins/cache" -path ${quoteShell(`*${PLUGIN_LIFECYCLE_NAME}*`)} -print -quit | grep -q .; then cached=true; fi`,
     "marketplace=false",
-    `if test -f "$HOME/.zcode/cli/plugins/known_marketplaces.json" && grep -Fq -- ${quoteShell(PLUGIN_LIFECYCLE_MARKETPLACE_ID)} "$HOME/.zcode/cli/plugins/known_marketplaces.json"; then marketplace=true; fi`,
+    `if test -f "$HOME/.mikiko/cli/plugins/known_marketplaces.json" && grep -Fq -- ${quoteShell(PLUGIN_LIFECYCLE_MARKETPLACE_ID)} "$HOME/.mikiko/cli/plugins/known_marketplaces.json"; then marketplace=true; fi`,
     "printf '%s\\n' \"$installed $cached $marketplace\"",
   ].join("; ");
   const result = await runSSHCommand(target, command);
