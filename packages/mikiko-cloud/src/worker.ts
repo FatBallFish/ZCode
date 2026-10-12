@@ -213,7 +213,17 @@ async function handleClientConfigs(env: Env): Promise<Response> {
   let configs: unknown = DEFAULT_CLIENT_CONFIGS;
   try {
     const stored = await env.MIKIKO_CLIENT_CONFIG.get(CLIENT_CONFIGS_KEY, "json");
-    if (stored != null) configs = stored;
+    // 逐配置组合并默认（stored 优先）：KV 是历史写入的存量数据时可能缺新字段
+    // （如 codex），整体替换会让新字段静默丢失、客户端回落本地兜底，这里保持
+    // fail-open 语义——缺的字段用默认值补齐。
+    if (stored != null) {
+      const storedRecord = stored as Record<string, { [key: string]: unknown }>;
+      configs = {
+        ...DEFAULT_CLIENT_CONFIGS,
+        ...storedRecord,
+        codex: { ...DEFAULT_CLIENT_CONFIGS.codex, ...(storedRecord.codex ?? {}) },
+      };
+    }
   } catch {
     // KV 异常回退默认（dynamicWorkflow enabled + 默认限流），配置面不得阻塞客户端功能入口。
   }
