@@ -70,8 +70,9 @@ export function ChatGPTSettingsSection() {
           placeholder="0.146.0"
           value={versionOverride}
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-            const value = event.target.value.trim();
-            void update({ chatgptCodexVersionOverride: value || undefined });
+            // 清空输入必须原样传空串：undefined 会被 RPC 吞掉、host 侧 normalize 再把
+            // 空串归一回 undefined，覆写才能真正清除（回落远端配置）。
+            void update({ chatgptCodexVersionOverride: event.target.value.trim() });
           }}
         />
       </section>
