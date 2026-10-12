@@ -318,6 +318,9 @@ export async function resolveCurrentAccountAccess(input: {
   readonly readSettings: () => Promise<AccountProviderConnectionSettings>;
   readonly loadAccountIdentity: (family: ProviderFamilyDomain) => Promise<string | null>;
 }): Promise<ZCodeAccountAccess | null> {
+  // ChatGPT 账号不走智谱连接选择（无「当前账号」概念）；
+  // 请求期鉴权由 ChatGPTAccountRuntime.resolveRequestAuth 直接解析。
+  if (input.access.type === "chatgpt-account") return null;
   const settings = await input.readSettings();
   const { accountType, mode } = input.access;
   if (settings.providerFamilyDomain !== accountType) return null;

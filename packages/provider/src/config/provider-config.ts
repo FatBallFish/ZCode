@@ -4,6 +4,7 @@ import type { z } from "zod";
 import {
   completeApiKeyAccessDataSchema,
   completeZhipuAccountAccessDataSchema,
+  completeChatGPTAccountAccessDataSchema,
   completeProviderApiDataSchema,
   completeProviderConfigDataSchema,
   type providerApiTypeDataSchema,
@@ -13,6 +14,7 @@ import {
   type providerLogoDataSchema,
   type apiKeyAccessDataSchema,
   type zhipuAccountAccessDataSchema,
+  type chatgptAccountAccessDataSchema,
   type providerAccessDataSchema,
   type providerApiDataSchema,
   type providerConfigDataSchema,
@@ -111,7 +113,51 @@ export class ZhipuAccountAccessConfig extends ConfigOverlay<ZhipuAccountAccessCo
   }
 }
 
-export type ProviderAccessConfig = ApiKeyAccessConfig | ZhipuAccountAccessConfig;
+export type ProviderAccessConfig =
+  | ApiKeyAccessConfig
+  | ZhipuAccountAccessConfig
+  | ChatGPTAccountAccessConfig;
+
+export type ChatGPTAccountAccessConfigInput = Omit<ChatGPTAccountAccessConfigObject, "type">;
+
+export type ChatGPTAccountAccessConfigObject = Readonly<
+  z.infer<typeof chatgptAccountAccessDataSchema>
+>;
+
+/** ChatGPT OAuth 账号访问：与智谱账号访问同级，accountId 为唯一事实键。 */
+export class ChatGPTAccountAccessConfig extends ConfigOverlay<ChatGPTAccountAccessConfig> {
+  readonly type = "chatgpt-account" as const;
+  readonly accountId?: ChatGPTAccountAccessConfigInput["accountId"];
+  readonly entitled?: ChatGPTAccountAccessConfigInput["entitled"];
+
+  constructor(input: ChatGPTAccountAccessConfigInput = {}) {
+    super();
+    this.accountId = input.accountId;
+    this.entitled = input.entitled;
+    Object.freeze(this);
+  }
+
+  overlay(next: ChatGPTAccountAccessConfig): ChatGPTAccountAccessConfig {
+    return new ChatGPTAccountAccessConfig({
+      accountId: this.overlayValue(this.accountId, next.accountId),
+      entitled: this.overlayValue(this.entitled, next.entitled),
+    });
+  }
+
+  validateComplete(path: readonly string[] = []): readonly ConfigValidationIssue[] {
+    return validateConfigSchema(completeChatGPTAccountAccessDataSchema, this.toJSON(), path);
+  }
+
+  toJSON(): ChatGPTAccountAccessConfigObject {
+    return {
+      type: this.type,
+      ...objectWithoutUndefined({
+        accountId: this.accountId,
+        entitled: this.entitled,
+      }),
+    };
+  }
+}
 
 export type ProviderAccessConfigObject = Readonly<z.infer<typeof providerAccessDataSchema>>;
 

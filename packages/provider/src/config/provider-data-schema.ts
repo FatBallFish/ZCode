@@ -10,6 +10,7 @@ export const providerGroupDataSchema = z.enum([
   "standard-personal",
   "zai-family",
   "bigmodel-family",
+  "chatgpt-family",
 ]);
 export const zhipuAccountModeDataSchema = z.enum([
   "start-plan",
@@ -54,13 +55,29 @@ export const zhipuAccountAccessDataSchema = z
     type: completeZhipuAccountAccessDataSchema.shape.type,
   })
   .strict();
+/** ChatGPT OAuth 账号访问：accountId 定位唯一账号事实（host ChatGPTAccountService）。 */
+export const completeChatGPTAccountAccessDataSchema = z
+  .object({
+    type: z.literal("chatgpt-account"),
+    accountId: nonBlankRequiredString,
+    entitled: z.boolean(),
+  })
+  .strict();
+export const chatgptAccountAccessDataSchema = z
+  .object({
+    ...sparseShape(completeChatGPTAccountAccessDataSchema.shape),
+    type: completeChatGPTAccountAccessDataSchema.shape.type,
+  })
+  .strict();
 export const providerAccessDataSchema = z.discriminatedUnion("type", [
   apiKeyAccessDataSchema,
   zhipuAccountAccessDataSchema,
+  chatgptAccountAccessDataSchema,
 ]);
 export const completeProviderAccessDataSchema = z.discriminatedUnion("type", [
   completeApiKeyAccessDataSchema,
   completeZhipuAccountAccessDataSchema,
+  completeChatGPTAccountAccessDataSchema,
 ]);
 
 export const completeProviderApiDataSchema = z

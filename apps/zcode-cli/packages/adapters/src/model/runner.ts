@@ -158,7 +158,8 @@ export class AiSdkModelAdapter {
     const resolved = {
       ...boundResolution.resolved,
       properties,
-      ...(options.providerConfig.access.type === "zhipu-account"
+      ...((options.providerConfig.access.type === "zhipu-account" ||
+        options.providerConfig.access.type === "chatgpt-account")
         ? { accountAccess: options.providerConfig.access }
         : {}),
     };
@@ -205,7 +206,8 @@ export class AiSdkModelAdapter {
                 : requestAuth;
             return { headersApplied: true, requestAuth: refreshedAuth };
           }
-        : options.providerConfig.access.type === "zhipu-account"
+        : options.providerConfig.access.type === "zhipu-account" ||
+          options.providerConfig.access.type === "chatgpt-account"
           ? (contextRefreshRuntimeHeadersBeforeAttempt ??
             (async () => {
               throw new ModelProtocolError(
@@ -239,7 +241,8 @@ export class AiSdkModelAdapter {
               refreshRuntimeHeadersBeforeAttempt: (input) =>
                 refreshRuntimeHeadersBeforeAttempt({
                   ...input,
-                  ...(options.providerConfig.access.type === "zhipu-account"
+                  ...((options.providerConfig.access.type === "zhipu-account" ||
+                    options.providerConfig.access.type === "chatgpt-account")
                     ? { accountAccess: options.providerConfig.access }
                     : {}),
                 }),
@@ -265,7 +268,8 @@ export class AiSdkModelAdapter {
               }),
             ),
             properties,
-            ...(options.providerConfig.access.type === "zhipu-account"
+            ...((options.providerConfig.access.type === "zhipu-account" ||
+              options.providerConfig.access.type === "chatgpt-account")
               ? { accountAccess: options.providerConfig.access }
               : {}),
           })
@@ -277,7 +281,8 @@ export class AiSdkModelAdapter {
               },
             }),
             properties,
-            ...(options.providerConfig.access.type === "zhipu-account"
+            ...((options.providerConfig.access.type === "zhipu-account" ||
+              options.providerConfig.access.type === "chatgpt-account")
               ? { accountAccess: options.providerConfig.access }
               : {}),
           });

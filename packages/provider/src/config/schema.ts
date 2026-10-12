@@ -1,9 +1,14 @@
 import { z } from "zod";
 import { modelConfigDataSchema } from "@zcode/shared/model-config";
-import { providerConfigDataSchema, zhipuAccountAccessDataSchema } from "./provider-data-schema.js";
+import {
+  chatgptAccountAccessDataSchema,
+  providerConfigDataSchema,
+  zhipuAccountAccessDataSchema,
+} from "./provider-data-schema.js";
 import { ModelConfig, ModelConfigRules } from "./model-config.js";
 import {
   ApiKeyAccessConfig,
+  ChatGPTAccountAccessConfig,
   ProviderApiConfig,
   ProviderConfig,
   ProviderConfigMap,
@@ -23,11 +28,21 @@ import {
   type ProviderTemplateConfigRuleData,
 } from "./rule-data-schema.js";
 
-const accountProviderConfigSchema = providerConfigDataSchema
+const zhipuAccountProviderConfigSchema = providerConfigDataSchema
   .pick({ builtinModelIds: true })
   .extend({
     access: zhipuAccountAccessDataSchema.pick({ type: true, entitled: true }).nullable().optional(),
   });
+/** ChatGPT 账号信封：动态 provider（account:chatgpt:{accountId}）自携带 api/group/logo 与模型列表。 */
+const chatgptAccountProviderConfigSchema = providerConfigDataSchema
+  .pick({ builtinModelIds: true, api: true, group: true, logo: true })
+  .extend({
+    access: chatgptAccountAccessDataSchema.nullable().optional(),
+  });
+const accountProviderConfigSchema = z.union([
+  zhipuAccountProviderConfigSchema,
+  chatgptAccountProviderConfigSchema,
+]);
 
 export function parseProviderConfigMap(input: unknown): ProviderConfigMap {
   return createProviderRules(z.array(providerConfigRuleSchema).parse(input));
@@ -149,7 +164,9 @@ function createProviderConfig(config: z.infer<typeof providerConfigDataSchema>):
       config.access == null
         ? config.access
         : config.access.type !== "zhipu-account"
-          ? new ApiKeyAccessConfig(config.access)
+          ? config.access.type !== "chatgpt-account"
+            ? new ApiKeyAccessConfig(config.access)
+            : new ChatGPTAccountAccessConfig(config.access)
           : new ZhipuAccountAccessConfig(config.access),
     api: config.api == null ? config.api : new ProviderApiConfig(config.api),
   });

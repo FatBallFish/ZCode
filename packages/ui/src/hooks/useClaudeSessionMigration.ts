@@ -302,18 +302,6 @@ export function useClaudeSessionMigration(params: {
       } finally {
         setIsImporting(false);
       }
-      logger.info(
-        `[Migration] Claude 原生历史导入完成 workspaceFilter=${effectiveWorkspacePath ?? "all"} imported=${result.imported.length} skipped=${result.skipped.length} failed=${result.failed.length}`,
-      );
-      return result;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error("[Migration] 导入 Claude 原生历史失败", error);
-      setImportError(message);
-      return null;
-    } finally {
-      setIsImporting(false);
-    }
   }, [
     zcodeTaskService,
     effectiveWorkspaceIdentity,

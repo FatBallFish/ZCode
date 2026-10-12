@@ -103,6 +103,8 @@ import {
   zcodeComputerUseOperationEventSchema,
   zcodeProviderRuntimeHeadersCancelledSchema,
   zcodeProviderRuntimeHeadersRequestParamsSchema,
+  zcodeChatGPTRequestOutcomeNotifySchema,
+  type ZCodeChatGPTRequestOutcomeNotify,
   zcodeProviderTestModelConnectivityResultSchema,
   zcodeOfficialMcpAuthHeadersRequestParamsSchema,
   summarizeOfficialMcpIdentityHeaders,
@@ -956,6 +958,11 @@ interface CreateZCodeAgentServiceOptions extends Omit<
   mcpStatusIdleTimeoutMs?: number;
   accountProviderConfigSource?: ProviderSource<AccountProviderConfigSnapshot>;
   accountRequestAuthService?: IAccountRequestAuthService;
+  /**
+   * ChatGPT 账号请求结果上报入口（interaction/reportChatGPTRequestOutcome）。
+   * 缺省（纯 CLI / remote 装配）时上报仅记日志。host 自动应答空结果，零 UI。
+   */
+  reportChatGPTRequestOutcome?: (outcome: ZCodeChatGPTRequestOutcomeNotify) => Promise<void>;
   /** Desktop Host 请求 Main 登记 Agent 已授权的精确本地视频路径。 */
   authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
   modelSelectionReadinessSource?: ModelSelectionReadinessSource;
@@ -1326,6 +1333,7 @@ export function createZCodeAgentService(
   const accountConfigReceivedRevisionByClient = new WeakMap<ZCodeProtocolClient, string>();
   const sessionTraceIdBySessionKey = new Map<string, TraceId>();
   const accountRequestAuthService = options?.accountRequestAuthService;
+  const reportChatGPTRequestOutcome = options?.reportChatGPTRequestOutcome;
   const accountProviderConfigSource = options?.accountProviderConfigSource;
   const modelSelectionReadinessSource = options?.modelSelectionReadinessSource;
   const sessionRuntimePreferencesAuthority = options?.sessionRuntimePreferencesAuthority ?? "local";
@@ -2563,6 +2571,36 @@ export function createZCodeAgentService(
           providerRuntimeHeadersWorkspaceEmitters
             .get(resolveWorkspaceKey(workspace))
             ?.fire(parsed.data);
+          return;
+        }
+
+        // ChatGPT 账号请求结果上报：fire-and-forget，host 处理后回空结果。
+        if (request.method === zcodeProtocolMethods.interactionReportChatGPTRequestOutcome) {
+          const parsed = zcodeChatGPTRequestOutcomeNotifySchema.safeParse(request.params);
+          if (!parsed.success) {
+            void client.respondError(request.id, {
+              code: -32602,
+              message: "Invalid interaction/reportChatGPTRequestOutcome params",
+              data: parsed.error.flatten(),
+            });
+            return;
+          }
+          if (reportChatGPTRequestOutcome) {
+            void reportChatGPTRequestOutcome(parsed.data)
+              .catch((error: unknown) => {
+                logger.warn(
+                  request.trace?.traceId,
+                  "ChatGPT 请求结果上报处理失败",
+                  { providerId: parsed.data.providerId, kind: parsed.data.kind },
+                  error,
+                );
+              })
+              .finally(() => {
+                void client.respond(request.id, {});
+              });
+          } else {
+            void client.respond(request.id, {});
+          }
           return;
         }
 

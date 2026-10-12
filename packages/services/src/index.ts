@@ -231,6 +231,15 @@ export { IFileWatcherService } from "./fileWatcher/fileWatcher.js";
 // OAuth service — IOAuthService is both a type (interface) and value (descriptor)
 export { IOAuthService } from "./oauth/oauth.js";
 
+// ChatGPT OAuth 账号服务（spec specs/desktop/chatgpt-oauth.md）
+export { IChatGPTAccountService } from "./chatgpt/chatgptAccount.js";
+export type {
+  ChatGPTAuthorizationResult,
+  ChatGPTAuthorizationSession,
+  ChatGPTImportedAccountResult,
+  ChatGPTImportResult,
+} from "./chatgpt/chatgptAccount.js";
+
 // UsageStats service — IUsageStatsService is both a type (interface) and value (descriptor)
 export { ISub2ApiService } from "./sub2api/sub2api.js";
 export type {

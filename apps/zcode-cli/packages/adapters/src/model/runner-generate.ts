@@ -344,7 +344,9 @@ export async function runGenerateText(input: {
       // off-peak 特判（仅 idle plan provider，见 offpeak-retry.ts）：排队 429 豁免预算、
       // 3102（兼容旧 3001）以稳定标记落败触发 desktop 侧续跑。
       const offPeak = resolveOffPeakFailureDecision({
-        offPeak: resolved.accountAccess?.mode === "off-peak",
+        offPeak:
+          resolved.accountAccess?.type === "zhipu-account" &&
+          resolved.accountAccess.mode === "off-peak",
         failure: classified,
         error: unwrapRetryError(error),
       });

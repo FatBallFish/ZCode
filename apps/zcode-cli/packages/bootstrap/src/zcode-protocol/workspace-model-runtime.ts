@@ -1,7 +1,10 @@
 /* eslint-disable max-lines -- workspace 模型协议与兼容请求处理仍集中在本文件。 */
 import { createInMemorySessionEventStore } from "@zcode/adapters/storage";
+import { setChatGPTRequestOutcomeReporter } from "@zcode/adapters/model";
 import type { ModelSelection } from "@zcode/contracts";
 import {
+  zcodeProtocolEmptyResultSchema,
+  zcodeProtocolMethods,
   zcodeProviderTestModelConnectivityParamsSchema,
   zcodeWorkspaceReadPresentationParamsSchema,
   type ZCodeWorkspaceRef,
@@ -15,6 +18,25 @@ import {
 } from "./server-types.js";
 import { runSessionModelConfigMutation } from "../zcode-protocol-v4/model-config-mutation.js";
 import { createProviderRuntimeHeadersPort } from "./provider-runtime-headers.js";
+
+/**
+ * 注册 ChatGPT 请求结果上报：transport（adapters 层）fire-and-forget 调用，
+ * 这里桥接到当前 workspace 的协议连接发 interaction/reportChatGPTRequestOutcome。
+ * CLI 进程一次服务一个 workspace；连接重建时覆盖注册。
+ */
+function registerChatGPTRequestOutcomeReporter(
+  context: ZCodeProtocolAgentServerContext,
+): void {
+  setChatGPTRequestOutcomeReporter((outcome) => {
+    void context
+      .requestClient(zcodeProtocolMethods.interactionReportChatGPTRequestOutcome, outcome, zcodeProtocolEmptyResultSchema, {
+        timeoutMs: 10_000,
+      })
+      .catch(() => {
+        /* 上报失败静默：不能影响模型请求主链路 */
+      });
+  });
+}
 
 export async function readWorkspacePresentation(
   context: ZCodeProtocolAgentServerContext,
@@ -73,6 +95,7 @@ export async function createWorkspaceZCodeApp(
 ): Promise<ZCodeApp> {
   const providerRuntimeHeadersPort =
     options.providerRuntimeHeadersPort ?? createProviderRuntimeHeadersPort(context, workspace);
+  registerChatGPTRequestOutcomeReporter(context);
   return context.deps.createZCodeApp({
     ...options,
     includeVisualize: true,

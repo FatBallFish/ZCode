@@ -695,7 +695,9 @@ export async function* runStreamText(input: {
       }
       // off-peak 特判（仅 idle plan provider）：排队 429 豁免预算无限探测；3102 标记落败触发续跑。
       const offPeak = resolveOffPeakFailureDecision({
-        offPeak: resolved.accountAccess?.mode === "off-peak",
+        offPeak:
+          resolved.accountAccess?.type === "zhipu-account" &&
+          resolved.accountAccess.mode === "off-peak",
         failure: classified,
         error: unwrapRetryError(error),
       });
@@ -1255,7 +1257,9 @@ async function handleStreamErrorEvent(
   const classified = classifyModelFailure(error, input.input.request.abortSignal);
   // off-peak 特判：SSE 首块即错（尚无可见输出）时的排队 429 同样豁免预算重试。
   const offPeak = resolveOffPeakFailureDecision({
-    offPeak: input.input.resolved.accountAccess?.mode === "off-peak",
+    offPeak:
+      input.input.resolved.accountAccess?.type === "zhipu-account" &&
+      input.input.resolved.accountAccess.mode === "off-peak",
     failure: classified,
     error: unwrapRetryError(error),
   });

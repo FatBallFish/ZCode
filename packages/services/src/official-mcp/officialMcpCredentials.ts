@@ -135,7 +135,8 @@ type SelectedPlan = {
 
 type SelectedProvider = {
   providerId: string;
-  access: ZCodeProviderAccountAccess;
+  // 官方 MCP 身份只来自智谱个人/团队套餐；ChatGPT 账号不进入该解析。
+  access: Extract<ZCodeProviderAccountAccess, { type: "zhipu-account" }>;
 };
 
 function fail(reason: OfficialMcpAuthFailureReason): {
@@ -155,6 +156,7 @@ function resolveSelectedProvider(
   const candidates = registry.providers.flatMap((provider) => {
     const parsed = zcodeProviderAccountAccessSchema.safeParse(provider.config.access);
     return parsed.success &&
+      parsed.data.type === "zhipu-account" &&
       (parsed.data.mode === "individual-coding-plan" || parsed.data.mode === "team-coding-plan")
       ? [{ providerId: provider.providerId, access: parsed.data }]
       : [];
@@ -171,6 +173,7 @@ function resolveSelectedPlan(
 ): { ok: true; plan: SelectedPlan } | { ok: false; reason: OfficialMcpAuthFailureReason } {
   if (
     !access ||
+    access.type !== "zhipu-account" ||
     access.family !== selectedProvider.access.accountType ||
     (selectedProvider.access.mode === "team-coding-plan"
       ? access.planKind !== "team-coding-plan"

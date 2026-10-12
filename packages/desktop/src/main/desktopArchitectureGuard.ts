@@ -45,18 +45,6 @@ export function detectArchitectureMismatch(
   return { binaryArch, nativeArch: "arm64" };
 }
 
-<<<<<<< HEAD
-export function resolveArchitectureDownloadUrl(
-  locale: Locale,
-  endpointOrigin = DEFAULT_ZCODE_ENDPOINT_ORIGIN,
-): string {
-  // 与 changelog 等外链保持一致，按应用语言分流到官网下载页。
-  const origin = buildZCodeEndpointUrls(endpointOrigin).origin;
-  return locale === "zh-CN" ? `${origin}/cn` : `${origin}/en`;
-}
-
-=======
->>>>>>> b50c661f (feat(installer): DMG 无证书辅助脚本、浅色安装背景与统一下载外链)
 interface ArchitectureMismatchDialogText {
   title: string;
   message: string;

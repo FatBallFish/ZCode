@@ -11,6 +11,13 @@ export const BIGMODEL_PROVIDER_ID = "bigmodel" as const;
 /** 内置 ZAI provider id */
 export const ZAI_PROVIDER_ID = "zai" as const;
 
+/**
+ * ChatGPT OAuth 账号域的 provider id（仅用于登录入口标识）。
+ * 不进入 zai/bigmodel 互斥域（resolveInactiveOAuthProvider / zcodeJwt 读写范围均不涉及），
+ * 账号事实由 ChatGPTAccountService 独立管理（spec specs/desktop/chatgpt-oauth.md）。
+ */
+export const CHATGPT_PROVIDER_ID = "chatgpt" as const;
+
 /** 凭据解密失败错误前缀 */
 export const CREDENTIAL_DECRYPT_ERROR_PREFIX = "凭据解密失败：" as const;
 
