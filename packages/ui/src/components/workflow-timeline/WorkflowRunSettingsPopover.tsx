@@ -9,27 +9,34 @@
 // 一个弹层、多个触发点：锚点是**打开它的那个元素**（虚拟锚），所以详情页上两个入口各自对齐。
 // 表单只在打开时挂载——模型清单的订阅也随之只活在打开期间。
 
-import { useCallback, useRef, useState, type RefObject } from "react";
+import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
+import { completeNewModelSelection } from "@zcode/provider";
+import { ZCODE_AGENT_PROVIDER } from "@zcode/shared";
 import type { CommandAck, WorkflowRunState } from "@zcode/shared/zcode-protocol-v4";
 import { Button } from "@/components/ui/button.js";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTitle } from "@/components/ui/popover.js";
 import { Spinner } from "@/components/ui/spinner.js";
+import { useModelSelectionView } from "@/hooks/useModelSelectionView.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { buildRegistryModelSelectGroups } from "@/lib/modelSelectionGroups.js";
+import { buildChatGPTAccountLabels, useChatGPTAccounts } from "@/hooks/useChatGPTAccounts.js";
+import { resolveModelThoughtOption } from "@/lib/modelThoughtOption.js";
+import { encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
+import { parseModelPickerValue } from "@/lib/zcodeSessionProjection.js";
 import { logger } from "@/logger.js";
+import { formatProviderModelLabel } from "@/v4/composer/modelTriggerDisplay.js";
+import { describeWorkflowSubagentModel } from "./subagent-model-label.js";
 import {
   WorkflowRunSettingsBoundField,
   WorkflowRunSettingsModelField,
 } from "./WorkflowRunSettingsFields.js";
 import {
-  useWorkflowSettingsModelChoices,
-  type WorkflowSettingsModelScope,
-} from "./useWorkflowSettingsModelChoices.js";
-import {
   describeWorkflowRunSettingsRejection,
   initialWorkflowRunSettingsDraft,
-  workflowRunDefaultConcurrency,
+  workflowRunSettingsCeiling,
   workflowRunSettingsChange,
   workflowRunSettingsConsequenceId,
+  workflowRunSettingsModelCanonical,
   workflowRunSettingsRejectionDetail,
   workflowRunSettingsRejectionMessageId,
   type WorkflowRunSettingsChange,
@@ -37,8 +44,16 @@ import {
   type WorkflowRunSettingsRejection,
 } from "./workflowRunSettings.js";
 
+/** 菜单里「会话模型」那一项的值：落在 encodeCustomModelValue 的值域之外，不会与真实模型相撞。 */
+const SESSION_MODEL_VALUE = "workflow-settings:session-model";
+
 /** 宿主给弹层的一切：模型清单的作用域、会话模型、以及发命令的那一下。 */
-export interface WorkflowRunSettingsHost extends WorkflowSettingsModelScope {
+export interface WorkflowRunSettingsHost {
+  workspacePath: string;
+  workspaceIdentity?: string;
+  remoteSessionId?: string;
+  /** 会话当前模型（首项与触发器用它的名字）；缺席时首项只写「会话模型」。 */
+  sessionModel?: { providerId: string; modelId: string };
   /** 发 `amendWorkflowRunSettings`（宿主补 workId 与会话），回 ACK。 */
   apply: (change: WorkflowRunSettingsChange) => Promise<CommandAck>;
 }
@@ -128,26 +143,124 @@ function WorkflowRunSettingsForm({
     (id: string, values?: Record<string, string | number>) => intl.formatMessage({ id }, values),
     [intl],
   );
-  // 清单、会话模型那一项、触发器文案、换模型的思考档规则：与确认窗共用一份
-  // （useWorkflowSettingsModelChoices.ts）。
-  const choices = useWorkflowSettingsModelChoices(host);
+  const modelRead = useModelSelectionView(
+    host.workspacePath,
+    host.remoteSessionId,
+    host.workspaceIdentity,
+  );
+  const view = modelRead.state.status === "ready" ? modelRead.state.view : null;
+  const { accounts: chatGPTAccounts } = useChatGPTAccounts();
+  const chatGPTAccountLabels = useMemo(
+    () => buildChatGPTAccountLabels(chatGPTAccounts),
+    [chatGPTAccounts],
+  );
+  const groups = useMemo(
+    () =>
+      view === null
+        ? []
+        : buildRegistryModelSelectGroups(ZCODE_AGENT_PROVIDER, view, {
+            apiKeyLabel: format("settings.modelProvider.apiKey"),
+            apiKeyBadgeLabel: format("settings.modelProvider.connectionMode.apiKeyBadge"),
+            codingPlanLabel: format("settings.modelProvider.connectionMode.codingPlan"),
+            codingPlanBadgeLabel: format("settings.modelProvider.connectionMode.codingPlanBadge"),
+            startPlanLabel: format("settings.modelProvider.connectionMode.startPlan"),
+            startPlanBadgeLabel: format("settings.modelProvider.connectionMode.startPlanBadge"),
+            teamPlanBadgeLabel: format("settings.modelProvider.connectionMode.teamPlanBadge"),
+            teamPlanFallbackLabel: format("settings.modelProvider.connectionMode.teamPlan"),
+            chatGPTAccountLabels,
+          }),
+    [chatGPTAccountLabels, format, view],
+  );
+  const providerName = useCallback(
+    (providerId: string) =>
+      view?.providers.find((provider) => provider.providerId === providerId)?.providerName ??
+      undefined,
+    [view],
+  );
 
   // 起点在打开那一刻定下：run 状态在弹层开着时变了，也不该把用户正在改的表单拽回去。
   const [initial] = useState(() => initialWorkflowRunSettingsDraft(run));
   const [draft, setDraft] = useState<WorkflowRunSettingsDraft>(initial);
   const [pending, setPending] = useState(false);
   const [rejection, setRejection] = useState<WorkflowRunSettingsRejection | undefined>(undefined);
-  const defaultConcurrency = workflowRunDefaultConcurrency(run);
-  const change = workflowRunSettingsChange(initial, draft, defaultConcurrency);
+  const ceiling = workflowRunSettingsCeiling(run);
+  const change = workflowRunSettingsChange(initial, draft, ceiling);
   const updateDraft = (next: WorkflowRunSettingsDraft) => {
     setDraft(next);
     setRejection(undefined);
   };
 
+  const sessionModelName =
+    host.sessionModel === undefined
+      ? format("chat.toolCall.workflow.run.settings.model.sessionFallback")
+      : formatProviderModelLabel(
+          host.sessionModel.providerId,
+          providerName(host.sessionModel.providerId),
+          host.sessionModel.modelId,
+        );
+  const sessionBadge = format("chat.toolCall.workflow.run.settings.model.session");
+  // 两个字段都是字符串，所以这一项只在文案真变了时换引用；下游的模型选择器是 memo 组件。
+  const sessionModelItem = useMemo(
+    () => ({
+      key: "workflow-settings:session-model",
+      value: SESSION_MODEL_VALUE,
+      name: sessionModelName,
+      badgeLabel: sessionBadge,
+    }),
+    [sessionModelName, sessionBadge],
+  );
   const draftModel = draft.model;
-  const face = choices.describe(draftModel);
+  const modelValue =
+    draftModel.kind === "session"
+      ? SESSION_MODEL_VALUE
+      : encodeCustomModelValue(draftModel.providerId, draftModel.modelId);
+  const listed = groups.some((group) => group.items.some((item) => item.value === modelValue));
+  // 清单读好了、却找不到这个模型：它已被删或停用。Apply 等用户换一个——沿用它只会让 agent 回
+  // model_unavailable（同工具「沿用的模型已不可用」那条失败，在点下去之前就说出来）。
+  const unavailable = draftModel.kind === "model" && view !== null && groups.length > 0 && !listed;
+  const canonical = workflowRunSettingsModelCanonical(draftModel);
+  const triggerLabel =
+    draftModel.kind === "session" || canonical === undefined
+      ? sessionModelName
+      : describeWorkflowSubagentModel(canonical, {
+          formatMessage: intl.formatMessage.bind(intl),
+          providerName,
+        }).name;
+  const thoughtOption =
+    draftModel.kind === "model" && view !== null && !unavailable
+      ? resolveModelThoughtOption({
+          modelSelectionView: view,
+          providerId: draftModel.providerId,
+          modelId: draftModel.modelId,
+          ...(draftModel.level === undefined ? {} : { currentValue: draftModel.level }),
+        })
+      : null;
+
   const handleModelChange = (value: string) => {
-    updateDraft({ ...draft, model: choices.pick(value, draftModel) });
+    if (value === SESSION_MODEL_VALUE) {
+      updateDraft({ ...draft, model: { kind: "session" } });
+      return;
+    }
+    const picked = parseModelPickerValue(value);
+    const same =
+      draftModel.kind === "model" &&
+      draftModel.providerId === picked.providerId &&
+      draftModel.modelId === picked.modelId;
+    // 换模型即取它在注册表里的默认思考档（与设置页子代理那一格同一条规则）；同一个模型保留当前档。
+    const level = same
+      ? draftModel.level
+      : view === null
+        ? undefined
+        : completeNewModelSelection(view, picked)?.options?.reasoningLevel;
+    updateDraft({
+      ...draft,
+      model: {
+        kind: "model",
+        providerId: picked.providerId,
+        modelId: picked.modelId,
+        ...(level === undefined ? {} : { level }),
+      },
+    });
   };
 
   const handleApply = () => {
@@ -186,26 +299,25 @@ function WorkflowRunSettingsForm({
 
   const rejectionDetail =
     rejection === undefined ? undefined : workflowRunSettingsRejectionDetail(rejection);
-  const consequenceId = workflowRunSettingsConsequenceId(run.status, change);
   return (
     <>
       <PopoverTitle>{format("chat.toolCall.workflow.run.settings.title")}</PopoverTitle>
       <WorkflowRunSettingsModelField
-        disabled={pending || choices.loading}
-        groups={choices.groups}
-        leadingItem={choices.sessionModelItem}
-        noCatalog={choices.noCatalog}
+        disabled={pending || view === null}
+        groups={groups}
+        leadingItem={sessionModelItem}
+        noCatalog={view !== null && groups.length === 0}
         onLevelChange={(level) => {
           if (draftModel.kind !== "model" || level === draftModel.level) return;
           updateDraft({ ...draft, model: { ...draftModel, level } });
         }}
         onValueChange={handleModelChange}
-        thoughtOption={face.thoughtOption}
-        triggerLabel={face.triggerLabel}
-        value={face.value}
+        thoughtOption={thoughtOption}
+        triggerLabel={triggerLabel}
+        value={modelValue}
         {...(draftModel.kind === "session"
-          ? { badge: { text: choices.sessionBadge, tone: "subtle" as const } }
-          : face.unavailable
+          ? { badge: { text: sessionBadge, tone: "subtle" as const } }
+          : unavailable
             ? {
                 badge: {
                   text: format("chat.toolCall.workflow.run.settings.model.unavailable"),
@@ -216,16 +328,15 @@ function WorkflowRunSettingsForm({
       />
       <WorkflowRunSettingsBoundField
         bound={draft.bound}
-        defaultConcurrency={defaultConcurrency}
+        ceiling={ceiling}
         disabled={pending}
         onChange={(bound) => updateDraft({ ...draft, bound })}
       />
-      {/* 没改动时后果句为空，但留一行高（min-h-lh），第一次改动时页脚不往下跳。 */}
       <p
-        className="min-h-lh text-ui-sm text-foreground-subtle"
+        className="text-ui-sm text-foreground-subtle"
         data-testid="workflow-run-settings-consequence"
       >
-        {consequenceId === undefined ? null : format(consequenceId)}
+        {format(workflowRunSettingsConsequenceId(run.status, change))}
       </p>
       {rejection === undefined ? null : (
         <div
@@ -249,7 +360,7 @@ function WorkflowRunSettingsForm({
       <div className="flex justify-end">
         <Button
           data-testid="workflow-run-settings-apply"
-          disabled={change === undefined || pending || face.unavailable}
+          disabled={change === undefined || pending || unavailable}
           onClick={handleApply}
           size="default"
           type="button"

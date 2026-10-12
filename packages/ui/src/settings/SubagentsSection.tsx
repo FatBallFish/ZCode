@@ -47,6 +47,7 @@ import {
   buildRegistryModelSelectGroups,
   resolveModelDisplayName,
 } from "@/lib/modelSelectionGroups.js";
+import { buildChatGPTAccountLabels, useChatGPTAccounts } from "@/hooks/useChatGPTAccounts.js";
 import { resolveModelThoughtOption } from "@/lib/modelThoughtOption.js";
 import { parseModelPickerValue } from "@/lib/zcodeSessionProjection.js";
 import { encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
@@ -1314,6 +1315,11 @@ export function SubagentsSection({ onManageModels }: SubagentsSectionProps) {
   const activeScope = selectedWorkspace ? "workspace" : "user";
   const latestRequestIdRef = useRef(0);
   const pluginInventoryWorkspacePath = targetWorkspacePath || workspaceTabs[0]?.workspacePath;
+  const { accounts: chatGPTAccounts } = useChatGPTAccounts();
+  const chatGPTAccountLabels = useMemo(
+    () => buildChatGPTAccountLabels(chatGPTAccounts),
+    [chatGPTAccounts],
+  );
   const chatModelSelectGroups = useMemo(() => {
     if (!modelSelectionView) return [];
     return buildRegistryModelSelectGroups(ZCODE_AGENT_PROVIDER, modelSelectionView, {
@@ -1326,8 +1332,9 @@ export function SubagentsSection({ onManageModels }: SubagentsSectionProps) {
       codingPlanLabel: intl.formatMessage({
         id: "settings.modelProvider.connectionMode.codingPlan",
       }),
+      chatGPTAccountLabels,
     });
-  }, [intl, modelSelectionView]);
+  }, [chatGPTAccountLabels, intl, modelSelectionView]);
   const subagentModelSelectGroups = chatModelSelectGroups;
   const loadAgents = useCallback(
     async (showBlockingLoading: boolean) => {

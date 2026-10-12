@@ -22,6 +22,7 @@ import { useSettings } from "@/hooks/useSettingService.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { logger } from "@/logger.js";
 import { buildRegistryModelSelectGroups } from "@/lib/modelSelectionGroups.js";
+import { buildChatGPTAccountLabels, useChatGPTAccounts } from "@/hooks/useChatGPTAccounts.js";
 import { setPendingSettingsSection } from "@/lib/settingsNavigation.js";
 import { decodeCustomModelValue, encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
 import { parseModelPickerValue } from "@/lib/zcodeSessionProjection.js";
@@ -96,15 +97,21 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
 
   const modelSelectionView =
     modelSelectionRead.state.status === "ready" ? modelSelectionRead.state.view : null;
+  const { accounts: chatGPTAccounts } = useChatGPTAccounts();
+  const chatGPTAccountLabels = useMemo(
+    () => buildChatGPTAccountLabels(chatGPTAccounts),
+    [chatGPTAccounts],
+  );
   const cleanupSelectGroups = useMemo(() => {
     if (!modelSelectionView) return [];
     return buildRegistryModelSelectGroups(ZCODE_AGENT_PROVIDER, modelSelectionView, {
       apiKeyLabel: intl.formatMessage({ id: "settings.modelProvider.apiKey" }),
+      chatGPTAccountLabels,
       codingPlanLabel: intl.formatMessage({
         id: "settings.modelProvider.connectionMode.codingPlan",
       }),
     });
-  }, [intl, modelSelectionView]);
+  }, [chatGPTAccountLabels, intl, modelSelectionView]);
 
   const cleanupEnabled = settings?.voiceCleanupEnabled === true;
   const normalizedCleanupValue = cleanupSelection
