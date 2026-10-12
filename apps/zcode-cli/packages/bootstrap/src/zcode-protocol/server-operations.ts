@@ -1816,7 +1816,12 @@ export async function getUsageStats(context: ZCodeProtocolAgentServerContext, ra
     );
   }
 
-  const result = await usageStore.queryAppUsage({ since, until, tzOffsetMs });
+  const result = await usageStore.queryAppUsage({
+    since,
+    until,
+    tzOffsetMs,
+    ...(params.providerId ? { providerId: params.providerId } : {}),
+  });
   return buildAppUsageSnapshot(result, buildOptions);
 }
 
