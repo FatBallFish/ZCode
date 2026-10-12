@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner.js";
 import { useModelSelectionView } from "@/hooks/useModelSelectionView.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { buildRegistryModelSelectGroups } from "@/lib/modelSelectionGroups.js";
+import { buildChatGPTAccountLabels, useChatGPTAccounts } from "@/hooks/useChatGPTAccounts.js";
 import { resolveModelThoughtOption } from "@/lib/modelThoughtOption.js";
 import { encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
 import { parseModelPickerValue } from "@/lib/zcodeSessionProjection.js";
@@ -148,6 +149,11 @@ function WorkflowRunSettingsForm({
     host.workspaceIdentity,
   );
   const view = modelRead.state.status === "ready" ? modelRead.state.view : null;
+  const { accounts: chatGPTAccounts } = useChatGPTAccounts();
+  const chatGPTAccountLabels = useMemo(
+    () => buildChatGPTAccountLabels(chatGPTAccounts),
+    [chatGPTAccounts],
+  );
   const groups = useMemo(
     () =>
       view === null
@@ -161,8 +167,9 @@ function WorkflowRunSettingsForm({
             startPlanBadgeLabel: format("settings.modelProvider.connectionMode.startPlanBadge"),
             teamPlanBadgeLabel: format("settings.modelProvider.connectionMode.teamPlanBadge"),
             teamPlanFallbackLabel: format("settings.modelProvider.connectionMode.teamPlan"),
+            chatGPTAccountLabels,
           }),
-    [format, view],
+    [chatGPTAccountLabels, format, view],
   );
   const providerName = useCallback(
     (providerId: string) =>
