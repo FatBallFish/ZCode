@@ -94,7 +94,7 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
   });
 
   it("读取手动领取 preview 并归一化 plans", async () => {
-    vi.stubEnv("ZCODE_ENDPOINT_ORIGIN", "https://preview.example.com");
+    vi.stubEnv("MIKIKO_ENDPOINT_ORIGIN", "https://preview.example.com");
     // Bugfix: 开发机 ambient ZCODE_BASE_URL 优先级高于 ZCODE_ENDPOINT_ORIGIN，置空避免 preview 域被生产域覆盖
     vi.stubEnv("ZCODE_BASE_URL", "");
     const apiClient: ApiClient = {
@@ -859,7 +859,7 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
     expect(
       resolveCodingPlanClientConfigUrl({
         ZCODE_ENV: "production",
-        ZCODE_PRODUCTION_BASE_URL: "https://runtime.example.com",
+        MIKIKO_ENDPOINT_ORIGIN: "https://runtime.example.com",
       }).toString(),
     ).toBe("https://runtime.example.com/api/v1/client/configs");
   });

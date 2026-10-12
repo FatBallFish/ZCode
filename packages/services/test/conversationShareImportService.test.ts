@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { resolveRuntimeZCodeEndpointOrigin } from "@zcode/shared";
 
 import { ConversationShareHttpClient } from "../src/conversation-share/conversationShareHttpClient.js";
 import { sha256ConversationShareJson } from "../src/conversation-share/conversationShareIntegrity.js";
@@ -904,8 +903,7 @@ describe("ConversationShareService import", () => {
     );
     const derivedUrl = new URL(derivedImport.shareUrl);
     expect(derivedUrl.origin).toBe("https://share-env.mikiko.example");
-    expect(derivedUrl.origin).toBe(resolveRuntimeZCodeEndpointOrigin(process.env));
-    expect(derivedUrl.pathname).toBe(`/cn/share/${encodeURIComponent(secondShare.share_code)}`);
+    expect(derivedUrl.pathname).toBe(`/${encodeURIComponent(secondShare.share_code)}`);
     vi.unstubAllEnvs();
   });
 

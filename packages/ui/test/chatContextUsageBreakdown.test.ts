@@ -258,16 +258,16 @@ describe("ChatCodingPlanUsageRemainingPanel reset action", () => {
 });
 
 describe("ChatCodingPlanUsageRemainingPanel MCP 额度", () => {
-  it("ZCode MCP tooltip 使用精简的每日合计额度说明", () => {
+  it("Mikiko MCP tooltip 使用精简的每日合计额度说明", () => {
     expect(zhMessages["sidebar.usage.plan.zcodeMcpDescription"]).toBe(
-      "ZCode 预置插件 MCP 每日合计额度",
+      "Mikiko 预置插件 MCP 每日合计额度",
     );
     expect(enMessages["sidebar.usage.plan.zcodeMcpDescription"]).toBe(
-      "Daily aggregate quota for ZCode built-in plugin MCPs",
+      "Daily aggregate quota for Mikiko built-in plugin MCPs",
     );
   });
 
-  it("ZCode MCP 文字保持普通前景色，进度条复用图表黄色", () => {
+  it("Mikiko MCP 文字保持普通前景色，进度条复用图表黄色", () => {
     const styles = readFileSync("packages/ui/src/styles.css", "utf8");
 
     expect(styles).toContain("--color-usage-chart-5: #e07b00;");
@@ -412,7 +412,7 @@ describe("ChatCodingPlanUsageRemainingPanel MCP 额度", () => {
       createElement(ChatCodingPlanMcpUsageMeter, {
         color: "var(--color-usage-chart-5)",
         description: "description",
-        label: "ZCode MCP",
+        label: "Mikiko MCP",
         percentage: 75,
         primaryQuotaCount: 2,
         value: "75%",

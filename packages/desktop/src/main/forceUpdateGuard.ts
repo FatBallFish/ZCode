@@ -42,7 +42,7 @@ export interface ForceUpdateGuardOptions {
   onBlocked?: (requirement: ForceUpdateRequirement) => void;
 }
 
-function resolveForceUpdateClientConfigUrl(endpointOrigin = MIKIKO_UPDATE_ENDPOINT_ORIGIN): string {
+export function resolveForceUpdateClientConfigUrl(endpointOrigin = MIKIKO_UPDATE_ENDPOINT_ORIGIN): string {
   const url = new URL(
     `${buildZCodeEndpointUrls(endpointOrigin).origin}${ZCODE_CLIENT_CONFIG_API_PATH}`,
   );

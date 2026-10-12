@@ -28,7 +28,7 @@ afterEach(() => {
   process.env.HOME = originalHome;
   // Bugfix: 并发单测时若恢复到文件加载时捕获的 originalDataBaseDir，
   // 可能把别的用例临时注入的值带回去，最终污染真实数据目录。
-  delete process.env.ZCODE_DATA_BASE_DIR;
+  delete process.env.MIKIKO_DATA_BASE_DIR;
   vi.doUnmock("node:os");
   while (tempDirs.length > 0) {
     const dir = tempDirs.pop();
@@ -43,7 +43,7 @@ describe("ClaudeNativeSessionImportRepo", () => {
     const home = makeTempDir("zcode-claude-native-home-");
     const dataBaseDir = makeTempDir("zcode-claude-native-db-");
     process.env.HOME = home;
-    process.env.ZCODE_DATA_BASE_DIR = dataBaseDir;
+    process.env.MIKIKO_DATA_BASE_DIR = dataBaseDir;
 
     vi.resetModules();
     vi.doMock("node:os", async () => {

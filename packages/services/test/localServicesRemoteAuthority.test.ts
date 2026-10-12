@@ -143,7 +143,12 @@ describe("createLocalServices remote authority", () => {
 
       const requestedUrls = fetchImpl.mock.calls.map(([input]) => String(input));
       expect(requestedUrls.some((url) => url.includes("/releases/latest"))).toBe(false);
-      expect(requestedUrls.every((url) => url.includes("/client/configs"))).toBe(true);
+      // custom：builtin 预置走 /api/v1/builtin-provider-config（自建），灰度走 /client/configs。
+      expect(
+        requestedUrls.every(
+          (url) => url.includes("/client/configs") || url.includes("/builtin-provider-config"),
+        ),
+      ).toBe(true);
     } finally {
       disposeServiceResources(services);
     }

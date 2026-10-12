@@ -111,7 +111,7 @@ describe("buildAgentRuntimeEnv", () => {
 /* CR-01：官方 MCP 信任判定的单源不变量。
    两侧共用 @zcode/shared 的同一份实现，但只有"输入也相同"时结论才必然一致。
    host 的输入是 env + settings 覆盖，agent 的输入只有 env——因此必须把 host 解析出的
-   权威 origin 通过 ZCODE_BASE_URL 下发，否则 test env + 自定义端点时两侧必然分叉。 */
+   权威 origin 通过 MIKIKO_BASE_URL 下发，否则 test env + 自定义端点时两侧必然分叉。 */
 describe("buildAgentEndpointOriginEnv", () => {
   it("returns an empty patch when the origin is missing or blank", () => {
     expect(buildAgentEndpointOriginEnv(undefined)).toEqual({});
@@ -119,14 +119,14 @@ describe("buildAgentEndpointOriginEnv", () => {
     expect(buildAgentEndpointOriginEnv("   ")).toEqual({});
   });
 
-  it("pins the resolved origin onto ZCODE_BASE_URL", () => {
+  it("pins the resolved origin onto MIKIKO_BASE_URL", () => {
     expect(buildAgentEndpointOriginEnv("https://zcode.z.ai")).toEqual({
-      ZCODE_BASE_URL: "https://zcode.z.ai",
+      MIKIKO_BASE_URL: "https://zcode.z.ai",
     });
   });
 
   it("outranks the inherited endpoint keys it must override", () => {
-    // ZCODE_BASE_URL 必须压过继承来的 ZCODE_ENDPOINT_ORIGIN / ZCODE_TEST_BASE_URL，
+    // MIKIKO_BASE_URL 必须压过继承来的 ZCODE_ENDPOINT_ORIGIN / ZCODE_TEST_BASE_URL，
     // 否则注入了也不生效。
     const hostEnv = {
       ZCODE_ENDPOINT_ORIGIN: "https://inherited-endpoint.example",
@@ -182,7 +182,7 @@ describe("official MCP trust: host and agent must agree on the ZCode API origin"
 
   it("agrees in test env once the resolved origin is injected", async () => {
     // 复现场景：ZCODE_ENV=test（桌面测试包显式下发）+ 设置页自定义端点 ≠ env base URL。
-    const hostEnv = { ZCODE_ENV: "test", ZCODE_BASE_URL: "https://env-derived.example" };
+    const hostEnv = { ZCODE_ENV: "test", MIKIKO_BASE_URL: "https://env-derived.example" };
     const agentEnv = {
       ...hostEnv,
       ...buildAgentEndpointOriginEnv(
@@ -206,7 +206,7 @@ describe("official MCP trust: host and agent must agree on the ZCode API origin"
 
   it("would diverge without the injection (guards against silently dropping it)", async () => {
     // 反向护栏：去掉注入后本用例必须观察到分叉，否则上面那条就是恒真的假护栏。
-    const hostEnv = { ZCODE_ENV: "test", ZCODE_BASE_URL: "https://env-derived.example" };
+    const hostEnv = { ZCODE_ENV: "test", MIKIKO_BASE_URL: "https://env-derived.example" };
     const host = hostRegistry(hostEnv, SETTINGS_ORIGIN);
     const agentWithoutInjection = agentRegistry(hostEnv);
 
@@ -216,7 +216,7 @@ describe("official MCP trust: host and agent must agree on the ZCode API origin"
 
   it("agrees in production, where the settings override is ignored on both sides", async () => {
     // production 下 override 被忽略，注入值等于 env 派生值，行为不得改变。
-    const hostEnv = { ZCODE_ENV: "production", ZCODE_BASE_URL: "https://zcode.z.ai" };
+    const hostEnv = { ZCODE_ENV: "production", MIKIKO_BASE_URL: "https://zcode.z.ai" };
     const injected = resolveRuntimeZCodeEndpointOrigin(hostEnv, {
       overrideOrigin: SETTINGS_ORIGIN,
     });

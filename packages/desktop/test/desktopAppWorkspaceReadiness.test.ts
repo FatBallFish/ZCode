@@ -65,7 +65,7 @@ describe("desktop e2e workspace readiness probe", () => {
     appendTestId(TID_COMPOSER_WORKSPACE_TRIGGER);
     appendTestId(`${TID_V4_SESSION_PANE}-pane-1`);
 
-    expect(probe("/Users/dev/.zcode/workspace/default")).toBe("ready");
+    expect(probe("/Users/dev/.mikiko/workspace/default")).toBe("ready");
   });
 
   it("keeps waiting while neither the workspace nor onboarding is rendered", () => {

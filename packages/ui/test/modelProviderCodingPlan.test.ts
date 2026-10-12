@@ -827,8 +827,9 @@ describe("model provider coding plan", () => {
 
     renderToStaticMarkup(createElement(Harness));
 
-    const labels = capturedGroups[0]?.items.map((item) => item.label) ?? [];
-    const presetIds = capturedGroups[0]?.items.map((item) => item.presetId) ?? [];
+    const presetGroupItems = capturedGroups.find((group) => group.id === "preset")?.items ?? [];
+    const labels = presetGroupItems.map((item) => item.label);
+    const presetIds = presetGroupItems.map((item) => item.presetId);
     expect(labels).toContain("Z.ai - API Key");
     expect(labels).toContain("BigModel - API Key");
     expect(presetIds).toContain(BUILTIN_MODEL_PROVIDER_IDS.zaiStartPlan);
@@ -902,11 +903,12 @@ describe("model provider coding plan", () => {
 
     renderToStaticMarkup(createElement(Harness));
 
-    const presetIds = capturedGroups[0]?.items.map((item) => item.presetId) ?? [];
-    expect(capturedGroups[0]?.items.map((item) => item.key)).toEqual([
-      "preset:account:bigmodel-start-plan",
-      "coding-plan:account:bigmodel-start-plan",
-    ]);
+    const presetIds =
+      capturedGroups.find((group) => group.id === "preset")?.items.map((item) => item.presetId) ??
+      [];
+    expect(
+      capturedGroups.find((group) => group.id === "preset")?.items.map((item) => item.key),
+    ).toEqual(["preset:account:bigmodel-start-plan", "coding-plan:account:bigmodel-start-plan"]);
     expect(capturedNavigationItems.map((item) => item.presetId)).toContain(
       BUILTIN_MODEL_PROVIDER_IDS.bigmodelStartPlan,
     );
@@ -1024,7 +1026,9 @@ describe("model provider coding plan", () => {
       statusActive: true,
       projectId: "project-a",
     });
-    expect(capturedGroups[0]?.items[0]).toMatchObject({
+    expect(
+      capturedGroups.find((group) => group.id === "preset")?.items[0],
+    ).toMatchObject({
       type: "preset",
       presetId: BUILTIN_MODEL_PROVIDER_IDS.bigmodelStartPlan,
       statusActive: true,
@@ -1140,7 +1144,11 @@ describe("model provider coding plan", () => {
         ),
       ).toBe(true);
       expect(presetItems.some((item) => item.type === "codingPlanLoading")).toBe(false);
-      expect(capturedGroups[0]?.items.some((item) => item.type === "codingPlan")).toBe(true);
+      expect(
+        capturedGroups
+          .find((group) => group.id === "preset")
+          ?.items.some((item) => item.type === "codingPlan"),
+      ).toBe(true);
     }
   });
 
@@ -1476,8 +1484,10 @@ describe("model provider coding plan", () => {
 
     renderToStaticMarkup(createElement(Harness));
 
+    // custom：中转站/ChatGPT 分区排在预置分区前，改按分组 id 定位（不再假设首位）。
+    const presetGroup = capturedGroups.find((group) => group.id === "preset");
     expect(
-      capturedGroups[0]?.items.map((item) => (item.type === "preset" ? item.presetId : item.key)),
+      presetGroup?.items.map((item) => (item.type === "preset" ? item.presetId : item.key)),
     ).toEqual([
       BUILTIN_MODEL_PROVIDER_IDS.zaiStartPlan,
       BUILTIN_MODEL_PROVIDER_IDS.bigmodelStartPlan,

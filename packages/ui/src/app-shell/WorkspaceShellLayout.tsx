@@ -1311,6 +1311,17 @@ export const WorkspaceShellLayout = memo(
       },
       [onCreateTask, showChatMainView, workspaceReadOnlyReason],
     );
+
+    const onCreateTaskInChatMemo = useCallback(
+      (request?: Parameters<typeof onCreateTask>[0]) => {
+        handleCreateTaskInChat(request);
+        if (isMobileLayoutRef.current) {
+          handleToggleSidebar();
+        }
+      },
+      [handleCreateTaskInChat, handleToggleSidebar],
+    );
+
     const shellWorkbenchBinding = useMemo<WorkbenchSessionBinding | null>(
       () =>
         activeTaskId
@@ -1428,6 +1439,23 @@ export const WorkspaceShellLayout = memo(
         workspaceTabs,
       ],
     );
+
+    const onSelectTaskInChatMemo = useCallback(
+      (
+        path: string,
+        taskId: string,
+        identity?: string,
+        remoteSessionId?: string,
+        unreadAt?: number,
+      ) => {
+        handleSelectTaskInChat(path, taskId, identity, remoteSessionId, unreadAt);
+        if (isMobileLayoutRef.current) {
+          handleToggleSidebar();
+        }
+      },
+      [handleSelectTaskInChat, handleToggleSidebar],
+    );
+
     // 中枢直接启动 accepted 后切到新会话（run 卡已在顶部）：复用运行历史那条导航，
     // target 恒带工作流所属项目坐标（不变式 7），remoteSessionId 决定连接 endpoint。
     // 「已保存」芯片的落点：交给 App 切主视图并设深链（与「自动化」入口同一条导航历史）。
@@ -2433,35 +2461,12 @@ export const WorkspaceShellLayout = memo(
                     workspacePath={workspaceAbsPath}
                     workspaceRemoteSessionId={workspaceRemoteSessionId}
                     activePreviewPath={activePreviewPath}
-                    onSelectTask={(
-                      path,
-                      taskId,
-                      identity,
-                      remoteSessionId,
-                      unreadAt,
-                    ) => {
-                      handleSelectTaskInChat(
-                        path,
-                        taskId,
-                        identity,
-                        remoteSessionId,
-                        unreadAt,
-                      );
-                      // 小屏抽屉：选中会话即收起，回对话区（spec §21.4.3）。
-                      if (isMobileLayoutRef.current) {
-                        handleToggleSidebar();
-                      }
-                    }}
+                    onSelectTask={onSelectTaskInChatMemo}
                     onStartDraftInWorkspace={handleCreateProjectDraft}
                     onOpenCodeViewer={handleOpenCodeViewer}
                     onOpenBrowserUrl={handleOpenBrowserUrl}
                     fileTreeOpenRequest={fileTreeOpenRequest}
-                    onCreateTask={(request) => {
-                      handleCreateTaskInChat(request);
-                      if (isMobileLayoutRef.current) {
-                        handleToggleSidebar();
-                      }
-                    }}
+                    onCreateTask={onCreateTaskInChatMemo}
                     onCreateConversationTask={
                       onCreateConversationTask
                         ? () => {

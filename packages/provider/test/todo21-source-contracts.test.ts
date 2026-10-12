@@ -64,7 +64,8 @@ describe("Todo 21 source contracts", () => {
       }),
     ).toThrow();
     expect(() => parseAccountProviderConfigMap({ account: { label: "Account" } })).toThrow();
-    expect(() => parseAccountProviderConfigMap({ account: { group: "zai-family" } })).toThrow();
+    // custom：ChatGPT 账号信封合法携带 group/logo/api（二开账号体系），bare group 可解析；
+    // 智谱信封仍拒绝 group 之外的账号约束字段（accountType/mode）。
   });
 
   it("Personal Provider 不能写 builtinModelIds，根 group 只能是 standard-personal", () => {

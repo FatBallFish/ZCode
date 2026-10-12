@@ -22,7 +22,7 @@ describe("OpenSplitButton open-with ordering", () => {
 
     expect(source).toContain("resolveWorkspaceEditorSelection({");
     expect(source).toContain("remoteTarget: openInEditorRemoteTarget");
-    expect(source).toContain("sortedEditors.map((editor)");
+    expect(source).toContain("mergeFileOpenApps(fileApps, sortedEditors)");
     expect(source).not.toContain("editors.map((editor)");
   });
 

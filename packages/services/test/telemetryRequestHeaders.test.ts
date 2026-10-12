@@ -44,7 +44,7 @@ it("adds every public header and re-reads authorization on retry and logout", as
   expect(fetchImpl.mock.calls[0]?.[1]?.redirect).toBe("error");
   expect(fetchImpl.mock.calls[0]?.[1]?.headers).toEqual({
     "Content-Type": "application/json",
-    "User-Agent": "ZCode/1.2.3",
+    "User-Agent": "Mikiko/1.2.3",
     "HTTP-Referer": "https://zcode.z.ai",
     "X-Title": "Z Code@electron",
     "X-ZCode-App-Version": "1.2.3",

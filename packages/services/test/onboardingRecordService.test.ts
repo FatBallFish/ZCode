@@ -8,7 +8,7 @@ import type {
 } from "../src/onboarding/onboardingRecord.js";
 
 const originalHome = process.env.HOME;
-const originalDataBaseDir = process.env.ZCODE_DATA_BASE_DIR;
+const originalDataBaseDir = process.env.MIKIKO_DATA_BASE_DIR;
 const tempHomes: string[] = [];
 
 function recordFilePath(home: string): string {
@@ -47,8 +47,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   if (originalHome === undefined) delete process.env.HOME;
   else process.env.HOME = originalHome;
-  if (originalDataBaseDir === undefined) delete process.env.ZCODE_DATA_BASE_DIR;
-  else process.env.ZCODE_DATA_BASE_DIR = originalDataBaseDir;
+  if (originalDataBaseDir === undefined) delete process.env.MIKIKO_DATA_BASE_DIR;
+  else process.env.MIKIKO_DATA_BASE_DIR = originalDataBaseDir;
   while (tempHomes.length > 0) {
     const home = tempHomes.pop();
     if (home) rmSync(home, { recursive: true, force: true });
@@ -219,8 +219,8 @@ describe("onboardingRecordService", () => {
     const dataBaseDir = mkdtempSync(join(tmpdir(), "zcode-onboarding-data-"));
     tempHomes.push(dataBaseDir);
     process.env.HOME = home;
-    // paths.ts 在模块导入时捕获 ZCODE_DATA_BASE_DIR；host 进程正是经该环境变量下发 dataBaseDir。
-    process.env.ZCODE_DATA_BASE_DIR = dataBaseDir;
+    // paths.ts 在模块导入时捕获 MIKIKO_DATA_BASE_DIR；host 进程正是经该环境变量下发 dataBaseDir。
+    process.env.MIKIKO_DATA_BASE_DIR = dataBaseDir;
     vi.resetModules();
     const mod = await import("../src/onboarding/onboardingRecordService.js");
     const service = mod.createOnboardingRecordService({

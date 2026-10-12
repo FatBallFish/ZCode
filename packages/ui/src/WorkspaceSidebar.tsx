@@ -792,6 +792,18 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
       increaseWorkspaceTaskVisibleLimit(current, workspaceKey),
     );
   }, []);
+
+  // memo 组件引用稳定（reactStableReferences 契约）：按 workspaceKey 缓存包装函数。
+  const onShowMoreTasksCacheRef = useRef(new Map<string, () => void>());
+  const onShowMoreWorkspaceTasksMemo = useCallback((workspaceKey: string) => {
+    const cache = onShowMoreTasksCacheRef.current;
+    let handler = cache.get(workspaceKey);
+    if (!handler) {
+      handler = () => handleShowMoreWorkspaceTasks(workspaceKey);
+      cache.set(workspaceKey, handler);
+    }
+    return handler;
+  }, [handleShowMoreWorkspaceTasks]);
   // 项目置顶（spec specs/desktop/sidebar-projects.md）：键为 buildTaskWorkspaceKey 的
   // 本设备 localStorage 偏好；置顶行移入「已置顶」分区，项目分区只保留未置顶行。
   const [pinnedProjectKeys, setPinnedProjectKeys] = useState<Set<string>>(readPinnedProjectKeys);
@@ -901,7 +913,9 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
               taskListHasMore={taskGroup?.hasMore ?? false}
               taskListHasUnread={taskGroup?.hasUnread ?? false}
               taskListLiveWorkflowCount={taskGroup?.liveWorkflowCount ?? 0}
-              onShowMoreTasks={() => handleShowMoreWorkspaceTasks(workspaceKey)}
+              onShowMoreTasks={
+                onShowMoreWorkspaceTasksMemo(workspaceKey) as unknown as () => void
+              }
               reconnectingRemoteWorkspaceKeys={reconnectingRemoteWorkspaceKeys}
               remoteWorkspaceErrorByWorkspaceKey={remoteWorkspaceErrorByWorkspaceKey}
               reconnectingRemoteWorkspaceLogsByWorkspaceKey={

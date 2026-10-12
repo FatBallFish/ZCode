@@ -82,7 +82,6 @@ describe("createQuickPickCommands", () => {
       "switch-theme",
       "skills-settings",
       "mcp-settings",
-      "feedback",
       "community",
       "product-docs",
       "login",

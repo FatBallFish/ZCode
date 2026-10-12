@@ -11,6 +11,34 @@ const buttonMock = vi.hoisted(() => ({
   props: [] as Array<Record<string, unknown>>,
 }));
 
+vi.mock("@/feedback/feedbackStore.js", () => {
+  // custom 反馈入口默认关闭且 openSubmit 在模块内部读常量绑定，importOriginal 覆盖不动它。
+  // 本文件专测错误横幅的反馈草稿链路，给可断言的最小 store 桩。
+  const state = {
+    open: false,
+    featureRequestOpen: false,
+    tab: "submit" as const,
+    submitDraft: null as unknown,
+    selectedTicketId: null as string | null,
+    openSubmit: (draft?: unknown) => {
+      Object.assign(state, { open: true, submitDraft: draft ?? null });
+    },
+  };
+  const listeners = new Set<() => void>();
+  const useFeedbackStore = ((selector: (s: typeof state) => unknown) => selector(state)) as {
+    (selector: (s: typeof state) => unknown): unknown;
+    getState: () => typeof state;
+    setState: (patch: Partial<typeof state>) => void;
+    subscribe: (listener: () => void) => () => void;
+  };
+  useFeedbackStore.getState = () => state;
+  useFeedbackStore.setState = (patch: Partial<typeof state>) => Object.assign(state, patch);
+  useFeedbackStore.subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  };
+  return { FEEDBACK_ENTRY_ENABLED: true, useFeedbackStore };
+});
 vi.mock("@/hooks/useServices.js", () => ({
   useOptionalServices: () => null,
   useServices: () => ({

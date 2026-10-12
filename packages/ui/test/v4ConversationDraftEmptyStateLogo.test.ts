@@ -3,7 +3,7 @@
 import { createElement } from "react";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import darkEmptyStateLogoUrl from "@/assets/Z.svg";
+import darkEmptyStateLogoUrl from "@/assets/M.svg";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { ConversationDraftEmptyState } from "@/v4/ConversationDraftEmptyState.js";
 
@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 describe("ConversationDraftEmptyState logo", () => {
-  it("uses the supplied Z.svg asset only in dark mode", () => {
+  it("uses the supplied M.svg asset only in dark mode", () => {
     const { container } = render(
       createElement(
         ZCodeIntlProvider,

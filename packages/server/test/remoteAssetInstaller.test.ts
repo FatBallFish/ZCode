@@ -750,7 +750,7 @@ describe("LocalUploadAssetInstaller", () => {
     expect(new Set(remoteTarPaths)).toHaveLength(2);
     for (const remoteTarPath of remoteTarPaths) {
       expect(remoteTarPath).toMatch(
-        /^~\/.zcode\/server\/tools\/ripgrep\.tar\.gz-[\w-]+$/u,
+        /^~\/.mikiko\/server\/tools\/ripgrep\.tar\.gz-[\w-]+$/u,
       );
     }
     expect(backend.commands.join("\n")).toContain("ripgrep.extract-");

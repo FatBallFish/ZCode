@@ -150,6 +150,7 @@ vi.mock("@/v4/V4ConversationContext.js", () => ({
 
 vi.mock("@/store/StoreProvider.js", () => ({
   useZCodeStoreWithDefault: (_selector: unknown, fallback: unknown) => fallback,
+  useZCodeStore: (selector: (state: Record<string, unknown>) => unknown) => selector({}),
 }));
 
 vi.mock("@/hooks/useSettingService.js", () => ({

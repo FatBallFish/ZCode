@@ -36,7 +36,7 @@ describe("resolveZCodeBuiltinProviderConfigFilePath", () => {
   it("显式 ZCode Built-in Config Source 优先于安装布局", () => {
     expect(
       resolveZCodeBuiltinProviderConfigFilePath({
-        env: { ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: "/fixtures/zcode-builtin.json" },
+        env: { MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE: "/fixtures/zcode-builtin.json" },
         isPackaged: true,
         resourcesPath: "/Applications/ZCode.app/Contents/Resources",
       }),

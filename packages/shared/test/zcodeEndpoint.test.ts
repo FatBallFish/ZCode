@@ -239,7 +239,7 @@ describe("zcodeEndpoint", () => {
   it("keeps environment-scoped endpoint overrides centralized", () => {
     const env = {
       ZCODE_ENV: "test",
-      ZCODE_TEST_BASE_URL: "https://test-zcode.example.com/path",
+      MIKIKO_BASE_URL: "https://test-zcode.example.com/path",
       ZAI_TEST_OAUTH_ORIGIN: "https://test-oauth.example.com/oauth",
       ZAI_TEST_BUSINESS_BASE_URL: "https://test-business.example.com/api",
       ZAI_TEST_OAUTH_CLIENT_ID: "client_test_override",
@@ -278,7 +278,7 @@ describe("zcodeEndpoint", () => {
     const env = {
       ZCODE_ENV: "test",
       ZCODE_BASE_URL: " ",
-      ZCODE_TEST_BASE_URL: "\t",
+      MIKIKO_BASE_URL: "\t",
       ZAI_OAUTH_ORIGIN: "",
       ZAI_TEST_OAUTH_ORIGIN: " ",
       ZAI_BUSINESS_BASE_URL: " ",

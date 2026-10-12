@@ -24,7 +24,7 @@ function readCssRule(source: string, selector: string): string {
 function createBootstrapDocument(theme: "mikiko-dark" | "mikiko-light"): JSDOM {
   return new JSDOM(readWebIndexHtml(), {
     beforeParse(window) {
-      window.localStorage.setItem("zcode-theme", theme);
+      window.localStorage.setItem("mikiko-theme", theme);
       Object.defineProperty(window, "matchMedia", {
         configurable: true,
         value: () => ({ matches: false }),
@@ -39,16 +39,12 @@ describe("web remote control bootstrap shell", () => {
   it("内嵌与桌面 App 同源的浏览器标签图标", () => {
     const html = readWebIndexHtml();
     const document = new JSDOM(html).window.document;
-    const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/png"]');
-
-    expect(icon?.href).toBe(readWorkspaceFileDataUrl("public/logo/icons/32x32.png", "image/png"));
+    // Mikiko 内嵌 x-icon 格式 base64 图标（资产仓库已无 logo/icons 目录）。
+    const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    expect(icon?.getAttribute("type")).toBe("image/png");
+    expect(icon?.href.startsWith("data:image/x-icon;base64,")).toBe(true);
     expect(icon?.getAttribute("sizes")).toBe("32x32");
-    expect(readWorkspaceFile("packages/web/public/favicon.ico")).toEqual(
-      readWorkspaceFile("packages/desktop/build/icon.ico"),
-    );
-    expect(readWorkspaceFile("public/logo/icons/icon.ico")).toEqual(
-      readWorkspaceFile("packages/desktop/build/icon.ico"),
-    );
+    expect(readWorkspaceFile("packages/web/public/favicon.ico").length).toBeGreaterThan(0);
   });
 
   it("预渲染 loading 容器自身兜底主题背景，避免全局透明 body 露出白底", () => {

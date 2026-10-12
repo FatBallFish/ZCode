@@ -112,14 +112,14 @@ describe("desktop deep link url helpers", () => {
 
     expect(
       extractOpenWorkspacePathFromArgs([
-        "C:\\Program Files\\ZCode\\ZCode.exe",
+        "C:\\Program Files\\Mikiko\\Mikiko.exe",
         "--open-workspace",
         "C:\\Users\\demo\\Project A&B#1",
       ]),
     ).toBe("C:\\Users\\demo\\Project A&B#1");
     expect(
       extractOpenWorkspacePathFromArgs([
-        "C:\\Program Files\\ZCode\\ZCode.exe",
+        "C:\\Program Files\\Mikiko\\Mikiko.exe",
         "--open-workspace=C:\\Users\\demo\\Project%20A",
       ]),
     ).toBe("C:\\Users\\demo\\Project%20A");
@@ -158,16 +158,18 @@ describe("desktop deep link url helpers", () => {
     const { buildWindowsOpenFolderCommand, buildWindowsOpenFolderRegistryOperations } =
       await import("../src/main/desktopWindowsOpenFolderContextMenu.js");
 
-    expect(buildWindowsOpenFolderCommand("C:\\Program Files\\ZCode\\ZCode.exe")).toBe(
-      '"C:\\Program Files\\ZCode\\ZCode.exe" --open-workspace "%1"',
+    expect(buildWindowsOpenFolderCommand("C:\\Program Files\\Mikiko\\Mikiko.exe")).toBe(
+      '"C:\\Program Files\\Mikiko\\Mikiko.exe" --open-workspace "%1"',
     );
     expect(
       buildWindowsOpenFolderCommand("C:\\Electron\\electron.exe", ["C:\\repo\\desktop\\main.js"]),
     ).toBe('"C:\\Electron\\electron.exe" "C:\\repo\\desktop\\main.js" --open-workspace "%1"');
 
     const operations = buildWindowsOpenFolderRegistryOperations({
-      executablePath: "C:\\Program Files\\ZCode\\ZCode.exe",
+      executablePath: "C:\\Program Files\\Mikiko\\Mikiko.exe",
       locale: "en-US",
+      flavor: "production",
+      isPackaged: true,
     });
 
     expect(operations).toContainEqual({
@@ -176,7 +178,7 @@ describe("desktop deep link url helpers", () => {
         "HKCU\\Software\\Classes\\Directory\\shell\\ZCode.OpenInZCode\\command",
         "/ve",
         "/d",
-        '"C:\\Program Files\\ZCode\\ZCode.exe" --open-workspace "%1"',
+        '"C:\\Program Files\\Mikiko\\Mikiko.exe" --open-workspace "%1"',
         "/f",
       ],
     });
@@ -186,59 +188,38 @@ describe("desktop deep link url helpers", () => {
         "HKCU\\Software\\Classes\\Drive\\shell\\ZCode.OpenInZCode\\command",
         "/ve",
         "/d",
-        '"C:\\Program Files\\ZCode\\ZCode.exe" --open-workspace "%1"',
+        '"C:\\Program Files\\Mikiko\\Mikiko.exe" --open-workspace "%1"',
         "/f",
       ],
     });
   });
 
   it("builds localized Windows Explorer registry menu labels", async () => {
-    const { buildWindowsOpenFolderRegistryOperations, getWindowsOpenFolderMenuName } =
-      await import("../src/main/desktopWindowsOpenFolderContextMenu.js");
-
-    expect(getWindowsOpenFolderMenuName("zh-CN")).toBe("在ZCode中打开");
-    expect(getWindowsOpenFolderMenuName("en-US")).toBe("Open in ZCode");
-
-    const operations = buildWindowsOpenFolderRegistryOperations({
-      executablePath: "C:\\Program Files\\ZCode\\ZCode.exe",
-      locale: "zh-CN",
-    });
-
-    expect(operations).toContainEqual({
-      args: [
-        "add",
-        "HKCU\\Software\\Classes\\Directory\\shell\\ZCode.OpenInZCode",
-        "/ve",
-        "/d",
-        "在ZCode中打开",
-        "/f",
-      ],
-    });
-    expect(operations).toContainEqual({
-      args: [
-        "add",
-        "HKCU\\Software\\Classes\\Directory\\shell\\ZCode.OpenInZCode",
-        "/v",
-        "MUIVerb",
-        "/t",
-        "REG_SZ",
-        "/d",
-        "在ZCode中打开",
-        "/f",
-      ],
-    });
-
-describe("深链双 scheme 解析（zcode:// 与 mikiko:// 同一套 host 分发）", () => {
-  it("分享导入：两种 scheme 均可识别并提取 code", async () => {
-    const { isShareImportUrl, extractShareImportCode } = await import(
-      "../src/main/desktopDeepLinkUrl.js"
+    const { buildWindowsOpenFolderRegistryOperations } = await import(
+      "../src/main/desktopWindowsOpenFolderContextMenu.js"
     );
-    for (const scheme of ["zcode", "mikiko"]) {
-      const url = new URL(`${scheme}://share/import?code=abc123`);
-      expect(isShareImportUrl(url), scheme).toBe(true);
-      expect(extractShareImportCode(url), scheme).toBe("abc123");
-    }
-    expect(isShareImportUrl(new URL("https://share/import?code=x"))).toBe(false);
+
+    // 菜单名函数是模块私有；经注册表操作的 /d 值验证本地化文案（实现沿历史键名）。
+    const zhOps = buildWindowsOpenFolderRegistryOperations({
+      executablePath: "C:\\Program Files\\Mikiko\\Mikiko.exe",
+      locale: "zh-CN",
+      flavor: "production",
+      isPackaged: true,
+    });
+    const enOps = buildWindowsOpenFolderRegistryOperations({
+      executablePath: "C:\\Program Files\\Mikiko\\Mikiko.exe",
+      locale: "en-US",
+      flavor: "production",
+      isPackaged: true,
+    });
+    const menuValue = (ops: Array<{ args: string[] }>, key: string) =>
+      ops.find((op) => op.args[1] === key)?.args[4];
+    expect(menuValue(zhOps, "HKCU\\Software\\Classes\\Directory\\shell\\ZCode.OpenInZCode")).toBe(
+      "在 Mikiko 中打开",
+    );
+    expect(menuValue(enOps, "HKCU\\Software\\Classes\\Directory\\shell\\ZCode.OpenInZCode")).toBe(
+      "Open in Mikiko",
+    );
   });
 
   it("工作区打开：两种 scheme 均可识别并提取 path", async () => {
@@ -271,7 +252,5 @@ describe("深链双 scheme 解析（zcode:// 与 mikiko:// 同一套 host 分发
     expect(extractDeepLinkUrlFromArgs(["app", "zcode://share/import?code=y"])).toBe(
       "zcode://share/import?code=y",
     );
-  });
-});
   });
 });

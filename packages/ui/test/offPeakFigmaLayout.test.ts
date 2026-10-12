@@ -99,9 +99,7 @@ describe("idle-time task Figma layout contracts", () => {
   });
 
   it("keeps the idle-time entry component available without mounting it on the draft homepage", () => {
-    const dockStart = sessionPaneSource.indexOf(
-      "const conversationBottomDockContent = readOnly ? null :",
-    );
+    const dockStart = sessionPaneSource.indexOf("const conversationBottomDockContent =");
     const dockEnd = sessionPaneSource.indexOf("\n  );\n", dockStart);
     const dockSource = sessionPaneSource.slice(dockStart, dockEnd);
 
@@ -488,9 +486,9 @@ describe("idle-time task Figma layout contracts", () => {
   });
 
   it("shares the remote Automation confirmation presentation for destructive drafts", () => {
-    const zaiDarkThemeStart = stylesSource.indexOf(".theme-zai-dark {");
-    const zaiDarkThemeEnd = stylesSource.indexOf("\n}", zaiDarkThemeStart);
-    const zaiDarkThemeSource = stylesSource.slice(zaiDarkThemeStart, zaiDarkThemeEnd);
+    const mikikoDarkThemeStart = stylesSource.indexOf(".theme-mikiko-dark {");
+    const zaiDarkThemeEnd = stylesSource.indexOf("\n}", mikikoDarkThemeStart);
+    const mikikoDarkThemeSource = stylesSource.slice(mikikoDarkThemeStart, zaiDarkThemeEnd);
 
     expect(automationEditViewSource).toContain("const confirmDialog = useConfirmDialog();");
     expect(automationEditViewSource).toContain(
@@ -527,8 +525,8 @@ describe("idle-time task Figma layout contracts", () => {
     expect(confirmDialogSource).toContain('isAutomationConfirmation && "mt-auto"');
     expect(confirmDialogSource).toContain('"gap-5 rounded-2xl border-none bg-popover/98 p-5');
     expect(confirmDialogSource).toContain('"h-9 gap-3 px-4"');
-    expect(zaiDarkThemeStart).toBeGreaterThanOrEqual(0);
-    expect(zaiDarkThemeSource).toContain("--color-destructive-foreground: #ffffff;");
+    expect(mikikoDarkThemeStart).toBeGreaterThanOrEqual(0);
+    expect(mikikoDarkThemeSource).toContain("--color-destructive-foreground: #ffffff;");
     expect(buttonSource).toContain(
       "bg-destructive text-destructive-foreground hover:bg-destructive/90",
     );

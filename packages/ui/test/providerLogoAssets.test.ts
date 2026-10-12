@@ -28,10 +28,10 @@ function readSvgSize(source: string): { width: number; height: number } {
 }
 
 describe("Provider built-in logo assets", () => {
-  it("Z.AI PNG 原样复用无额外留白的应用图标，不再误用同名旧 SVG", () => {
-    const source = readFileSync(new URL("../../desktop/build/icons/128x128.png", import.meta.url));
+  it("Z.AI PNG 保持无额外留白的方形应用图标（不再与 Mikiko 桌面图标逐字节相同）", () => {
+    // Mikiko 品牌化后桌面 App 图标与 Z.AI provider Logo 是两份资产；
+    // 上游「与 build/icons/128x128.png 逐字节相同」的契约仅在上游品牌下成立。
     const packaged = readFileSync(new URL("model-provider-zai-app.png", assetDirectory));
-    expect(packaged.equals(source)).toBe(true);
     expect(readPngSize(packaged)).toEqual({ width: 128, height: 128 });
   });
   it("来源清单中的每个内置 Logo 素材本身都是方形", () => {

@@ -21,7 +21,7 @@ import {
   encodeProviderConfigFile,
   resolveZCodeBuiltinCachePaths,
   resolveNodeProviderRuntimePaths,
-  ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
+  MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
   ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV,
 } from "../src/index.js";
 
@@ -241,12 +241,12 @@ describe("@zcode/provider-node", () => {
     expect(resolveNodeProviderRuntimePaths({})).toBeNull();
     expect(() =>
       resolveNodeProviderRuntimePaths({
-        [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: "/zcodeBuiltin.json",
+        [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: "/zcodeBuiltin.json",
       }),
     ).toThrow("必须同时提供");
     expect(
       resolveNodeProviderRuntimePaths({
-        [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: " /zcodeBuiltin.json ",
+        [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: " /zcodeBuiltin.json ",
         [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: " /personal.json ",
       }),
     ).toEqual({
@@ -259,7 +259,7 @@ describe("@zcode/provider-node", () => {
         personalFilePath: "/personal.json",
       }),
     ).toEqual({
-      [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: "/zcodeBuiltin.json",
+      [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: "/zcodeBuiltin.json",
       [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: "/personal.json",
     });
   });

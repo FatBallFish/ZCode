@@ -43,8 +43,8 @@ describe("terminalTheme", () => {
     ).toBeUndefined();
   });
 
-  it("keeps Zai Light terminal surface colors bound to app theme tokens", () => {
-    const zaiLightBlock = readCssBlock(".theme-zai-light");
+  it("keeps Mikiko Light terminal surface colors bound to app theme tokens", () => {
+    const zaiLightBlock = readCssBlock(".theme-mikiko-light");
 
     expect(readCssToken(zaiLightBlock, "--color-terminal-bg")).toBe("var(--color-background)");
     expect(readCssToken(zaiLightBlock, "--color-terminal-fg")).toBe("var(--color-foreground)");

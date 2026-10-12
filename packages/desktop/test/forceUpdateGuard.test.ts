@@ -255,9 +255,9 @@ describe("forceUpdateGuard", () => {
       "../src/main/forceUpdateGuard.js"
     );
 
-    const url = new URL(resolveForceUpdateClientConfigUrl("https://zcode.z.ai"));
+    const url = new URL(resolveForceUpdateClientConfigUrl("https://update.example.com"));
 
-    expect(url.origin).toBe("https://zcode.z.ai");
+    expect(url.origin).toBe("https://update.example.com");
     expect(url.pathname).toBe("/api/v1/client/configs");
     expect(url.searchParams.get("app_version")).toBeTruthy();
     expect(url.searchParams.get("platform")).toBe(`${process.platform}-${process.arch}`);
