@@ -24,6 +24,16 @@ export function normalizeSettingsPatch(patch: Partial<AppSettings>): Partial<App
       trimmedTerminalFontFamily.length > 0 ? trimmedTerminalFontFamily : undefined;
   }
 
+  if (
+    "chatgptCodexVersionOverride" in normalizedPatch &&
+    typeof normalizedPatch.chatgptCodexVersionOverride === "string"
+  ) {
+    // 同 terminalFontFamily：版本覆写清空时 UI 只能传空串（undefined 会被 RPC 吞掉），
+    // 空串在 schema（nonEmptyString）前归一回 undefined，才能真正清除覆写回落远端配置。
+    const trimmed = normalizedPatch.chatgptCodexVersionOverride.trim();
+    normalizedPatch.chatgptCodexVersionOverride = trimmed.length > 0 ? trimmed : undefined;
+  }
+
   if ("integratedTerminalShell" in normalizedPatch) {
     const selection = normalizedPatch.integratedTerminalShell;
     if (selection?.mode === "auto") {
