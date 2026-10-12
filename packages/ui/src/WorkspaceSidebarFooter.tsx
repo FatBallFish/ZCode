@@ -17,6 +17,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -42,6 +43,8 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { usePlatform } from "@/hooks/usePlatform.js";
+import { useChatGPTAccounts } from "@/hooks/useChatGPTAccounts.js";
+import { ProviderLogo } from "@/settings/model-provider-section/ProviderLogo.js";
 import { useRemoteControl } from "@/remoteControl/useRemoteControl.js";
 import { RemoteControlDialog } from "@/remoteControl/RemoteControlDialog.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
@@ -50,6 +53,7 @@ import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import { useSidebarAccountDisplay } from "@/lib/sidebarAccount.js";
 import {
   setPendingModelProviderTarget,
+  setPendingSettingsSectionIntent,
   setPendingSettingsUsageIntent,
 } from "@/lib/settingsNavigation.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
@@ -211,6 +215,8 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
     settingsButtonMode === "back"
       ? intl.formatMessage({ id: "workspace.backToWorkspace" })
       : intl.formatMessage({ id: "settings.title" });
+  // ChatGPT OAuth 账号展示（需求 4）：事实来自 host 服务，异常账号标红点。
+  const { accounts: chatGPTAccounts } = useChatGPTAccounts();
   const usageButtonClick = onUsageClick ?? onSettingsButtonClick;
   // 齿轮（工作区侧）打开设置前预置模型设置页的跟随目标（用户需求：按左下角当前
   // 展示账户定位）——展示中转站账号 → 对应站点；展示智谱 OAuth 账号 → 清空目标，
@@ -448,6 +454,40 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
                     </DropdownMenuItem>
                   );
                 })}
+              </>
+            ) : null}
+            {chatGPTAccounts.length > 0 ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>
+                  {intl.formatMessage({ id: "settings.modelProvider.chatgptTitle" })}
+                </DropdownMenuLabel>
+                {chatGPTAccounts.map((account) => (
+                  <DropdownMenuItem
+                    key={account.accountId}
+                    data-testid={testId("sidebar-chatgpt-account", account.accountId)}
+                    onSelect={() => {
+                      setPendingSettingsSectionIntent("modelProvider");
+                      onSettingsButtonClick?.();
+                    }}
+                  >
+                    <ProviderLogo logo={{ type: "builtin", key: "chatgpt" }} className="size-4" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">
+                        {account.displayName?.trim() || account.email || account.accountId}
+                      </span>
+                      <span className="block truncate text-ui-xs text-muted-foreground">
+                        {account.email}
+                      </span>
+                    </span>
+                    {account.status.state === "auth-error" ? (
+                      <span
+                        className="size-2 shrink-0 rounded-full bg-destructive"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </DropdownMenuItem>
+                ))}
               </>
             ) : null}
             {sub2ApiAccountSite ? (

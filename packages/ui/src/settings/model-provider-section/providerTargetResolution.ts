@@ -26,6 +26,10 @@ export function createRelayProviderNodeKey(siteId: string): string {
   return `relay:${siteId}`;
 }
 
+export function createChatGPTAccountNodeKey(accountId: string): string {
+  return `chatgpt-account:${accountId}`;
+}
+
 export function createCodingPlanProviderNodeKey(id: BuiltinModelProviderId): string {
   return `coding-plan:${id}`;
 }

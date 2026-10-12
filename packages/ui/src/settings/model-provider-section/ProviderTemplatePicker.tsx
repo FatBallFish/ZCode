@@ -25,6 +25,7 @@ export function ProviderTemplatePicker({
   onCreateCustom,
   creating,
   onOpenRelaySite,
+  onAddChatGPT,
 }: {
   templates: ProviderSettingsView["providerTemplates"];
   onBack: () => void;
@@ -33,6 +34,8 @@ export function ProviderTemplatePicker({
   creating: boolean;
   /** 打开中转站站点管理（MikikoCC 直达；Sub2api 走 BaseURL 添加）。 */
   onOpenRelaySite: (siteId: string | "new-sub2api") => void;
+  /** 打开 ChatGPT OAuth 添加流程（风险提醒 → 浏览器授权 / sub2api 导入）。 */
+  onAddChatGPT: () => void;
 }) {
   const { intl, locale } = useZCodeIntl();
   const { dismissFeedback, showFeedback } = useProviderDetailFeedback();
@@ -105,6 +108,24 @@ export function ProviderTemplatePicker({
                 </span>
               }
               onClick={() => onOpenRelaySite("new-sub2api")}
+            />
+          </div>
+        </section>
+        <section data-provider-template-group="chatgpt" className="space-y-3">
+          <h3 className="text-ui-base font-medium text-foreground-subtle">
+            {intl.formatMessage({ id: "settings.modelProvider.templateGroup.chatgpt" })}
+          </h3>
+          <div className="grid grid-cols-1 gap-2">
+            <ProviderTemplateCard
+              label={intl.formatMessage({ id: "settings.modelProvider.chatgpt.add.templateCard" })}
+              disabled={creating}
+              testId={testId(TID_MODEL_PROVIDER_TEMPLATE_ITEM, "chatgpt-oauth")}
+              icon={
+                <span className="flex size-9 shrink-0 items-center justify-center">
+                  <ProviderLogo logo={{ type: "builtin", key: "chatgpt" }} className="size-8" />
+                </span>
+              }
+              onClick={onAddChatGPT}
             />
           </div>
         </section>

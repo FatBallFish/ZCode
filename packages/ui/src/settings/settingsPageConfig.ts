@@ -78,6 +78,12 @@ const BASE_SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     groupId: "basics",
   },
   {
+    id: "chatgpt",
+    icon: Bot,
+    titleId: "settings.chatgpt.title",
+    groupId: "basics",
+  },
+  {
     id: "sub2api",
     icon: Globe2,
     titleId: "settings.sub2api.title",

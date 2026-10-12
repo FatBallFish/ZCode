@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button.js";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
 import { useModelProviders } from "@/hooks/useModelProviders.js";
 import { resolveEntitledAccountProviderAccess } from "@/lib/accountProviderAccess.js";
+import { resolveProviderSettingsFormProviders } from "@/lib/providerSettingsFormProjection.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
 import { useServices } from "@/hooks/useServices.js";
 import { useZCodeStore } from "@/store/StoreProvider.js";
@@ -42,6 +43,9 @@ import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import { toast } from "@/components/ui/toast.js";
 import { ModelProviderSectionLayout } from "./model-provider-section/SectionLayout.js";
 import { ProviderTemplatePicker } from "./model-provider-section/ProviderTemplatePicker.js";
+import { ChatGPTAccountDetailPanel } from "./model-provider-section/ChatGPTAccountDetailPanel.js";
+import { ChatGPTAddAccountDialog } from "./model-provider-section/ChatGPTAddAccountDialog.js";
+import { useChatGPTAccounts } from "@/hooks/useChatGPTAccounts.js";
 import type { CodingPlanLoginOptions } from "./model-provider-section/codingPlanPricingCards.js";
 import { useModelProviderNavigation } from "./model-provider-section/useModelProviderNavigation.js";
 import { reportPresetSubscriptionSuccess } from "./model-provider-section/oauthActions.js";
@@ -303,6 +307,8 @@ export function ModelProviderSection({
   const [, setCodingPlanProductsRefreshToken] = useState(0);
   const [pendingCreatedProviderId, setPendingCreatedProviderId] = useState<string | null>(null);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [chatGPTAddDialogOpen, setChatGPTAddDialogOpen] = useState(false);
+  const { accounts: chatgptAccounts } = useChatGPTAccounts();
   const [relayAddingSite, setRelayAddingSite] = useState(false);
   // 中转站（Sub2API）站点：导航分组与详情管理的数据源。
   const baseServices = useBaseWorkspaceServices();
@@ -792,11 +798,29 @@ export function ModelProviderSection({
       intl,
       relaySites,
       relayBoundProviderIds,
+      chatgptAccounts,
     });
   const selectedPlanAccessKey =
     selectedNavItem?.type === "codingPlan" || selectedNavItem?.type === "teamPlan"
       ? selectedNavItem.key
       : null;
+  // ChatGPT 账号详情的模型管理数据（spec §9.2）：从 ProviderSettingsView 投影出该动态
+  // provider 的表单模型；Registry 未就绪/账号未发布时为 null，面板降级只读 Badge 列表。
+  const chatgptModelsPanel = useMemo(() => {
+    if (selectedNavItem?.type !== "chatgpt" || !providerSettingsView) return null;
+    const providerId = `account:chatgpt:${selectedNavItem.accountId}`;
+    const provider = resolveProviderSettingsFormProviders({ view: providerSettingsView }).find(
+      (candidate) => candidate.providerId === providerId,
+    );
+    if (!provider) return null;
+    return {
+      providerId,
+      providerName: provider.providerName?.trim() || providerId,
+      enabled: provider.enabled,
+      access: provider.config.access,
+      models: provider.models,
+    };
+  }, [providerSettingsView, selectedNavItem]);
   // 套餐卡每次被用户打开时按需校正；共享 freshness window 保证一分钟内切换返回
   // 不会放大 quota 请求。权益展示更新不等于用户重新打开套餐。
   useCodingPlanAccessRefresh({
@@ -1178,10 +1202,17 @@ export function ModelProviderSection({
           })}
         </p>
       ) : null}
+      {chatGPTAddDialogOpen ? (
+        <ChatGPTAddAccountDialog onClose={() => setChatGPTAddDialogOpen(false)} />
+      ) : null}
       {templatePickerOpen ? (
         <ProviderTemplatePicker
           templates={providerTemplates}
           creating={creatingProvider}
+          onAddChatGPT={() => {
+            setTemplatePickerOpen(false);
+            setChatGPTAddDialogOpen(true);
+          }}
           onOpenRelaySite={() => {
             // 添加 Sub2api：直接新建一个待绑定的空站点记录并选中，地址输入与登录在详情页完成。
             setTemplatePickerOpen(false);
@@ -1207,6 +1238,20 @@ export function ModelProviderSection({
           onCreateCustom={(label) => {
             return handleCreateProvider({ providerName: label });
           }}
+        />
+      ) : selectedNavItem?.type === "chatgpt" ? (
+        <ChatGPTAccountDetailPanel
+          accountId={selectedNavItem.accountId}
+          modelsPanel={chatgptModelsPanel}
+          modelsPanelCallbacks={{
+            onAddPersonalModel: addPersonalModel,
+            onSavePersonalModelDraft: savePersonalModelDraft,
+            onSetPersonalModelEnabled: setPersonalModelEnabled,
+            onDeletePersonalModel: deletePersonalModel,
+            onReorderProviderModels: reorderProviderModels,
+            onTestModel: handleTestModel,
+          }}
+          settingsRevision={providerSettingsView?.revision}
         />
       ) : (
         <ModelProviderSectionDetail

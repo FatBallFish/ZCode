@@ -6,6 +6,7 @@ import { type ModelProviderNavItem } from "./constants.js";
 // 节点 key 构造迁至纯模块（providerTargetResolution，可被 node:test 直接加载），
 // 这里保持原导出面不变；utils.tsx 依赖图标资源，不适合进纯逻辑测试的导入链。
 export {
+  createChatGPTAccountNodeKey,
   createCodingPlanProviderNodeKey,
   createCustomProviderNodeKey,
   createPresetProviderNodeKey,
@@ -13,6 +14,8 @@ export {
 } from "./providerTargetResolution.js";
 
 export function resolveModelProviderNavLogo(item: ModelProviderNavItem) {
+  // ChatGPT 账号行固定品牌图标（logo key 与 Registry 信封一致）。
+  if (item.type === "chatgpt") return { type: "builtin" as const, key: "chatgpt" };
   // 品牌主入口沿用 Start 导航 ID，但不能因此显示体验套餐图标。
   if (item.type === "preset") return item.logo;
   return "provider" in item ? item.provider?.config.logo : undefined;

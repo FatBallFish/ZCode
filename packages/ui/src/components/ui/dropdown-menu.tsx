@@ -191,7 +191,12 @@ function DropdownMenuSeparator({
   return (
     <DropdownMenuPrimitive.Separator
       data-slot="dropdown-menu-separator"
-      className={cn("-mx-1 my-1 h-px bg-border", className)}
+      className={cn(
+        // content 是 flex 列容器且带 max-h 滚动；内容超高时 flex-shrink 会把 1px
+        // 分割线压成 0 高度（真机表现为「只剩间距看不见线」），shrink-0 固定高度。
+        "-mx-1 my-1 h-px shrink-0 bg-border",
+        className,
+      )}
       {...props}
     />
   );

@@ -40,6 +40,7 @@ import type {
 import { ModelConfigSelect, type ModelSelectGroup } from "@/ModelConfigSelect.js";
 import { Button } from "@/components/ui/button.js";
 import { ChatContextUsage } from "@/chat-input-toolbar/display.js";
+import { ChatGPTContextUsage } from "@/chat-input-toolbar/ChatGPTContextUsage.js";
 import {
   hasChatCodingPlanUsageRemaining,
   type ChatCodingPlanUsageRemainingConfig,
@@ -83,6 +84,8 @@ import { useCodingPlanEntitlements } from "@/settings/model-provider-section/use
 import { decodeCustomModelValue, encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
 import { buildRegistryModelSelectGroups } from "@/lib/modelSelectionGroups.js";
 import { useRelayBadgeOptions } from "@/hooks/useRelayBadgeOptions.js";
+import { buildChatGPTAccountLabels, useChatGPTAccounts } from "@/hooks/useChatGPTAccounts.js";
+import { useServices } from "@/hooks/useServices.js";
 import {
   buildCodingPlanUsageSources,
   type CodingPlanUsageSource,
@@ -732,6 +735,27 @@ function V4ComposerModelControlsImpl({
 
   // 中转站（Sub2API）密钥供应商 → 品牌灰标（Mikiko / Sub2api）。
   const relayBadgeOptions = useRelayBadgeOptions();
+  // ChatGPT 账号分组标签：账户名（无则邮箱）。
+  const { accounts: chatGPTAccounts } = useChatGPTAccounts();
+  const chatGPTAccountLabels = useMemo(
+    () => buildChatGPTAccountLabels(chatGPTAccounts),
+    [chatGPTAccounts],
+  );
+  // 会话内 ChatGPT 订阅剩余额度（spec §9.6）：当前模型为账号 provider 时旁侧展示；
+  // 重置走 host resetQuota，账号变更事件跨窗口广播后本组件自动刷新。
+  const chatGPTService = useServices().chatgptAccountService;
+  const currentChatGPTAccount = useMemo(() => {
+    const provider = effectiveConfig?.provider ?? "";
+    if (!provider.startsWith("account:chatgpt:")) return null;
+    const accountId = provider.slice("account:chatgpt:".length);
+    return chatGPTAccounts.find((account) => account.accountId === accountId) ?? null;
+  }, [chatGPTAccounts, effectiveConfig?.provider]);
+  const handleChatGPTResetQuota = useCallback(
+    async (accountId: string) => {
+      await chatGPTService?.resetQuota(accountId);
+    },
+    [chatGPTService],
+  );
   const modelSelectGroups = useMemo<ModelSelectGroup[]>(() => {
     if (!modelSelectionView) return [];
     return buildRegistryModelSelectGroups(
@@ -760,10 +784,11 @@ function V4ComposerModelControlsImpl({
         teamPlanFallbackLabel: intl.formatMessage({
           id: "settings.modelProvider.connectionMode.teamPlan",
         }),
+        chatGPTAccountLabels,
       },
       relayBadgeOptions,
     );
-  }, [displayProvider, intl, modelSelectionView, relayBadgeOptions]);
+  }, [chatGPTAccountLabels, displayProvider, intl, modelSelectionView, relayBadgeOptions]);
 
   // 修复：恢复「管理模型」入口（老版 onManageModels = 打开设置页并定位模型供应商区）。
   const handleOpenModelProviderSettings = useCallback(() => {
@@ -1028,6 +1053,12 @@ function V4ComposerModelControlsImpl({
         onSendCompressionCommand={onSendCompressionCommand}
         compressionDisabled={disabled || recoveryPending}
       />
+      {currentChatGPTAccount ? (
+        <ChatGPTContextUsage
+          account={currentChatGPTAccount}
+          onResetQuota={chatGPTService ? handleChatGPTResetQuota : undefined}
+        />
+      ) : null}
       {modelSelectionState.status === "error" && modelSelectionReload ? (
         <Button
           type="button"

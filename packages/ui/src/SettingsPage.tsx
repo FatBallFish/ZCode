@@ -55,6 +55,7 @@ import {
 } from "@/lib/accountProviderAccess.js";
 import { buildUsageEntitlementCacheKey } from "@/lib/usageEntitlementCache.js";
 import { ModelProviderSection } from "@/settings/ModelProviderSection.js";
+import { ChatGPTSettingsSection } from "@/settings/ChatGPTSettingsSection.js";
 import { Sub2ApiSection } from "@/settings/Sub2ApiSection.js";
 import { useCodingPlanUpgradeDialog } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { useEnterpriseCodingPlanProducts } from "@/settings/model-provider-section/useEnterpriseCodingPlanProducts.js";
@@ -1840,6 +1841,11 @@ export function SettingsPage({
                                 setPendingModelProviderTarget(undefined)
                               }
                             />
+                          </ServiceProvider>
+                        ) : activeSection === "chatgpt" ? (
+                          <ServiceProvider services={localHostServices}>
+                            {/* ChatGPT 账号事实在本机 Host；设置读写同样只走本地服务。 */}
+                            <ChatGPTSettingsSection />
                           </ServiceProvider>
                         ) : activeSection === "sub2api" ? (
                           <ServiceProvider services={localHostServices}>

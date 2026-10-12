@@ -68,6 +68,8 @@ async function refreshAccountProviderAccesses(params: {
         const resolved = resolveAccountProviderInspectionAccess(view, providerId);
         if (!resolved) return [];
         const access = resolved.access;
+        // ChatGPT 账号无智谱套餐域刷新语义；不构造 zhipu 查询。
+        if (access.type !== "zhipu-account") return [];
         // 登录/启动检查属于套餐只读查询。静态 mode 会经执行期 current 解析，
         // 把未选中或 pending 的 Start 当作当前 Coding 查询；此处必须明确查询套餐自身。
         const query: ZCodeProviderAccountAccess | ZCodeAccountAccess =

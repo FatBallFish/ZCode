@@ -19,6 +19,8 @@ export interface ModelProviderGroupLabelOptions {
   startPlanBadgeLabel?: string;
   teamPlanBadgeLabel?: string;
   teamPlanFallbackLabel?: string;
+  /** ChatGPT OAuth 账号分组标签：key = account:chatgpt:{accountId}。 */
+  chatGPTAccountLabels?: Record<string, string>;
 }
 
 function supportsRegistryApiFormat(
@@ -82,6 +84,13 @@ function getRegistryAccountProviderGroupPresentation(
   access: ZCodeProviderAccountAccess,
   labels: ModelProviderGroupLabelOptions,
 ): Pick<ModelSelectGroup, "label" | "labelBadge"> {
+  // ChatGPT OAuth 账号：分组标签用账户名（无则邮箱）；badge 标记来源。
+  if (access.type === "chatgpt-account") {
+    return {
+      label: labels.chatGPTAccountLabels?.[providerId] ?? providerId,
+      labelBadge: "ChatGPT",
+    };
+  }
   const familySpec = resolveModelProviderFamilySpecByProviderId(providerId);
   const label = familySpec?.label ?? providerId;
   if (access.mode === "start-plan") {

@@ -335,6 +335,7 @@ export function ModelProviderSectionDetail({
     );
     if (
       !access ||
+      access.access.type !== "zhipu-account" ||
       (access.access.mode !== "start-plan" && access.access.mode !== "individual-coding-plan")
     )
       return undefined;
@@ -848,6 +849,11 @@ export function ModelProviderSectionDetail({
 
   if (selectedNavItem.type === "codingPlanLoading") {
     // Z.AI plan 判定占位只属于左侧导航，不应进入详情表单渲染路径。
+    return null;
+  }
+
+  if (selectedNavItem.type === "chatgpt") {
+    // ChatGPT 账号详情由专用面板渲染（ModelProviderSection 分流）；此处仅类型完备。
     return null;
   }
 

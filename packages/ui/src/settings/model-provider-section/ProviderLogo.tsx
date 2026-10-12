@@ -39,6 +39,8 @@ const BUILTIN_PROVIDER_LOGO_ASSETS: Readonly<Record<string, BuiltinProviderLogoA
   "alibaba-model-studio": { light: alibabaModelStudioLogo },
   "xiaomi-mimo": { light: xiaomiMimoLogo },
   openai: { light: openAiLogo },
+  // ChatGPT OAuth 账号品牌图标：与 OpenAI 同源的 blossom 标（ChatGPT 账号域专用 key）。
+  chatgpt: { light: openAiLogo },
   anthropic: { light: anthropicLogo },
   xai: { light: xAiLogo },
   openrouter: { light: openrouterLight, dark: openrouterDark },

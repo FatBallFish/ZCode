@@ -134,9 +134,11 @@ function resolveEntitlementAccountAccess(
   access: ZCodeProviderAccountAccess | undefined,
   selection: ProviderFamilyConnectionSelection | undefined,
 ): ZCodeProviderAccountAccess | ZCodeAccountAccess | undefined {
-  if (access?.mode !== "team-coding-plan" || selection?.kind !== "team-coding-plan") {
+  // ChatGPT 账号无智谱套餐权益查询语义，原样透传（其用量走 ChatGPTAccountService）。
+  if (!access || access.type === "chatgpt-account") return access;
+  if (access.mode !== "team-coding-plan" || selection?.kind !== "team-coding-plan") {
     // 展示查询针对这个套餐自身，不让执行期的 current 解析器改成当前另一套餐。
-    return access && (access.mode === "start-plan" || access.mode === "individual-coding-plan")
+    return access.mode === "start-plan" || access.mode === "individual-coding-plan"
       ? { type: "zhipu-account", family: access.accountType, planKind: access.mode }
       : access;
   }
