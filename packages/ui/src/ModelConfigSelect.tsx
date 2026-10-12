@@ -584,7 +584,10 @@ export const ModelConfigSelect = memo(function ModelConfigSelectComponent({
                   modelGroups[index - 1],
                   group,
                 ) ? (
-                  <DropdownMenuSeparator />
+                  // 默认 separator 是 1px 10% 透明的 border 色，高分屏/深色主题下几乎不可见
+                  //（真机反馈「分组间没有分隔符」）；分组线加浓到 border-hover 一档，
+                  // 与菜单结构线（首尾）保持区分。
+                  <DropdownMenuSeparator className="bg-border-hover" />
                 ) : null;
                 if (group.directItems) {
                   return (

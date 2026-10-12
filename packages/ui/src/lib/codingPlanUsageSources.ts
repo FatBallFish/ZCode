@@ -115,7 +115,11 @@ function buildTeamCodingPlanUsageSources(
       // 按 product.family 用 family-aware key + 对应 codingPlan providerId。
       const productFamily = resolveEnterpriseCodingPlanProductFamily(product);
       const baseAccess = accountAccesses[productFamily];
-      if (baseAccess?.mode !== "team-coding-plan") {
+      if (
+        !baseAccess ||
+        baseAccess.type !== "zhipu-account" ||
+        baseAccess.mode !== "team-coding-plan"
+      ) {
         return [];
       }
       const codingPlanProviderId =
@@ -183,7 +187,12 @@ export function resolveSidebarCurrentCodingPlanUsageSource({
   }
   if (selection?.kind !== "individual-coding-plan") return null;
   const accountAccess = accountAccesses[family];
-  if (!accountAccess || accountAccess.mode !== "individual-coding-plan") return null;
+  if (
+    !accountAccess ||
+    accountAccess.type !== "zhipu-account" ||
+    accountAccess.mode !== "individual-coding-plan"
+  )
+    return null;
   const providerId = getModelProviderFamilySpec(family).individualCodingPlanProviderId;
   return { audience: "individual", providerId, sourceId: providerId, accountAccess };
 }

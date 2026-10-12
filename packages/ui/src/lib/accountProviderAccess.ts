@@ -57,7 +57,9 @@ export function resolveAccountProviderInspectionAccess(
   )
     return null;
   const parsed = zcodeProviderAccountAccessSchema.safeParse(provider.effectiveConfig.access);
-  if (!parsed.success || parsed.data.mode === "off-peak") return null;
+  // ChatGPT 账号不参与智谱套餐访问投影（其用量走 ChatGPTAccountService）。
+  if (!parsed.success || parsed.data.type !== "zhipu-account" || parsed.data.mode === "off-peak")
+    return null;
   if (!provider.accountState && parsed.data.entitled !== true) return null;
   return { providerId, access: parsed.data };
 }

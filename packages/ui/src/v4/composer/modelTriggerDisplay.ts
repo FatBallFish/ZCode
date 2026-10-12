@@ -1,5 +1,6 @@
 import {
   BUILTIN_MODEL_PROVIDER_IDS,
+  isChatGPTAccountProviderId,
   resolveModelProviderFamilyIdByProviderId,
 } from "@zcode/shared";
 import type { IntlInstance } from "@/i18n/IntlProvider.js";
@@ -9,6 +10,20 @@ export interface V4ModelTriggerDisplay {
   fullLabel: string;
   modelLabel: string;
   providerPrefix?: string;
+}
+
+/**
+ * 是否为「固定入口型」供应商：trigger 与切换文案只显示模型名。
+ * zai/bigmodel family 是产品固定入口；ChatGPT 账号 provider 的 providerId 含动态
+ * accountId，拼前缀会露出 account:chatgpt:{uuid} 长串（会话恢复时 providerName 缺失
+ * 更是直接回退 providerId），与新建会话的表现不一致，统一按模型名展示。
+ */
+function isFixedEntryProviderId(providerId: string | undefined): boolean {
+  if (!providerId) return false;
+  return (
+    resolveModelProviderFamilyIdByProviderId(providerId) !== null ||
+    isChatGPTAccountProviderId(providerId)
+  );
 }
 
 export function formatModelChangeLabel(
@@ -45,7 +60,8 @@ export function formatProviderModelLabel(
 ): string {
   // Z.ai / BigModel 的内置连接名属于产品固定入口，拼进模型文案会重复展示
   // “Coding Plan”等连接信息；切换提示额外通过 formatModelChangeLabel 标明套餐类型。
-  if (providerId && resolveModelProviderFamilyIdByProviderId(providerId)) {
+  // ChatGPT 账号 provider 同为固定入口（见 isFixedEntryProviderId 注释）。
+  if (isFixedEntryProviderId(providerId)) {
     return modelName;
   }
 
@@ -114,10 +130,7 @@ export function resolveV4ModelTriggerDisplay({
 
   const modelLabel = selectedItem.name;
   const normalizedProviderName = providerName?.trim() || providerId;
-  if (
-    !normalizedProviderName ||
-    (providerId && resolveModelProviderFamilyIdByProviderId(providerId))
-  ) {
+  if (!normalizedProviderName || isFixedEntryProviderId(providerId)) {
     return { fullLabel, modelLabel };
   }
 

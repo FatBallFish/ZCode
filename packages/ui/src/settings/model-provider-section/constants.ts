@@ -228,9 +228,20 @@ export type ModelProviderNavItem =
       label: string;
       provider: ProviderSettingsFormProvider;
       statusActive: boolean;
+    }
+  | {
+      key: string;
+      type: "chatgpt";
+      accountId: string;
+      /** 名称（displayName ?? 邮箱）；详情页再展示完整邮箱。 */
+      label: string;
+      email: string;
+      statusActive: boolean;
+      /** auth-error 展示异常徽标与「重新授权」入口。 */
+      statusState: "active" | "auth-error";
     };
 
-export type ModelProviderNavGroupId = "relay" | "preset" | "custom";
+export type ModelProviderNavGroupId = "relay" | "chatgpt" | "preset" | "custom";
 
 export interface ModelProviderNavGroup {
   id: ModelProviderNavGroupId;

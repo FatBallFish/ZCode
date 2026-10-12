@@ -23,6 +23,7 @@ import {
 } from "@/settings/model-provider-section/constants.js";
 import { pickCodingPlanEntitlementProvider } from "@/lib/codingPlanProvider.js";
 import {
+  createChatGPTAccountNodeKey,
   createCodingPlanProviderNodeKey,
   createCustomProviderNodeKey,
   createPresetProviderNodeKey,
@@ -72,6 +73,8 @@ interface UseModelProviderNavigationOptions {
   }>;
   /** 中转站密钥绑定的供应商 id：在「自定义供应商」分组中隐藏，仅由中转站分区管理。 */
   relayBoundProviderIds?: ReadonlySet<string>;
+  /** ChatGPT OAuth 账号（脱敏视图，host 事实）；生成「ChatGPT」分组。 */
+  chatgptAccounts?: import("@zcode/shared").ChatGPTAccountView[];
 }
 
 export function useModelProviderNavigation({
@@ -93,6 +96,7 @@ export function useModelProviderNavigation({
   intl,
   relaySites = [],
   relayBoundProviderIds = new Set(),
+  chatgptAccounts = [],
 }: UseModelProviderNavigationOptions) {
   const customProviders = useMemo(() => {
     const allCustomProviders = modelProviders.filter(
@@ -208,6 +212,19 @@ export function useModelProviderNavigation({
         })),
       },
       {
+        id: "chatgpt",
+        title: intl.formatMessage({ id: "settings.modelProvider.chatgptTitle" }),
+        items: chatgptAccounts.map((account) => ({
+          key: createChatGPTAccountNodeKey(account.accountId),
+          type: "chatgpt" as const,
+          accountId: account.accountId,
+          label: account.displayName?.trim() || account.email || account.accountId,
+          email: account.email,
+          statusActive: account.status.state === "active",
+          statusState: account.status.state,
+        })),
+      },
+      {
         id: "preset",
         title: intl.formatMessage({ id: "settings.modelProvider.presetTitle" }),
         items: [
@@ -255,6 +272,7 @@ export function useModelProviderNavigation({
   }, [
     customProviders,
     relaySites,
+    chatgptAccounts,
     codingPlanItems,
     connectionModeCodingPlanItems,
     // 左侧导航分组标题在这个 memo 内格式化。
@@ -593,7 +611,9 @@ export function connectionSelectionMatchesNavigationItem(
   selection: ProviderFamilyConnectionSelection,
   item: Exclude<ModelProviderNavGroup["items"][number], { type: "codingPlanLoading" }>,
 ): boolean {
-  if (item.type === "custom" || item.type === "relay") return false;
+  if (item.type === "custom" || item.type === "relay" || item.type === "chatgpt") {
+    return false;
+  }
   const familySpec = resolveModelProviderFamilySpecByProviderId(item.presetId ?? "");
   if (familySpec?.id !== family) return false;
   if (selection.kind === "start-plan") {

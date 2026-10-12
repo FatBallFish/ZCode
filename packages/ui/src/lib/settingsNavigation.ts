@@ -8,6 +8,7 @@ export type SettingsSectionId =
   | "browser"
   | "pet"
   | "modelProvider"
+  | "chatgpt"
   | "sub2api"
   | "memory"
   | "plugin"
