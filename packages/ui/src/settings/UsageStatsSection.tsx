@@ -1,5 +1,6 @@
 import { AppUsagePanel } from "@/settings/usage-stats/AppUsagePanel.js";
 import { Sub2ApiUsagePanel } from "@/settings/usage-stats/Sub2ApiUsagePanel.js";
+import { ChatGPTUsagePanel } from "@/settings/usage-stats/ChatGPTUsagePanel.js";
 import {
   CodingPlanUsagePanel,
   type CodingPlanUsageSource,
@@ -8,7 +9,7 @@ import {
 export type UsageStatsSectionTab =
   | "app"
   | "sub2api"
-  | "sub2api-plan"
+  | "chatgpt"
   | "codingPlan"
   | `codingPlan:${string}`;
 
@@ -29,8 +30,12 @@ export function UsageStatsSection({
     return <AppUsagePanel />;
   }
 
-  if (activeTab === "sub2api" || activeTab === "sub2api-plan") {
-    return <Sub2ApiUsagePanel initialView={activeTab === "sub2api-plan" ? "plan" : "usage"} />;
+  if (activeTab === "sub2api") {
+    return <Sub2ApiUsagePanel />;
+  }
+
+  if (activeTab === "chatgpt") {
+    return <ChatGPTUsagePanel />;
   }
 
   return (

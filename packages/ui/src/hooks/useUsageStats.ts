@@ -188,7 +188,7 @@ export function useUsageStats(
   };
 }
 
-export function useAppUsageStats(range: AppUsageRange) {
+export function useAppUsageStats(range: AppUsageRange, providerId?: string) {
   const { usageStatsService } = useServices();
   const [state, setState] = useState<AppUsageStatsState>({
     snapshot: null,
@@ -210,6 +210,7 @@ export function useAppUsageStats(range: AppUsageRange) {
       const snapshot = await usageStatsService.getAppUsageSnapshot({
         range,
         timeZone,
+        ...(providerId ? { providerId } : {}),
       });
       if (requestVersionRef.current !== requestVersion) {
         return;
@@ -223,6 +224,7 @@ export function useAppUsageStats(range: AppUsageRange) {
       logger.warn("[useAppUsageStats] 读取本地使用统计失败", {
         range,
         timeZone,
+        providerId,
         error: message,
       });
       setState((current) => ({
@@ -231,7 +233,7 @@ export function useAppUsageStats(range: AppUsageRange) {
         error: message,
       }));
     }
-  }, [range, usageStatsService]);
+  }, [providerId, range, usageStatsService]);
 
   useEffect(() => {
     void refresh();

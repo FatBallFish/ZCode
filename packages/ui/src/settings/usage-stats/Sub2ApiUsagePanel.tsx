@@ -1,10 +1,10 @@
 /**
- * 中转站（Sub2API）使用统计面板。
+ * 中转站（Sub2API）使用统计面板（spec settings-usage-reorg D2，单视图合并）。
  *
- * usage 视图：额度总览（账户余额 + 当前 Key 状态）+ Token 活动热力图 + 模型时间线
- * + 模型用量汇总与扇形图；plan 视图：订阅剩余时间与各时间窗口剩余额度/重置时间。
+ * 顶部：站点切换（多站点时）+ 账户余额 + 订阅套餐各窗口剩余额度/重置时间（原 plan 视图）；
+ * 其下：额度总览 + Token 活动热力图 + 模型时间线 + 模型用量汇总与扇形图。
  * 图表复用应用用量的通用组件（UsageHeatmap / CodingPlanUsageLineChart），数据由
- * sub2api 面板 dashboard 接口映射。
+ * sub2api 面板 dashboard 接口映射；站点超过一个时全量可切换，不再只取第一个登录站点。
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Cell, Pie, PieChart, Tooltip as RechartsTooltip } from "recharts";
@@ -90,7 +90,7 @@ function buildHeatmapWeeks(
   return weeks;
 }
 
-export function Sub2ApiUsagePanel({ initialView }: { initialView: "usage" | "plan" }) {
+export function Sub2ApiUsagePanel() {
   const { intl, locale } = useZCodeIntl();
   const baseServices = useBaseWorkspaceServices();
   const sub2ApiService = baseServices?.sub2ApiService as ISub2ApiService | undefined;
@@ -98,10 +98,14 @@ export function Sub2ApiUsagePanel({ initialView }: { initialView: "usage" | "pla
   const [snapshot, setSnapshot] = useState<Sub2ApiUsageSnapshot | null>(null);
   const [sites, setSites] = useState<Sub2ApiSitesState | null>(null);
   const [accountDetail, setAccountDetail] = useState<Sub2ApiAccountDetail | null>(null);
+  const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const authedSite = useMemo(() => sites?.sites.find((site) => site.account) ?? null, [sites]);
+  // 多站点统计（spec settings-usage-reorg D2）：全部已登录站点可切换，不再只取第一个。
+  const authedSites = useMemo(() => (sites?.sites ?? []).filter((site) => site.account), [sites]);
+  const activeSite =
+    authedSites.find((site) => site.siteId === activeSiteId) ?? authedSites[0] ?? null;
 
   useEffect(() => {
     if (!sub2ApiService) {
@@ -113,15 +117,15 @@ export function Sub2ApiUsagePanel({ initialView }: { initialView: "usage" | "pla
   }, [sub2ApiService]);
 
   const loadUsage = useCallback(async () => {
-    if (!sub2ApiService || !authedSite) {
+    if (!sub2ApiService || !activeSite) {
       return;
     }
     setLoading(true);
     setError(null);
     try {
       const [usage, detail] = await Promise.all([
-        sub2ApiService.getUsageSnapshot(authedSite.siteId, range),
-        sub2ApiService.getAccountDetail(authedSite.siteId).catch(() => null),
+        sub2ApiService.getUsageSnapshot(activeSite.siteId, range),
+        sub2ApiService.getAccountDetail(activeSite.siteId).catch(() => null),
       ]);
       setSnapshot(usage);
       setAccountDetail(detail);
@@ -130,7 +134,7 @@ export function Sub2ApiUsagePanel({ initialView }: { initialView: "usage" | "pla
     } finally {
       setLoading(false);
     }
-  }, [sub2ApiService, authedSite, range]);
+  }, [sub2ApiService, activeSite, range]);
 
   useEffect(() => {
     void loadUsage();
@@ -140,7 +144,7 @@ export function Sub2ApiUsagePanel({ initialView }: { initialView: "usage" | "pla
     return null;
   }
 
-  if (!authedSite) {
+  if (!activeSite) {
     return (
       <p className="p-6 text-sm text-muted-foreground">
         {intl.formatMessage({ id: "settings.sub2api.usage.notLoggedIn" })}
@@ -148,15 +152,81 @@ export function Sub2ApiUsagePanel({ initialView }: { initialView: "usage" | "pla
     );
   }
 
-  if (initialView === "plan") {
-    return (
-      <div className="mx-auto w-full max-w-3xl space-y-4 p-6">
+  const siteLabel = activeSite.kind === "mikikocc" ? "MikikoCC" : activeSite.siteName;
+
+  const heatmapWeeks = snapshot ? buildHeatmapWeeks(snapshot.points) : [];
+  const xTime = snapshot?.points.map((point) => point.date) ?? [];
+  const topModels = [...(snapshot?.models ?? [])]
+    .sort((a, b) => b.totalTokens - a.totalTokens)
+    .slice(0, 5);
+  const lineSeries = topModels.map((model) => ({
+    name: model.model,
+    values:
+      snapshot?.points.map(
+        (point) => point.tokens * (model.totalTokens / Math.max(1, snapshot.totals.tokens)),
+      ) ?? [],
+  }));
+  const pieData = topModels.map((model) => ({
+    name: model.model,
+    value: model.totalTokens,
+  }));
+
+  return (
+    <div className="mx-auto w-full max-w-3xl space-y-6 p-6">
+      <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">
-          {intl.formatMessage({ id: "settings.sub2api.usage.planTitle" })}
-          <span className="ml-2 text-xs text-muted-foreground">
-            {authedSite.kind === "mikikocc" ? "MikikoCC" : authedSite.siteName}
-          </span>
+          {intl.formatMessage({ id: "settings.usage.tab.sub2api" })}
+          {authedSites.length > 1 ? null : (
+            <span className="ml-2 text-xs text-muted-foreground">{siteLabel}</span>
+          )}
         </h3>
+        <div className="flex gap-1.5">
+          {(["7d", "30d"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`rounded-full border px-3 py-1 text-xs ${
+                range === option
+                  ? "border-primary text-primary"
+                  : "border-border text-muted-foreground"
+              }`}
+              onClick={() => setRange(option)}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {authedSites.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {authedSites.map((site) => {
+            const label = site.kind === "mikikocc" ? "MikikoCC" : site.siteName;
+            const selected = site.siteId === activeSite.siteId;
+            return (
+              <button
+                key={site.siteId}
+                type="button"
+                data-testid={`sub2api-usage-site-switch-${site.siteId}`}
+                aria-pressed={selected}
+                className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                  selected
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setActiveSiteId(site.siteId)}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <section className="space-y-3" data-testid="sub2api-usage-plan-section">
+        <h4 className="text-sm font-medium">
+          {intl.formatMessage({ id: "settings.sub2api.usage.planTitle" })}
+        </h4>
         {loading && !accountDetail ? (
           <p className="text-sm text-muted-foreground">
             {intl.formatMessage({ id: "common.loading" })}
@@ -217,53 +287,7 @@ export function Sub2ApiUsagePanel({ initialView }: { initialView: "usage" | "pla
         ) : (
           <p className="text-sm text-muted-foreground">{error}</p>
         )}
-      </div>
-    );
-  }
-
-  const heatmapWeeks = snapshot ? buildHeatmapWeeks(snapshot.points) : [];
-  const xTime = snapshot?.points.map((point) => point.date) ?? [];
-  const topModels = [...(snapshot?.models ?? [])]
-    .sort((a, b) => b.totalTokens - a.totalTokens)
-    .slice(0, 5);
-  const lineSeries = topModels.map((model) => ({
-    name: model.model,
-    values:
-      snapshot?.points.map(
-        (point) => point.tokens * (model.totalTokens / Math.max(1, snapshot.totals.tokens)),
-      ) ?? [],
-  }));
-  const pieData = topModels.map((model) => ({
-    name: model.model,
-    value: model.totalTokens,
-  }));
-
-  return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">
-          {intl.formatMessage({ id: "settings.usage.tab.sub2api" })}
-          <span className="ml-2 text-xs text-muted-foreground">
-            {authedSite.kind === "mikikocc" ? "MikikoCC" : authedSite.siteName}
-          </span>
-        </h3>
-        <div className="flex gap-1.5">
-          {(["7d", "30d"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`rounded-full border px-3 py-1 text-xs ${
-                range === option
-                  ? "border-primary text-primary"
-                  : "border-border text-muted-foreground"
-              }`}
-              onClick={() => setRange(option)}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-      </div>
+      </section>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
