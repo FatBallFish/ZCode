@@ -2698,6 +2698,7 @@ const enUS: Record<string, string> = {
   "settings.nativeSearchEnhancementsDescription":
     "Use enhanced Find and Grep in new sessions and sessions restored after an app restart. Active sessions keep their current setting; Find remains unchanged on Windows.",
   "settings.memory": "Memory",
+  "settings.memory.title": "Memory",
   "settings.memory.workspaceMemory": "Workspace Memory",
   "settings.memoryDescription":
     "Save and reuse long-term context in workspaces. Applies to new sessions and may increase model requests and token costs.",
