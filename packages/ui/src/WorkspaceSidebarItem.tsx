@@ -22,6 +22,7 @@ import {
   LoaderCircle,
   RefreshCwIcon,
   MessageCirclePlus,
+  XIcon,
 } from "lucide-react";
 import type { useSortable } from "@dnd-kit/sortable";
 import { BorderBeam } from "border-beam";
@@ -70,7 +71,12 @@ import type { WorkspaceTabState } from "@/store/tabStore.js";
 import type { RemoteConnectionLogEntry } from "@/hooks/useRemoteConnectionLogs.js";
 import { ReconnectingRemoteWorkspaceLogTooltip } from "@/WorkspaceSidebar/ReconnectingRemoteWorkspaceLogTooltip.js";
 import { cn } from "@/components/lib/utils.js";
-import { TID_WORKSPACE_FILE_TREE_BUTTON, TID_WORKSPACE_ITEM, testId } from "@zcode/shared";
+import {
+  TID_WORKSPACE_CLOSE,
+  TID_WORKSPACE_FILE_TREE_BUTTON,
+  TID_WORKSPACE_ITEM,
+  testId,
+} from "@zcode/shared";
 import type { ZCodeTaskMeta } from "@zcode/shared";
 import { useBaseWorkspaceServices, useWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import {

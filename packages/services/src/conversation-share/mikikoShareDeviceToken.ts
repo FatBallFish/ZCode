@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { resolveMikikoShareApiBase, type ApiClient } from "@zcode/shared";
 import type { ICredentialService } from "../credential/credential.js";
-import { ensureDeviceMid } from "../device/deviceMid.js";
+import { ensureTelemetryDeviceMid } from "../telemetry/telemetryCore.js";
 import { createServiceLogger } from "../logger/serviceLogger.js";
 
 /**
@@ -36,7 +36,7 @@ export async function resolveMikikoShareDeviceToken(options: {
       // 显式禁用自建分享源：无 token，发布在鉴权处失败，公开读不受影响。
       return null;
     }
-    const deviceMid = await ensureDeviceMid(options.homeDir ? { homeDir: options.homeDir } : {});
+    const deviceMid = await ensureTelemetryDeviceMid(options.homeDir ? { homeDir: options.homeDir } : {});
     const deviceId = createHash("sha256").update(deviceMid).digest("hex");
     const response = await options.apiClient.request(`${shareApiBase}/shares/device/register`, {
       method: "POST",

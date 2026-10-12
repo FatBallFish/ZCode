@@ -129,6 +129,10 @@ class AccountProviderRequestAuthService implements AccountRequestAuthResolver {
   }
 
   async #scope(access: ZCodeAccountAccess): Promise<string> {
+    if (access.planKind === "chatgpt") {
+      // chatgpt 已在 resolveCurrent 入口分流；此分支仅为类型完备（不可达）。
+      throw new AccountRequestCredentialUnavailableError("chatgpt");
+    }
     const login = await this.#options.loadOAuthTokenSet(resolveOAuthProviderId(access.family));
     if (!login?.accessToken?.trim())
       throw new AccountRequestCredentialUnavailableError(access.family);

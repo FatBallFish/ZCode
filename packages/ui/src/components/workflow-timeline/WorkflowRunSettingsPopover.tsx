@@ -33,7 +33,7 @@ import {
 import {
   describeWorkflowRunSettingsRejection,
   initialWorkflowRunSettingsDraft,
-  workflowRunSettingsCeiling,
+  workflowRunDefaultConcurrency,
   workflowRunSettingsChange,
   workflowRunSettingsConsequenceId,
   workflowRunSettingsModelCanonical,
@@ -183,8 +183,8 @@ function WorkflowRunSettingsForm({
   const [draft, setDraft] = useState<WorkflowRunSettingsDraft>(initial);
   const [pending, setPending] = useState(false);
   const [rejection, setRejection] = useState<WorkflowRunSettingsRejection | undefined>(undefined);
-  const ceiling = workflowRunSettingsCeiling(run);
-  const change = workflowRunSettingsChange(initial, draft, ceiling);
+  const defaultConcurrency = workflowRunDefaultConcurrency(run);
+  const change = workflowRunSettingsChange(initial, draft, defaultConcurrency);
   const updateDraft = (next: WorkflowRunSettingsDraft) => {
     setDraft(next);
     setRejection(undefined);
@@ -328,7 +328,7 @@ function WorkflowRunSettingsForm({
       />
       <WorkflowRunSettingsBoundField
         bound={draft.bound}
-        ceiling={ceiling}
+        defaultConcurrency={defaultConcurrency}
         disabled={pending}
         onChange={(bound) => updateDraft({ ...draft, bound })}
       />
@@ -336,7 +336,9 @@ function WorkflowRunSettingsForm({
         className="text-ui-sm text-foreground-subtle"
         data-testid="workflow-run-settings-consequence"
       >
-        {format(workflowRunSettingsConsequenceId(run.status, change))}
+        {workflowRunSettingsConsequenceId(run.status, change) === undefined
+          ? null
+          : format(workflowRunSettingsConsequenceId(run.status, change) as string)}
       </p>
       {rejection === undefined ? null : (
         <div

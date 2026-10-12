@@ -26,7 +26,7 @@ export function allowRequestVerificationHeaders(
 ): Record<string, string> {
   return {};
 }
-export function requiresRequestVerification(_access: { mode: string } | undefined): boolean {
+export function requiresRequestVerification(_access: unknown): boolean {
   return false;
 }
 export function isRequestVerificationMessage(_message: string): boolean {

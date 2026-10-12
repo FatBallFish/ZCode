@@ -272,6 +272,7 @@ export function useTaskListItemContextActions({
     handleOpenTaskPathInFileManager: isRemoteSession()
       ? undefined
       : handleOpenTaskPathInFileManager,
+    handleOpenProviderConfig,
   };
 }
 

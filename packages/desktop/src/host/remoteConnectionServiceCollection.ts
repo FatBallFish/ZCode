@@ -38,6 +38,7 @@ import {
   createSettingsSyncService,
   createMediaPreviewService,
 } from "@zcode/services/node";
+import { createMikikoClientConfigService } from "@zcode/services/node";
 import type { ApiClient } from "@zcode/shared";
 
 export function createRemoteConnectionServiceCollection(params: {
@@ -89,6 +90,8 @@ export function createRemoteConnectionServiceCollection(params: {
         createCodingPlanSubscriptionService({
           apiClient: params.apiClient,
           credentialService: params.credentialService,
+          // 动态工作流灰度等自建功能配置（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.1）。
+          mikikoClientConfigService: createMikikoClientConfigService({ apiClient: params.apiClient }),
         }),
       )
       .register(IClientScenesService, createClientScenesService({ apiClient: params.apiClient }))

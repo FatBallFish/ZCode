@@ -85,8 +85,8 @@ export interface IServiceAccessor {
   readonly providerSettingsService: IProviderSettingsService;
   /** 当前 Environment Registry 发布的唯一模型选择 View。 */
   readonly modelSelectionService: IModelSelectionService;
-  /** Sub2API 网关账号与密钥管理（Mikiko 主账号体系）。 */
-  readonly sub2ApiService: ISub2ApiService;
+  /** Sub2API 网关账号与密钥管理（Mikiko 主账号体系）；Web 远控 home-only 服务等宿主可不装配。 */
+  readonly sub2ApiService?: ISub2ApiService;
   readonly usageStatsService: IUsageStatsService;
   readonly codingPlanSubscriptionService: ICodingPlanSubscriptionService;
   readonly clientConfigService: IClientConfigService;

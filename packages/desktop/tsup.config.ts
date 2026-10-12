@@ -301,7 +301,7 @@ export default defineConfig([
       "preload/cuaPermissionPanel": "src/preload/cuaPermissionPanel.ts",
       "preload/pluginSandbox": "src/preload/pluginSandbox/index.ts",
       "preload/desktopPet": "src/preload/desktopPet.ts",
-      "preload/desktopPetBubble": "src/preload/desktopPetBubble.ts", 0f39ca83 (feat(desktop): 桌面宠物（Codex 资源包兼容 + 宠物市场 + 会话状态气泡）)
+      "preload/desktopPetBubble": "src/preload/desktopPetBubble.ts",
     },
     outDir: "out",
     format: "cjs",

@@ -1,34 +1,37 @@
-import { installRequestSecurityDiagnostics } from "./request-security-edition/index.js";
-import { createLocalTtftExporter } from "./localTtftExporter.js";
+import installRequestSecurityDiagnostics from "./request-security-edition/index.js";
+import createLocalTtftExporter from "./localTtftExporter.js";
 /* eslint-disable max-lines */
 import "./desktopEarlyDataBaseDirBootstrap.js";
 import "./desktopEarlyChromiumHardwareAccelerationBootstrap.js";
-import { powerMonitor, powerSaveBlocker } from "electron";
-import { crashCapturePaths } from "./appCrashCaptureBootstrap.js";
-import { armsInitPromise } from "./appARMSBootstrap.js";
+import {
+  powerMonitor,
+  powerSaveBlocker,
+} from "electron";
+import crashCapturePaths from "./appCrashCaptureBootstrap.js";
+import armsInitPromise from "./appARMSBootstrap.js";
 import {
   onLocalDatabaseStartupReady,
   configureDatabaseStartupQuit,
 } from "./databaseStartupRelay.js";
 import armsRum from "@arms/rum-electron";
-import { createArmsUserIdentitySync } from "./armsUserIdentity.js";
-import { ensureDesktopDeviceMidSync } from "./desktopDeviceMid.js";
+import createArmsUserIdentitySync from "./armsUserIdentity.js";
+import ensureDesktopDeviceMidSync from "./desktopDeviceMid.js";
 import {
   createDesktopContextPromptRollout,
   createElectronDesktopContextPromptConfigFetcher,
 } from "./desktopContextPromptRollout.js";
-import { buildBrowserViewCloseTabNotification } from "./browserView/browserCloseTabNotification.js";
-import { BrowserGuestManager } from "./browserView/browserGuestManager.js";
-import { createElectronBrowserWebmRecorder } from "./browserView/electronBrowserWebmRecorder.js";
-import { installBrowserRestoreBootstrapProtocol } from "./browserView/browserRestoreBootstrapProtocol.js";
+import buildBrowserViewCloseTabNotification from "./browserView/browserCloseTabNotification.js";
+import BrowserGuestManager from "./browserView/browserGuestManager.js";
+import createElectronBrowserWebmRecorder from "./browserView/electronBrowserWebmRecorder.js";
+import installBrowserRestoreBootstrapProtocol from "./browserView/browserRestoreBootstrapProtocol.js";
 import {
   createLocalMediaPreviewPathRegistry,
   installLocalMediaPreviewProtocol,
   registerLocalMediaPreviewScheme,
 } from "./localMediaPreviewProtocol.js";
-import { createDesktopBrowserScreenshotSurfaceCoordinator } from "./browserView/browserScreenshotSurfaceCoordinatorWiring.js";
-import { EMBEDDED_BROWSER_PARTITION } from "./browserDataManager.js";
-import { EmbeddedBrowserJavaScriptDialogController } from "./embeddedBrowserJavaScriptDialog.js";
+import createDesktopBrowserScreenshotSurfaceCoordinator from "./browserView/browserScreenshotSurfaceCoordinatorWiring.js";
+import EMBEDDED_BROWSER_PARTITION from "./browserDataManager.js";
+import EmbeddedBrowserJavaScriptDialogController from "./embeddedBrowserJavaScriptDialog.js";
 import {
   browserOperationResetsResizeBaseline,
   resolveBrowserOperationTabId,
@@ -46,10 +49,17 @@ import {
   webContents,
 } from "electron";
 import type { UtilityProcess as ElectronUtilityProcess } from "electron";
-import { spawn } from "node:child_process";
-import { join, resolve, sep } from "node:path";
-import { existsSync } from "node:fs";
-import { homedir, hostname } from "node:os";
+import spawn from "node:child_process";
+import {
+  join,
+  resolve,
+  sep,
+} from "node:path";
+import existsSync from "node:fs";
+import {
+  homedir,
+  hostname,
+} from "node:os";
 import {
   createCredentialService,
   createSettingService,
@@ -84,21 +94,21 @@ import {
   MIKIKO_UPDATE_ENDPOINT_ORIGIN,
   resolveZCodeEndpointOrigin,
   shouldEnableE2ETestBridge,
-  type AppSettings,
-  type Locale,
   type TelemetryEventPayload,
   type UpdateStatePayload,
   ZCODE_ARMS_RUM_ENDPOINT,
-  ZCODE_ENV,
-  ZCODE_PRODUCT_FLAVOR,
   ZCODE_TELEMETRY_ENABLED,
-  ZCODE_UPDATES_ENABLED,
-  ZCODE_VERSION,
 } from "@zcode/shared";
-import { logger, webRemoteControlRelayLogger } from "./logger.js";
-import { markMainLaunchAppReady } from "./desktopLaunchMarks.js";
-import { createCuaPipFocusRouter, resolveCuaPipWindowKey } from "./cuaPipFocusRouter.js";
-import { createDesktopTelemetryFetch } from "./desktopTelemetryFetch.js";
+import {
+  logger,
+  webRemoteControlRelayLogger,
+} from "./logger.js";
+import markMainLaunchAppReady from "./desktopLaunchMarks.js";
+import {
+  createCuaPipFocusRouter,
+  resolveCuaPipWindowKey,
+} from "./cuaPipFocusRouter.js";
+import createDesktopTelemetryFetch from "./desktopTelemetryFetch.js";
 import {
   acknowledgePostUpdateReleaseNotes,
   getAutoUpdaterState,
@@ -111,57 +121,66 @@ import {
   syncPostUpdateReleaseNotesToWindow,
   syncReadyUpdateToWindow,
 } from "./autoUpdater.js";
-import { BroadcastHub } from "./broadcastHub.js";
-import { TaskRealtimeBus } from "./taskRealtimeBus.js";
-import { createAppLaunchGate } from "./appLaunchGate.js";
-import { createAppLaunchCoordinator } from "./appLaunchCoordinator.js";
-import { createAppTelemetryRuntime } from "./appTelemetryRuntime.js";
-import { createRendererActionTraceBroker } from "./rendererActionTraceBroker.js";
-import { createRendererActionTraceExporter } from "./rendererActionTraceExporter.js";
-import { registerRendererActionTraceIpc } from "./rendererActionTraceIpc.js";
-import { createRendererActionTraceRollout } from "./rendererActionTraceRollout.js";
+import BroadcastHub from "./broadcastHub.js";
+import TaskRealtimeBus from "./taskRealtimeBus.js";
+import createAppLaunchGate from "./appLaunchGate.js";
+import createAppLaunchCoordinator from "./appLaunchCoordinator.js";
+import createAppTelemetryRuntime from "./appTelemetryRuntime.js";
+import createRendererActionTraceBroker from "./rendererActionTraceBroker.js";
+import createRendererActionTraceExporter from "./rendererActionTraceExporter.js";
+import registerRendererActionTraceIpc from "./rendererActionTraceIpc.js";
+import createRendererActionTraceRollout from "./rendererActionTraceRollout.js";
 import {
   resolveAppShutdownPolicy,
   selectAppShutdownPolicy,
   type AppShutdownKind,
 } from "./appShutdownPolicy.js";
-import { createPrimaryWindowCoordinator } from "./primaryWindowCoordinator.js";
-import { createTempTextAttachment } from "./tempTextAttachment.js";
-import { flushMainE2ECoverage } from "./e2eCoverage.js";
-import { resolveStartupWindowBootstrap, type StartupWindowBootstrap } from "./startupWorkspace.js";
+import createPrimaryWindowCoordinator from "./primaryWindowCoordinator.js";
+import createTempTextAttachment from "./tempTextAttachment.js";
+import flushMainE2ECoverage from "./e2eCoverage.js";
+import {
+  resolveStartupWindowBootstrap,
+  type StartupWindowBootstrap,
+} from "./startupWorkspace.js";
 import {
   createStartupDeepLinkConsumptionGate,
   type ExplicitStartupWorkspaceRequest,
   resolveExplicitStartupWorkspaceBootstrap,
 } from "./startupWorkspaceDeepLinkGate.js";
-import { createWebRemoteControlManager } from "./webRemoteControlManager.js";
-import { createNodeWebRemoteControlRelayAuthProvider } from "./webRemoteControlRelayAuthProvider.js";
-import { createWebRemoteControlRelayAuthStorageProvider } from "./webRemoteControlRelayAuthStorageProvider.js";
-import { createWebRemoteControlFeatureGate } from "./webRemoteControlFeatureGate.js";
-import { reconnectWebRemoteControlWorkspaceInRenderer } from "./webRemoteControlRendererReconnect.js";
-import { sendWebRemoteControlStatusChangedToWindow } from "./webRemoteControlStatusEvents.js";
-import { executeDesktopCommand } from "./desktopCommandHandlers.js";
-import { clampDesktopZoomLevel, resolveDesktopZoomLevelFromFactor } from "./desktopZoom.js";
+import createWebRemoteControlManager from "./webRemoteControlManager.js";
+import createNodeWebRemoteControlRelayAuthProvider from "./webRemoteControlRelayAuthProvider.js";
+import createWebRemoteControlRelayAuthStorageProvider from "./webRemoteControlRelayAuthStorageProvider.js";
+import createWebRemoteControlFeatureGate from "./webRemoteControlFeatureGate.js";
+import reconnectWebRemoteControlWorkspaceInRenderer from "./webRemoteControlRendererReconnect.js";
+import sendWebRemoteControlStatusChangedToWindow from "./webRemoteControlStatusEvents.js";
+import executeDesktopCommand from "./desktopCommandHandlers.js";
+import {
+  clampDesktopZoomLevel,
+  resolveDesktopZoomLevelFromFactor,
+} from "./desktopZoom.js";
 import {
   getDesktopMenuLabel as getDesktopMenuLabelByLocale,
   rebuildApplicationMenu,
   resolveSystemApplicationLocale,
   updateZCodeStdioTapDevMenuState,
 } from "./desktopApplicationMenu.js";
-import { applyAppIcon } from "./desktopWindowChrome.js";
-import { registerNativeWindowsTitleBarOverlay } from "./desktopWindowTitleBarOverlay.js";
-import { resolveWindowsAppUserModelIdForFlavor } from "../../scripts/desktop-product-identity.mjs";
-import type { DesktopWindowSize } from "./desktopWindowSize.js";
-import { maybeWarnArchitectureMismatch } from "./desktopArchitectureGuard.js";
-import { maybeBlockStartupForForceUpdate } from "./forceUpdateGuard.js";
-import { createDesktopTray, updateWindowsDesktopTrayMenu } from "./desktopTray.js";
+import applyAppIcon from "./desktopWindowChrome.js";
+import registerNativeWindowsTitleBarOverlay from "./desktopWindowTitleBarOverlay.js";
+import resolveWindowsAppUserModelIdForFlavor from "../../scripts/desktop-product-identity.mjs";
+import type DesktopWindowSize from "./desktopWindowSize.js";
+import maybeWarnArchitectureMismatch from "./desktopArchitectureGuard.js";
+import maybeBlockStartupForForceUpdate from "./forceUpdateGuard.js";
+import {
+  createDesktopTray,
+  updateWindowsDesktopTrayMenu,
+} from "./desktopTray.js";
 import {
   createCloseToTrayCapabilityMonitor,
   resolveCloseToTrayBootstrapValue,
   resolveCloseToTrayRuntimeValue,
   resolveCloseToTraySupported,
 } from "./desktopTraySupport.js";
-import { createWindowsCuaOperationIndicator } from "./windowsCuaOperationIndicator.js";
+import createWindowsCuaOperationIndicator from "./windowsCuaOperationIndicator.js";
 import {
   configureDockMenu,
   createWindow,
@@ -170,7 +189,7 @@ import {
   syncApplicationUnreadBadge,
   handleDesktopWindowCloseRequest,
 } from "./desktopWindowLifecycle.js";
-import { resolveZCodeBuiltinProviderConfigFilePath } from "./desktopProviderConfig.js";
+import resolveZCodeBuiltinProviderConfigFilePath from "./desktopProviderConfig.js";
 import {
   getCredentialsDir,
   isDockerDaemonAvailable,
@@ -201,7 +220,10 @@ import {
   loadWindow,
   spawnHostProcess,
 } from "./desktopHostProcess.js";
-import { spawnCronScheduler, type CronSchedulerHandle } from "./desktopCronScheduler.js";
+import {
+  spawnCronScheduler,
+  type CronSchedulerHandle,
+} from "./desktopCronScheduler.js";
 import {
   clearOAuthRoutesForWindow,
   handleDeepLink,
@@ -209,9 +231,9 @@ import {
   registerDeepLinkProtocol,
   resolveExternalWorkspaceOpenDialogCopy,
 } from "./desktopOAuthDeepLink.js";
-import { handleSecondInstanceWorkspaceRequest } from "./desktopSecondInstanceDeepLink.js";
-import { installFinderOpenFolderWorkflow } from "./desktopFinderOpenFolderWorkflow.js";
-import { installWindowsOpenFolderContextMenu } from "./desktopWindowsOpenFolderContextMenu.js";
+import handleSecondInstanceWorkspaceRequest from "./desktopSecondInstanceDeepLink.js";
+import installFinderOpenFolderWorkflow from "./desktopFinderOpenFolderWorkflow.js";
+import installWindowsOpenFolderContextMenu from "./desktopWindowsOpenFolderContextMenu.js";
 import {
   createDeepLinkSingleInstanceData,
   extractWorkspaceOpenPath,
@@ -219,24 +241,27 @@ import {
   extractOpenWorkspacePathFromArgs,
   isWorkspaceOpenUrl,
 } from "./desktopDeepLinkUrl.js";
-import { createRemoteWorkspaceSessionManager } from "./desktopRemoteSessions.js";
+import createRemoteWorkspaceSessionManager from "./desktopRemoteSessions.js";
 import {
   reportRemoteConnectionStateChangedToArms,
   reportRemoteDisconnectToArms,
   stopRemoteUsageArmsPeriodicSampling,
 } from "./desktopRemoteUsageArmsTelemetry.js";
-import { resolveCanonicalWslTarget } from "./desktopWslTargetResolver.js";
+import resolveCanonicalWslTarget from "./desktopWslTargetResolver.js";
 import {
   listRegisteredHostAgentProcessIds,
   setBrowserUseGuestWebContentsIdsProvider,
 } from "./resourceManagerWindow.js";
-import { createWebRemoteControlSharedHostAttachments } from "./webRemoteControlSharedHostAttachments.js";
-import { createDesktopHelpConfigReader } from "./desktopHelpConfig.js";
-import { registerPlatformIpcHandlers } from "./desktopMainIpcPlatform.js";
-import { loadCliMcpFromUserDirectory, migrateLegacyCommonMcp } from "./mcpUserDirectory/index.js";
-import { registerRemoteIpcHandlers } from "./desktopMainIpcRemote.js";
-import { createRemoteControlProductionService } from "./remoteControl/wiring.js";
-import { registerRemoteControlIpc } from "./remoteControl/remoteControlIpc.js";
+import createWebRemoteControlSharedHostAttachments from "./webRemoteControlSharedHostAttachments.js";
+import createDesktopHelpConfigReader from "./desktopHelpConfig.js";
+import registerPlatformIpcHandlers from "./desktopMainIpcPlatform.js";
+import {
+  loadCliMcpFromUserDirectory,
+  migrateLegacyCommonMcp,
+} from "./mcpUserDirectory/index.js";
+import registerRemoteIpcHandlers from "./desktopMainIpcRemote.js";
+import createRemoteControlProductionService from "./remoteControl/wiring.js";
+import registerRemoteControlIpc from "./remoteControl/remoteControlIpc.js";
 import {
   configureDesktopStabilityTelemetry,
   getStabilityLifecycleScene,
@@ -257,25 +282,28 @@ import {
   resolveResourceUsageScene,
   stopDesktopResourceTelemetry,
 } from "./desktopResourceTelemetry.js";
-import { registerRendererHeapSampleIpc } from "./processResourceRendererHeapSource.js";
+import registerRendererHeapSampleIpc from "./processResourceRendererHeapSource.js";
 import {
   registerDesktopZCodeDataSizeTelemetry,
   stopDesktopZCodeDataSizeTelemetry,
 } from "./desktopZCodeDataSizeTelemetry.js";
-import { configureDesktopMcpTelemetry, reportMcpTelemetryToArms } from "./desktopMcpTelemetry.js";
+import {
+  configureDesktopMcpTelemetry,
+  reportMcpTelemetryToArms,
+} from "./desktopMcpTelemetry.js";
 import {
   configureDesktopNetworkTelemetry,
   registerDesktopNetworkTelemetry,
   stopDesktopNetworkTelemetry,
 } from "./desktopNetworkTelemetry.js";
-import { applyDesktopChromiumNetworkPolicies } from "./desktopNetworkPolicy.js";
-import { applyEmbeddedBrowserPermissionPolicy } from "./embeddedBrowserPermissionPolicy.js";
-import { createEmbeddedBrowserSitePermissionStore } from "./embeddedBrowserSitePermissionStore.js";
+import applyDesktopChromiumNetworkPolicies from "./desktopNetworkPolicy.js";
+import applyEmbeddedBrowserPermissionPolicy from "./embeddedBrowserPermissionPolicy.js";
+import createEmbeddedBrowserSitePermissionStore from "./embeddedBrowserSitePermissionStore.js";
 import {
   createEmbeddedBrowserPermissionUiBridge,
   setActiveEmbeddedBrowserPermissionUiBridge,
 } from "./embeddedBrowserPermissionUiBridge.js";
-import { mapZCodeEnvToArmsRumEnv } from "@zcode/shared";
+import mapZCodeEnvToArmsRumEnv from "@zcode/shared";
 import {
   findWindowsProcessesReferencingResourceMarkers,
   probeWindowsPackagedResourceWritable,
@@ -284,7 +312,7 @@ import {
   snapshotWindowsPackagedResources,
   WINDOWS_UPDATE_LOCK_RELEASE_GRACE_MS,
 } from "./windowsInstallResourceLocks.js";
-import { mainMemoryDiagnosticsRegistry } from "./mainMemoryDiagnostics.js";
+import mainMemoryDiagnosticsRegistry from "./mainMemoryDiagnostics.js";
 import {
   PLUGIN_SANDBOX_PRIVILEGED_SCHEME,
   getPluginSandboxHost,
@@ -296,12 +324,22 @@ import {
   registerPetPackScheme,
   type DesktopPetManager,
 } from "./desktopPetWindow.js";
-import { createPetBubbleWindow } from "./desktopPetBubble.js";
-import { readWebpSize, mergePetSessionSummaries, type PetSessionSummary } from "@zcode/shared";
-import { createPetMarketService } from "./desktopPetMarketService.js";
-import { registerPetMarketIpc } from "./desktopPetIpc.js";
-import { createVoiceService, type DesktopVoiceService } from "./voice/desktopVoiceService.js";
-import { registerVoiceIpc, spawnVoiceEngineWorker } from "./voice/desktopVoiceIpc.js";
+import createPetBubbleWindow from "./desktopPetBubble.js";
+import {
+  readWebpSize,
+  mergePetSessionSummaries,
+  type PetSessionSummary,
+} from "@zcode/shared";
+import createPetMarketService from "./desktopPetMarketService.js";
+import registerPetMarketIpc from "./desktopPetIpc.js";
+import {
+  createVoiceService,
+  type DesktopVoiceService,
+} from "./voice/desktopVoiceService.js";
+import {
+  registerVoiceIpc,
+  spawnVoiceEngineWorker,
+} from "./voice/desktopVoiceIpc.js";
 
 registerLocalMediaPreviewScheme(protocol, [PLUGIN_SANDBOX_PRIVILEGED_SCHEME]);
 registerPetPackScheme(protocol);

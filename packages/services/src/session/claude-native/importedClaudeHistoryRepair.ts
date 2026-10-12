@@ -88,7 +88,7 @@ export function shouldRepairImportedClaudeSnapshot(
   return hasLegacyFixedMessageIds;
 }
 
-function readLegacyImportedClaudeHistory(
+export function readLegacyImportedClaudeHistory(
   target: ImportedClaudeHistoryRepairTarget,
 ): ImportedClaudeHistoryRepairResult | null {
   const snapshotPath = [

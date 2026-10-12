@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 上游 v3.15.1 端点体系与 Mikiko 自建云端常量/解析合流后超限；两端点域职责内聚，拆分会割裂 resolve 链。 */
 import type { ZCodeEnv } from "./env.js";
 
 export const DEFAULT_ZCODE_ENDPOINT_ORIGIN = "https://zcode.z.ai";

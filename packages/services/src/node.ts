@@ -1420,8 +1420,6 @@ export function createLocalServices(options: {
           rejectedProjectTokenFingerprint,
         });
       },
-      resolveTeamPlanApiKey: (access) =>
-        resolveAccountTeamPlanRuntimeApiKey({ apiClient, credentialService, access }),
       loadChatGPTRequestAuth: (accountId) =>
         chatGPTAccountRuntimeForAuth
           ? chatGPTAccountRuntimeForAuth.resolveRequestAuth(accountId)

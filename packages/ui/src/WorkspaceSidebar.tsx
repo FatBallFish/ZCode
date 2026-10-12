@@ -721,16 +721,6 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
     // 这里用 workspaceIdentity 语义的 workspaceKey 组合 taskId，保证远程 workspace 不会按路径误匹配。
     return `${mobileViewState.activeWorkspaceKey}:${mobileViewState.activeTaskId}`;
   }, [webRemoteControlStatus.mobileConnected, webRemoteControlStatus.mobileViewState]);
-  const workspaceTaskGroupByKey = useMemo(
-    () =>
-      new Map(
-        workspaceTaskLists.groups.map((group) => [
-          buildTaskWorkspaceKey(group.workspacePath, group.workspaceIdentity),
-          group,
-        ]),
-      ),
-    [workspaceTaskLists.groups],
-  );
   const worktreeRegistryEntries = useWorktreeStore((state) => state.registryEntries);
   const workspaceTaskGroupByKey = useMemo(() => {
     const map = new Map(
@@ -1606,7 +1596,6 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   );
 
   // Bugfix：Footer 使用 memo，内联 JSX 会让无关的侧栏更新也穿透其稳定引用边界。
-  const sidebarBottomActivity = useMemo(() => <SidebarBottomActivity />, []);
 
   return (
     <aside
@@ -2069,9 +2058,9 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
             </div>
           </div>
 
+          <SidebarBottomActivity />
           <WorkspaceSidebarFooter
             className="pr-3"
-            banner={sidebarBottomActivity}
             theme={theme}
             localeMenuValue={localeMenuValue}
             onLocaleChange={handleLocaleChange}

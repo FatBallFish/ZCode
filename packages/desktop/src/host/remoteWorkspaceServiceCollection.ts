@@ -73,7 +73,6 @@ import {
   createMemoryService,
   createOutputStyleService,
   createRemoteConversationShareArtifactSource,
-  createUnsupportedConversationShareService,
   OAuthCredentialRepo,
 } from "@zcode/services/node";
 import {
@@ -94,6 +93,22 @@ import {
 } from "./remoteProviderProvisioningService.js";
 
 const runtimePreferencesLogger = createServiceLogger("remote-runtime-preferences");
+
+const ZCODE_JWT_TOKEN_KEY = "zcodejwttoken";
+const conversationShareLog = createServiceLogger("conversation-share");
+
+function createUnsupportedRemoteConversationShareService(): IConversationShareService {
+  return createUnsupportedConversationShareService({
+    message: "Conversation sharing is not available for this client or remote target",
+    onRejected: (action) => {
+      conversationShareLog.warn(undefined, "conversation share action rejected", {
+        action,
+        kind: "feature_disabled",
+        reason: "server_remote_unsupported",
+      });
+    },
+  });
+}
 
 export function createRemoteWorkspaceServiceCollection(params: {
   clientConfigService: IClientConfigService;

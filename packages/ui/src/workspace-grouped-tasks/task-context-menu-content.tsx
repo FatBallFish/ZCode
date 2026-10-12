@@ -37,6 +37,7 @@ export function GroupedTaskContextMenuContent({
     formatMessage: (desc: { id: string }) => string;
   };
   fileManagerLabel: string;
+  onOpenProviderConfig?: () => void;
   taskSessionFile: { loading: boolean; path: string | null };
   taskNativeSessionLogFile: { loading: boolean; path: string | null };
   providerConfigFile: { loading: boolean; path: string | null };
@@ -191,6 +192,7 @@ export function GroupedTaskContextMenuContent({
       >
         {intl.formatMessage({ id: "appHeader.copySessionId" })}
       </ContextMenuItem>
+      {onOpenProviderConfig ? (
       <ContextMenuItem
         disabled={providerConfigFile.loading || !providerConfigFile.path}
         onSelect={onOpenProviderConfig}
@@ -199,6 +201,7 @@ export function GroupedTaskContextMenuContent({
           {intl.formatMessage({ id: "appHeader.goToProviderConfig" })}
         </span>
       </ContextMenuItem>
+      ) : null}
       <ContextMenuSeparator />
       {onOpenTaskFeedback ? (
         <ContextMenuItem onSelect={onOpenTaskFeedback}>
