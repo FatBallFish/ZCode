@@ -253,6 +253,7 @@ export interface ZCodeAgentListSessionSubagentsParams extends ZCodeAgentSessionT
 export interface ZCodeAgentAppUsageParams {
   range: AppUsageRange;
   timeZone?: string;
+  providerId?: string;
 }
 
 export interface ZCodeAgentTaskTokenUsageParams extends ZCodeAgentSessionTarget {}

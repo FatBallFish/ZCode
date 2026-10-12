@@ -387,8 +387,11 @@ export async function queryAppUsage(
   db: DatabaseSync,
   input: AppUsageQueryInput,
 ): Promise<AppUsageQueryResult> {
-  const { since, until, tzOffsetMs } = input;
+  const { since, until, tzOffsetMs, providerId } = input;
   const DAY_MS = 86_400_000;
+  // provider 过滤只作用于 model_usage 系查询；turn/tool 是会话/工具维度，不含 provider。
+  const modelProviderFilter = providerId ? " and provider_id = ?" : "";
+  const modelProviderArgs = providerId ? [providerId] : [];
 
   const totals = db
     .prepare(
@@ -403,9 +406,9 @@ export async function queryAppUsage(
          coalesce(sum(case when status = 'error' then 1 else 0 end), 0) as modelErrorCount,
          avg(time_to_first_token_ms) as avgTimeToFirstTokenMs
        from model_usage
-       where started_at >= ? and started_at <= ?`,
+       where started_at >= ? and started_at <= ?${modelProviderFilter}`,
     )
-    .get(since, until) as Record<string, number | null>;
+    .get(since, until, ...modelProviderArgs) as Record<string, number | null>;
 
   const turnTotals = db
     .prepare(
@@ -449,11 +452,11 @@ export async function queryAppUsage(
          coalesce(sum(output_tokens), 0) as outputTokens,
          count(*) as requestCount
        from model_usage
-       where started_at >= ? and started_at <= ?
+       where started_at >= ? and started_at <= ?${modelProviderFilter}
        group by model_id
        order by totalTokens desc`,
     )
-    .all(since, until) as unknown as AppUsageModelRow[];
+    .all(since, until, ...modelProviderArgs) as unknown as AppUsageModelRow[];
 
   const tools = db
     .prepare(
@@ -475,10 +478,13 @@ export async function queryAppUsage(
          cast((started_at + ?) / ? as integer) as dayIndex,
          coalesce(sum(computed_total_tokens), 0) as totalTokens
        from model_usage
-       where started_at >= ? and started_at <= ?
+       where started_at >= ? and started_at <= ?${modelProviderFilter}
        group by dayIndex`,
     )
-    .all(tzOffsetMs, DAY_MS, since, until) as Array<{ dayIndex: number; totalTokens: number }>;
+    .all(tzOffsetMs, DAY_MS, since, until, ...modelProviderArgs) as Array<{
+      dayIndex: number;
+      totalTokens: number;
+    }>;
 
   const turnDays = db
     .prepare(
@@ -536,10 +542,10 @@ export async function queryAppUsage(
          model_id as modelId,
          coalesce(sum(computed_total_tokens), 0) as totalTokens
        from model_usage
-       where started_at >= ? and started_at <= ?
+       where started_at >= ? and started_at <= ?${modelProviderFilter}
        group by dayIndex, model_id`,
     )
-    .all(tzOffsetMs, DAY_MS, since, until) as unknown as AppUsageDayModelRow[];
+    .all(tzOffsetMs, DAY_MS, since, until, ...modelProviderArgs) as unknown as AppUsageDayModelRow[];
 
   return {
     totals: {

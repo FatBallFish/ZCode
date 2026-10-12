@@ -90,6 +90,7 @@ export function createUsageStatsService(
       return dependencies.zcodeAgentService.getAppUsageStats({
         range: request.range,
         timeZone: request.timeZone,
+        ...(request.providerId ? { providerId: request.providerId } : {}),
       });
     },
     async getCodingPlanUsageSnapshot(

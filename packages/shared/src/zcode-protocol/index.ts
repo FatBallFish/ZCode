@@ -2006,6 +2006,8 @@ export const zcodeUsageStatsParamsSchema = z
   .object({
     range: z.enum(APP_USAGE_RANGES),
     timeZone: z.string().optional(),
+    /** 可选：按 provider 精确过滤模型用量（如 account:chatgpt:{accountId}）。 */
+    providerId: z.string().min(1).optional(),
   })
   .strict();
 export const zcodeUsageStatsResultSchema = appUsageSnapshotSchema;

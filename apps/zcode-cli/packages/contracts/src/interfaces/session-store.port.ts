@@ -992,6 +992,8 @@ export interface AppUsageQueryInput {
   until: number;
   /** 调用端时区相对 UTC 的固定偏移（ms），用于按本地日归桶。 */
   tzOffsetMs: number;
+  /** 可选：按 provider 精确过滤模型维度统计（turn/tool 维度不参与过滤）。 */
+  providerId?: string;
 }
 
 export interface AppUsageTotalsRow {

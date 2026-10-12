@@ -278,6 +278,8 @@ export type AppUsageSnapshot = z.infer<typeof appUsageSnapshotSchema>;
 export interface AppUsageRequest {
   range: AppUsageRange;
   timeZone?: string;
+  /** 可选：按 provider 精确过滤模型用量（如 account:chatgpt:{accountId}）。 */
+  providerId?: string;
 }
 
 export interface CodingPlanUsageSnapshot {
