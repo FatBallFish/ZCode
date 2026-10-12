@@ -45,3 +45,9 @@ bucket_name = "mikiko-share-artifacts"
 
 [observability]
 enabled = true
+
+# Codex 客户端版本号同步（spec specs/desktop/chatgpt-oauth.md §10）：每 6 小时从
+# GitHub openai/codex releases 取最新稳定 rust-v tag 写入 client-configs。
+# 对齐 sub2api 同步间隔（发版频率天级，每天 4 次足够跟上且压住 GitHub API 配额）。
+[triggers]
+crons = ["0 */6 * * *"]
