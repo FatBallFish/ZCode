@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.1](https://github-personal/FatBallFish/ZCode/compare/v1.1.0...v1.1.1) (2026-10-12)
+
+### Bug Fixes
+
+* **i18n:** 补设置「记忆」分区标题文案（settings.memory.title 从未定义，侧栏显示原始 key） ([93337b3](https://github-personal/FatBallFish/ZCode/commit/93337b30c565d87f4f2718b87833d4f72d82b727))
+
+* **mikiko-cloud:** client/configs 读取与默认值逐组合并（存量 KV 缺新字段时补齐） ([63af89a](https://github-personal/FatBallFish/ZCode/commit/63af89a29a2da9f2ad3d632206cfcc1919ad71d3))
+
+* **settings:** ChatGPT 版本覆写支持清空（空串归一回 undefined） ([58214a7](https://github-personal/FatBallFish/ZCode/commit/58214a72b0c61464cca3fdaa41c9762006827bc2))
+
 ## [1.1.0](https://github-personal/FatBallFish/ZCode/compare/v1.0.8...v1.1.0) (2026-10-12)
 
 ### Features
