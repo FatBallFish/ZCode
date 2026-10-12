@@ -84,15 +84,9 @@ const BASE_SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     groupId: "basics",
   },
   {
-    id: "sub2api",
-    icon: Globe2,
-    titleId: "settings.sub2api.title",
-    groupId: "basics",
-  },
-  {
     id: "memory",
     icon: Brain,
-    titleId: "settings.memory",
+    titleId: "settings.memory.title",
     groupId: "agentCapabilities",
   },
   {

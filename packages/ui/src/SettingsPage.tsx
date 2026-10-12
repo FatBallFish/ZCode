@@ -63,7 +63,6 @@ import {
 import { buildUsageEntitlementCacheKey } from "@/lib/usageEntitlementCache.js";
 import { ModelProviderSection } from "@/settings/ModelProviderSection.js";
 import { ChatGPTSettingsSection } from "@/settings/ChatGPTSettingsSection.js";
-import { Sub2ApiSection } from "@/settings/Sub2ApiSection.js";
 import { useCodingPlanUpgradeDialog } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { useEnterpriseCodingPlanProducts } from "@/settings/model-provider-section/useEnterpriseCodingPlanProducts.js";
 import { UsageStatsSection, type UsageStatsSectionTab } from "@/settings/UsageStatsSection.js";
@@ -157,18 +156,12 @@ function SettingsUsageProviderTabs({
   onTabChange: (tab: UsageStatsSectionTab) => void;
 }) {
   const { intl } = useZCodeIntl();
+  // Tab 顺序（spec settings-usage-reorg D3）：应用用量 → 智谱套餐（个人/团队相邻）
+  // → 中转站用量（套餐已合并入顶部）→ ChatGPT 用量。
   const tabItems = [
     {
       id: "app" as const,
       label: intl.formatMessage({ id: "settings.usage.tab.appUsage" }),
-    },
-    {
-      id: "sub2api" as const,
-      label: intl.formatMessage({ id: "settings.usage.tab.sub2api" }),
-    },
-    {
-      id: "sub2api-plan" as const,
-      label: intl.formatMessage({ id: "settings.usage.tab.sub2apiPlan" }),
     },
     ...codingPlanSources.map((source, index) => ({
       id: createSettingsUsageCodingPlanTabId(source.id),
@@ -182,6 +175,14 @@ function SettingsUsageProviderTabs({
         source,
       }),
     })),
+    {
+      id: "sub2api" as const,
+      label: intl.formatMessage({ id: "settings.usage.tab.sub2api" }),
+    },
+    {
+      id: "chatgpt" as const,
+      label: intl.formatMessage({ id: "settings.usage.tab.chatgpt" }),
+    },
   ];
   const visibleActiveTab =
     activeTab === "codingPlan" && codingPlanSources[0]
@@ -645,7 +646,7 @@ export function SettingsPage({
     if (
       usageActiveTab === "app" ||
       usageActiveTab === "sub2api" ||
-      usageActiveTab === "sub2api-plan" ||
+      usageActiveTab === "chatgpt" ||
       usageActiveTab === "codingPlan" ||
       selectedUsageCodingPlanSource
     ) {
@@ -1900,11 +1901,6 @@ export function SettingsPage({
                           <ServiceProvider services={localHostServices}>
                             {/* ChatGPT 账号事实在本机 Host；设置读写同样只走本地服务。 */}
                             <ChatGPTSettingsSection />
-                          </ServiceProvider>
-                        ) : activeSection === "sub2api" ? (
-                          <ServiceProvider services={localHostServices}>
-                            {/* Sub2API 网关属于本机全局账号体系，与远端 workspace 无关。 */}
-                            <Sub2ApiSection />
                           </ServiceProvider>
                         ) : activeSection === "memory" ? (
                           <ServiceProvider services={localHostServices}>
