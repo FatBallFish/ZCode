@@ -981,9 +981,13 @@ const localTtftExporter = createLocalTtftExporter({
 ipcMain.on(PlatformChannels.ReportLocalTtftBatch, (_event, batch: unknown) =>
   localTtftExporter.enqueue(batch),
 );
-// 会话拖出侧栏 → 独立新主窗口打开（specs/desktop/session-drag-out-window.md）。
-// 只接受本地 workspace：远程会话的新窗口承载（连接复用/远端 runtime 归属）暂不开放；
+// 会话拖出侧栏/右键菜单 → 独立会话窗口打开（specs/desktop/session-drag-out-window.md）。
+// 只接受本地 workspace：远程会话的独立窗口承载（连接复用/远端 runtime 归属）暂不开放；
 // 原窗口不动（列表保留该会话，两窗口经各自 host 观察同一份磁盘会话状态）。
+// 双开保护：一次释放偶发触发两次 invoke（如 renderer 拖拽监听异常残留）时，
+// 短窗口内同源同会话的重复请求直接幂等吞掉。
+const recentSessionWindowOpens = new Map<string, number>();
+const SESSION_WINDOW_OPEN_DEDUPE_MS = 1_200;
 ipcMain.handle(PlatformChannels.OpenSessionWindow, (event, payload: unknown) => {
   const request = payload as
     | {
@@ -1005,21 +1009,55 @@ ipcMain.handle(PlatformChannels.OpenSessionWindow, (event, payload: unknown) => 
   if (typeof request.remoteSessionId === "string" && request.remoteSessionId.length > 0) {
     return { ok: false as const, error: "remote-session-not-supported" };
   }
+  const dedupeKey = `${event.sender.id}:${request.sessionId}`;
+  const now = Date.now();
+  if (recentSessionWindowOpens.size > 32) {
+    for (const [key, at] of recentSessionWindowOpens) {
+      if (now - at > SESSION_WINDOW_OPEN_DEDUPE_MS * 4) {
+        recentSessionWindowOpens.delete(key);
+      }
+    }
+  }
+  if (now - (recentSessionWindowOpens.get(dedupeKey) ?? 0) < SESSION_WINDOW_OPEN_DEDUPE_MS) {
+    logger.warn("[session-window] duplicate open request ignored", {
+      sessionId: request.sessionId,
+    });
+    return { ok: true as const, deduped: true };
+  }
+  recentSessionWindowOpens.set(dedupeKey, now);
   logger.info("[session-window] opening session in new window", {
     workspacePath: request.workspacePath,
     sessionId: request.sessionId,
     sourceWindowId: event.sender.id,
   });
-  createWindowInstance({
-    restoreSession: true,
-    initialWorkspacePath: request.workspacePath,
+  createSessionWindowInstance({
+    workspacePath: request.workspacePath,
     ...(typeof request.workspaceIdentity === "string" && request.workspaceIdentity.trim()
-      ? { initialWorkspaceIdentity: request.workspaceIdentity }
+      ? { workspaceIdentity: request.workspaceIdentity }
       : {}),
-    initialTaskId: request.sessionId,
+    sessionId: request.sessionId,
   });
   return { ok: true as const };
 });
+
+/**
+ * 轻量会话窗口（specs/desktop/session-drag-out-window.md）：复用 createWindowInstance
+ * 的 host/端口/窗口生命周期管线，但以 windowKind=session 让 renderer 走
+ * SessionWindowRoot（仅会话页，跳过完整 App 引导与启动 Loading 壳）。
+ */
+function createSessionWindowInstance(params: {
+  workspacePath: string;
+  workspaceIdentity?: string;
+  sessionId: string;
+}) {
+  createWindowInstance({
+    windowKind: "session",
+    restoreSession: false,
+    initialWorkspacePath: params.workspacePath,
+    ...(params.workspaceIdentity ? { initialWorkspaceIdentity: params.workspaceIdentity } : {}),
+    initialTaskId: params.sessionId,
+  });
+}
 const rendererActionTraceBroker = createRendererActionTraceBroker({
   exporter: createRendererActionTraceExporter({
     ...hostProcessLocalEnv,
@@ -2258,6 +2296,7 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
       initialWorkspacePurpose: startupBootstrap.initialWorkspacePurpose,
       unavailableWorkspacePath: startupBootstrap.unavailableWorkspacePath,
       initialTaskId: startupBootstrap.initialTaskId,
+      windowKind: startupBootstrap.windowKind,
     },
     agentWarmupTargets: startupBootstrap.agentWarmupTargets,
     // startupBootstrap 只标记 active workspace 是否不可用，但 local Host 会为所有

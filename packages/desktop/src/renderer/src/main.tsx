@@ -6,6 +6,7 @@ import {
   AppErrorBoundary,
   Root,
   GlobalDatabaseStartupLoading,
+  SessionWindowRoot,
   UpdateStatusWindowRoot,
   ZCodeIntlProvider,
   registerBaseWorkspaceServices,
@@ -276,7 +277,11 @@ function handleServicePortMessage(event: MessageEvent): void {
     const next = result.data;
     if (!databaseStartupAdmission.acceptState(next)) return;
     if (firstStartupStateTimer) clearTimeout(firstStartupStateTimer);
-    renderDatabaseStartup();
+    // 会话窗口（windowKind=session）跳过启动 Loading UI：DB 已由主窗口完成初始化，
+    // 准入握手照常进行，状态 ready 后直接进入轻量会话根。
+    if (windowKind !== "session") {
+      renderDatabaseStartup();
+    }
     enterAppIfPrepared();
     return;
   }
@@ -335,38 +340,62 @@ function initializeBusinessRoot(port: MessagePort): void {
   setReactErrorArmsReporter(desktopPlatform);
 
   appRoot?.render(
-    <AppErrorBoundary isDesktop isMacDesktop={isMacDesktop} isWindowsDesktop={isWindowsDesktop}>
-      <ZCodeIntlProvider
-        settingService={settingService}
-        broadcastService={services.broadcastService}
-        resolveSystemLocale={desktopPlatform.getSystemLocale}
-      >
-        <StartupReadyNotifier />
-        <Root
-          services={services}
-          platform={desktopPlatform}
-          isDesktop
-          assistantCodeCommentCardsEnabled
-          isMacDesktop={isMacDesktop}
-          isWindowsDesktop={isWindowsDesktop}
-          restoreSession={restoreSession}
-          supportsSettings={supportsSettings}
-          initialWorkspaceAbsPath={initialWorkspaceAbsPath}
-          initialWorkspaceIdentity={initialWorkspaceIdentity}
-          initialTaskId={initialTaskId}
-          initialWorkspacePurpose={
-            initialWorkspacePurpose === "conversation" ? "conversation" : "project"
-          }
-          unavailableWorkspacePath={unavailableWorkspacePath}
-        />
-      </ZCodeIntlProvider>
-    </AppErrorBoundary>,
+    windowKind === "session" ? (
+      <AppErrorBoundary isDesktop isMacDesktop={isMacDesktop} isWindowsDesktop={isWindowsDesktop}>
+        <ZCodeIntlProvider
+          settingService={settingService}
+          broadcastService={services.broadcastService}
+          resolveSystemLocale={desktopPlatform.getSystemLocale}
+        >
+          <StartupReadyNotifier />
+          {/* 轻量会话窗口：仅渲染会话页（SessionWindowRoot），跳过完整 App 引导。 */}
+          <SessionWindowRoot
+            services={services}
+            platform={desktopPlatform}
+            workspacePath={initialWorkspaceAbsPath ?? ""}
+            workspaceIdentity={initialWorkspaceIdentity}
+            sessionId={initialTaskId ?? ""}
+          />
+        </ZCodeIntlProvider>
+      </AppErrorBoundary>
+    ) : (
+      <AppErrorBoundary isDesktop isMacDesktop={isMacDesktop} isWindowsDesktop={isWindowsDesktop}>
+        <ZCodeIntlProvider
+          settingService={settingService}
+          broadcastService={services.broadcastService}
+          resolveSystemLocale={desktopPlatform.getSystemLocale}
+        >
+          <StartupReadyNotifier />
+          <Root
+            services={services}
+            platform={desktopPlatform}
+            isDesktop
+            assistantCodeCommentCardsEnabled
+            isMacDesktop={isMacDesktop}
+            isWindowsDesktop={isWindowsDesktop}
+            restoreSession={restoreSession}
+            supportsSettings={supportsSettings}
+            initialWorkspaceAbsPath={initialWorkspaceAbsPath}
+            initialWorkspaceIdentity={initialWorkspaceIdentity}
+            initialTaskId={initialTaskId}
+            initialWorkspacePurpose={
+              initialWorkspacePurpose === "conversation" ? "conversation" : "project"
+            }
+            unavailableWorkspacePath={unavailableWorkspacePath}
+          />
+        </ZCodeIntlProvider>
+      </AppErrorBoundary>
+    ),
   );
 }
 
 window.addEventListener("message", handleServicePortMessage);
 if (windowKind !== "update-status") {
-  renderDatabaseStartup();
+  // 会话窗口不渲染启动 Loading 壳（见 handleServicePortMessage 注释），
+  // 但仍请求一次状态快照驱动准入握手。
+  if (windowKind !== "session") {
+    renderDatabaseStartup();
+  }
   sendStartupControl({ action: "snapshot" });
 }
 

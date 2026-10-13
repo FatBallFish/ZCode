@@ -2079,6 +2079,7 @@ const zhCN: Record<string, string> = {
   "taskList.pinFailed": "更新置顶状态失败",
   "taskList.markAsUnread": "标记为未读",
   "taskList.openInSplitPane": "在分屏打开",
+  "taskList.openInSessionWindow": "在新窗口打开会话",
   "workbench.dragOut.newWindowHint": "松开以在新窗口打开会话",
   "chat.toolCall.agent.openInSidePane": "在右侧打开",
   "v4Pane.splitRight": "向右拆分",

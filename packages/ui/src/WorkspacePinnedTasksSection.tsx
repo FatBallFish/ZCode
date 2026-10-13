@@ -50,7 +50,8 @@ export function WorkspacePinnedTasksSection({
   activeTaskId,
   taskSortBy,
   mobileActiveTaskKey,
-  pinnedProjectRows,  onSelectTask,
+  pinnedProjectRows,
+  onSelectTask,
   onOpenFileTree,
 }: {
   workspaceTabs: WorkspaceTabState[];
@@ -60,7 +61,8 @@ export function WorkspacePinnedTasksSection({
   taskSortBy: "created" | "updated";
   mobileActiveTaskKey?: string | null;
   /** 置顶项目行（含嵌套会话列表，spec specs/desktop/sidebar-projects.md）；由上层渲染注入。 */
-  pinnedProjectRows?: ReactNode;  onSelectTask: (
+  pinnedProjectRows?: ReactNode;
+  onSelectTask: (
     targetWorkspacePath: string,
     taskId: string,
     targetWorkspaceIdentity?: string,
@@ -250,12 +252,7 @@ export function WorkspacePinnedTasksSection({
     if (!item) {
       return;
     }
-    onSelectTaskRef.current(
-      item.workspacePath,
-      item.taskId,
-      item.workspaceIdentity,
-      item.unreadAt,
-    );
+    onSelectTaskRef.current(item.workspacePath, item.taskId, item.workspaceIdentity, item.unreadAt);
   }, []);
   const archivePinnedItemInline = useCallback(
     (event: ReactMouseEvent, itemKey: string) => {
@@ -477,7 +474,12 @@ export function WorkspacePinnedTasksSection({
   }
 
   return (
-    <div className="flex flex-col gap-1 px-2 empty:hidden">
+    <div
+      className="flex flex-col gap-1 px-2 empty:hidden"
+      // 会话拖出开窗的「所属范围」锚点：置顶会话在置顶区块内释放=取消，完全脱离
+      // 置顶区即开窗（workbenchWindowDragOut）。
+      data-session-drag-owner-scope="pinned"
+    >
       {renamingItemKey !== null ? (
         <TaskRenameDialog
           open

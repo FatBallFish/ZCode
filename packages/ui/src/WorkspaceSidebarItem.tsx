@@ -909,7 +909,14 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
   );
 
   return (
-    <li ref={itemRef} style={itemStyle} className="space-y-2">
+    <li
+      ref={itemRef}
+      style={itemStyle}
+      className="space-y-2"
+      // 会话拖出开窗的「所属范围」锚点：本项目行+其会话列表块；范围内释放=取消，
+      // 超出即开窗（workbenchWindowDragOut）。
+      data-session-drag-owner-scope="project"
+    >
       <Collapsible
         className="flex flex-col gap-1"
         open={isExpanded && !isDisconnectedRemoteWorkspace}

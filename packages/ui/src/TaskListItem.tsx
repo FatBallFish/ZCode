@@ -41,6 +41,7 @@ import { buildTaskFeedbackDescription } from "@/lib/taskFeedbackDraft.js";
 import { toast } from "@/components/ui/toast.js";
 import { buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
 import { useV4SplitPaneEntry } from "@/v4/splitPaneEntryContext.js";
+import { usePlatform } from "@/hooks/usePlatform.jsx";
 import { trackSessionDragForWindowOpen } from "@/v4/workbenchWindowDragOut.js";
 import { buildWorkbenchSessionKey, useWorkbenchGroupStore } from "@/v4/workbenchGroupStore.js";
 import { useTaskInteractionAutoResolutionSnooze } from "@/hooks/useTaskInteractionAutoResolutionSnooze.js";
@@ -285,8 +286,9 @@ export const MemoTaskItem = memo(function TaskListItem({
         serializeWorkbenchSessionDragPayload(payload),
       );
       event.dataTransfer.setData("text/plain", taskTitle);
-      // 拖出侧栏 → 新窗口追踪（本地会话限定；远程/无 opener 时为 no-op）。
-      trackSessionDragForWindowOpen(payload);
+      // 拖出侧栏 → 会话窗口追踪（本地会话限定；远程/无 opener 时为 no-op）。
+      // 所属范围从源行向上解析（项目块/置顶分区标记）。
+      trackSessionDragForWindowOpen(payload, event.currentTarget);
       // 浏览器默认 drag preview 背景透明、边界不清晰；保留原行内容，
       // 只补齐 Grouped drag overlay 使用的背景、边框和阴影。
       const cleanupDragPreview = createTaskWorkbenchDragPreview({
@@ -894,6 +896,10 @@ export function TaskListItemContextMenuContent({
   );
   // 当前 focused session、已有 group 与 pane 上限统一由 shell owner 裁决；row 不再直接写 layout store。
   const canOpenInSplitPane = splitPaneEntry.canOpenSession(splitPaneTarget);
+  // 「在新窗口打开会话」（拖出开窗的菜单版）：仅桌面本地会话（远程会话 main 拒绝，
+  // 入口直接不显示）。
+  const platform = usePlatform();
+  const canOpenInSessionWindow = Boolean(platform.openSessionInNewWindow) && !remoteSessionId;
   const openFeedbackSubmit = useFeedbackStore((state) => state.openSubmit);
   const {
     taskSessionFile,
@@ -991,6 +997,19 @@ export function TaskListItemContextMenuContent({
           : undefined
       }
       openInSplitPaneDisabled={workspaceActionsDisabled || !canOpenInSplitPane}
+      onOpenInSessionWindow={
+        canOpenInSessionWindow
+          ? () => {
+              void platform.openSessionInNewWindow?.({
+                workspacePath,
+                ...(task.workspaceIdentity?.trim()
+                  ? { workspaceIdentity: task.workspaceIdentity }
+                  : {}),
+                sessionId: task.taskId,
+              });
+            }
+          : undefined
+      }
       onOpenTaskFeedback={
         FEEDBACK_ENTRY_ENABLED
           ? () => {

@@ -19,6 +19,7 @@ export function TaskListItemContextMenu({
   onMarkTaskAsUnread,
   onOpenInSplitPane,
   openInSplitPaneDisabled,
+  onOpenInSessionWindow,
   onOpenTaskFeedback,
   onOpenTaskPathInFileManager,
   onCopyWorkspacePath,
@@ -31,10 +32,7 @@ export function TaskListItemContextMenu({
   disabledReason,
 }: {
   intl: {
-    formatMessage: (
-      desc: { id: string },
-      values?: Record<string, string>,
-    ) => string;
+    formatMessage: (desc: { id: string }, values?: Record<string, string>) => string;
   };
   isPinned: boolean;
   fileManagerLabel: string;
@@ -54,6 +52,8 @@ export function TaskListItemContextMenu({
   onOpenInSplitPane?: () => void;
   /** 叶子数达上限且该 session 未在任何 pane 时禁用。 */
   openInSplitPaneDisabled?: boolean;
+  /** 「在新窗口打开会话」（仅桌面本地会话注入）。 */
+  onOpenInSessionWindow?: () => void;
   /** 反馈功能关闭期间不注入：菜单项整体隐藏（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）。 */
   onOpenTaskFeedback?: () => void;
   /** 远程会话下不注入：Finder 菜单项整体隐藏（spec §21.5）。 */
@@ -85,6 +85,7 @@ export function TaskListItemContextMenu({
         onMarkTaskAsUnread={onMarkTaskAsUnread}
         onOpenInSplitPane={onOpenInSplitPane}
         openInSplitPaneDisabled={openInSplitPaneDisabled}
+        onOpenInSessionWindow={onOpenInSessionWindow}
         onOpenTaskFeedback={onOpenTaskFeedback}
         onOpenTaskPathInFileManager={onOpenTaskPathInFileManager}
         onCopyWorkspacePath={onCopyWorkspacePath}

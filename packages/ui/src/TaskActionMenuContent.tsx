@@ -33,6 +33,7 @@ export function TaskActionMenuContent({
   onMarkTaskAsUnread,
   onOpenInSplitPane,
   openInSplitPaneDisabled = false,
+  onOpenInSessionWindow,
   onOpenTaskFeedback,
   onOpenTaskPathInFileManager,
   onCopyWorkspacePath,
@@ -43,10 +44,7 @@ export function TaskActionMenuContent({
   onOpenProviderConfig,
 }: {
   intl: {
-    formatMessage: (
-      desc: { id: string },
-      values?: Record<string, string>,
-    ) => string;
+    formatMessage: (desc: { id: string }, values?: Record<string, string>) => string;
   };
   isPinned: boolean;
   fileManagerLabel: string;
@@ -73,6 +71,8 @@ export function TaskActionMenuContent({
   onOpenInSplitPane?: () => void;
   /** 当前 session 或 pane 数达上限且目标无已有归属时禁用（保留布局与层级）。 */
   openInSplitPaneDisabled?: boolean;
+  /** 「在新窗口打开会话」（拖出开窗的菜单版；仅桌面本地会话注入）。 */
+  onOpenInSessionWindow?: () => void;
   onOpenTaskFeedback?: () => void;
   /** 远程会话（手机远控）下调用方不注入：菜单项整体隐藏（spec §21.5）。 */
   onOpenTaskPathInFileManager?: () => void;
@@ -83,8 +83,7 @@ export function TaskActionMenuContent({
   onViewModelTrajectory?: () => void;
   onOpenProviderConfig: () => void;
 }) {
-  const taskTargetActionsDisabled =
-    disableTaskActions || disableTaskTargetActions;
+  const taskTargetActionsDisabled = disableTaskActions || disableTaskTargetActions;
 
   return (
     <>
@@ -141,6 +140,19 @@ export function TaskActionMenuContent({
           {intl.formatMessage({ id: "taskList.openInSplitPane" })}
         </Item>
       ) : null}
+      {onOpenInSessionWindow ? (
+        <Item
+          disabled={taskTargetActionsDisabled}
+          title={taskTargetActionsDisabled ? disabledReason : undefined}
+          onSelect={() => {
+            if (!taskTargetActionsDisabled) {
+              onOpenInSessionWindow();
+            }
+          }}
+        >
+          {intl.formatMessage({ id: "taskList.openInSessionWindow" })}
+        </Item>
+      ) : null}
       <Separator />
       {!hideMobileUnsupportedActions && onOpenTaskPathInFileManager ? (
         <Item
@@ -163,11 +175,7 @@ export function TaskActionMenuContent({
         {intl.formatMessage({ id: "appHeader.copyPath" })}
       </Item>
       <Item
-        disabled={
-          taskTargetActionsDisabled ||
-          taskSessionFile.loading ||
-          !taskSessionFile.path
-        }
+        disabled={taskTargetActionsDisabled || taskSessionFile.loading || !taskSessionFile.path}
         title={taskTargetActionsDisabled ? disabledReason : undefined}
         onSelect={onCopyTaskPath}
       >
@@ -199,11 +207,7 @@ export function TaskActionMenuContent({
         /* Bugfix: 手机远控运行在浏览器里，无法可靠打开桌面端 provider 配置文件。
            这里只在远控移动端隐藏入口，桌面端仍沿用“路径已知即可前往配置”的能力。 */
         <Item
-          disabled={
-            disableTaskActions ||
-            providerConfigFile.loading ||
-            !providerConfigFile.path
-          }
+          disabled={disableTaskActions || providerConfigFile.loading || !providerConfigFile.path}
           title={disableTaskActions ? disabledReason : undefined}
           onSelect={() => {
             if (!disableTaskActions) {

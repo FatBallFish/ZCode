@@ -2220,6 +2220,7 @@ const enUS: Record<string, string> = {
   "taskList.pinFailed": "Could not update pinned state",
   "taskList.markAsUnread": "Mark as unread",
   "taskList.openInSplitPane": "Open in split view",
+  "taskList.openInSessionWindow": "Open session in new window",
   "workbench.dragOut.newWindowHint": "Release to open this session in a new window",
   "chat.toolCall.agent.openInSidePane": "Open in side pane",
   "v4Pane.splitRight": "Split right",

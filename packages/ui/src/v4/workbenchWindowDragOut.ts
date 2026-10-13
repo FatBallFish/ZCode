@@ -1,15 +1,19 @@
 /**
- * 会话拖出侧栏 → 独立新窗口打开（specs/desktop/session-drag-out-window.md）。
+ * 会话拖出侧栏 → 独立会话窗口打开（specs/desktop/session-drag-out-window.md）。
  *
- * 交互语义（三分支，与既有分屏拖放并存）：
- * - 落在会话展示页的 pane 边缘分屏区 → 走既有 workbench 分屏/叠放（本模块不介入）；
- * - 落在会话展示页中部（无分屏区）→ 无效果；
- * - 落在侧栏以外的非展示区（标题栏等），或释放时指针已在窗口外（dragover 停止
- *   更新超过阈值）→ 在新主窗口打开该会话。
+ * 交互语义（2026-10-14 按用户反馈重做，文案与行为严格同源——同一谓词决定 chip
+ * 展示与释放动作，不存在「显示文案却不开窗 / 未显示文案却开窗」）：
+ * - 释放在任何 pane 的边缘分屏区 → 走既有 workbench 分屏/叠放（dropEffect 已被消费）；
+ * - 指针仍在「所属范围」内（项目视图 = 所属项目行+其会话列表块；置顶分区 = 置顶区块）
+ *   → 取消（拖回原地），无 chip；
+ * - 指针超出所属范围（其他项目区/展示页/标题栏/窗口外）→ 打开会话窗口，chip 展示。
  *
- * 实现说明：HTML5 DnD 在指针离开窗口后不再派发 dragover，也无法读取最终落点坐标，
- * 因此「窗口外释放」用「dragover 停止更新 + dragend 未被任何 drop 目标消费
- * （dropEffect 仍为 none）」推断；侧栏内释放视为取消（拖回原地）。
+ * 实现说明：
+ * - HTML5 DnD 指针离开应用窗口后不再派发 dragover、也读不到最终落点，用
+ *   「dragover 停止更新超阈值」判定出窗；期间用节拍器把提示切成 new-window，
+ *   保证「拖出窗口外 → chip 仍在（冻结于最后位置）→ 释放开窗」的链路一致。
+ * - tracker 单例：源行在虚拟列表重渲中被卸载时 dragend 不会派发，残留的 window
+ *   监听会让下一次拖放触发两次开窗（用户实测双开）。每次 dragStart 先释放旧 tracker。
  */
 import { create } from "zustand";
 import { logger } from "@/logger.js";
@@ -17,11 +21,13 @@ import type { WorkbenchSessionDragPayload } from "@/v4/workbenchDragDrop.js";
 
 /** dragover 停止更新超过该窗口即认为指针已离开应用窗口。 */
 const DRAG_OVER_STALE_MS = 300;
+/** stale 检测节拍（略快于 STALE_MS，保证出窗后 ~400ms 内提示就位）。 */
+const HEARTBEAT_MS = 120;
 
 interface SessionWindowDragOutState {
   /** 一次会话拖拽进行中（仅本地 workspace 且桌面端有 opener 时置位）。 */
   active: boolean;
-  /** 当前引导态：new-window = 显示「松开以在新窗口打开」chip；null = 无引导。 */
+  /** 当前引导态：new-window = 显示「松开以在新窗口打开会话」chip；null = 无引导。 */
   mode: "new-window" | null;
   pointerX: number;
   pointerY: number;
@@ -53,7 +59,7 @@ async function openSessionWindow(payload: WorkbenchSessionDragPayload): Promise<
   }
 }
 
-// ── 分屏高亮区活动登记（WorkbenchPane 上报，用于隐藏新窗口引导）──
+// ── 分屏高亮区活动登记（WorkbenchPane 上报，用于命中分屏区时隐藏新窗口引导）──
 const activeDropZonePaneIds = new Set<string>();
 
 export function setWorkbenchDropZoneActive(paneId: string, active: boolean): void {
@@ -64,78 +70,104 @@ export function setWorkbenchDropZoneActive(paneId: string, active: boolean): voi
   }
 }
 
-type SessionDragRegion = "sidebar" | "workbench" | "other";
-
-function resolveSessionDragRegion(x: number, y: number): SessionDragRegion {
-  const element = document.elementFromPoint(x, y);
-  if (!(element instanceof Element)) {
-    return "other";
-  }
-  if (element.closest('[data-testid="sidebar"]')) {
-    return "sidebar";
-  }
-  if (element.closest("[data-workbench-display-root]")) {
-    return "workbench";
-  }
-  return "other";
+function isInsideRect(rect: DOMRect | undefined, x: number, y: number): boolean {
+  if (!rect) return false;
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }
 
+/** 活动 tracker 的清理句柄（模块级单例，见文件头注释）。 */
+let disposeActiveTracker: (() => void) | null = null;
+
 /**
- * 为一次 HTML5 会话拖拽挂接「拖出新窗口」追踪；返回清理函数（dragend 时自清理）。
- * 判定不改变既有 dataTransfer 语义：pane 的 dragover/drop 照常工作，本模块只在
- * dragend「无人消费」时兜底。
+ * 为一次 HTML5 会话拖拽挂接「拖出开窗」追踪。
+ * @param sourceElement 拖拽源行元素——所属范围从它向上找 `[data-session-drag-owner-scope]`
+ *   （项目行/置顶分区），找不到时回退整个侧栏（拖动未离开侧栏 = 取消）。
  */
-export function trackSessionDragForWindowOpen(payload: WorkbenchSessionDragPayload): () => void {
-  if (!sessionWindowOpener) {
-    return () => {};
-  }
-  if (payload.remoteSessionId) {
-    // 远程会话的新窗口承载（连接复用/远端 runtime 归属）暂不开放（main 同样拒绝）。
+export function trackSessionDragForWindowOpen(
+  payload: WorkbenchSessionDragPayload,
+  sourceElement?: Element,
+): () => void {
+  disposeActiveTracker?.();
+  disposeActiveTracker = null;
+  if (!sessionWindowOpener || payload.remoteSessionId) {
+    // 远程会话的独立窗口承载暂不开放（main 同样拒绝）。
     return () => {};
   }
 
   let disposed = false;
-  let lastDragOverAt = 0;
-  let lastRegion: SessionDragRegion = "other";
+  let lastDragOverAt = Date.now();
+  let insideOwner = true;
+  let pointerX = 0;
+  let pointerY = 0;
+
+  const ownerElement =
+    sourceElement?.closest<HTMLElement>("[data-session-drag-owner-scope]") ??
+    sourceElement?.closest<HTMLElement>('[data-testid="sidebar"]') ??
+    null;
+
+  const syncIndicator = () => {
+    const mode: "new-window" | null =
+      !insideOwner && activeDropZonePaneIds.size === 0 ? "new-window" : null;
+    useSessionWindowDragOutStore.setState({ active: true, mode, pointerX, pointerY });
+  };
 
   const onDragOver = (event: DragEvent) => {
     lastDragOverAt = Date.now();
-    lastRegion = resolveSessionDragRegion(event.clientX, event.clientY);
-    const mode: "new-window" | null =
-      lastRegion === "other" && activeDropZonePaneIds.size === 0 ? "new-window" : null;
-    useSessionWindowDragOutStore.setState({
-      active: true,
-      mode,
-      pointerX: event.clientX,
-      pointerY: event.clientY,
-    });
+    pointerX = event.clientX;
+    pointerY = event.clientY;
+    insideOwner = isInsideRect(ownerElement?.getBoundingClientRect(), pointerX, pointerY);
+    syncIndicator();
   };
 
+  const heartbeat = window.setInterval(() => {
+    if (disposed) return;
+    if (Date.now() - lastDragOverAt > DRAG_OVER_STALE_MS && insideOwner) {
+      // 指针已离开应用窗口：必然超出所属范围，提示切换为 new-window（位置冻结在
+      // 最后一次 dragover，chip 保持可见）。
+      insideOwner = false;
+      syncIndicator();
+    }
+  }, HEARTBEAT_MS);
+
   const onDragEnd = (event: DragEvent) => {
-    dispose();
     const dropEffect = event.dataTransfer?.dropEffect;
-    if (dropEffect === "copy" || dropEffect === "move") {
-      // 已被 pane drop 目标消费（分屏/叠放），不做任何事。
+    const consumed = dropEffect === "copy" || dropEffect === "move";
+    const outsideWindow = Date.now() - lastDragOverAt > DRAG_OVER_STALE_MS;
+    dispose();
+    if (consumed) {
+      // 已被 pane drop 目标消费（分屏/叠放）。
       return;
     }
-    const stale = Date.now() - lastDragOverAt > DRAG_OVER_STALE_MS;
-    if (stale || lastRegion === "other") {
-      void openSessionWindow(payload);
+    if (insideOwner && !outsideWindow) {
+      // 所属范围内释放：取消（与无 chip 的提示一致）。
+      return;
     }
-    // sidebar → 取消；workbench 中部 → 无效果。
+    void openSessionWindow(payload);
+  };
+
+  const onDrop = () => {
+    // drop 被 pane 消费时同样收尾（dragend 随后触发会直接走 disposed 分支）。
+    dispose();
   };
 
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    window.clearInterval(heartbeat);
     window.removeEventListener("dragover", onDragOver, true);
     window.removeEventListener("dragend", onDragEnd);
+    window.removeEventListener("drop", onDrop, true);
+    if (disposeActiveTracker === dispose) {
+      disposeActiveTracker = null;
+    }
     useSessionWindowDragOutStore.setState({ active: false, mode: null });
   };
 
+  disposeActiveTracker = dispose;
   window.addEventListener("dragover", onDragOver, true);
   window.addEventListener("dragend", onDragEnd);
-  useSessionWindowDragOutStore.setState({ active: true, mode: null });
+  window.addEventListener("drop", onDrop, true);
+  syncIndicator();
   return dispose;
 }
 
@@ -155,7 +187,7 @@ export function updateSessionPointerDragOutsideViewport(
   });
 }
 
-/** 指针拖拽释放：未命中任何 pane 且指针在窗口外 → 新窗口打开；返回是否已消费。 */
+/** 指针拖拽释放：未命中任何 pane 且指针在窗口外 → 会话窗口打开；返回是否已消费。 */
 export function finishSessionPointerDragOutsideViewport(
   payload: WorkbenchSessionDragPayload | null,
   x: number,

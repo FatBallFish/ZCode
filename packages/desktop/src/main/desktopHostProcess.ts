@@ -72,7 +72,7 @@ export interface WindowBootstrapOptions {
   unavailableWorkspacePath?: string;
   /** 启动后直接定位到的会话（拖出新建窗口）。 */
   initialTaskId?: string;
-  windowKind?: "main" | "update-status";
+  windowKind?: "main" | "update-status" | "session";
   locale?: string;
 }
 

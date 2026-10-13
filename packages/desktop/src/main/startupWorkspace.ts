@@ -44,6 +44,8 @@ export const STARTUP_AGENT_WARMUP_LIMIT = 1;
 
 export interface StartupWindowBootstrap {
   restoreSession?: boolean;
+  /** 窗口形态：session = 轻量会话窗口（仅会话页，见 SessionWindowRoot）。 */
+  windowKind?: "main" | "session";
   initialWorkspacePath?: string;
   /** 身份隔离 key（identity workspace；本地路径场景缺省）。 */
   initialWorkspaceIdentity?: string;
