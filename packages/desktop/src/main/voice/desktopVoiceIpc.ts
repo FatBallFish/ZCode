@@ -5,6 +5,7 @@
 import {
   BrowserWindow,
   ipcMain,
+  app,
   shell,
   systemPreferences,
   utilityProcess,
@@ -102,6 +103,20 @@ export function registerVoiceIpc(options: { service: DesktopVoiceService }): voi
     getMediaAccessStatus: (mediaType) => systemPreferences.getMediaAccessStatus(mediaType),
     askForMediaAccess: (mediaType) => systemPreferences.askForMediaAccess(mediaType),
     openExternal: (url) => shell.openExternal(url),
+    // dev 构建注入 TCC 重置：dev bundle 每次重编译 ad-hoc 签名 cdhash 变化，
+    // 历史 deny 记录对新副本失配且系统设置无删除入口，「去开启」需要能自愈回弹框。
+    // 生产打包版保持原语义（用户明确拒绝过的不被重置）。
+    ...(app.isPackaged
+      ? {}
+      : {
+          resetMicApproval: async () => {
+            const bundleId = app.getBundleId?.();
+            if (!bundleId) return;
+            const { execFile } = await import("node:child_process");
+            const { promisify } = await import("node:util");
+            await promisify(execFile)("tccutil", ["reset", "Microphone", bundleId]);
+          },
+        }),
   });
   ipcMain.handle(PlatformChannels.VoiceGetMicPermissionStatus, () => micPermission.getStatus());
   ipcMain.handle(PlatformChannels.VoiceEnsureMicPermission, () => micPermission.ensure());

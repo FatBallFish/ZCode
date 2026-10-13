@@ -15,6 +15,13 @@ export interface MicPermissionDeps {
    *  调用会同步抛 TypeError 并被 ensure 捕获成 denied——表现为"永不弹框、瞬间被拒"）。 */
   askForMediaAccess(mediaType: "microphone"): Promise<boolean>;
   openExternal(url: string): Promise<unknown>;
+  /**
+   * 清除本应用 bundle id 的麦克风 TCC 记录（tccutil reset Microphone <bundleId>）。
+   * 仅 dev 装配注入：每次重编译 ad-hoc 签名的 cdhash 都变，旧 deny/授权记录对新副本
+   * 失效却又占着 not-determined 之外的档位，askForMediaAccess 从此不再弹框。
+   * 生产打包版不注入（用户明确拒绝过的不应被重置）。
+   */
+  resetMicApproval?: () => Promise<void>;
 }
 
 /** macOS 隐私设置里麦克风面板的深链（经典 Security 面板 URL，Ventura+ 仍可跳转）。 */
@@ -68,7 +75,8 @@ export function createVoiceMicPermission(deps: MicPermissionDeps) {
    * 「去开启」：macOS 隐私列表只显示申请过权限的应用——若从未触发 TCC 请求，
    * 用户在设置里找不到本应用、只能手动添加。因此 not-determined 时先补一次
    * ask（允许则直接授权完成，拒绝也会把应用写入列表），再跳设置面板；
-   * denied（记录已存在）直接跳。
+   * denied（记录已存在）直接跳。dev 构建注入 resetMicApproval 时 denied 先
+   * 清 TCC 记录重新 ask（见下方实现注释）。
    */
   async function openSystemSettings(): Promise<OpenMicSettingsResult> {
     if (deps.platform === "win32") {
@@ -80,7 +88,19 @@ export function createVoiceMicPermission(deps: MicPermissionDeps) {
       }
     }
     if (deps.platform !== "darwin") return { ok: false };
-    const final = await ensure();
+    let final = await ensure();
+    // dev 构建（注入 resetMicApproval）遇 denied 先清 TCC 记录再重新 ask：
+    // dev bundle 每次重编译 cdhash 变化，历史记录对新副本必然失配，用户既无法
+    // 在系统设置里删旧条目也无法手动添加新副本；只有 tccutil reset 能让状态回到
+    // not-determined 重新弹框（真机实测结论）。
+    if (final.status === "denied" && deps.resetMicApproval) {
+      try {
+        await deps.resetMicApproval();
+        final = await ensure();
+      } catch {
+        // tccutil 失败（权限不足等）：保持原状态走设置面板引导。
+      }
+    }
     if (final.status === "granted") {
       // 授权框里已点允许：无需再进设置页。
       return { ok: true, status: "granted" };
