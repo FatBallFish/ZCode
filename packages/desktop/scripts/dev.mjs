@@ -159,6 +159,10 @@ async function startElectron({ command, devAppPath, root, rendererUrl }) {
   // -W：open 进程存活到应用退出，exit 语义与直接 spawn 一致（否则 open 立即返回，
   // dev 会误判 Electron 已退出并拆除 vite/tsup）。SIGTERM/SIGKILL 兜底在
   // signalElectronTree 用 pkill 按 bundle 可执行路径完成。
+  // 注意两点：1) open 不继承 spawn cwd，应用路径必须传绝对路径（此前传 "." 会被
+  // 解析到 HOME，应用瞬间退出、open -W 立即返回，dev 误判 Electron 已退出）；
+  // 2) Chromium 开关（--enable-logging/--log-file）必须排在应用路径之前才生效，
+  // 排在后面只会进入应用的 process.argv。
   const electron = rawSpawn(
     "open",
     [
@@ -166,9 +170,9 @@ async function startElectron({ command, devAppPath, root, rendererUrl }) {
       "-W",
       devAppPath,
       "--args",
-      ".",
-      `--enable-logging=file`,
+      "--enable-logging=file",
       `--log-file=${logFile}`,
+      root,
       `--dev-renderer-url=${rendererUrl}`,
     ],
     { cwd: root, stdio: "ignore", detached: true },
