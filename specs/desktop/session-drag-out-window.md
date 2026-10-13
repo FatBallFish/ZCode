@@ -83,3 +83,20 @@
   "Group Context not found"。
 - 侧面板切换按钮经 hideSidePaneToggle 隐藏（shell 侧面板装配不在会话窗口承载范围内，
   后续如需再评估）；Win/Linux 内联窗控不受该开关影响。reload 入口为禁用态。
+
+## 附着主窗口 Host 与面板转发（2026-10-14 二轮）
+
+- **同 Host 附着**：会话窗口不再 spawn 自有 Local Host——`StartupWindowBootstrap
+  .attachToHostOfWindow`（源窗口 webContents id）→ dom-ready 时对源 Host 发
+  `AttachServicePort`（desktop-continuous / scope=local，与手机远控、刷新共用机制），
+  端口投递给会话窗口 renderer。同 Host 同运行时：会话状态、运行 lease、消息流与
+  主窗口完全一致（实时同步，非备份）；关闭会话窗口只关 attachment 端口，源 Host
+  不受影响；源窗口已关时回退 spawn 自有 Host（降级独立模式）。
+- **DB 启动 relay 多窗口化**：databaseStartupRelay 按 Host 聚合（latest/控制路由/
+  转发窗口集合），`attachDatabaseStartupRelayWindow` 把会话窗口加入源 Host 的状态
+  转发并回放最新状态（否则会话窗口卡在启动准备，实测超时）。
+- **面板动作转发**：面板宿主（文件预览/内置浏览器/代码审查/辅助对话/工作流详情等）
+  统一在主 App。会话窗口的 17 个面板回调经 `sessionWindowPanelBridge` →
+  `SessionWindowPanelRequest`（main 校验广播）→ `MainWindowPanelRequest` → 主窗口
+  WorkspaceShellLayout 分发表（按 workspacePath 匹配）执行。终端面板在会话窗口内
+  本地承载（竖向 PanelGroup，orientation="vertical"）。
