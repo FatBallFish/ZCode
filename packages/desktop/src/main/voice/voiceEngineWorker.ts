@@ -69,15 +69,37 @@ function normalizeTranscriptText(raw: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** 跨 VAD 分段拼接：相邻段都是拉丁字母/数字边界时补一个空格，
- * 否则英文/中英混说跨段会被直接粘连（"hello world" + "this is" → "hello worldthis is"）。 */
+/**
+ * 跨 VAD 分段拼接（2026-10-14 自测反馈重做）：
+ * - VAD 按 ≥0.5s 静音切段（用户停顿即分段），但 sensevoice 模型本身不输出标点
+ *   （sherpa-onnx 官方文档明确 "does not support punctuations"），此前中文段之间
+ *   直接粘连 → 停顿边界完全丢失。现在按段间静音时长补标点：
+ *   间隔 <1.5s → 中文补"，"、英文补 ", "；间隔 ≥1.5s → 中文补"。"、英文补 ". "。
+ * - 拉丁字母/数字边界仍补空格（跨段 "hello world" + "this is" 不粘连）。
+ */
 function joinSegmentTexts(segments: OfflineSegmentRecord[]): string {
   let text = "";
+  let prevEndMs: number | null = null;
   for (const segment of segments) {
-    if (text.length > 0 && /[A-Za-z0-9]$/.test(text) && /^[A-Za-z0-9]/.test(segment.text)) {
-      text += " ";
+    if (text.length > 0) {
+      const gapMs =
+        prevEndMs !== null && segment.startMs >= prevEndMs ? segment.startMs - prevEndMs : 0;
+      const latinBoundary = /[A-Za-z0-9]$/.test(text) && /^[A-Za-z0-9]/.test(segment.text);
+      const endsWithPunctuation = /[，。！？；：.,!?;:]$/.test(text);
+      if (!endsWithPunctuation) {
+        if (gapMs >= 1500) {
+          text += latinBoundary ? ". " : "。";
+        } else if (gapMs >= 400) {
+          text += latinBoundary ? ", " : "，";
+        } else if (latinBoundary) {
+          text += " ";
+        }
+      } else if (latinBoundary && !/[，。.,]$/.test(text)) {
+        text += " ";
+      }
     }
     text += segment.text;
+    prevEndMs = segment.endMs;
   }
   return text;
 }

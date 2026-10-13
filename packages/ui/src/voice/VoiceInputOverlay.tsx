@@ -15,7 +15,16 @@ import { useVoiceInputStore } from "@/voice/voiceInputStore.js";
 
 const WAVE_BARS = 24;
 /** 静音判定阈值（RMS）：低于该值视为无声，音条回落到贴底静止、无波纹。 */
-const WAVE_SILENCE_LEVEL = 0.015;
+const WAVE_SILENCE_LEVEL = 0.02;
+/**
+ * RMS → 视觉高度的映射（2026-10-14 自测反馈：线性映射下典型语音 RMS 0.02-0.15
+ * 只产生 <10% 的 scaleY 差异，几乎看不出音量变化）。用幂函数（指数 0.6）扩展
+ * 低量程动态范围：0.02→0.09、0.05→0.17、0.1→0.25、0.3→0.49——安静说话与大声
+ * 说话的区别肉眼可见。人声 RMS 超 0.5 极罕见，>0.5 饱和到 1。
+ */
+function rmsToVisualLevel(rms: number): number {
+  return Math.min(1, Math.pow(rms, 0.6));
+}
 /** 音条静态高度（index 推导，确定性：同一渲染会话内不闪烁跳变）。 */
 function waveBarHeightPercent(index: number): number {
   return 22 + ((index * 29) % 9) * 7;
@@ -52,7 +61,8 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
     let envelope = 0;
     let raf = 0;
     const loop = () => {
-      const target = Math.min(1, useVoiceInputStore.getState().audioLevel);
+      // RMS 经幂函数映射后再做包络——线性 RMS 在典型语音量程内视觉差异 <10%。
+      const target = rmsToVisualLevel(useVoiceInputStore.getState().audioLevel);
       envelope += (target - envelope) * (target > envelope ? 0.55 : 0.12);
       const speaking = envelope > WAVE_SILENCE_LEVEL;
       const now = performance.now();
@@ -61,7 +71,7 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
         const bar = bars[index];
         if (!bar) continue;
         const sway = speaking ? 0.5 + 0.5 * Math.sin(now / 130 + index * 0.85) : 0;
-        const scale = speaking ? 0.18 + envelope * 0.82 * (0.55 + 0.45 * sway) : 0.1;
+        const scale = speaking ? 0.12 + envelope * 0.88 * (0.55 + 0.45 * sway) : 0.08;
         bar.style.transform = `scaleY(${Math.min(1, scale).toFixed(3)})`;
       }
       raf = requestAnimationFrame(loop);

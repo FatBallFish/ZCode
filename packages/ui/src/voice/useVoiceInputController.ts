@@ -337,11 +337,26 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
           { role: "user", content: userPrompt },
         ],
         querySource: "voice-cleanup",
-        maxOutputTokens: 2048,
+        // 2026-10-14 修复：此前 maxOutputTokens=2048，思考型模型（GLM-5.3 等）在高
+        // 思考档下会把输出预算耗在 reasoning tokens 上，text 返回空串 → 静默回填
+        // 原文（无日志，用户表现为「整理没效果」）。升到 8192 给 reasoning 留出
+        // 余量；语音整理是短文本任务，8192 已远超实际需要。
+        maxOutputTokens: 8192,
         requestTimeoutMs: CLEANUP_TIMEOUT_MS,
       });
       const text = result.text.trim();
-      if (text.length === 0) return transcript;
+      if (text.length === 0) {
+        // 空文本此前静默回填，无法排障（2026-10-14 自测反馈根因）。补日志记录
+        // finishReason 与用量，便于区分「reasoning 耗尽」vs「模型空回」。
+        logger.warn("voice cleanup returned empty text; falling back to raw transcript", {
+          finishReason: result.finishReason ?? "unknown",
+          outputTokens: result.usage?.outputTokens ?? "unknown",
+          reasoningTokens: result.usage?.reasoningTokens ?? "unknown",
+          modelId: selectionWithLevel.modelId,
+          maxOutputTokens: 8192,
+        });
+        return transcript;
+      }
       return text;
     } catch (error) {
       // 整理失败降级为原始转录（specs §3.3：不阻塞回填）。

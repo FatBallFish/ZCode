@@ -92,7 +92,10 @@ export const VOICE_MODEL_MANIFESTS: readonly VoiceModelManifest[] = [
     labelKey: "settings.voiceInput.model.sensevoice-int8.name",
     languages: ["zh", "en", "ja", "ko", "yue"],
     streaming: false,
-    punctuated: true,
+    // 2026-10-14 修正：sensevoice 模型本身不输出标点（sherpa-onnx 官方文档明确
+    // "does not support punctuations"）。VAD 分段边界由 worker 的 joinSegmentTexts
+    // 按停顿时长补标点（，/。），但段内无标点。开语义整理后标点由 LLM 恢复。
+    punctuated: false,
     approxDiskMb: 227,
     approxRuntimeMemMb: [512, 1024],
     recommendedFor: "default",

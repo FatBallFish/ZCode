@@ -503,7 +503,9 @@
           const content = document.createElement("div");
           content.className = "md";
           if (row.kind === "reasoning") content.style.color = "var(--text-muted)";
-          content.innerHTML = renderMarkdown(row.text ?? "");
+          // 2026-10-14 修复：renderMarkdown 由 markdown.js 挂在 MikikoMarkdown 命名空间
+          // 下，裸调用会抛 ReferenceError → 被 try/catch 吞成「分享加载失败」。
+          content.innerHTML = window.MikikoMarkdown.renderMarkdown(row.text ?? "");
           wrap.appendChild(content);
           container.appendChild(wrap);
           return;

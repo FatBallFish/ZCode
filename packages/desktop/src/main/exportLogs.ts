@@ -148,6 +148,28 @@ const NON_LOG_STATE_ARCHIVE_PATHS = [
   "session-bindings",
   "checkpoints",
 ] as const;
+// 2026-10-14 自测反馈：导出包过大（实测 489MB）。以下均为非排障所需的大体积/
+// 敏感数据目录，加入排除：
+// - voice-models：本地 ASR 的 ONNX 模型权重（本机实测 590MB），排障无用且可重下载。
+// - pets：宠物资源图片。
+// - visualizations / crash：非日志态、可能含用户内容。
+// - tasks-index.sqlite*：会话/任务索引（含用户对话内容，隐私），排障不依赖。
+// - bots-runtime-locks：Bot 运行时锁文件（本机 217 个），纯运行态。
+const LARGE_BINARY_ARCHIVE_PATHS = [
+  "voice-models",
+  "pets",
+  "visualizations",
+  "crash",
+] as const;
+const LARGE_BINARY_ARCHIVE_FILE_PREFIXES = ["tasks-index.sqlite", ".DS_Store"] as const;
+const RUNTIME_LOCK_ARCHIVE_PATHS = ["bots-runtime-locks"] as const;
+// 2026-10-14 自测反馈：明文账密文件即使内容脱敏也不应进导出包（为后续反馈功能
+// 提供安全基础）。sub2api.json 含 MikikoCC/sub2api 账密&Session（有独立结构化脱敏
+// 但仍属敏感源文件），provider_config.json 含各家 API key。
+const SENSITIVE_CONFIG_ARCHIVE_FILE_NAMES = new Set([
+  "sub2api.json",
+  "provider_config.json",
+]);
 const SENSITIVE_CREDENTIAL_ARCHIVE_FILE_NAMES = new Set(["credentials.json", ".credentials.json"]);
 const EXCLUDED_ARCHIVE_DIRECTORY_NAMES = new Set(["debug"]);
 const DEFAULT_LOG_EXPORT_LOOKBACK_DAYS = 3;
@@ -731,6 +753,11 @@ function isExcludedRelativePath(relativePath: string): boolean {
   if (isSensitiveCredentialArchivePath(normalizedRelativePath)) {
     return true;
   }
+  // 2026-10-14：明文账密配置文件（sub2api/provider_config）整体排除——内容脱敏
+  // 只是兜底，不应让敏感源文件本身进导出包（为反馈功能提供安全基础）。
+  if (isSensitiveConfigArchivePath(normalizedRelativePath)) {
+    return true;
+  }
   // debug 目录通常是模型/运行时高频轨迹，不是用户要交付的日志包材料。
   // 过去显式收集 ~/.mikiko/cli/debug 会把这类上下文带进手动导出和反馈完整日志，这里按目录段统一跳过。
   if (isExcludedDirectoryArchivePath(normalizedRelativePath)) {
@@ -758,8 +785,36 @@ function isExcludedRelativePath(relativePath: string): boolean {
   if (isExcludedCachePath(normalizedRelativePath)) {
     return true;
   }
+  // 2026-10-14：大体积二进制（voice-models ONNX 权重 / pets 资源 / sqlite 索引 /
+  // Bot 锁文件 / .DS_Store）排除——实测导出 489MB 的主因是 590MB 的 ONNX 模型。
+  if (isLargeBinaryArchivePath(normalizedRelativePath)) {
+    return true;
+  }
 
   return ZIP_EXCLUDE_REGEXES.some((pattern) => pattern.test(normalizedRelativePath));
+}
+
+function isSensitiveConfigArchivePath(relativePath: string): boolean {
+  const fileName = relativePath.split("/").pop() ?? "";
+  return SENSITIVE_CONFIG_ARCHIVE_FILE_NAMES.has(fileName);
+}
+
+function isLargeBinaryArchivePath(relativePath: string): boolean {
+  const segments = relativePath.split("/");
+  const fileName = segments.pop() ?? "";
+  if (
+    LARGE_BINARY_ARCHIVE_FILE_PREFIXES.some((prefix) => fileName.startsWith(prefix)) ||
+    fileName === ".DS_Store"
+  ) {
+    return true;
+  }
+  return [...segments, fileName].some(
+    (segment) =>
+      LARGE_BINARY_ARCHIVE_PATHS.includes(segment as (typeof LARGE_BINARY_ARCHIVE_PATHS)[number]) ||
+      RUNTIME_LOCK_ARCHIVE_PATHS.includes(
+        segment as (typeof RUNTIME_LOCK_ARCHIVE_PATHS)[number],
+      ),
+  );
 }
 
 function shouldApplyLogExportRetention(archivePath: string): boolean {

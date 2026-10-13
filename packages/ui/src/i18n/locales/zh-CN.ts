@@ -3317,7 +3317,7 @@ const zhCN: Record<string, string> = {
   "settings.modelProvider.chatgpt.resetQuota": "重置额度",
   "settings.modelProvider.chatgpt.usageTitle": "额度窗口",
   "settings.modelProvider.chatgpt.usageEmpty": "暂无用量数据",
-  "settings.modelProvider.chatgpt.usageRemaining": "剩余 {percent}%",
+  "settings.modelProvider.chatgpt.usageRemaining": "已用 {percent}%",
   "settings.modelProvider.chatgpt.usageResetsAt": "重置于 {time}",
   "settings.modelProvider.chatgpt.modelsTitle": "可用模型",
   "settings.modelProvider.chatgpt.modelsEmpty": "尚未拉取模型列表",

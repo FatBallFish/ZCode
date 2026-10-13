@@ -3541,7 +3541,7 @@ const enUS: Record<string, string> = {
   "settings.modelProvider.chatgpt.resetQuota": "Reset usage",
   "settings.modelProvider.chatgpt.usageTitle": "Usage windows",
   "settings.modelProvider.chatgpt.usageEmpty": "No usage data yet",
-  "settings.modelProvider.chatgpt.usageRemaining": "{percent}% left",
+  "settings.modelProvider.chatgpt.usageRemaining": "{percent}% used",
   "settings.modelProvider.chatgpt.usageResetsAt": "resets at {time}",
   "settings.modelProvider.chatgpt.modelsTitle": "Available models",
   "settings.modelProvider.chatgpt.modelsEmpty": "Model list not fetched yet",

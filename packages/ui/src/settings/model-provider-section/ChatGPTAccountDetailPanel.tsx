@@ -349,7 +349,8 @@ function UsageMeter({
   resetAt?: string;
   intl: ReturnType<typeof useZCodeIntl>["intl"];
 }) {
-  const remaining = Math.max(0, 100 - usedPercent);
+  // 修复依据（2026-10-14 自测反馈）：进度条填充的是已用比例，但文案此前写「剩余 xx%」，
+  // 两个口径混用容易转换不过来。统一为「已用 xx%」——与进度条填充方向一致。
   return (
     <div>
       <div className="flex items-center justify-between text-ui-sm">
@@ -357,7 +358,7 @@ function UsageMeter({
         <span className="text-foreground-subtle">
           {intl.formatMessage(
             { id: "settings.modelProvider.chatgpt.usageRemaining" },
-            { percent: remaining },
+            { percent: Math.min(100, Math.max(0, usedPercent)) },
           )}
           {resetAt
             ? ` · ${intl.formatMessage({ id: "settings.modelProvider.chatgpt.usageResetsAt" }, { time: formatTime(resetAt, intl) })}`
