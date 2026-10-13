@@ -72,3 +72,14 @@
 4. 一次释放只开一个窗口（连续快速重复拖放不同会话不受去重影响——按 sessionId 区分）。
 5. 新窗口：无 Loading 屏、无侧栏/页签，直接展示目标会话；可在其中继续对话。
 6. 右键会话 →「在新窗口打开会话」→ 同 5；远程会话无此菜单项。
+
+## 会话窗口 Header 与终端（2026-10-14 补充）
+
+- SessionWindowRoot 顶部挂载 WorkspaceHeader（variant=task）：左=会话标题/更多菜单，
+  右=在 XXX 打开/分享/帮助/终端切换；Header 内层 `[app-region:drag]` 兼作窗口拖动区
+  （按钮区 no-drag）；`isSidebarVisible=false` 预留窗控内边距。
+- 终端面板真实可用：聊天区 + AnimatedTerminalPanel 必须挂在竖向 ResizablePanelGroup
+  下（panelIds=[session-chat, terminal]）——单挂 ResizablePanel 会抛
+  "Group Context not found"。
+- 侧面板切换按钮经 hideSidePaneToggle 隐藏（shell 侧面板装配不在会话窗口承载范围内，
+  后续如需再评估）；Win/Linux 内联窗控不受该开关影响。reload 入口为禁用态。
