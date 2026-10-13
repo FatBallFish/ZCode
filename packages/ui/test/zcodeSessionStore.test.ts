@@ -152,12 +152,45 @@ describe("useZCodeSessionStore provider preference", () => {
     useZCodeSessionStore.setState((state) => ({
       ...state,
       workspaces: {},
+      lastActiveTaskSelection: null,
     }));
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("setActiveTaskId 同步维护窗口级 lastActiveTaskSelection（worktree 行高亮依据）", () => {
+    // 修复依据（2026-10-13）：worktree 会话的 activeTaskId 写在 worktree 自己的桶里，
+    // 根项目侧栏行查根桶永远不命中；选中记录与桶写入同一事务，按 taskId 比对。
+    const rootWorkspace = "/tmp/workspace-root";
+    const worktreeWorkspace = "/tmp/workspace-root/repo-ab12cd34";
+    useZCodeSessionStore.getState().setActiveTaskId(rootWorkspace, "task-root-a");
+    expect(useZCodeSessionStore.getState().lastActiveTaskSelection).toEqual({
+      taskId: "task-root-a",
+      workspacePath: rootWorkspace,
+    });
+
+    // worktree 桶选中：记录跟随，root 桶保持旧值（侧栏高亮以记录为准，避免陈旧根桶双高亮）。
+    useZCodeSessionStore.getState().setActiveTaskId(worktreeWorkspace, "task-worktree-b");
+    expect(useZCodeSessionStore.getState().lastActiveTaskSelection).toEqual({
+      taskId: "task-worktree-b",
+      workspacePath: worktreeWorkspace,
+    });
+    expect(useZCodeSessionStore.getState().getWorkspaceState(rootWorkspace).activeTaskId).toBe(
+      "task-root-a",
+    );
+
+    // identity workspace 桶带上 workspaceIdentity；置空（草稿）清记录。
+    useZCodeSessionStore.getState().setActiveTaskId(rootWorkspace, "task-id-c", "ssh:remote-1");
+    expect(useZCodeSessionStore.getState().lastActiveTaskSelection).toEqual({
+      taskId: "task-id-c",
+      workspacePath: rootWorkspace,
+      workspaceIdentity: "ssh:remote-1",
+    });
+    useZCodeSessionStore.getState().setActiveTaskId(rootWorkspace, null, "ssh:remote-1");
+    expect(useZCodeSessionStore.getState().lastActiveTaskSelection).toBeNull();
   });
 
   it("新 workspace 会把旧 provider 偏好归一为 glm", () => {

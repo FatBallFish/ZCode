@@ -457,6 +457,17 @@ export interface ZCodeSessionStoreState {
 
   /** workspace 导航历史（全局、跨 workspace，包含 task 与 Automations） */
   taskNavHistory: TaskNavigationHistory;
+  /**
+   * 窗口级「最近一次用户选中的会话」：与 setActiveTaskId 的 workspace 桶写入同一事务。
+   * 修复依据（2026-10-13）：worktree 会话（specs/desktop/worktrees.md D3 并入根项目行展示）
+   * 的 activeTaskId 写在 worktree 自己的桶里，根项目行只查根桶时这些行永远不高亮；
+   * 侧栏行高亮按 taskId 与此值比对，无记录（冷恢复）时回退各 workspace 桶值。
+   */
+  lastActiveTaskSelection: {
+    taskId: string;
+    workspacePath: string;
+    workspaceIdentity?: string;
+  } | null;
   /** 记录 Automations 主视图或详情导航。 */
   taskNavPushAutomations: (
     workspacePath: string,

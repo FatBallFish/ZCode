@@ -721,6 +721,10 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
     // 这里用 workspaceIdentity 语义的 workspaceKey 组合 taskId，保证远程 workspace 不会按路径误匹配。
     return `${mobileViewState.activeWorkspaceKey}:${mobileViewState.activeTaskId}`;
   }, [webRemoteControlStatus.mobileConnected, webRemoteControlStatus.mobileViewState]);
+  // 窗口级最近选中会话（见 zcodeSessionStoreTypes.lastActiveTaskSelection）：worktree
+  // 会话的 activeTaskId 只写自己的桶，根 workspace 桶查不到。派生三元组在
+  // activeTaskId 声明（下方）之后计算，供 pinned/grouped/timeline 行高亮比对。
+  const lastActiveTaskSelection = useZCodeSessionStore((state) => state.lastActiveTaskSelection);
   const worktreeRegistryEntries = useWorktreeStore((state) => state.registryEntries);
   const workspaceTaskGroupByKey = useMemo(() => {
     const map = new Map(
@@ -795,15 +799,18 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
 
   // memo 组件引用稳定（reactStableReferences 契约）：按 workspaceKey 缓存包装函数。
   const onShowMoreTasksCacheRef = useRef(new Map<string, () => void>());
-  const onShowMoreWorkspaceTasksMemo = useCallback((workspaceKey: string) => {
-    const cache = onShowMoreTasksCacheRef.current;
-    let handler = cache.get(workspaceKey);
-    if (!handler) {
-      handler = () => handleShowMoreWorkspaceTasks(workspaceKey);
-      cache.set(workspaceKey, handler);
-    }
-    return handler;
-  }, [handleShowMoreWorkspaceTasks]);
+  const onShowMoreWorkspaceTasksMemo = useCallback(
+    (workspaceKey: string) => {
+      const cache = onShowMoreTasksCacheRef.current;
+      let handler = cache.get(workspaceKey);
+      if (!handler) {
+        handler = () => handleShowMoreWorkspaceTasks(workspaceKey);
+        cache.set(workspaceKey, handler);
+      }
+      return handler;
+    },
+    [handleShowMoreWorkspaceTasks],
+  );
   // 项目置顶（spec specs/desktop/sidebar-projects.md）：键为 buildTaskWorkspaceKey 的
   // 本设备 localStorage 偏好；置顶行移入「已置顶」分区，项目分区只保留未置顶行。
   const [pinnedProjectKeys, setPinnedProjectKeys] = useState<Set<string>>(readPinnedProjectKeys);
@@ -913,9 +920,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
               taskListHasMore={taskGroup?.hasMore ?? false}
               taskListHasUnread={taskGroup?.hasUnread ?? false}
               taskListLiveWorkflowCount={taskGroup?.liveWorkflowCount ?? 0}
-              onShowMoreTasks={
-                onShowMoreWorkspaceTasksMemo(workspaceKey) as unknown as () => void
-              }
+              onShowMoreTasks={onShowMoreWorkspaceTasksMemo(workspaceKey) as unknown as () => void}
               reconnectingRemoteWorkspaceKeys={reconnectingRemoteWorkspaceKeys}
               remoteWorkspaceErrorByWorkspaceKey={remoteWorkspaceErrorByWorkspaceKey}
               reconnectingRemoteWorkspaceLogsByWorkspaceKey={
@@ -1050,6 +1055,11 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
       // 当前任务高亮会丢失，也会把后续选择误判成未激活。
       selectWorkspaceZCodeState(state, workspacePath, workspaceIdentity).activeTaskId,
   );
+  // 高亮比对用三元组：优先窗口级选中记录（worktree 会话命中），无记录回退根桶值。
+  const activeSelectionWorkspacePath = lastActiveTaskSelection?.workspacePath ?? workspacePath;
+  const activeSelectionWorkspaceIdentity =
+    lastActiveTaskSelection?.workspaceIdentity ?? workspaceIdentity;
+  const activeSelectionTaskId = lastActiveTaskSelection?.taskId ?? activeTaskId;
 
   useEffect(() => {
     if (!webRemoteControlWorkspaceSwitcher?.updateMobileViewState) {
@@ -1748,9 +1758,9 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
                 // pinned 是全局置顶区，归档态保持置顶区可见。
                 <WorkspacePinnedTasksSection
                   workspaceTabs={workspaceTabs}
-                  activeWorkspacePath={workspacePath}
-                  activeWorkspaceIdentity={workspaceIdentity}
-                  activeTaskId={activeTaskId}
+                  activeWorkspacePath={activeSelectionWorkspacePath}
+                  activeWorkspaceIdentity={activeSelectionWorkspaceIdentity}
+                  activeTaskId={activeSelectionTaskId}
                   taskSortBy={taskSortBy}
                   mobileActiveTaskKey={mobileActiveTaskKey}
                   pinnedProjectRows={pinnedProjectRows}
@@ -1808,9 +1818,9 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
                 ) : taskViewMode === "grouped" ? (
                   <WorkspaceGroupedTasksSection
                     workspaceTabs={workspaceTabs}
-                    activeWorkspacePath={workspacePath}
-                    activeWorkspaceIdentity={workspaceIdentity}
-                    activeTaskId={activeTaskId}
+                    activeWorkspacePath={activeSelectionWorkspacePath}
+                    activeWorkspaceIdentity={activeSelectionWorkspaceIdentity}
+                    activeTaskId={activeSelectionTaskId}
                     mobileActiveTaskKey={mobileActiveTaskKey}
                     onSelectTask={onSelectTask}
                     onCreateTask={onCreateTask}
@@ -1829,9 +1839,9 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
                 ) : taskViewMode === "timeline" ? (
                   <WorkspaceTimelineTasksSection
                     workspaceTabs={workspaceTabs}
-                    activeWorkspacePath={workspacePath}
-                    activeWorkspaceIdentity={workspaceIdentity}
-                    activeTaskId={activeTaskId}
+                    activeWorkspacePath={activeSelectionWorkspacePath}
+                    activeWorkspaceIdentity={activeSelectionWorkspaceIdentity}
+                    activeTaskId={activeSelectionTaskId}
                     taskSortBy={taskSortBy}
                     mobileActiveTaskKey={mobileActiveTaskKey}
                     onSelectTask={handleTaskRowSelect}

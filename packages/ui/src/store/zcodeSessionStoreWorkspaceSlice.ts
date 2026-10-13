@@ -297,7 +297,17 @@ export function createWorkspaceSlice(set: SetFn) {
             }
           : {};
 
-        return { ...workspaceUpdate, ...navUpdate };
+        // 窗口级选中记录与桶写入同一事务（见 zcodeSessionStoreTypes 的字段注释）：
+        // worktree 会话只写自己的桶，侧栏行高亮按 taskId 比对此值才能命中。
+        const lastActiveTaskSelection = id
+          ? {
+              taskId: id,
+              workspacePath,
+              ...(workspaceIdentity ? { workspaceIdentity } : {}),
+            }
+          : null;
+
+        return { ...workspaceUpdate, ...navUpdate, lastActiveTaskSelection };
       });
     },
 

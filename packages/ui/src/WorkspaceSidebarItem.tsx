@@ -215,6 +215,16 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
     selectWorkspaceZCodeState(state, tab.workspacePath, tab.workspaceIdentity),
   );
   const activeTaskId = workspaceZCodeState.activeTaskId;
+  // 窗口级最近选中会话（worktree 会话的 activeTaskId 只写自己的桶，本行列表查根桶
+  // 永远不命中——2026-10-13 自测反馈「选中高亮没展示」）。选中任务属于本项目
+  // （taskItems 为 D3 并入后的全量，含 worktree 子会话）时优先用它；冷恢复无记录时
+  // 回退根桶值。
+  const lastActiveTaskSelection = useZCodeSessionStore((state) => state.lastActiveTaskSelection);
+  const effectiveActiveTaskId =
+    (lastActiveTaskSelection &&
+    taskItems.some((task) => task.taskId === lastActiveTaskSelection.taskId)
+      ? lastActiveTaskSelection.taskId
+      : null) ?? activeTaskId;
   const removeTaskState = useZCodeSessionStore((state) => state.removeTaskState);
   const upsertOptimisticTaskListItem = useZCodeSessionStore(
     (state) => state.upsertOptimisticTaskListItem,
@@ -362,13 +372,14 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
   // 当前展示会话切到本项目时自动展开项目列表：项目和会话都收起后，用户找不到
   // 正在展示的会话属于哪个项目（自测反馈）。只在 activeTaskId 实际变化时触发，
   // 用户手动收起「正在展示会话」所在项目时不对抗，直到下次切换会话再展开。
-  const lastActiveTaskIdRef = useRef<string | null>(activeTaskId ?? null);
+  // 用 effectiveActiveTaskId：worktree 会话的桶值不在本项目桶里，也要触发展开。
+  const lastActiveTaskIdRef = useRef<string | null>(effectiveActiveTaskId ?? null);
   useEffect(() => {
     const previous = lastActiveTaskIdRef.current;
-    lastActiveTaskIdRef.current = activeTaskId ?? null;
-    if (!activeTaskId || activeTaskId === previous || isExpanded) return;
+    lastActiveTaskIdRef.current = effectiveActiveTaskId ?? null;
+    if (!effectiveActiveTaskId || effectiveActiveTaskId === previous || isExpanded) return;
     toggleWorkspaceExpanded(tab.workspacePath);
-  }, [activeTaskId, isExpanded, tab.workspacePath, toggleWorkspaceExpanded]);
+  }, [effectiveActiveTaskId, isExpanded, tab.workspacePath, toggleWorkspaceExpanded]);
 
   const handleWorkspaceOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -1363,7 +1374,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
             workspaceIdentity={tab.workspaceIdentity}
             tasks={taskItems}
             pinnedTasks={EMPTY_PINNED_TASKS}
-            activeTaskId={isActiveWorkspace ? activeTaskId : null}
+            activeTaskId={isActiveWorkspace ? effectiveActiveTaskId : null}
             onSelectTask={handleSelectTask}
             showCreateButton={false}
             showFooter={false}

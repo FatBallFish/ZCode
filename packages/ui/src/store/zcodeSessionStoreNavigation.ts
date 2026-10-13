@@ -31,6 +31,8 @@ type GetFn = () => ZCodeSessionStoreState;
 export function createNavigationSlice(set: SetFn, get: GetFn) {
   return {
     taskNavHistory: createTaskNavigationHistory(),
+    // 窗口级「最近选中会话」由 workspace slice 的 setActiveTaskId 写入；这里只提供初值。
+    lastActiveTaskSelection: null as ZCodeSessionStoreState["lastActiveTaskSelection"],
 
     taskNavPushAutomations: (
       workspacePath: string,
