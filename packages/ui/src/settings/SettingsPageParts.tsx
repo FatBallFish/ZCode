@@ -190,7 +190,9 @@ export function SettingsRangeControl({
         value={value}
         aria-label={ariaLabel}
         onChange={(event) => onChange(Number(event.currentTarget.value))}
-        className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+        /* 轨道/滑块样式在 styles.css 的 .settings-range-input：appearance-none 后
+           Chromium 不渲染原生 thumb，必须显式绘制，否则滑条不可抓取（2026-10-13）。 */
+        className="settings-range-input flex-1 cursor-pointer"
       />
       <span
         className={cn(

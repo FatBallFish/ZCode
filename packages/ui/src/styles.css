@@ -881,11 +881,7 @@ html[data-document-hidden] *::after {
   .highspeed-animated-gradient-text .animated-gradient-text {
     /* Bug 根因：accelerated turn 只改了工时文案，内部思考和工具仍继承普通扫光色。 */
     --animated-gradient-text-strong: var(--color-icon-purple);
-    --animated-gradient-text-soft: color-mix(
-      in srgb,
-      var(--color-icon-purple) 22%,
-      transparent
-    );
+    --animated-gradient-text-soft: color-mix(in srgb, var(--color-icon-purple) 22%, transparent);
   }
 
   .cua-group-gradient-text {
@@ -2217,4 +2213,47 @@ html[data-document-hidden] *::after {
 
 .prompt-mention[data-mention-category="plugins"]::before {
   border-radius: var(--radius-sm);
+}
+
+/* 设置页滑条（SettingsRangeControl，2026-10-13 自测反馈）：appearance-none 后
+   Chromium 不再渲染原生 thumb，轨道上没有任何可抓取的滑块，表现为「拖不动」。
+   显式绘制轨道与滑块；轨道沿用 secondary，滑块用 primary（主题暗/亮自适应）。 */
+input[type="range"].settings-range-input {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+}
+input[type="range"].settings-range-input::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-secondary);
+}
+input[type="range"].settings-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  /* webkit thumb 以 track 顶边为基准，负 margin 让它垂直居中在 6px 轨道上。 */
+  margin-top: -5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  border: 2px solid var(--color-background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+input[type="range"].settings-range-input::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-secondary);
+}
+input[type="range"].settings-range-input::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  border: 2px solid var(--color-background);
+}
+input[type="range"].settings-range-input:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 999px;
 }

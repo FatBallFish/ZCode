@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Cat } from "lucide-react";
 import type { AppSettings, InstalledPetInfo } from "@zcode/shared";
 import { Button } from "@/components/ui/button.js";
@@ -43,6 +43,41 @@ function PetSummaryView({ isDesktop, onManage }: { isDesktop: boolean; onManage:
   // 未显式选择时按第一只已安装（内置预置后必有）展示为默认；开关随安装状态可用。
   const current = installed.find((pet) => pet.id === petId);
   const available = isDesktop && typeof platform.petListInstalled === "function";
+
+  // 大小滑条用本地乐观值：useSettings.update 是「service RPC + sync + refresh」两次
+  // IPC 回环后才刷新受控 value，直接绑定 settings 会让拖动中的滑块被弹回旧值，
+  // 表现为拖不动（2026-10-13 自测反馈）。本地即时跟随，停手 250ms 后防抖持久化
+  // （main 侧 applySettings 即时 setSize，宠物在松手后约 250ms 生效）。
+  const [scalePercent, setScalePercent] = useState(() =>
+    Math.round((settings?.desktopPetScale ?? 1) * 100),
+  );
+  const scalePersistTimerRef = useRef<number | null>(null);
+  const settingsScalePercent = Math.round((settings?.desktopPetScale ?? 1) * 100);
+  useEffect(() => {
+    // 待持久化期间不回写本地值（防抖写入返回的 settings 与拖动中间值等价时会互相追赶）。
+    if (scalePersistTimerRef.current !== null) return;
+    setScalePercent(settingsScalePercent);
+  }, [settingsScalePercent]);
+  useEffect(() => {
+    return () => {
+      if (scalePersistTimerRef.current !== null) {
+        window.clearTimeout(scalePersistTimerRef.current);
+      }
+    };
+  }, []);
+  const handleScaleChange = useCallback(
+    (value: number) => {
+      setScalePercent(value);
+      if (scalePersistTimerRef.current !== null) {
+        window.clearTimeout(scalePersistTimerRef.current);
+      }
+      scalePersistTimerRef.current = window.setTimeout(() => {
+        scalePersistTimerRef.current = null;
+        void update({ desktopPetScale: value / 100 } satisfies Partial<AppSettings>);
+      }, 250);
+    },
+    [update],
+  );
 
   useEffect(() => {
     if (!available) return;
@@ -117,16 +152,12 @@ function PetSummaryView({ isDesktop, onManage }: { isDesktop: boolean; onManage:
           control={
             <SettingsRangeControl
               aria-label={intl.formatMessage({ id: "settings.pet.size.title" })}
-              value={Math.round((settings?.desktopPetScale ?? 1) * 100)}
+              value={scalePercent}
               min={50}
               max={180}
               step={5}
-              onChange={(value) =>
-                void update({
-                  desktopPetScale: value / 100,
-                } satisfies Partial<AppSettings>)
-              }
-              valueLabel={`${Math.round((settings?.desktopPetScale ?? 1) * 100)}%`}
+              onChange={handleScaleChange}
+              valueLabel={`${scalePercent}%`}
             />
           }
         />
