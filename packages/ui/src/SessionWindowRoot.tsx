@@ -33,6 +33,7 @@ import { useWorkspaceProviderConfigFile } from "@/hooks/useWorkspaceProviderConf
 import { useGitRepository } from "@/hooks/useGitRepository.js";
 import { getGitDirtyFileCount } from "@/git-branch-switcher/display.js";
 import { AnimatedTerminalPanel } from "@/app-shell/AnimatedTerminalPanel.js";
+import { createSessionPanelForwarder } from "@/v4/sessionWindowPanelBridge.js";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 
@@ -75,6 +76,7 @@ export function SessionWindowRoot({
                         <MarketingTouchProvider desktop>
                           <SessionWindowBody
                             services={services}
+                            platform={platform}
                             workspacePath={workspacePath}
                             workspaceIdentity={workspaceIdentity}
                             sessionId={sessionId}
@@ -97,6 +99,7 @@ export function SessionWindowRoot({
 
 function SessionWindowBody({
   services,
+  platform,
   workspacePath,
   workspaceIdentity,
   sessionId,
@@ -104,6 +107,7 @@ function SessionWindowBody({
   isWindowsDesktop,
 }: {
   services: IServiceAccessor;
+  platform: IPlatformService;
   workspacePath: string;
   workspaceIdentity?: string;
   sessionId: string;
@@ -118,6 +122,10 @@ function SessionWindowBody({
   const [gitRefreshVersion, setGitRefreshVersion] = useState(0);
   const terminalPanelRef = useRef<PanelImperativeHandle | null>(null);
   const terminalPanelElementRef = useRef<HTMLDivElement | null>(null);
+  const forwardPanel = useMemo(
+    () => createSessionPanelForwarder(platform, { workspacePath, workspaceIdentity }),
+    [platform, workspaceIdentity, workspacePath],
+  );
 
   // Header 数据装配：与 App 同款 hooks（会话标题/日志路径/Git 摘要/用户态）。
   const { workspaceShellZCodeState } = useWorkspaceShellZCodeState(
@@ -225,6 +233,7 @@ function SessionWindowBody({
         <ResizablePanelGroup
           layoutId="session-window-body-layout"
           panelIds={SESSION_WINDOW_BODY_PANEL_IDS}
+          orientation="vertical"
           className="flex min-h-0 flex-1 flex-col"
         >
           <ResizablePanel id="session-chat" minSize="30%" className="min-h-0">
@@ -235,6 +244,36 @@ function SessionWindowBody({
               sessionId={currentSessionId}
               onSessionCreated={handleSessionCreated}
               onSessionDeleted={handleSessionDeleted}
+              // 侧面板动作转发主窗口执行（面板宿主统一在主 App，见 sessionWindowPanelBridge）。
+              onRefreshGit={() => forwardPanel("onRefreshGit")}
+              onOpenGitReview={(sourceId) => forwardPanel("onOpenGitReview", sourceId)}
+              onOpenBrowserUrl={(url) => forwardPanel("onOpenBrowserUrl", url)}
+              onOpenAutomationsMain={(target) => forwardPanel("onOpenAutomationsMain", target)}
+              onOpenCodeViewer={(source) => forwardPanel("onOpenCodeViewer", source)}
+              onOpenFileLink={(target) => forwardPanel("onOpenFileLink", target)}
+              onOpenBackgroundBash={(request) => forwardPanel("onOpenBackgroundBash", request)}
+              onOpenSubagentSession={(request) => forwardPanel("onOpenSubagentSession", request)}
+              onOpenSubagentDirectory={(request) =>
+                forwardPanel("onOpenSubagentDirectory", request)
+              }
+              onSyncSubagentSessionTabs={(request) =>
+                forwardPanel("onSyncSubagentSessionTabs", request)
+              }
+              onOpenSelectionSideChat={(request) =>
+                forwardPanel("onOpenSelectionSideChat", request)
+              }
+              onOpenPlanDetail={(request) => forwardPanel("onOpenPlanDetail", request)}
+              onOpenWorkflowRun={(request) => forwardPanel("onOpenWorkflowRun", request)}
+              onOpenWorkflowArtifact={(request) => forwardPanel("onOpenWorkflowArtifact", request)}
+              onOpenWorkflowRunDirectory={(request) =>
+                forwardPanel("onOpenWorkflowRunDirectory", request)
+              }
+              onOpenWorkflowActorSession={(request) =>
+                forwardPanel("onOpenWorkflowActorSession", request)
+              }
+              onOpenWorkflowWorkspace={(request) =>
+                forwardPanel("onOpenWorkflowWorkspace", request)
+              }
             />
           </ResizablePanel>
           <AnimatedTerminalPanel

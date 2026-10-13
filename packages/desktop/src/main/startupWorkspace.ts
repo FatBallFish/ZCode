@@ -46,6 +46,12 @@ export interface StartupWindowBootstrap {
   restoreSession?: boolean;
   /** 窗口形态：session = 轻量会话窗口（仅会话页，见 SessionWindowRoot）。 */
   windowKind?: "main" | "session";
+  /**
+   * 会话窗口附着目标：源（主）窗口 webContents id。设置后本窗口不 spawn 自己的
+   * Local Host，而是经 AttachServicePort 附着到该窗口的 Host（同运行时、同会话状态，
+   * 与手机远控/刷新共用机制；specs/desktop/session-drag-out-window.md）。
+   */
+  attachToHostOfWindow?: number;
   initialWorkspacePath?: string;
   /** 身份隔离 key（identity workspace；本地路径场景缺省）。 */
   initialWorkspaceIdentity?: string;

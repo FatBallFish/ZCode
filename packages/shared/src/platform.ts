@@ -1180,6 +1180,26 @@ export interface IPlatformService {
     sessionId: string;
   }): Promise<{ ok: true } | { ok: false; error: string }>;
 
+  /**
+   * 会话窗口 → 主窗口的面板动作转发（specs/desktop/session-drag-out-window.md）：
+   * 会话窗口不承载侧面板装配（文件预览/内置浏览器/代码审查/辅助对话等），动作
+   * 转发到主窗口对应 workspace 的 shell 执行；主窗口经 onMainWindowPanelRequest 消费。
+   */
+  forwardPanelRequestToMainWindow?(payload: {
+    workspacePath: string;
+    workspaceIdentity?: string;
+    kind: string;
+    args: unknown[];
+  }): Promise<{ ok: true } | { ok: false; error: string }>;
+  onMainWindowPanelRequest?(
+    handler: (payload: {
+      workspacePath: string;
+      workspaceIdentity?: string;
+      kind: string;
+      args: unknown[];
+    }) => void,
+  ): () => void;
+
   /** 桌面宠物：列出已安装宠物（含与远端 manifest 的更新比对）。 */
   petListInstalled?(): Promise<import("./pets.js").InstalledPetInfo[]>;
   /** 桌面宠物：获取市场目录。 */

@@ -1036,7 +1036,44 @@ ipcMain.handle(PlatformChannels.OpenSessionWindow, (event, payload: unknown) => 
       ? { workspaceIdentity: request.workspaceIdentity }
       : {}),
     sessionId: request.sessionId,
+    sourceWindowWebContentsId: event.sender.id,
   });
+  return { ok: true as const };
+});
+
+// 会话窗口 → 主窗口的侧面板动作转发（specs/desktop/session-drag-out-window.md）：
+// 面板宿主（文件预览/内置浏览器/代码审查/辅助对话等）统一在主 App，会话窗口只发请求。
+// 广播到所有主应用窗口（不含发起方），由各窗口 shell 按 workspacePath 匹配消费。
+ipcMain.handle(PlatformChannels.SessionWindowPanelRequest, (event, payload: unknown) => {
+  const request = payload as
+    | { workspacePath?: unknown; workspaceIdentity?: unknown; kind?: unknown; args?: unknown }
+    | undefined;
+  if (
+    !request ||
+    typeof request.workspacePath !== "string" ||
+    typeof request.kind !== "string" ||
+    !Array.isArray(request.args)
+  ) {
+    return { ok: false as const, error: "invalid-payload" };
+  }
+  const forwarded = {
+    workspacePath: request.workspacePath,
+    ...(typeof request.workspaceIdentity === "string"
+      ? { workspaceIdentity: request.workspaceIdentity }
+      : {}),
+    kind: request.kind,
+    args: request.args,
+  };
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  let delivered = 0;
+  for (const win of getMainApplicationWindows()) {
+    if (senderWindow && win.id === senderWindow.id) continue;
+    win.webContents.send(PlatformChannels.MainWindowPanelRequest, forwarded);
+    delivered += 1;
+  }
+  if (delivered === 0) {
+    return { ok: false as const, error: "no-main-window" };
+  }
   return { ok: true as const };
 });
 
@@ -1049,10 +1086,14 @@ function createSessionWindowInstance(params: {
   workspacePath: string;
   workspaceIdentity?: string;
   sessionId: string;
+  sourceWindowWebContentsId: number;
 }) {
   createWindowInstance({
     windowKind: "session",
     restoreSession: false,
+    // 附着到源（主）窗口的 Host：同运行时/同会话状态（见 desktopWindowLifecycle
+    // dom-ready 的 attach 分支与 StartupWindowBootstrap 注释）。
+    attachToHostOfWindow: params.sourceWindowWebContentsId,
     initialWorkspacePath: params.workspacePath,
     ...(params.workspaceIdentity ? { initialWorkspaceIdentity: params.workspaceIdentity } : {}),
     initialTaskId: params.sessionId,
@@ -2297,6 +2338,7 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
       unavailableWorkspacePath: startupBootstrap.unavailableWorkspacePath,
       initialTaskId: startupBootstrap.initialTaskId,
       windowKind: startupBootstrap.windowKind,
+      attachToHostOfWindow: startupBootstrap.attachToHostOfWindow,
     },
     agentWarmupTargets: startupBootstrap.agentWarmupTargets,
     // startupBootstrap 只标记 active workspace 是否不可用，但 local Host 会为所有

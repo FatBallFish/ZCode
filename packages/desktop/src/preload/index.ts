@@ -967,6 +967,34 @@ contextBridge.exposeInMainWorld("zcode", {
     workspaceIdentity?: string;
     sessionId: string;
   }) => ipcRenderer.invoke(PlatformChannels.OpenSessionWindow, payload),
+  /** 会话窗口 → 主窗口的侧面板动作转发（面板宿主统一在主 App）。 */
+  forwardPanelRequestToMainWindow: (payload: {
+    workspacePath: string;
+    workspaceIdentity?: string;
+    kind: string;
+    args: unknown[];
+  }) => ipcRenderer.invoke(PlatformChannels.SessionWindowPanelRequest, payload),
+  /** 主窗口消费转发的面板动作，返回 disposer。 */
+  onMainWindowPanelRequest: (
+    callback: (payload: {
+      workspacePath: string;
+      workspaceIdentity?: string;
+      kind: string;
+      args: unknown[];
+    }) => void,
+  ): (() => void) => {
+    const handler = (
+      _event: unknown,
+      payload: {
+        workspacePath: string;
+        workspaceIdentity?: string;
+        kind: string;
+        args: unknown[];
+      },
+    ) => callback(payload);
+    ipcRenderer.on(PlatformChannels.MainWindowPanelRequest, handler);
+    return () => ipcRenderer.removeListener(PlatformChannels.MainWindowPanelRequest, handler);
+  },
   /** 读取开发态 stdio tap proxy 开关状态 */
   getZCodeStdioTapDevState: (): Promise<ZCodeStdioTapDevState> =>
     ipcRenderer.invoke(PlatformChannels.GetZCodeStdioTapDevState),

@@ -531,6 +531,10 @@ export const PlatformChannels = {
   OpenPetSettings: "zcode:open-pet-settings",
   /** Renderer → Main：把会话拖出侧栏后在独立新主窗口打开（本地 workspace 限定）。 */
   OpenSessionWindow: "zcode:open-session-window",
+  /** Renderer（会话窗口）→ Main：侧面板动作转发到主窗口执行（面板宿主统一在主 App）。 */
+  SessionWindowPanelRequest: "zcode:session-window:panel-request",
+  /** Main → Renderer（主窗口）：转发的侧面板动作（按 workspacePath 匹配后由 shell 消费）。 */
+  MainWindowPanelRequest: "zcode:main-window:panel-request",
   // ── 语音输入（specs/desktop/voice-input.md；main VoiceService 为唯一所有者）──
   /** Renderer → Main：模型/引擎状态快照（设置页与麦克风入口） */
   VoiceGetState: "zcode:voice:get-state",

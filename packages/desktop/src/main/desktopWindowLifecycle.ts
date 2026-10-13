@@ -1,4 +1,9 @@
-import { getDatabaseStartupPortPayload } from "./databaseStartupRelay.js";
+/* eslint-disable max-lines -- 2026-10-14 增加会话窗口附着源 Host 分支（AttachServicePort），
+   窗口生命周期/Host 端口管理保持单文件收口避免拆散唯一所有者。 */
+import {
+  attachDatabaseStartupRelayWindow,
+  getDatabaseStartupPortPayload,
+} from "./databaseStartupRelay.js";
 import { randomUUID } from "node:crypto";
 import { app, BrowserWindow, Menu, MessageChannelMain } from "electron";
 import type { UtilityProcess as ElectronUtilityProcess } from "electron";
@@ -44,7 +49,10 @@ export function createWindow(options: {
   webRemoteControlManager: { disposeWindow(windowId: number): Promise<void> };
   disposeRemoteWorkspaceSessionsForWindow: (windowId: number, reason: string) => void;
   reattachRemoteWorkspaceSessionsForWindow: (win: BrowserWindow, reason: string) => void;
-  bootstrap?: WindowBootstrapOptions;
+  bootstrap?: WindowBootstrapOptions & {
+    /** 会话窗口附着目标（源窗口 webContents id，见 StartupWindowBootstrap 注释）。 */
+    attachToHostOfWindow?: number;
+  };
   agentWarmupTargets?: readonly StartupWorkspaceWarmupTarget[];
   agentSpawnFallbackCwd: string;
   deviceMid: string;
@@ -136,6 +144,55 @@ export function createWindow(options: {
     if (process.platform === "win32" && !win.isDestroyed()) {
       win.show();
       win.focus();
+    }
+
+    // 会话窗口：不 spawn 自己的 Local Host，附着到源（主）窗口的 Host——同运行时、
+    // 同会话状态，与手机远控/刷新共用 AttachServicePort 机制（2026-10-14 自测反馈：
+    // 独立 Host 表现为「备份会话」，两窗口各自问答、关窗丢记录）。窗口关闭只关闭
+    // attachment port（Host 侧 registry 监听 port close 自行回收），不影响源 Host；
+    // 源窗口已关（Host 不存在）时回退 spawn 自有 Host（降级独立模式）。
+    if (options.bootstrap?.attachToHostOfWindow) {
+      const sourceChild = options.windowHostProcessMap.get(options.bootstrap.attachToHostOfWindow);
+      if (sourceChild && sourceChild.pid !== undefined) {
+        try {
+          // 会话窗口需加入源 Host 的 DB 启动状态转发（relay 按 Host 聚合、多窗口
+          // 转发；不加入则窗口收不到状态卡在启动准备，实测超时）。
+          const relayAttached = attachDatabaseStartupRelayWindow(win, sourceChild);
+          if (!relayAttached) throw new Error("Source Host startup relay is unavailable");
+          const { port1, port2 } = new MessageChannelMain();
+          sourceChild.postMessage(
+            {
+              type: HostMessageTypes.AttachServicePort,
+              requestId: randomUUID(),
+              attachmentId: randomUUID(),
+              clientMode: "desktop-continuous",
+              scope: { kind: "local" },
+            },
+            [port2],
+          );
+          win.webContents.postMessage(
+            InternalChannels.ServicePort,
+            { databaseStartupId: relayAttached.startupId },
+            [port1],
+          );
+          options.logger.info(
+            `[createWindow] session window attached to source host (${label}), sourceWcId=${options.bootstrap.attachToHostOfWindow}, pid=${sourceChild.pid}`,
+          );
+          options.syncAutoUpdaterStateToWindow(win);
+          options.syncReadyUpdateToWindow(win);
+          options.syncPostUpdateReleaseNotesToWindow(win);
+          return;
+        } catch (error) {
+          options.logger.warn(
+            `[createWindow] session window attach to source host failed (${label}), falling back to spawn:`,
+            error,
+          );
+        }
+      } else {
+        options.logger.warn(
+          `[createWindow] source host unavailable (${label}, sourceWcId=${options.bootstrap.attachToHostOfWindow}), spawning own host`,
+        );
+      }
     }
 
     const oldChild = options.windowHostProcessMap.get(wcId);

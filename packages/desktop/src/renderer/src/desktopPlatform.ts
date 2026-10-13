@@ -223,6 +223,12 @@ export function createDesktopPlatform(options: {
     openSessionInNewWindow: (payload) =>
       window.zcode.openSessionInNewWindow?.(payload) ??
       Promise.resolve({ ok: false as const, error: "unavailable" }),
+    // 会话窗口 → 主窗口的侧面板动作转发（面板宿主统一在主 App）。
+    forwardPanelRequestToMainWindow: (payload) =>
+      window.zcode.forwardPanelRequestToMainWindow?.(payload) ??
+      Promise.resolve({ ok: false as const, error: "unavailable" }),
+    onMainWindowPanelRequest: (callback) =>
+      window.zcode.onMainWindowPanelRequest?.(callback) ?? (() => {}),
     onOpenPetSettings: (callback) => window.zcode.onOpenPetSettings?.(callback) ?? (() => {}),
     onApplicationLocaleChanged: (callback) =>
       window.zcode.onApplicationLocaleChanged?.(callback) ?? (() => {}),
