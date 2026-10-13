@@ -9,9 +9,10 @@
  * - 指针超出所属范围（其他项目区/展示页/标题栏/窗口外）→ 打开会话窗口，chip 展示。
  *
  * 实现说明：
- * - 「离开应用窗口」用 document 级 dragleave/dragenter（relatedTarget=null）判定，
- *   chip 冻结于最后位置但保持可见；dragover 停更只代表指针未移动，不能作为出窗依据
- *   （按住停顿后松手曾在所属范围内被误开窗）。
+ * - 释放判定 = dragend 自带坐标对所属范围矩形做包含测试（dragend 携带真实释放
+ *   坐标，窗口外释放同样带越界坐标——CDP 探针实测）；chip 用 dragover 坐标做同一
+ *   判定，二者同源。出窗瞬间 dragleave(relatedTarget=null 且坐标越界) 把 chip
+ *   切成 new-window 并冻结位置；dragover 停更只代表指针未移动，不参与判定。
  * - tracker 单例：源行在虚拟列表重渲中被卸载时 dragend 不会派发，残留的 window
  *   监听会让下一次拖放触发两次开窗（用户实测双开）。每次 dragStart 先释放旧 tracker。
  */
@@ -113,30 +114,27 @@ export function trackSessionDragForWindowOpen(
   const onDragOver = (event: DragEvent) => {
     pointerX = event.clientX;
     pointerY = event.clientY;
+    pointerLeftWindow = false;
     insideOwner = isInsideRect(effectiveOwnerElement?.getBoundingClientRect(), pointerX, pointerY);
     syncIndicator();
   };
 
-  // 「离开应用窗口」不能用 dragover 停更判定——dragover 只在指针移动时派发，
-  // 按住不动（拖到位→停顿→松手）会停更，曾被误判为出窗导致所属范围内释放也开窗
-  // （2026-10-14 自测反馈）。document 级 dragenter/dragleave 的 relatedTarget=null
-  // 才是真正的跨窗口边界信号。
+  // 出窗提示：dragleave 仅在「relatedTarget=null 且坐标越出视口」时才是真正的窗口
+  // 边界信号（此时事件自带越界坐标）。relatedTarget=null 单独不可用——窗口内松手
+  // 瞬间 Chromium 也会派发一次 rt=null 的 dragleave（CDP 探针实测），此前曾据此把
+  // 指针误标为出窗，导致所属范围内释放也开窗。
   const onDocumentDragLeave = (event: DragEvent) => {
-    if (event.relatedTarget === null) {
-      pointerLeftWindow = true;
-      syncIndicator();
-    }
-  };
-  const onDocumentDragEnter = (event: DragEvent) => {
-    if (event.relatedTarget === null && pointerLeftWindow) {
-      pointerLeftWindow = false;
-      insideOwner = isInsideRect(
-        effectiveOwnerElement?.getBoundingClientRect(),
-        pointerX,
-        pointerY,
-      );
-      syncIndicator();
-    }
+    if (event.relatedTarget !== null) return;
+    const outOfViewport =
+      event.clientX < 0 ||
+      event.clientY < 0 ||
+      event.clientX > window.innerWidth ||
+      event.clientY > window.innerHeight;
+    if (!outOfViewport) return;
+    pointerX = event.clientX;
+    pointerY = event.clientY;
+    pointerLeftWindow = true;
+    syncIndicator();
   };
 
   const onDragEnd = (event: DragEvent) => {
@@ -147,8 +145,12 @@ export function trackSessionDragForWindowOpen(
       // 已被 pane drop 目标消费（分屏/叠放）。
       return;
     }
-    if (!pointerLeftWindow && insideOwner) {
-      // 仍在应用窗口内且未超出所属范围：取消（与无 chip 的提示一致）。
+    // dragend 携带真实释放坐标（CDP 探针实测：窗口外释放同样带越界坐标，如
+    // x=1812 > 视口 1512）。释放点在所属范围矩形内 → 取消；否则开窗。
+    // 与 chip 展示同源（chip 用 dragover 坐标做同一矩形判定）。
+    if (
+      isInsideRect(effectiveOwnerElement?.getBoundingClientRect(), event.clientX, event.clientY)
+    ) {
       return;
     }
     void openSessionWindow(payload);
@@ -166,7 +168,6 @@ export function trackSessionDragForWindowOpen(
     window.removeEventListener("dragend", onDragEnd);
     window.removeEventListener("drop", onDrop, true);
     document.removeEventListener("dragleave", onDocumentDragLeave, true);
-    document.removeEventListener("dragenter", onDocumentDragEnter, true);
     if (disposeActiveTracker === dispose) {
       disposeActiveTracker = null;
     }
@@ -178,7 +179,6 @@ export function trackSessionDragForWindowOpen(
   window.addEventListener("dragend", onDragEnd);
   window.addEventListener("drop", onDrop, true);
   document.addEventListener("dragleave", onDocumentDragLeave, true);
-  document.addEventListener("dragenter", onDocumentDragEnter, true);
   syncIndicator();
   return dispose;
 }

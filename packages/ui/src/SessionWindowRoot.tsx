@@ -17,6 +17,11 @@ import { ServiceProvider } from "@/hooks/useServices.js";
 import { StoreProvider } from "@/store/StoreProvider.js";
 import { TabStoreProvider } from "@/store/TabStoreProvider.js";
 import { DiffsWorkerPoolProvider } from "@/root/DiffsWorkerPoolProvider.js";
+import { AssistantCodeCommentFeatureProvider } from "@/AssistantCodeCommentFeatureProvider.js";
+import { CodingPlanUpgradeDialogProvider } from "@/settings/CodingPlanUpgradeDialogProvider.js";
+import { RewardsProvider } from "@/rewards/RewardsProvider.js";
+import { RequestSecurityHost } from "@/request-security-edition/index.js";
+import { MarketingTouchProvider } from "@/components/marketing-touch/MarketingTouchProvider.js";
 import { V4WorkspaceChatArea } from "@/v4/V4WorkspaceChatArea.js";
 import { useTheme } from "@/useTheme.js";
 
@@ -43,11 +48,23 @@ export function SessionWindowRoot({
             <StoreProvider broadcastService={services.broadcastService}>
               <TabStoreProvider>
                 <DiffsWorkerPoolProvider>
-                  <SessionWindowBody
-                    workspacePath={workspacePath}
-                    workspaceIdentity={workspaceIdentity}
-                    sessionId={sessionId}
-                  />
+                  {/* 与 Root 同款功能 Provider（composer/聊天页依赖其 context）；
+                      会话窗口只关功能入口的 UI，不裁 context 宿主——裁掉会在
+                      V4ComposerToolbar 等处抛 must-be-used-within-Provider（实测）。 */}
+                  <AssistantCodeCommentFeatureProvider enabled>
+                    <CodingPlanUpgradeDialogProvider>
+                      <RewardsProvider desktop>
+                        <RequestSecurityHost />
+                        <MarketingTouchProvider desktop>
+                          <SessionWindowBody
+                            workspacePath={workspacePath}
+                            workspaceIdentity={workspaceIdentity}
+                            sessionId={sessionId}
+                          />
+                        </MarketingTouchProvider>
+                      </RewardsProvider>
+                    </CodingPlanUpgradeDialogProvider>
+                  </AssistantCodeCommentFeatureProvider>
                 </DiffsWorkerPoolProvider>
               </TabStoreProvider>
             </StoreProvider>
