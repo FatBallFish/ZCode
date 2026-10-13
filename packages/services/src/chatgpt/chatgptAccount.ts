@@ -49,6 +49,13 @@ export interface IChatGPTAccountService {
   /** 重拉订阅/额度窗口/重置次数/模型列表并写回。 */
   refreshAccountInfo(accountId: string): Promise<ChatGPTAccountView>;
 
+  /**
+   * 后台定时刷新入口：对所有非 auth-error 账号重拉 usage/credits 等（enrich 全套）。
+   * usage 现有两条更新路径——CLI 请求 outcome 的被动合并与设置页手动刷新；
+   * 无请求时段额度窗口会停在旧值，由 node 装配处的定时器驱动本方法补齐。
+   */
+  refreshAllAccountUsage(): Promise<void>;
+
   /** 强制刷新令牌（Permanent 失败会把账号置 auth-error）。 */
   refreshToken(accountId: string): Promise<ChatGPTAccountView>;
 

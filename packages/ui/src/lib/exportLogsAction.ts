@@ -1,25 +1,15 @@
 import type { IPlatformService } from "@zcode/shared";
 import type { IntlInstance } from "@/i18n/IntlProvider.js";
-import { dismissToast, toast } from "@/components/ui/toast.js";
+import { toast } from "@/components/ui/toast.js";
 
 export async function runExportLogsAction(
   platform: Pick<IPlatformService, "exportLogs">,
   intl: IntlInstance,
 ): Promise<void> {
-  const pendingToastId = toast(intl.formatMessage({ id: "sidebar.exportLogs.pending" }), {
-    durationMs: Number.POSITIVE_INFINITY,
-  });
-
+  // 开始/成功/失败的 toast 由 main 广播 ExportLogsProgress 统一弹出
+  // （useRootPlatformEffects 挂载），这里只兜底 invoke 层本身的异常。
   try {
-    const result = await platform.exportLogs();
-    if (!result.success) {
-      toast(
-        intl.formatMessage(
-          { id: "sidebar.exportLogs.error" },
-          { error: result.error ?? "unknown" },
-        ),
-      );
-    }
+    await platform.exportLogs();
   } catch (error) {
     toast(
       intl.formatMessage(
@@ -27,7 +17,5 @@ export async function runExportLogsAction(
         { error: error instanceof Error ? error.message : String(error) },
       ),
     );
-  } finally {
-    dismissToast(pendingToastId);
   }
 }

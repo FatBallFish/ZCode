@@ -626,9 +626,19 @@ export async function executeDesktopCommand(options: {
         options.fetchHelpConfig,
       );
       return;
-    case DesktopCommandIds.ExportLogs:
-      await exportLogs();
+    case DesktopCommandIds.ExportLogs: {
+      // 导出可能耗时数秒到数十秒（大日志归档）；两个入口（应用菜单栏 / renderer 帮助菜单）
+      // 都会走到这里，统一由 main 广播进度，Root 挂 toast，避免用户以为点击失效。
+      targetWindow?.webContents.send(PlatformChannels.ExportLogsProgress, { kind: "start" });
+      const result = await exportLogs();
+      targetWindow?.webContents.send(
+        PlatformChannels.ExportLogsProgress,
+        result.success && result.path
+          ? { kind: "success", path: result.path }
+          : { kind: "error", error: result.error ?? "unknown" },
+      );
       return;
+    }
     case DesktopCommandIds.ToggleDevTools:
       targetWindow?.webContents.toggleDevTools();
       return;

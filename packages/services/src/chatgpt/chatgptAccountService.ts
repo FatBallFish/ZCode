@@ -207,6 +207,14 @@ export function createChatGPTAccountService(
       return persistEnriched(record);
     },
 
+    async refreshAllAccountUsage() {
+      // auth-error 账号 enrich 必然再失败（且可能触发 Permanent 缓存误判），跳过。
+      const records = (await options.repository.list()).filter(
+        (record) => record.status.state !== "auth-error",
+      );
+      await Promise.allSettled(records.map((record) => persistEnriched(record)));
+    },
+
     async refreshToken(accountId: string) {
       await requireRecord(accountId);
       await options.runtime.forceRefreshAccessToken(accountId);

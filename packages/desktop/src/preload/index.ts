@@ -67,6 +67,7 @@ import type {
   PostUpdateReleaseNotesPayload,
   RemoteSessionClosedEvent,
   BotRemoteWorkspaceReconnectedEvent,
+  ExportLogsProgressPayload,
   UpdateCheckResultPayload,
   UpdateStatePayload,
   ZCodeStdioTapDevState,
@@ -979,6 +980,12 @@ contextBridge.exposeInMainWorld("zcode", {
     const handler = (_event: unknown, payload: UpdateCheckResultPayload) => callback(payload);
     ipcRenderer.on(PlatformChannels.UpdateCheckResult, handler);
     return () => ipcRenderer.removeListener(PlatformChannels.UpdateCheckResult, handler);
+  },
+  /** 注册导出日志进度回调（应用菜单栏导出入口的 toast 提示） */
+  onExportLogsProgress: (callback: (payload: ExportLogsProgressPayload) => void): (() => void) => {
+    const handler = (_event: unknown, payload: ExportLogsProgressPayload) => callback(payload);
+    ipcRenderer.on(PlatformChannels.ExportLogsProgress, handler);
+    return () => ipcRenderer.removeListener(PlatformChannels.ExportLogsProgress, handler);
   },
   getUpdateState: (): Promise<UpdateStatePayload> =>
     ipcRenderer.invoke(PlatformChannels.GetUpdateState),

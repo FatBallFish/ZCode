@@ -2250,6 +2250,7 @@ const zhCN: Record<string, string> = {
   "sidebar.exportLogs": "下载日志",
   "sidebar.exportLogs.pending": "正在导出日志中",
   "sidebar.exportLogs.error": "导出日志失败：{error}",
+  "sidebar.exportLogs.success": "日志已导出：{path}",
   "sidebar.newTask": "新建任务",
 
   // 设置页

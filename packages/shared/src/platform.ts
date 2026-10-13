@@ -55,6 +55,11 @@ export type {
   UpdateStatePayload,
 } from "./update.js";
 
+export type ExportLogsProgressPayload =
+  | { kind: "start" }
+  | { kind: "success"; path: string }
+  | { kind: "error"; error: string };
+
 export interface TaskNotificationPayload {
   taskId: string;
   status: "completed" | "failed" | "permission_request" | "elicitation_request" | "feedback_update";
@@ -1184,6 +1189,14 @@ export interface IPlatformService {
 
   /** 注册"手动检查更新"结果的回调（用于 toast 反馈），返回 disposer */
   onUpdateCheckResult(callback: (payload: UpdateCheckResultPayload) => void): () => void;
+
+  /**
+   * 注册导出日志进度回调（Main 发起的应用菜单栏导出入口没有 renderer 参与，
+   * 由 Main 统一广播开始/成功/失败，Root 挂 toast）。可选：Web 端无此通道。
+   */
+  onExportLogsProgress?(
+    callback: (payload: ExportLogsProgressPayload) => void,
+  ): () => void;
 
   /** 注册自动更新持续状态变化的回调，返回 disposer */
   onUpdateStateChanged?(callback: (payload: UpdateStatePayload) => void): () => void;

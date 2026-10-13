@@ -2396,6 +2396,7 @@ const enUS: Record<string, string> = {
   "sidebar.exportLogs": "Export logs",
   "sidebar.exportLogs.pending": "Exporting logs...",
   "sidebar.exportLogs.error": "Failed to export logs: {error}",
+  "sidebar.exportLogs.success": "Logs exported: {path}",
   "sidebar.newTask": "New task",
 
   // Settings

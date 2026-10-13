@@ -424,6 +424,8 @@ export const PlatformChannels = {
   TaskNotificationClick: "zcode:task-notification-click",
   /** Renderer → Main：导出日志（打包 ~/.mikiko/v2 及外部 agent 日志为 zip 并在 Finder 中显示） */
   ExportLogs: "zcode:export-logs",
+  /** Main → Renderer：导出日志进度（开始/成功/失败，toast 用） */
+  ExportLogsProgress: "zcode:export-logs-progress",
   /** Renderer → Main：截取当前窗口作为反馈附件 */
   CaptureWindowScreenshot: "zcode:capture-window-screenshot",
   /**
@@ -1257,6 +1259,13 @@ export interface PlatformChannelMap {
   [PlatformChannels.ExportLogs]: {
     request: void;
     response: { success: boolean; path?: string; error?: string };
+  };
+  [PlatformChannels.ExportLogsProgress]: {
+    request: never;
+    response:
+      | { kind: "start" }
+      | { kind: "success"; path: string }
+      | { kind: "error"; error: string };
   };
   [PlatformChannels.CaptureWindowScreenshot]: {
     request: void;

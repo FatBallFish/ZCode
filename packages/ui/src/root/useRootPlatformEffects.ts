@@ -325,6 +325,31 @@ export function useRootPlatformEffects({
           }
         })
       : () => {};
+
+    // 导出日志进度（应用菜单栏 / 帮助菜单统一由 main 广播）：开始与结果 toast。
+    const disposeExportLogsProgress = platform.onExportLogsProgress
+      ? platform.onExportLogsProgress((payload) => {
+          if (payload.kind === "start") {
+            toast(intl.formatMessage({ id: "sidebar.exportLogs.pending" }), {
+              durationMs: 30_000,
+            });
+            return;
+          }
+          if (payload.kind === "success") {
+            toast(
+              intl.formatMessage({ id: "sidebar.exportLogs.success" }, { path: payload.path }),
+            );
+            return;
+          }
+          toast(
+            intl.formatMessage(
+              { id: "sidebar.exportLogs.error" },
+              { error: payload.error },
+            ),
+          );
+        })
+      : undefined;
+
     return () => {
       disposeFocusTab();
       disposeNewTab();
@@ -335,6 +360,7 @@ export function useRootPlatformEffects({
       disposeOpenPetTask();
       disposeNotificationClick();
       disposeUpdateCheckResult();
+      disposeExportLogsProgress?.();
     };
   }, [activeWorkspaceIdentity, activeWorkspacePath, platform, tabs]);
 
@@ -398,6 +424,7 @@ export function useRootPlatformEffects({
           onAction: undefined,
           dismissible: false,
         });
+
       }
     });
 
@@ -482,10 +509,12 @@ export function useRootPlatformEffects({
           firstIssue && typeof firstIssue === "object" && !Array.isArray(firstIssue)
             ? (firstIssue as Record<string, unknown>)
             : undefined;
+
         const artifactDisplayName =
           typeof firstIssueRecord?.artifactDisplayName === "string"
             ? firstIssueRecord.artifactDisplayName
             : undefined;
+
         logger.warn("[Root] share import failed", {
           operationId,
           clientRequestId: pending.clientRequestId,

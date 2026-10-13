@@ -1751,6 +1751,15 @@ export const WorkspaceShellLayout = memo(
               workspaceIdentity={workspaceIdentity}
               remoteSessionId={workspaceRemoteSessionId ?? undefined}
             />
+          ) : !isOfficeMode && !isWebRemoteControlShell && activeWorkspacePurpose === "project" ? (
+            <DraftWorkLocation
+              workspacePath={workspaceAbsPath}
+              workspaceIdentity={workspaceIdentity}
+              gitSummary={gitState.summary}
+              dirtyFileCount={gitDirtyFileCount}
+              onRefreshGit={handleRefreshGit}
+              className="px-0 pt-0"
+            />
           ) : null}
         </>
       ),

@@ -1516,6 +1516,16 @@ export function createLocalServices(options: {
   });
   chatGPTAccountRuntime.start();
   chatGPTAccountRuntimeForAuth = chatGPTAccountRuntime;
+  // 额度用量定时同步（spec specs/desktop/chatgpt-oauth.md §7）：usage 只有 CLI 请求
+  // outcome 的被动合并与设置页手动刷新两条路径，无请求时段会停在旧值（5h/7d 窗口
+  // 与重置次数都不动）。这里每 5 分钟对所有非 auth-error 账号做一次 enrich；
+  // persistEnriched 写回后经 accountsChangedEmitter 广播，composer 用量 chip 自动更新。
+  const chatGPTUsagePollTimer = setInterval(() => {
+    void chatGPTAccountService
+      .refreshAllAccountUsage()
+      .catch(() => undefined /* 单账号失败已在 enrich 内部记录 */);
+  }, 5 * 60 * 1000);
+  chatGPTUsagePollTimer.unref?.();
   const effectiveAccountProviderConfigSource = createChatGPTAccountConfigSource({
     base: accountProviderConfigSource,
     runtime: chatGPTAccountRuntime,

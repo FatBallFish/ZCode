@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, readlink, rm, mkdir, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   DEV_ELECTRON_APP_BUNDLE_ID,
   DEV_ELECTRON_APP_NAME,
@@ -18,7 +18,18 @@ afterEach(async () => {
   await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
+/** codesign 注入桩：模拟 ad-hoc 重签名成功并记录调用（fixture 不是真 bundle，跑不了真 codesign）。 */
+const codesignCalls: string[] = [];
+const codesignStub = async (command: string, args: string[]) => {
+  if (command === "codesign") codesignCalls.push(args.at(-1) ?? "");
+  return { stdout: "", stderr: "" };
+};
+
 describe("dev Electron app bundle", () => {
+  beforeEach(() => {
+    codesignCalls.length = 0;
+  });
+
   it("adds a product identity and zcode URL scheme to the raw Electron plist", () => {
     const source = `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
@@ -80,6 +91,7 @@ describe("dev Electron app bundle", () => {
     const outputRoot = join(root, "runtime");
 
     const result = await prepareDevElectronAppBundle({
+      execFileImpl: codesignStub,
       electronAppPath: sourceApp,
       runtimeRoot: outputRoot,
       electronVersion: "41.0.3",
@@ -122,6 +134,7 @@ describe("dev Electron app bundle", () => {
       await symlink("Versions/Current/Resources", join(framework, "Resources"));
 
       const result = await prepareDevElectronAppBundle({
+      execFileImpl: codesignStub,
         electronAppPath: sourceApp,
         runtimeRoot: join(root, "runtime"),
         electronVersion: "41.0.3",
@@ -160,11 +173,14 @@ describe("dev Electron app bundle", () => {
     const outputRoot = join(root, "runtime");
 
     const first = await prepareDevElectronAppBundle({
+      execFileImpl: codesignStub,
       electronAppPath: sourceApp,
       runtimeRoot: outputRoot,
       electronVersion: "41.0.3",
       arch: "arm64",
     });
+    // v4：改写 Info.plist 后必须 ad-hoc 重签名（TCC 麦克风授权死局修复）。
+    expect(codesignCalls.length).toBeGreaterThanOrEqual(1);
     const stampPath = join(outputRoot, "41.0.3-arm64", ".zcode-dev-electron-source.json");
     const stamp = JSON.parse(await readFile(stampPath, "utf8"));
     expect(stamp.format).toBe(DEV_ELECTRON_BUNDLE_FORMAT);
@@ -177,6 +193,7 @@ describe("dev Electron app bundle", () => {
     await writeFile(join(first.appPath, "Contents", "MacOS", "Electron"), "stale-copy", "utf8");
 
     await prepareDevElectronAppBundle({
+      execFileImpl: codesignStub,
       electronAppPath: sourceApp,
       runtimeRoot: outputRoot,
       electronVersion: "41.0.3",
@@ -186,6 +203,8 @@ describe("dev Electron app bundle", () => {
     expect(await readFile(join(first.appPath, "Contents", "MacOS", "Electron"), "utf8")).toBe(
       "source-v1",
     );
+    // v4：改写 Info.plist 后必须 ad-hoc 重签名（TCC 麦克风授权死局修复）。
+    expect(codesignCalls.length).toBeGreaterThanOrEqual(1);
   });
 
   it("rebuilds the ignored bundle when the source Electron launcher changes", async () => {
@@ -208,6 +227,7 @@ describe("dev Electron app bundle", () => {
     const outputRoot = join(root, "runtime");
 
     const first = await prepareDevElectronAppBundle({
+      execFileImpl: codesignStub,
       electronAppPath: sourceApp,
       runtimeRoot: outputRoot,
       electronVersion: "41.0.3",
@@ -216,6 +236,7 @@ describe("dev Electron app bundle", () => {
     await writeFile(join(sourceMacOS, "Electron"), "source-v2", "utf8");
 
     await prepareDevElectronAppBundle({
+      execFileImpl: codesignStub,
       electronAppPath: sourceApp,
       runtimeRoot: outputRoot,
       electronVersion: "41.0.3",
@@ -247,6 +268,7 @@ describe("dev Electron app bundle", () => {
     const outputRoot = join(root, "runtime");
 
     const first = await prepareDevElectronAppBundle({
+      execFileImpl: codesignStub,
       electronAppPath: sourceApp,
       runtimeRoot: outputRoot,
       electronVersion: "41.0.3",
@@ -257,6 +279,7 @@ describe("dev Electron app bundle", () => {
     await writeFile(marker, "kept", "utf8");
 
     await prepareDevElectronAppBundle({
+      execFileImpl: codesignStub,
       electronAppPath: sourceApp,
       runtimeRoot: outputRoot,
       electronVersion: "41.0.3",
