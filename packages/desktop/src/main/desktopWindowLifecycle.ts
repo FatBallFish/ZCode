@@ -73,13 +73,17 @@ export function createWindow(options: {
   const win = createBrowserWindow({
     iconPath: options.iconPath,
     preloadPath: options.preloadPath,
-    bootstrap: {
-      restoreSession: options.bootstrap?.restoreSession ?? true,
-      supportsSettings: options.bootstrap?.supportsSettings ?? true,
-      initialWorkspacePath: options.bootstrap?.initialWorkspacePath,
-      initialWorkspacePurpose: options.bootstrap?.initialWorkspacePurpose,
-      unavailableWorkspacePath: options.bootstrap?.unavailableWorkspacePath,
-    },
+    // 透传全部 bootstrap 字段：2026-10-13/14 两轮「会话窗口未生效/未定位会话」的
+    // 根因都在这里——本对象此前只重建旧五字段，把 initialTaskId/initialWorkspaceIdentity/
+    // windowKind 静默丢掉，renderer 拿不到 initialTaskId（会话不选中）也进不了
+    // windowKind=session 轻量分支（渲染成完整 App 克隆）。
+    bootstrap: options.bootstrap
+      ? {
+          ...options.bootstrap,
+          restoreSession: options.bootstrap.restoreSession ?? true,
+          supportsSettings: options.bootstrap.supportsSettings ?? true,
+        }
+      : undefined,
     logger: options.logger,
     deviceMid: options.deviceMid,
     initialDesktopZoomLevel: options.initialDesktopZoomLevel,

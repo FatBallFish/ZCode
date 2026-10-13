@@ -9,20 +9,15 @@
  * - 指针超出所属范围（其他项目区/展示页/标题栏/窗口外）→ 打开会话窗口，chip 展示。
  *
  * 实现说明：
- * - HTML5 DnD 指针离开应用窗口后不再派发 dragover、也读不到最终落点，用
- *   「dragover 停止更新超阈值」判定出窗；期间用节拍器把提示切成 new-window，
- *   保证「拖出窗口外 → chip 仍在（冻结于最后位置）→ 释放开窗」的链路一致。
+ * - 「离开应用窗口」用 document 级 dragleave/dragenter（relatedTarget=null）判定，
+ *   chip 冻结于最后位置但保持可见；dragover 停更只代表指针未移动，不能作为出窗依据
+ *   （按住停顿后松手曾在所属范围内被误开窗）。
  * - tracker 单例：源行在虚拟列表重渲中被卸载时 dragend 不会派发，残留的 window
  *   监听会让下一次拖放触发两次开窗（用户实测双开）。每次 dragStart 先释放旧 tracker。
  */
 import { create } from "zustand";
 import { logger } from "@/logger.js";
 import type { WorkbenchSessionDragPayload } from "@/v4/workbenchDragDrop.js";
-
-/** dragover 停止更新超过该窗口即认为指针已离开应用窗口。 */
-const DRAG_OVER_STALE_MS = 300;
-/** stale 检测节拍（略快于 STALE_MS，保证出窗后 ~400ms 内提示就位）。 */
-const HEARTBEAT_MS = 120;
 
 interface SessionWindowDragOutState {
   /** 一次会话拖拽进行中（仅本地 workspace 且桌面端有 opener 时置位）。 */
@@ -95,8 +90,8 @@ export function trackSessionDragForWindowOpen(
   }
 
   let disposed = false;
-  let lastDragOverAt = Date.now();
   let insideOwner = true;
+  let pointerLeftWindow = false;
   let pointerX = 0;
   let pointerY = 0;
 
@@ -104,42 +99,56 @@ export function trackSessionDragForWindowOpen(
     sourceElement?.closest<HTMLElement>("[data-session-drag-owner-scope]") ??
     sourceElement?.closest<HTMLElement>('[data-testid="sidebar"]') ??
     null;
+  // 置顶分区内的项目行也带 scope="project"（复用 WorkspaceSidebarItem）；
+  // 置顶会话的「所属范围」按用户语义是整个置顶分区，优先取外层 pinned 锚点。
+  const effectiveOwnerElement =
+    ownerElement?.closest<HTMLElement>('[data-session-drag-owner-scope="pinned"]') ?? ownerElement;
 
   const syncIndicator = () => {
     const mode: "new-window" | null =
-      !insideOwner && activeDropZonePaneIds.size === 0 ? "new-window" : null;
+      (pointerLeftWindow || !insideOwner) && activeDropZonePaneIds.size === 0 ? "new-window" : null;
     useSessionWindowDragOutStore.setState({ active: true, mode, pointerX, pointerY });
   };
 
   const onDragOver = (event: DragEvent) => {
-    lastDragOverAt = Date.now();
     pointerX = event.clientX;
     pointerY = event.clientY;
-    insideOwner = isInsideRect(ownerElement?.getBoundingClientRect(), pointerX, pointerY);
+    insideOwner = isInsideRect(effectiveOwnerElement?.getBoundingClientRect(), pointerX, pointerY);
     syncIndicator();
   };
 
-  const heartbeat = window.setInterval(() => {
-    if (disposed) return;
-    if (Date.now() - lastDragOverAt > DRAG_OVER_STALE_MS && insideOwner) {
-      // 指针已离开应用窗口：必然超出所属范围，提示切换为 new-window（位置冻结在
-      // 最后一次 dragover，chip 保持可见）。
-      insideOwner = false;
+  // 「离开应用窗口」不能用 dragover 停更判定——dragover 只在指针移动时派发，
+  // 按住不动（拖到位→停顿→松手）会停更，曾被误判为出窗导致所属范围内释放也开窗
+  // （2026-10-14 自测反馈）。document 级 dragenter/dragleave 的 relatedTarget=null
+  // 才是真正的跨窗口边界信号。
+  const onDocumentDragLeave = (event: DragEvent) => {
+    if (event.relatedTarget === null) {
+      pointerLeftWindow = true;
       syncIndicator();
     }
-  }, HEARTBEAT_MS);
+  };
+  const onDocumentDragEnter = (event: DragEvent) => {
+    if (event.relatedTarget === null && pointerLeftWindow) {
+      pointerLeftWindow = false;
+      insideOwner = isInsideRect(
+        effectiveOwnerElement?.getBoundingClientRect(),
+        pointerX,
+        pointerY,
+      );
+      syncIndicator();
+    }
+  };
 
   const onDragEnd = (event: DragEvent) => {
     const dropEffect = event.dataTransfer?.dropEffect;
     const consumed = dropEffect === "copy" || dropEffect === "move";
-    const outsideWindow = Date.now() - lastDragOverAt > DRAG_OVER_STALE_MS;
     dispose();
     if (consumed) {
       // 已被 pane drop 目标消费（分屏/叠放）。
       return;
     }
-    if (insideOwner && !outsideWindow) {
-      // 所属范围内释放：取消（与无 chip 的提示一致）。
+    if (!pointerLeftWindow && insideOwner) {
+      // 仍在应用窗口内且未超出所属范围：取消（与无 chip 的提示一致）。
       return;
     }
     void openSessionWindow(payload);
@@ -153,10 +162,11 @@ export function trackSessionDragForWindowOpen(
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    window.clearInterval(heartbeat);
     window.removeEventListener("dragover", onDragOver, true);
     window.removeEventListener("dragend", onDragEnd);
     window.removeEventListener("drop", onDrop, true);
+    document.removeEventListener("dragleave", onDocumentDragLeave, true);
+    document.removeEventListener("dragenter", onDocumentDragEnter, true);
     if (disposeActiveTracker === dispose) {
       disposeActiveTracker = null;
     }
@@ -167,6 +177,8 @@ export function trackSessionDragForWindowOpen(
   window.addEventListener("dragover", onDragOver, true);
   window.addEventListener("dragend", onDragEnd);
   window.addEventListener("drop", onDrop, true);
+  document.addEventListener("dragleave", onDocumentDragLeave, true);
+  document.addEventListener("dragenter", onDocumentDragEnter, true);
   syncIndicator();
   return dispose;
 }
