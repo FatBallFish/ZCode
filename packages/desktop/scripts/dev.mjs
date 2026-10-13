@@ -111,6 +111,7 @@ console.log("[dev] Starting Electron...");
 
 const electronBinary = resolveLocalElectronBinary();
 let electronCommand = existsSync(electronBinary) ? electronBinary : "electron";
+let devAppPath;
 
 if (process.platform === "darwin" && existsSync(electronBinary)) {
   // macOS 命令行启动的 raw Electron 没有 CFBundleURLTypes，LaunchServices 会把
@@ -126,16 +127,82 @@ if (process.platform === "darwin" && existsSync(electronBinary)) {
     arch: process.arch,
   });
   electronCommand = devBundle.executablePath;
+  devAppPath = devBundle.appPath;
   console.log(`[dev] Prepared macOS ${DEV_ELECTRON_APP_NAME} bundle: ${devBundle.appPath}`);
 }
 
-const electron = spawn(electronCommand, ["."], {
-  cwd: root,
-  stdio: "inherit",
-  env: { ...process.env, ELECTRON_RENDERER_URL: rendererUrl },
-  windowsHide: true,
-  detached: process.platform !== "win32",
+// macOS 26（Tahoe）起 tccd 只为经 Launch Services 启动的进程服务 TCC 弹框/查询：
+// 直接 exec bundle 内二进制的进程无 LS 归属，askForMediaAccess 静默返回 false、
+// getMediaAccessStatus 恒 not-determined（真机实测，原版 Electron 二进制同样被拒）。
+// 因此 macOS dev 改用 `open -n <bundle> --args ...` 启动拿回 LS 归属；stdio 管道
+// 会断，改由 Electron 的 --enable-logging=file 落盘，下方 tail 转发到 dev 控制台。
+const electron = await startElectron({
+  command: electronCommand,
+  devAppPath,
+  root,
+  rendererUrl,
 });
+
+async function startElectron({ command, devAppPath, root, rendererUrl }) {
+  if (process.platform !== "darwin" || !devAppPath) {
+    return spawn(command, ["."], {
+      cwd: root,
+      stdio: "inherit",
+      env: { ...process.env, ELECTRON_RENDERER_URL: rendererUrl },
+      windowsHide: true,
+      detached: process.platform !== "win32",
+    });
+  }
+
+  const logFile = resolve(root, `out/.dev-electron-console-${process.pid}.log`);
+  const { spawn: rawSpawn } = await import("node:child_process");
+  // -W：open 进程存活到应用退出，exit 语义与直接 spawn 一致（否则 open 立即返回，
+  // dev 会误判 Electron 已退出并拆除 vite/tsup）。SIGTERM/SIGKILL 兜底在
+  // signalElectronTree 用 pkill 按 bundle 可执行路径完成。
+  const electron = rawSpawn(
+    "open",
+    [
+      "-n",
+      "-W",
+      devAppPath,
+      "--args",
+      ".",
+      `--enable-logging=file`,
+      `--log-file=${logFile}`,
+      `--dev-renderer-url=${rendererUrl}`,
+    ],
+    { cwd: root, stdio: "ignore", detached: true },
+  );
+  electron.stdout = null;
+  electron.stderr = null;
+
+  // tail 落盘日志回 dev 控制台（轮询追加，避免引入 fsevents 依赖）。
+  let seenBytes = 0;
+  const { open: openFd } = await import("node:fs/promises");
+  const pollLog = setInterval(async () => {
+    try {
+      const handle = await openFd(logFile, "r");
+      try {
+        const stat = await handle.stat();
+        if (stat.size > seenBytes) {
+          const buffer = Buffer.alloc(stat.size - seenBytes);
+          await handle.read(buffer, 0, buffer.length, seenBytes);
+          seenBytes = stat.size;
+          process.stdout.write(buffer.toString("utf8"));
+        }
+      } finally {
+        await handle.close();
+      }
+    } catch {
+      /* 日志文件尚未创建 */
+    }
+  }, 500);
+  const stopTailing = () => clearInterval(pollLog);
+  electron.once("exit", stopTailing);
+  electron.once("error", stopTailing);
+
+  return electron;
+}
 
 let electronClosed = false;
 let shuttingDown = false;
@@ -149,6 +216,12 @@ function signalElectronTree(signal) {
 
   if (process.platform === "win32") {
     electron.kill(signal);
+    return;
+  }
+
+  if (devAppPath) {
+    // open 启动路径：Electron 不是本脚本的子进程，按 bundle 内可执行文件 pkill。
+    spawn("pkill", ["-f", `${devAppPath}/Contents/MacOS/`], { stdio: "ignore" });
     return;
   }
 

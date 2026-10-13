@@ -1,3 +1,11 @@
+// macOS dev 经 `open`（Launch Services）启动时自定义 env 不会传递（open 继承
+// launchd 环境），渲染 dev server 地址改由 --dev-renderer-url 参数携带，在此最早回填
+// process.env，后续所有 ELECTRON_RENDERER_URL 消费点行为不变。
+const devRendererUrlArg = process.argv.find((arg) => arg.startsWith("--dev-renderer-url="));
+if (devRendererUrlArg && !process.env["ELECTRON_RENDERER_URL"]) {
+  process.env["ELECTRON_RENDERER_URL"] = devRendererUrlArg.slice("--dev-renderer-url=".length);
+}
+
 import { installRequestSecurityDiagnostics } from "./request-security-edition/index.js";
 import { createLocalTtftExporter } from "./localTtftExporter.js";
 /* eslint-disable max-lines */
