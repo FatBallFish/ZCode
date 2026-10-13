@@ -49,11 +49,27 @@ vi.mock("lucide-react", () => {
 
   return {
     Archive: createIcon("archive"),
+    Cloud: createIcon("cloud"),
     CloudUpload: createIcon("cloud-upload"),
     Clock: createIcon("clock"),
+    Folder: createIcon("folder"),
+    GitBranch: createIcon("git-branch"),
     LoaderIcon: createIcon("loader"),
     Pin: createIcon("pin"),
     Smartphone: createIcon("smartphone"),
+  };
+});
+
+// 2026-10-13：TaskListItem 行体包了 Radix Tooltip（hover 详情卡）。本测试用最小 DOM
+// mock（无真实 window 定时器），Radix Tooltip unmount 会调 window.clearTimeout 直接崩；
+// 与 badge/button 同风格以 passthrough mock 掉，hover 详情内容不在本测试断言范围。
+vi.mock("@/components/ui/tooltip.js", () => {
+  const Passthrough = ({ children }: { children?: ReactNode }) => children ?? null;
+  return {
+    TooltipProvider: Passthrough,
+    Tooltip: Passthrough,
+    TooltipTrigger: Passthrough,
+    TooltipContent: () => null,
   };
 });
 

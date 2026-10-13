@@ -57,13 +57,14 @@
 
 独立 `pet.html` + 专用 preload（`window.desktopPet`，最小面）+ main 侧 `petpack://` 文件协议（仅放行已校验宠物目录内的 webp/json；参照 localMediaPreviewProtocol 的 registerFileProtocol 先例）。
 
-- 窗口：frameless、transparent、resizable:false、skipTaskbar（仅 Windows/Linux；macOS 上 Electron 会把 skipTaskbar 映射成 App 级 Dock 图标隐藏）、alwaysOnTop（`screen-saver` 级）、hasShadow:false、focusable:false（点击不抢焦点）、**`type:"panel"` 必须与 focusable:false 同时存在**（CUA 浮窗实测：只设 focusable:false 时点击仍会激活 App、焦点落到主窗——台前调度（Stage Manager）下表现为点击/拖动宠物就把整个 App 唤到前台）、Win11 `roundedCorners:false`；尺寸 = 帧 192×208 × 0.6 缩放（约 115×125）。
+- 窗口：frameless、transparent、resizable:false、skipTaskbar（仅 Windows/Linux；macOS 上 Electron 会把 skipTaskbar 映射成 App 级 Dock 图标隐藏）、alwaysOnTop（`screen-saver` 级）、hasShadow:false、focusable:false（点击不抢焦点）、**`type:"panel"` 必须与 focusable:false 同时存在**（CUA 浮窗实测：只设 focusable:false 时点击仍会激活 App、焦点落到主窗——台前调度（Stage Manager）下表现为点击/拖动宠物就把整个 App 唤到前台）、Win11 `roundedCorners:false`；尺寸 = 帧 192×208 × 基准 0.6 × 用户倍率 `desktopPetScale`（默认 1，约 115×125）。
 - **全工作区可见**：`visibleOnAllWorkspaces: true`——桌面宠物是全桌面陪伴物，必须跟随用户跨 macOS Space / Windows 虚拟桌面；否则创建宠物时所在 Space 被切走后宠物"消失"（E2E 实测：多显示器 + 多 Space 环境下窗口存活且在渲染动画，但用户当前 Space 看不到）。
 - 位置：持久化到 `AppSettings.desktopPetPosition {x,y}`（拖拽结束 debounce 落盘；夹取在屏幕可视区内）。
 - 拖拽（2026-10-11 重构为 **main 锚点式驱动**）：pointerdown(左键) 后页面只发 `PetDragStart`；main 记录锚点 `{ cursor: screen.getCursorScreenPoint(), origin: 窗口当前位置 }` 并启动 16ms tick，每帧 `next = origin + (cursor - anchorCursor)`（绝对位置，clamp 进光标所在屏 workArea）经 `setBounds(next, 常量尺寸)` 应用；`PetDragEnd`（invoke）停止循环并返回 `movedPx`，页面据此判定点击（≤6px → waving/双击唤起）与拖拽收尾。**只有主键（button 0）可开始拖拽**——右键按下会弹菜单且菜单吞掉 pointerup，拖拽会话悬空会表现为"宠物一直跟着鼠标走"；右键菜单弹出前、`lostpointercapture` 时也终止在途拖拽会话（main 侧循环随 `PetDragEnd` 停止）。
   - **旧方案（逐 pointer 增量 + `screenX/screenY`）废弃原因**：其核心假设「renderer `screenX/Y` 与 main `setPosition` 同为全局 DIP」在混合 DPI 多屏不成立——Chromium 按窗口/光标所在显示器的缩放换算全局坐标，跨屏瞬间换算空间突变，产生两类用户实测缺陷：① 增量被缩放/偏移 → 宠物跟不上鼠标、累计错位；② pointerdown 与随后 pointermove 处于不同换算空间 → 单次巨量假增量，松手后再触碰宠物时瞬闪约等于上次松手时的偏差距离。`screen.getCursorScreenPoint()` 与 `setBounds` 同属 Electron main 的 DIP 空间，跨屏一致，锚点式重算也天然免疫 clamp 造成的累计漂移。
   - **方向动画**：main 按每帧实际应用位移跑迟滞（总位移 >6px 后，新方向累计 ≥16px 或单步 ≥20px、距上次切换 ≥200ms 才切换），**仅方向变化时**经 `DESKTOP_PET_DRAG_DIRECTION_CHANNEL` 推送宠物页播放；竖直方向（上/下）统一用循环动作 `running`（`jumping` 是一次性 ×3 动作，持续拖拽会中途落回 idle）。
-  - **Windows 丝滑度与尺寸钉住**：逐 pointermove IPC 在高回报率鼠标（≥500Hz）下淹没 main 进程（卡顿/刷新感），60Hz 定时循环天然节流；Windows 非 100% 缩放下透明窗 `setPosition` 存在 DIP↔物理取整逐次漂移（旧版「拖动即放大」根因）、混合 DPI 跨屏 `WM_DPICHANGED` 建议矩形进一步产生上下/左右拉伸——每帧 `setBounds` 携带常量尺寸让任何漂移活不过一帧；`resize` 监听钉住保留为最终防线（不参与高频路径）。**需 Windows 真机 + 混合 DPI 多屏验收**。
+  - **Windows 丝滑度与尺寸钉住**：逐 pointermove IPC 在高回报率鼠标（≥500Hz）下淹没 main 进程（卡顿/刷新感），60Hz 定时循环天然节流；Windows 非 100% 缩放下透明窗 `setPosition` 存在 DIP↔物理取整逐次漂移（旧版「拖动即放大」根因）、混合 DPI 跨屏 `WM_DPICHANGED` 建议矩形进一步产生上下/左右拉伸——每帧 `setBounds` 携带当前期望尺寸让任何漂移活不过一帧；`resize` 监听钉住保留为最终防线（不参与高频路径）。**需 Windows 真机 + 混合 DPI 多屏验收**。
+  - **拖拽期渲染冻结（2026-10-12，高分屏/混合显卡拖动卡顿反馈）**：拖拽期间宠物页冻结 canvas 绘制（保留最后一帧）——透明窗被 60Hz setBounds 移动时，renderer 再以 60Hz 重绘 canvas 会持续产生纹理上传，高分屏 + 核显承担桌面合成的机器上显著加剧拖动卡顿；内容不变时合成器可复用已有纹理。同时绘制循环做同帧去重（sprite index 未变化不重绘）+ `document.hidden` 跳过；气泡跟随降频至 ~20Hz（每 3 tick，结束时对齐一次），避免第二个透明窗逐帧 setBounds 叠加合成负载。
 - 右键菜单（main Menu）：切换宠物…/宠物市场…/设置/隐藏宠物。
 - **Linux 降级**：平铺 WM 无合成器时透明失效（白块）。启动探测：创建后读取 `isTransparent` 不可靠，v1 采用保守策略——设置项「不透明背景兜底」（默认关），开启后窗口带圆角深色底；文档说明主流桌面（GNOME/KDE）无此问题。
 - **agent 状态联动（只读订阅）**：main 聚合 `hostRunningTaskCountMap`（既有 AgentRunningTaskCountChanged 链路）作为兜底（无会话摘要时 total>0 → 工作视觉）。会话摘要（下节）存在时按**视觉语义**映射（官方图集实测：第 6 行 waiting=对电脑敲击、第 7 行 running=原地小跑、第 8 行 review=放大镜、第 5 行 failed=垂头）：任一会话 `waiting`（等用户）→ `running`（小跑催促）；否则任一会话 `running`（进行中）→ `waiting`（对电脑工作）；否则 error+未读 → `failed`；否则 completed+未读 → `review`；否则 `idle`。启动/启用时→`waving` 一次；点击挥手播完后回到最近一次下发的状态（不滞留 idle）。
@@ -88,7 +89,8 @@
 
 ## 设置与状态所有权
 
-- `AppSettings` 新增：`desktopPetEnabled?`（undefined=false 免迁移）、`desktopPetId?`、`desktopPetPosition?`。zod 同步更新；改 schema 后需完全重启 App（host 内联旧 schema 会剥离新字段——已有先例教训）。
+- `AppSettings` 新增：`desktopPetEnabled?`（undefined=false 免迁移）、`desktopPetId?`、`desktopPetPosition?`、`desktopPetScale?`（2026-10-12：显示倍率 0.5–1.8，undefined=1；**全局设置，切宠不重置**——窗口尺寸 = 帧 192×208 × 基准 0.6 × 倍率）。zod 同步更新；改 schema 后需完全重启 App（host 内联旧 schema 会剥离新字段——已有先例教训）。
+- 大小变更路径：设置页滑条（50%–180%，步进 5%，实时预览）→ `syncImmediateAppSettings` → `applySettings` 对**存活窗口即时 setSize**（保持左上角锚点、夹取回可视区、气泡跟随），不整窗重建；dragController 与 resize 钉住共享 `windowSize` 可变对象，倍率变化后自动生效；宠物页监听窗口 resize 重算 canvas 物理尺寸。
 - 窗口生命周期唯一所有者 = desktop main（`desktopPetManager`）：bootstrap 读设置决定是否创建；`syncImmediateAppSettings` 检测字段变化即时增删改窗口；host/renderer 不持有宠物窗口状态。
 - **辅助窗边界**：宠物窗与气泡窗都是辅助窗（manager 暴露 `ownsWindow(win)`，涵盖气泡预热窗），必须从主窗口协调器的主窗候选、对话框父窗、"还有窗口存活"保活判定中排除（`getApplicationWindowsExcludingAuxiliary`）。否则启用宠物的启动序（宠物/气泡预热窗先于主窗创建）会让主窗口协调器"复用"辅助窗，App 启动后没有主界面——气泡改为创建即预热后该坑以新形态复现过一次。
 - 市场服务逻辑位于 main（`desktopPetMarketService.ts`，fetch/fs 均依赖注入可单测）；纯校验/搜索逻辑在 `@zcode/shared/pets`。

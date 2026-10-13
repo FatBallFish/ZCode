@@ -399,16 +399,22 @@ function migrateLegacyWorkspaceSession(value: unknown): unknown {
                       kind: "remote",
                       workspacePath: legacyRemoteEntry.workspacePath,
                       ...(legacyRemoteEntry.localWorkspacePath
-                        ? { localWorkspacePath: legacyRemoteEntry.localWorkspacePath }
+                        ? {
+                            localWorkspacePath: legacyRemoteEntry.localWorkspacePath,
+                          }
                         : {}),
                       ...(legacyRemoteEntry.workspaceIdentity
-                        ? { workspaceIdentity: legacyRemoteEntry.workspaceIdentity }
+                        ? {
+                            workspaceIdentity: legacyRemoteEntry.workspaceIdentity,
+                          }
                         : {}),
                       target: stripHistoricalRemoteResourcePackages(legacyRemoteEntry.target),
                       lastOpenedAt: legacyRemoteEntry.lastOpenedAt,
                       lastConnectionStatus: legacyRemoteEntry.lastConnectionStatus,
                       ...(legacyRemoteEntry.lastConnectionError
-                        ? { lastConnectionError: legacyRemoteEntry.lastConnectionError }
+                        ? {
+                            lastConnectionError: legacyRemoteEntry.lastConnectionError,
+                          }
                         : {}),
                     },
                   ]
@@ -494,6 +500,7 @@ const appSettingsObjectSchema = z.object({
   desktopZoomLevel: desktopZoomLevelSchema.optional(),
   desktopWindowSize: desktopWindowSizeSchema.optional(),
   desktopChromiumHardwareAccelerationEnabled: z.boolean().default(true),
+  desktopChromiumHighPerformanceGpuEnabled: z.boolean().optional(),
   messageStreamShowReasoning: z.boolean().default(true),
   messageStreamShowReasoningMigrationInitialized: z.boolean().default(true),
   messageStreamShowTodos: z.boolean().default(false),
@@ -534,10 +541,11 @@ const appSettingsObjectSchema = z.object({
   externalCdpConfig: z.string().optional(),
   // 手机远控 live 会话能否使用外部浏览器；undefined=true（默认允许，免迁移）。
   externalCdpRemoteControlEnabled: z.boolean().optional(),
-  // 桌面宠物：开关/当前宠物/窗口位置（specs/desktop/desktop-pet.md）。
+  // 桌面宠物：开关/当前宠物/窗口位置/显示大小（specs/desktop/desktop-pet.md）。
   desktopPetEnabled: z.boolean().optional(),
   desktopPetId: z.string().optional(),
   desktopPetPosition: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
+  desktopPetScale: z.number().min(0.5).max(1.8).optional(),
   // Git worktree 配置；undefined=服务侧按默认值解析（specs/desktop/worktrees.md）。
   worktreeConfig: worktreeConfigSchema.optional(),
   // 语音输入（specs/desktop/voice-input.md）：模型选择/采集设备/语义整理开关与模型。
@@ -591,6 +599,7 @@ export const appSettingsPatchSchema = z.object({
   desktopZoomLevel: desktopZoomLevelSchema.optional(),
   desktopWindowSize: desktopWindowSizeSchema.optional(),
   desktopChromiumHardwareAccelerationEnabled: z.boolean().optional(),
+  desktopChromiumHighPerformanceGpuEnabled: z.boolean().optional(),
   messageStreamShowReasoning: z.boolean().optional(),
   messageStreamShowReasoningMigrationInitialized: z.boolean().optional(),
   messageStreamShowTodos: z.boolean().optional(),
@@ -649,10 +658,11 @@ export const appSettingsPatchSchema = z.object({
   externalCdpConfig: z.string().optional(),
   // 手机远控 live 会话能否使用外部浏览器；undefined=true（默认允许，免迁移）。
   externalCdpRemoteControlEnabled: z.boolean().optional(),
-  // 桌面宠物：开关/当前宠物/窗口位置（specs/desktop/desktop-pet.md）。
+  // 桌面宠物：开关/当前宠物/窗口位置/显示大小（specs/desktop/desktop-pet.md）。
   desktopPetEnabled: z.boolean().optional(),
   desktopPetId: z.string().optional(),
   desktopPetPosition: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
+  desktopPetScale: z.number().min(0.5).max(1.8).optional(),
   // Git worktree 配置；patch 里同样整体可选（写入时全量替换）。
   worktreeConfig: worktreeConfigSchema.optional(),
   // 语音输入（specs/desktop/voice-input.md）：模型选择/采集设备/语义整理开关与模型。

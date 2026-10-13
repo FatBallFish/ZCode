@@ -28,7 +28,27 @@ const CODEX_INJECTED_USER_TEXT_TAG_NAMES = new Set([
   "environment_reminder",
   "permissions_update",
   "user_shell_context",
+  "user_action",
 ]);
+
+/**
+ * 带属性或纯文本形态的注入前缀（2026-10-13 本机 ~/.codex/sessions 全量采样）：
+ * - `# AGENTS.md instructions for …`（AGENTS.md 全文注入）
+ * - `# Files mentioned by the user:` / `# Chrome tabs:`（VS Code/CLI 附加上下文）
+ * - `<codex_internal_context …>` / `<in-app-browser-context …>`（带属性的内部块）
+ * - `# Context from my IDE setup:`（codex_vscode IDE 上下文）
+ */
+const CODEX_INJECTED_USER_TEXT_PREFIX_PATTERNS: RegExp[] = [
+  /^#\s*AGENTS\.md instructions for\b/iu,
+  /^#\s*Files mentioned by the user:/u,
+  /^#\s*Chrome tabs:/u,
+  /^#\s*Context from my IDE setup:/u,
+  /^#\s*PR Review System Prompt/iu,
+  // 「## <文件名>: /绝对路径」：# Files mentioned 的附件续段（按空行切段后无前缀标记）。
+  /^##\s+[^\n]+:\s*\//u,
+  /^<codex_internal_context\b/u,
+  /^<in-app-browser-context\b/u,
+];
 
 function toTimestampMs(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -64,10 +84,28 @@ function isInjectedCodexUserText(text: string): boolean {
   const trimmed = text.trim();
   // SDK 注入内容是单个完整的 <tag>…</tag> 块；用户真实输入不会被整段包裹在这些标签里。
   const match = /^<([a-z_]+)>[\s\S]*<\/([a-z_]+)>$/u.exec(trimmed);
-  if (!match || match[1] !== match[2]) {
-    return false;
+  if (match && match[1] === match[2] && CODEX_INJECTED_USER_TEXT_TAG_NAMES.has(match[1]!)) {
+    return true;
   }
-  return CODEX_INJECTED_USER_TEXT_TAG_NAMES.has(match[1]!);
+  // 修复依据（2026-10-12 用户反馈 + 2026-10-13 本机语料全量采样）：实测 rollout 里
+  // 有大量「纯文本/带属性标签」注入不匹配整段 <tag> 包裹，导致首条可见 user 消息取到
+  // SYSTEM 提示词、会话标题变成其前 50 字。见 CODEX_INJECTED_USER_TEXT_PREFIX_PATTERNS
+  // 注释里的完整清单；另覆盖正文含 <INSTRUCTIONS>…</INSTRUCTIONS> 块的模板注入
+  // （PR Review System Prompt 等，采样中占最多数）。
+  for (const pattern of CODEX_INJECTED_USER_TEXT_PREFIX_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return true;
+    }
+  }
+  // INSTRUCTIONS 模板块：整块（含闭合）或被空行拆分后的首/尾残段都判注入。
+  if (
+    trimmed.startsWith("<INSTRUCTIONS>") ||
+    trimmed.endsWith("</INSTRUCTIONS>") ||
+    (trimmed.includes("<INSTRUCTIONS>") && trimmed.includes("</INSTRUCTIONS>"))
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function extractMessageTexts(payload: Record<string, unknown>): string[] {
@@ -93,17 +131,49 @@ function extractMessageTexts(payload: Record<string, unknown>): string[] {
   return texts;
 }
 
+/** 跨空行段的注入块状态：块内续段（含闭合残段）一律丢弃，闭合后恢复。 */
+const CODEX_INJECTION_BLOCK_OPEN =
+  /^<(INSTRUCTIONS|codex_internal_context|in-app-browser-context)\b/u;
+const CODEX_INJECTION_BLOCK_CLOSE =
+  /<\/(INSTRUCTIONS|codex_internal_context|in-app-browser-context)>/u;
+
 function extractCodexUserText(record: JsonLineRecord): string | null {
   const payload = getResponseItemPayload(record);
   if (!payload || payload.role !== "user") {
     return null;
   }
 
+  // 按空行切段后过滤注入：①整段命中注入形态（标签包裹/已知前缀）直接丢弃；
+  // ②块型注入（<INSTRUCTIONS>、<codex_internal_context …> 等）内部常含空行，被切段后
+  // 续段没有标记——用跨段状态机跟踪块开合，块内续段与闭合残段都丢弃，闭合后恢复。
+  // 注意不能按整条消息判定：Codex 会把注入块与用户真实输入拼在同一条 user 消息里，
+  // 整条丢弃会吞掉真实输入（本机语料实测 376/400 的真实输入与注入同条且在 32 行内）。
   const parts = extractMessageTexts(payload)
     .flatMap((text) => text.split(/\n\s*\n/u))
     .map((part) => part.trim())
-    .filter((part) => part.length > 0 && !isInjectedCodexUserText(part));
-  return parts.length > 0 ? parts.join("\n\n") : null;
+    .filter((part) => part.length > 0);
+
+  const kept: string[] = [];
+  let insideInjectionBlock = false;
+  for (const part of parts) {
+    if (insideInjectionBlock) {
+      if (CODEX_INJECTION_BLOCK_CLOSE.test(part)) {
+        insideInjectionBlock = false;
+      }
+      continue;
+    }
+    if (CODEX_INJECTION_BLOCK_OPEN.test(part)) {
+      if (!CODEX_INJECTION_BLOCK_CLOSE.test(part)) {
+        insideInjectionBlock = true;
+      }
+      continue;
+    }
+    if (isInjectedCodexUserText(part)) {
+      continue;
+    }
+    kept.push(part);
+  }
+  return kept.length > 0 ? kept.join("\n\n") : null;
 }
 
 function extractCodexAssistantText(record: JsonLineRecord): string | null {

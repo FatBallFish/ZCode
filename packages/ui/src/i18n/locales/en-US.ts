@@ -1078,7 +1078,8 @@ const enUS: Record<string, string> = {
   "browser.permission.deviceBluetooth": "Bluetooth devices",
   "browser.permission.unknownCapability": "an unknown capability",
   "browser.permission.screenShareTitle": "{origin} wants to share your screen",
-  "browser.permission.screenShareDescription": "Choose the screen or window to share. This choice applies only to this session.",
+  "browser.permission.screenShareDescription":
+    "Choose the screen or window to share. This choice applies only to this session.",
   "browser.permission.deviceTitle": "{origin} wants to connect a device",
   "browser.permission.connect": "Connect",
   "browser.permission.screenGroup.screen": "Entire Screen",
@@ -2219,6 +2220,7 @@ const enUS: Record<string, string> = {
   "taskList.pinFailed": "Could not update pinned state",
   "taskList.markAsUnread": "Mark as unread",
   "taskList.openInSplitPane": "Open in split view",
+  "workbench.dragOut.newWindowHint": "Release to open this session in a new window",
   "chat.toolCall.agent.openInSidePane": "Open in side pane",
   "v4Pane.splitRight": "Split right",
   "v4Pane.renamePlaceholder": "Rename session…",
@@ -2236,10 +2238,16 @@ const enUS: Record<string, string> = {
   "taskList.feedbackOpened": "Feedback opened with the current task context attached",
   "taskList.resume": "Resume",
   "taskList.untitled": "New task",
+  "taskList.hover.project": "Project",
+  "taskList.hover.location": "Location",
+  "taskList.hover.recent": "Recent",
+  "taskList.hover.changes": "Changes",
   "taskList.justNow": "now",
   "taskList.minutesAgo": "{minutes}m",
   "taskList.hoursAgo": "{hours}h",
   "taskList.daysAgo": "{days}d",
+  "taskList.monthsAgo": "{months}mo",
+  "taskList.yearsAgo": "{years}y",
   "taskList.status.streaming": "Running",
   "taskList.status.restoring": "Restoring",
   "taskList.status.ready": "Ready",
@@ -2561,6 +2569,9 @@ const enUS: Record<string, string> = {
   "settings.pet.enabled.title": "Enable desktop pet",
   "settings.pet.enabled.description":
     "Shows an always-on-top companion on the desktop; it runs along while the assistant works.",
+  "settings.pet.size.title": "Pet size",
+  "settings.pet.size.description":
+    "Drag the slider to resize the pet (50%–180% of the default); applies to every pet globally.",
   "settings.pet.current.title": "Current pet",
   "settings.pet.current.none": "No pet selected yet. Install one first, then enable it here.",
   "settings.pet.manage": "Manage pets",
@@ -2760,6 +2771,9 @@ const enUS: Record<string, string> = {
   "settings.desktopChromiumHardwareAcceleration": "Chrome hardware acceleration",
   "settings.desktopChromiumHardwareAccelerationDescription":
     "Turn this off to work around blank windows, crashes, or rendering issues caused by some GPUs or drivers. Restart the app to take effect.",
+  "settings.desktopChromiumHighPerformanceGpu": "Prefer high-performance GPU",
+  "settings.desktopChromiumHighPerformanceGpuDescription":
+    "On dual-GPU laptops, prefer the discrete GPU (NVIDIA/AMD). The NVIDIA control panel often fails to apply per-app settings on these machines — use this switch instead. Restart the app to take effect.",
   "settings.desktopChromiumHardwareAccelerationSavedHint":
     "Chrome hardware acceleration setting saved. Restart the app to take effect.",
   "settings.receivePreviewUpdates": "Receive preview updates early",
@@ -2898,6 +2912,8 @@ const enUS: Record<string, string> = {
   "settings.migration.range.all": "All time",
   "settings.migration.limitLabel": "Max results",
   "settings.migration.limitHint": "This scan will return up to {max} sessions.",
+  "settings.migration.limitUnlimited": "Unlimited (scan all)",
+  "settings.migration.limitUnlimitedHint": "No scan limit; all matching sessions will be returned.",
   "settings.migration.scan": "Scan sessions",
   "settings.migration.scanFailedTitle": "Scan failed",
   "settings.migration.scanFailedDescription": "Failed to read Claude native history: {error}",

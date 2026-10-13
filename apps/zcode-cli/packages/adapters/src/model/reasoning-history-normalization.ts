@@ -31,12 +31,24 @@ const REASONING_PROVIDER_GROUPS: readonly (readonly string[])[] = [
 export function normalizeReasoningHistory(
   messages: ModelInputMessage[],
   targetModel?: { modelId: ModelId; providerId: ModelProviderId },
+  options?: { stripAllReasoning?: boolean },
 ): ModelInputMessage[] {
-  const compatibleHistory = removeCrossModelReasoning(messages, targetModel);
+  // stripAllReasoning：非 anthropic 目标使用。openai-responses 恒 store:false（无状态），
+  // reasoning 块本就无法经 itemId 回放；openai-compatible chat 亦不接受 reasoning part。
+  // 异构 reasoning（GLM 思考块 / anthropic thinking+signature / openai 加密块）原样进入
+  // 请求体时，上游最温和的行为也是"忽略不认识的 item → 200 空 completion"，曾表现为
+  // 「GLM/Claude 会话切到 ChatGPT 账号模型后秒回空输出」。
+  const compatibleHistory = options?.stripAllReasoning
+    ? removeAllReasoningBlocks(messages)
+    : removeCrossModelReasoning(messages, targetModel);
   const withoutOrphans = removeReasoningOnlyAssistants(compatibleHistory);
   const withoutTrailingReasoning = removeTrailingReasoning(withoutOrphans);
   const withoutWhitespaceOnlyAssistants = removeWhitespaceOnlyAssistants(withoutTrailingReasoning);
   return repairEmptyAssistantContent(withoutWhitespaceOnlyAssistants);
+}
+
+function removeAllReasoningBlocks(messages: ModelInputMessage[]): ModelInputMessage[] {
+  return filterReasoningBlocks(messages, () => true);
 }
 
 export function removeRejectedReasoning(messages: ModelInputMessage[]): ModelInputMessage[] {

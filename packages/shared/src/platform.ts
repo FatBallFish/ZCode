@@ -223,7 +223,11 @@ export type BrowserGuestAttachRejectReason =
 /** Renderer 上报 guest 后 main 返回的绑定结果；拒绝不能再被伪装成无返回的 ready timeout。 */
 export type BrowserGuestAttachResult =
   | { ok: true; guestGeneration: number }
-  | { ok: false; reason: BrowserGuestAttachRejectReason; recoveryRequested: boolean };
+  | {
+      ok: false;
+      reason: BrowserGuestAttachRejectReason;
+      recoveryRequested: boolean;
+    };
 
 /** 已安装的编辑器/终端信息 */
 export interface EditorInfo {
@@ -693,7 +697,10 @@ export interface IPlatformService {
   /** 麦克风权限：not-determined 时弹系统授权框后返回最终状态。 */
   voiceEnsureMicPermission?(): Promise<VoiceMicPermissionResult>;
   /** 麦克风权限：打开系统设置的麦克风隐私面板（未授权引导）；darwin 补请求后返回最终状态。 */
-  voiceOpenMicPermissionSettings?(): Promise<{ ok: boolean; status?: VoiceMicPermissionStatus }>;
+  voiceOpenMicPermissionSettings?(): Promise<{
+    ok: boolean;
+    status?: VoiceMicPermissionStatus;
+  }>;
   onVoiceStateChanged?(handler: (snapshot: VoiceStateSnapshot) => void): () => void;
   onVoiceSessionEvent?(
     handler: (payload: { sessionId: string; event: VoiceSessionEvent }) => void,
@@ -1162,6 +1169,17 @@ export interface IPlatformService {
   /** 清理内置浏览器持久化分区；cache 模式保留认证数据，all 模式清理全部站点数据。 */
   clearEmbeddedBrowserData?(mode: "cache" | "all"): Promise<EmbeddedBrowserDataClearResult>;
 
+  /**
+   * 把会话在独立的新主窗口打开（specs/desktop/session-drag-out-window.md）。
+   * 仅 Desktop 实现；本地 workspace 限定（远程会话由 main 拒绝）。原窗口列表保留该会话，
+   * 两窗口可同时打开同一会话。
+   */
+  openSessionInNewWindow?(payload: {
+    workspacePath: string;
+    workspaceIdentity?: string;
+    sessionId: string;
+  }): Promise<{ ok: true } | { ok: false; error: string }>;
+
   /** 桌面宠物：列出已安装宠物（含与远端 manifest 的更新比对）。 */
   petListInstalled?(): Promise<import("./pets.js").InstalledPetInfo[]>;
   /** 桌面宠物：获取市场目录。 */
@@ -1194,9 +1212,7 @@ export interface IPlatformService {
    * 注册导出日志进度回调（Main 发起的应用菜单栏导出入口没有 renderer 参与，
    * 由 Main 统一广播开始/成功/失败，Root 挂 toast）。可选：Web 端无此通道。
    */
-  onExportLogsProgress?(
-    callback: (payload: ExportLogsProgressPayload) => void,
-  ): () => void;
+  onExportLogsProgress?(callback: (payload: ExportLogsProgressPayload) => void): () => void;
 
   /** 注册自动更新持续状态变化的回调，返回 disposer */
   onUpdateStateChanged?(callback: (payload: UpdateStatePayload) => void): () => void;

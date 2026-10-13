@@ -14,11 +14,11 @@ import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useVoiceInputStore } from "@/voice/voiceInputStore.js";
 
 const WAVE_BARS = 24;
-/** 音条动画参数按 index 推导（确定性：同一渲染会话内不闪烁跳变）。 */
-function waveBarMotion(index: number) {
-  const duration = 0.62 + ((index * 37) % 11) / 22;
-  const delay = ((index * 53) % 17) / 34;
-  return { duration, delay };
+/** 静音判定阈值（RMS）：低于该值视为无声，音条回落到贴底静止、无波纹。 */
+const WAVE_SILENCE_LEVEL = 0.015;
+/** 音条静态高度（index 推导，确定性：同一渲染会话内不闪烁跳变）。 */
+function waveBarHeightPercent(index: number): number {
+  return 22 + ((index * 29) % 9) * 7;
 }
 
 export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
@@ -34,6 +34,44 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
 
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const prefersReducedMotion = useReducedMotion();
+  const waveBarsRef = useRef<Array<HTMLSpanElement | null>>([]);
+
+  // 真实音量驱动的音浪：worklet 每 100ms 帧附带 RMS 写入 store，rAF 读取做
+  // attack/decay 包络 + 相位交错的摆动；无声（低于阈值）回落贴底静止、无波纹。
+  // 直接操作 DOM 避免 60Hz setState 重渲整卡。
+  useEffect(() => {
+    const resetBars = () => {
+      for (const bar of waveBarsRef.current) {
+        if (bar) bar.style.transform = "scaleY(0.35)";
+      }
+    };
+    if (phase !== "listening" || prefersReducedMotion) {
+      resetBars();
+      return;
+    }
+    let envelope = 0;
+    let raf = 0;
+    const loop = () => {
+      const target = Math.min(1, useVoiceInputStore.getState().audioLevel);
+      envelope += (target - envelope) * (target > envelope ? 0.55 : 0.12);
+      const speaking = envelope > WAVE_SILENCE_LEVEL;
+      const now = performance.now();
+      const bars = waveBarsRef.current;
+      for (let index = 0; index < bars.length; index++) {
+        const bar = bars[index];
+        if (!bar) continue;
+        const sway = speaking ? 0.5 + 0.5 * Math.sin(now / 130 + index * 0.85) : 0;
+        const scale = speaking ? 0.18 + envelope * 0.82 * (0.55 + 0.45 * sway) : 0.1;
+        bar.style.transform = `scaleY(${Math.min(1, scale).toFixed(3)})`;
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(raf);
+      resetBars();
+    };
+  }, [phase, prefersReducedMotion]);
 
   // 转录文本自动滚动到底部。
   useEffect(() => {
@@ -95,7 +133,9 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
         { file: downloadProgress.activeFile, percent },
       );
     } else if (engineLoading) {
-      statusText = intl.formatMessage({ id: "voice.overlay.status.engineLoading" });
+      statusText = intl.formatMessage({
+        id: "voice.overlay.status.engineLoading",
+      });
     } else {
       statusText = intl.formatMessage({ id: "voice.overlay.status.preparing" });
     }
@@ -182,36 +222,29 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
               </Button>
             </div>
 
-            {/* 监听波浪：仅 listening 阶段起伏；reduced motion 退化为静态音条。 */}
+            {/* 监听音浪：真实 RMS 电平驱动（无声无波纹）；reduced motion 退化为静态音条。 */}
             <div className="mt-2 flex h-8 items-center justify-center gap-[3px]" aria-hidden>
-              {Array.from({ length: WAVE_BARS }, (_, index) => {
-                const { duration, delay } = waveBarMotion(index);
-                const heightPercent = 22 + ((index * 29) % 9) * 7;
-                return prefersReducedMotion ? (
+              {Array.from({ length: WAVE_BARS }, (_, index) =>
+                prefersReducedMotion ? (
                   <span
                     key={index}
                     className="w-[3px] rounded-full bg-brand/50"
-                    style={{ height: `${heightPercent}%` }}
+                    style={{ height: `${waveBarHeightPercent(index)}%` }}
                   />
                 ) : (
-                  <motion.span
+                  <span
                     key={index}
-                    className="w-[3px] rounded-full bg-brand/60"
-                    initial={{ scaleY: 0.4 }}
-                    animate={
-                      phase === "listening"
-                        ? { scaleY: [0.35, 1, 0.45, 0.8, 0.35] }
-                        : { scaleY: 0.35 }
-                    }
-                    transition={
-                      phase === "listening"
-                        ? { duration, delay, repeat: Infinity, ease: "easeInOut" }
-                        : { duration: 0.2 }
-                    }
-                    style={{ height: `${heightPercent}%` }}
+                    ref={(node) => {
+                      waveBarsRef.current[index] = node;
+                    }}
+                    className="w-[3px] origin-center rounded-full bg-brand/60"
+                    style={{
+                      height: `${waveBarHeightPercent(index)}%`,
+                      transform: "scaleY(0.35)",
+                    }}
                   />
-                );
-              })}
+                ),
+              )}
             </div>
 
             {(phase === "listening" || phase === "finishing") && partialText.length > 0 ? (

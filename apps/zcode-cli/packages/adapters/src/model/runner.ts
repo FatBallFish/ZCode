@@ -392,14 +392,18 @@ function projectRequestHistory(
   request: AiSdkModelTextRequest,
   resolved: ResolvedAiSdkModel,
 ): AiSdkModelTextRequest {
-  if (resolved.providerKind !== "anthropic") return request;
-
   // 结构归一化过去位于每次物理请求都会经过的 serializer，签名修复重试
   // 因而会再次删除上一轮刚补出的 assistant 占位并合并 user。逻辑请求入口只投影一次，
   // 后续 attempt 只能复用或从这份 request-local history 派生。
-  const messages = normalizeReasoningHistory(request.messages, {
-    providerId: resolved.providerId,
-    modelId: resolved.modelId,
-  });
+  const messages =
+    resolved.providerKind === "anthropic"
+      ? normalizeReasoningHistory(request.messages, {
+          providerId: resolved.providerId,
+          modelId: resolved.modelId,
+        })
+      : // 非 anthropic 目标（openai-responses / openai-compatible chat）剥离全部 reasoning：
+        // 无状态回放下 reasoning 无法复用，异构 reasoning 会让上游忽略 item 产出空 completion
+        // （实测：GLM/Claude 会话切 ChatGPT 账号模型秒回空输出，见 normalizeReasoningHistory 注释）。
+        normalizeReasoningHistory(request.messages, undefined, { stripAllReasoning: true });
   return messages === request.messages ? request : { ...request, messages };
 }

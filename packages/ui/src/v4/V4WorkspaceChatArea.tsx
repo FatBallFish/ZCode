@@ -557,7 +557,14 @@ export function V4WorkspaceChatArea({
   );
 
   return (
-    <div ref={containerRef} style={containerStyle} className="relative h-full min-h-0 w-full">
+    <div
+      ref={containerRef}
+      style={containerStyle}
+      className="relative h-full min-h-0 w-full"
+      // 会话拖出侧栏 → 新窗口的区域判定锚点（workbenchWindowDragOut.ts 按此区分
+      // 「落在会话展示页（分屏/无效果）」与「落到页面外（新建窗口）」）。
+      data-workbench-display-root="true"
+    >
       {layout.leaves.map((leaf) => (
         <WorkbenchLeafPane
           key={leaf.paneId}

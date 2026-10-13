@@ -169,6 +169,7 @@ export function SettingsRangeControl({
   onChange,
   valueLabel,
   valueLabelClassName,
+  ariaLabel,
 }: {
   value: number;
   min: number;
@@ -177,6 +178,7 @@ export function SettingsRangeControl({
   onChange: (value: number) => void;
   valueLabel: ReactNode;
   valueLabelClassName?: string;
+  ariaLabel?: string;
 }) {
   return (
     <div className="flex w-[280px] min-w-0 items-center gap-3">
@@ -186,6 +188,7 @@ export function SettingsRangeControl({
         max={max}
         step={step}
         value={value}
+        aria-label={ariaLabel}
         onChange={(event) => onChange(Number(event.currentTarget.value))}
         className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
       />

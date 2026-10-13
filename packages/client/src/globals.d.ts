@@ -427,6 +427,12 @@ declare global {
       ): Promise<{ success: boolean; error?: string }>;
       /** 执行桌面窗口级命令 */
       executeDesktopCommand(command: DesktopCommandId): Promise<void>;
+      /** 把会话在独立新主窗口打开（拖出侧栏释放；本地 workspace 限定）。 */
+      openSessionInNewWindow?(payload: {
+        workspacePath: string;
+        workspaceIdentity?: string;
+        sessionId: string;
+      }): Promise<{ ok: true } | { ok: false; error: string }>;
       /** 同步应用菜单语言 */
       setApplicationLocale(locale: Locale): Promise<void>;
       /** 读取宿主系统语言 */

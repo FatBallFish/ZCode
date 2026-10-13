@@ -21,9 +21,15 @@ export interface VoiceInputState {
   /** 累计识别文本（浮窗实时展示）。 */
   partialText: string;
   /** preparing 阶段的模型下载进度（首次使用时引擎会先下载模型）。 */
-  downloadProgress: { receivedBytes: number; totalBytes: number; activeFile: string } | null;
+  downloadProgress: {
+    receivedBytes: number;
+    totalBytes: number;
+    activeFile: string;
+  } | null;
   engineLoading: boolean;
   finishingStage: "transcribing" | "cleanup" | null;
+  /** 当前 100ms 帧的 RMS 电平（0–1，worklet 计算）；驱动浮窗音浪动画。 */
+  audioLevel: number;
   error: VoiceInputErrorState | null;
   toggle: () => void;
   cancel: () => void;
@@ -49,6 +55,7 @@ export const useVoiceInputStore = create<VoiceInputState>((set) => ({
   downloadProgress: null,
   engineLoading: false,
   finishingStage: null,
+  audioLevel: 0,
   error: null,
   toggle: () => controller?.toggle(),
   cancel: () => controller?.cancel(),

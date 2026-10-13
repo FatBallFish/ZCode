@@ -29,10 +29,7 @@ import type {
   PluginSandboxRegisterRequestPayload,
   PluginSandboxRegisterResultPayload,
 } from "@zcode/shared/mcp-apps";
-import type {
-  UtilityProcess as ElectronUtilityProcess,
-  MessagePortMain,
-} from "electron";
+import type { UtilityProcess as ElectronUtilityProcess, MessagePortMain } from "electron";
 import {
   app,
   BrowserWindow,
@@ -42,10 +39,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { getMainLaunchPartialMarks } from "./desktopLaunchMarks.js";
-import {
-  buildExternalCdpEnvPatch,
-  type ExternalCdpRuntimeConfig,
-} from "./externalCdpSettings.js";
+import { buildExternalCdpEnvPatch, type ExternalCdpRuntimeConfig } from "./externalCdpSettings.js";
 import { BroadcastHub } from "./broadcastHub.js";
 import { bindDatabaseStartupRelay } from "./databaseStartupRelay.js";
 import { ingestHostNetworkObservations } from "./desktopNetworkTelemetry.js";
@@ -73,8 +67,11 @@ export interface WindowBootstrapOptions {
   restoreSession?: boolean;
   supportsSettings?: boolean;
   initialWorkspacePath?: string;
+  initialWorkspaceIdentity?: string;
   initialWorkspacePurpose?: WorkspacePurpose;
   unavailableWorkspacePath?: string;
+  /** 启动后直接定位到的会话（拖出新建窗口）。 */
+  initialTaskId?: string;
   windowKind?: "main" | "update-status";
   locale?: string;
 }
@@ -132,7 +129,9 @@ export function loadWindow(
       supportsSettings:
         bootstrap?.supportsSettings == null ? undefined : String(bootstrap.supportsSettings),
       initialWorkspacePath: bootstrap?.initialWorkspacePath,
+      initialWorkspaceIdentity: bootstrap?.initialWorkspaceIdentity,
       initialWorkspacePurpose: bootstrap?.initialWorkspacePurpose,
+      initialTaskId: bootstrap?.initialTaskId,
       unavailableWorkspacePath: bootstrap?.unavailableWorkspacePath,
       windowKind: bootstrap?.windowKind,
       locale: bootstrap?.locale,
@@ -437,7 +436,10 @@ export function spawnHostProcess(
       const request = result.data;
       const register = dependencies.registerPluginSandbox;
       const reply = (payload: PluginSandboxRegisterResultPayload) =>
-        child.postMessage({ type: HostMessageTypes.PluginSandboxRegisterResult, ...payload });
+        child.postMessage({
+          type: HostMessageTypes.PluginSandboxRegisterResult,
+          ...payload,
+        });
       if (!register || win.isDestroyed() || request.ownerWebContentsId !== win.webContents.id) {
         reply({
           requestId: request.requestId,
@@ -827,7 +829,10 @@ export function spawnHostProcess(
     // Host exit 是 fail-hidden 权威边界；不能依赖即将退出的 Host 再补发 inactive。
     dependencies.onCuaOperationStateSourceExited?.(child);
     // 宠物会话摘要同理：host 退出必须立刻清掉它贡献的行，否则气泡残留幽灵会话。
-    dependencies.onPetSessionSummaries?.(child, { summaries: [], overflowCount: 0 });
+    dependencies.onPetSessionSummaries?.(child, {
+      summaries: [],
+      overflowCount: 0,
+    });
     hostLogRelay.flushRawLogs();
     dependencies.logger.info(`[spawnHostProcess] host process (${label}) exited with code ${code}`);
     dependencies.hostRunningTaskCountMap.delete(child);

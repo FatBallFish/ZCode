@@ -8,7 +8,7 @@ import { invalidateTaskQueryCacheByScopes } from "@/store/taskQueryCacheStore.js
 export type ClaudeMigrationRange = "all" | "7d" | "30d" | "90d";
 type ClaudeMigrationWorkspaceFilterMode = "all" | "current";
 
-const DEFAULT_LIMIT = 100;
+export const DEFAULT_LIMIT = 100;
 const MAX_SCAN_LIMIT = 500;
 export const UNLIMITED_SCAN_LIMIT_INPUT = "unlimited";
 
@@ -74,8 +74,7 @@ export function useClaudeSessionMigration(params: {
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
   const [scanError, setScanError] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const [lastImportResult, setLastImportResult] =
-    useState<ZCodeImportSessionsResult | null>(null);
+  const [lastImportResult, setLastImportResult] = useState<ZCodeImportSessionsResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   // importSessions 的入参 sessionId 来自扫描时的候选；导入时按 provider 拆分调用，
@@ -89,14 +88,12 @@ export function useClaudeSessionMigration(params: {
   );
 
   const effectiveWorkspacePath = useMemo(
-    () => (workspaceFilterMode === "current" ? params.workspacePath ?? undefined : undefined),
+    () => (workspaceFilterMode === "current" ? (params.workspacePath ?? undefined) : undefined),
     [workspaceFilterMode, params.workspacePath],
   );
   const effectiveWorkspaceIdentity = useMemo(
     () =>
-      workspaceFilterMode === "current"
-        ? params.workspaceIdentity?.trim() || undefined
-        : undefined,
+      workspaceFilterMode === "current" ? params.workspaceIdentity?.trim() || undefined : undefined,
     [params.workspaceIdentity, workspaceFilterMode],
   );
 
@@ -115,10 +112,7 @@ export function useClaudeSessionMigration(params: {
     };
   }, [params.isDesktop]);
 
-  const scanLimit = useMemo(
-    () => resolveClaudeMigrationScanLimit(limitInput),
-    [limitInput],
-  );
+  const scanLimit = useMemo(() => resolveClaudeMigrationScanLimit(limitInput), [limitInput]);
 
   const setWorkspaceFilterMode = useCallback(
     (mode: ClaudeMigrationWorkspaceFilterMode) => {
@@ -159,9 +153,7 @@ export function useClaudeSessionMigration(params: {
       );
       const scanParams = {
         workspacePath: effectiveWorkspacePath,
-        ...(effectiveWorkspaceIdentity
-          ? { workspaceIdentity: effectiveWorkspaceIdentity }
-          : {}),
+        ...(effectiveWorkspaceIdentity ? { workspaceIdentity: effectiveWorkspaceIdentity } : {}),
         modifiedSince: resolveModifiedSince(range),
         ...(scanLimit === undefined ? {} : { limit: scanLimit }),
       };
@@ -207,13 +199,14 @@ export function useClaudeSessionMigration(params: {
     supportState.supported,
   ]);
 
-  const importSessions = useCallback(async (sessionIds: string[]) => {
-    if (!supportState.supported || sessionIds.length === 0) {
-      return null;
-    }
+  const importSessions = useCallback(
+    async (sessionIds: string[]) => {
+      if (!supportState.supported || sessionIds.length === 0) {
+        return null;
+      }
 
-    setIsImporting(true);
-    setImportError(null);
+      setIsImporting(true);
+      setImportError(null);
 
       try {
         logger.info(
@@ -241,7 +234,10 @@ export function useClaudeSessionMigration(params: {
               })
             : Promise.resolve(null),
           codexSessionIds.length > 0
-            ? zcodeTaskService.importCodexSessions({ ...importParams, sessionIds: codexSessionIds })
+            ? zcodeTaskService.importCodexSessions({
+                ...importParams,
+                sessionIds: codexSessionIds,
+              })
             : Promise.resolve(null),
         ]);
         const partialResult: ZCodeImportSessionsResult = {
@@ -302,13 +298,15 @@ export function useClaudeSessionMigration(params: {
       } finally {
         setIsImporting(false);
       }
-  }, [
-    zcodeTaskService,
-    effectiveWorkspaceIdentity,
-    effectiveWorkspacePath,
-    supportState.supported,
-    tabStoreApi,
-  ]);
+    },
+    [
+      zcodeTaskService,
+      effectiveWorkspaceIdentity,
+      effectiveWorkspacePath,
+      supportState.supported,
+      tabStoreApi,
+    ],
+  );
 
   const importSelectedSessions = useCallback(async () => {
     return importSessions(selectedSessionIds);

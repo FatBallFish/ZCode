@@ -31,6 +31,8 @@ import type { TestActions } from "@/test-actions.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 import { useVoiceInputController } from "@/voice/useVoiceInputController.js";
 import { VoiceInputOverlay } from "@/voice/VoiceInputOverlay.js";
+import { SessionDragOutIndicator } from "@/v4/SessionDragOutIndicator.js";
+import { bindSessionWindowOpener } from "@/v4/workbenchWindowDragOut.js";
 import { useVoiceInputStore } from "@/voice/voiceInputStore.js";
 import type { TaskFindDialogProps } from "@/quickpick/TaskFindDialog.js";
 import {
@@ -410,7 +412,32 @@ export function App({
     if (!activeTab || !isWorkspaceTab(activeTab) || activeTab.remoteSessionId) return null;
     return { workspacePath: activeTab.workspacePath };
   }, [activeTabId, tabs]);
-  useVoiceInputController({ resolveActiveWorkspace: () => voiceWorkspaceRef.current });
+  useVoiceInputController({
+    resolveActiveWorkspace: () => voiceWorkspaceRef.current,
+  });
+
+  // 会话拖出侧栏 → 新窗口打开（specs/desktop/session-drag-out-window.md）：
+  // 只有桌面端 platform 提供 openSessionInNewWindow；Web/手机远控不绑定即整体禁用。
+  useEffect(() => {
+    const openInNewWindow = platform.openSessionInNewWindow;
+    if (!openInNewWindow) {
+      bindSessionWindowOpener(null);
+      return;
+    }
+    bindSessionWindowOpener(async (payload) => {
+      const result = await openInNewWindow({
+        workspacePath: payload.workspacePath,
+        ...(payload.workspaceIdentity ? { workspaceIdentity: payload.workspaceIdentity } : {}),
+        sessionId: payload.sessionId,
+      });
+      if (!result.ok) {
+        logger.warn("open session in new window rejected", {
+          error: result.error,
+        });
+      }
+    });
+    return () => bindSessionWindowOpener(null);
+  }, [platform]);
 
   const {
     resolvedActiveTaskMeta,
@@ -1222,8 +1249,10 @@ export function App({
       {/* Bugfix: 反馈是应用级能力，必须固定走本机 base host；SSH session 连接中或断开时，
           workspace-scoped services 会切成断连代理，不能让反馈提交跟随远程 session 失效。 */}
       <FeedbackHost feedbackService={baseFeedbackService} platform={platform} />
-        {/* 语音输入浮窗（fixed 定位、聚焦 composer 上方；App 级单例） */}
-        <VoiceInputOverlay />
+      {/* 语音输入浮窗（fixed 定位、聚焦 composer 上方；App 级单例） */}
+      <VoiceInputOverlay />
+      {/* 会话拖出侧栏 → 新窗口的引导 chip（App 级单例，见 workbenchWindowDragOut.ts） */}
+      <SessionDragOutIndicator />
       <PluginUiWorkspaceProvider onOpenSidePane={handleOpenPluginUi}>
         <WorkspaceShellLayout
           services={services}

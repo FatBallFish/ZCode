@@ -112,6 +112,8 @@ finishing = transcribing(必经,ms~s 级) → [cleanup(可选,≤60s)] → inser
 
 - `preparing` 包含：确保模型已下载（含进度）→ main 引擎加载 → renderer 麦克风授权。任一步失败回 idle 并以浮窗错误条/按钮 tooltip 展示原因（权限拒绝、下载失败、引擎加载失败）。
 - main 侧 `VoiceService.startSession` 在引擎未加载时自动 ensure（含下载）；renderer preparing 阶段监听 `VoiceStateChanged`/`VoiceSessionEvent` 渲染进度。
+- **尾帧冲刷（2026-10-12）**：worklet 按 100ms 整帧输出，停止录音时重采样累加器里 <100ms 的尾部语音若直接停麦会被丢弃（用户反馈「最后半句没识别就返回」）。`finish()` 先向 worklet 发 `{type:"flush"}`（补发剩余样本为一帧，先于 `flushed` 应答发出），等应答（150ms 超时兜底）+ 一个宏任务后再 stopMic 并 invoke `VoiceFinishSession`——worker 先收齐全部音频再收到 finish，尾部识别完整后才回 final；期间浮窗保持 finishing 态。`cancel()` 不冲刷（丢弃语义）。
+- **音浪电平（2026-10-12）**：worklet 每帧计算 RMS 随 `{type:"frame", frame, rms}` 一并回传；controller 写入 `voiceInputStore.audioLevel`（仅渲染态）。浮窗音浪 rAF 读取做 attack/decay 包络 + 相位交错摆动；低于阈值（0.015）视为无声，音条回落贴底静止（无波纹）；`prefers-reduced-motion` 退化为静态音条。
 
 ### 事件顺序（一次完整录音）
 

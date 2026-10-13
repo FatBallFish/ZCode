@@ -82,6 +82,11 @@ class CodexNativeSessionImportRepo {
       for (const entry of entries) {
         const entryPath = join(rootDir, entry.name);
         if (entry.isDirectory()) {
+          // Codex 归档线程的 rollout 会被移入 archived_sessions/（新版）；
+          // 个别版本归档文件仍留在 sessions 树内，也按目录名显式排除——归档历史不进候选。
+          if (entry.name === "archived_sessions") {
+            continue;
+          }
           files.push(...(await this.collectJsonlFiles(entryPath)));
           continue;
         }

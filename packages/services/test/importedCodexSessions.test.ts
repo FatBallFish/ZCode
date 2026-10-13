@@ -11,6 +11,7 @@ import {
   parseCodexNativeSessionFile,
 } from "../src/session/codex-native/codexNativeSessionParser.js";
 import { buildImportedCodexTaskFile } from "../src/session/codex-native/buildImportedCodexTaskFile.js";
+import { buildImportedCodexTaskId } from "../src/session/codex-native/buildImportedCodexTaskFile.js";
 import { importCodexNativeSessions } from "../src/session/codex-native/codexNativeSessionImportService.js";
 import { TaskIndexRepo } from "../src/session/taskIndexRepo.js";
 import type { JsonLineRecord } from "../src/session/claude-native/jsonLineRecord.js";
@@ -41,7 +42,10 @@ function buildRolloutLines(params: {
         type: "message",
         role: "user",
         content: [
-          { type: "input_text", text: "<environment_context>mode=test</environment_context>" },
+          {
+            type: "input_text",
+            text: "<environment_context>mode=test</environment_context>",
+          },
         ],
       },
     },
@@ -99,7 +103,12 @@ function buildRolloutLines(params: {
         payload: {
           type: "message",
           role: "assistant",
-          content: [{ type: "output_text", text: params.secondAssistantText ?? "第二条回复" }],
+          content: [
+            {
+              type: "output_text",
+              text: params.secondAssistantText ?? "第二条回复",
+            },
+          ],
         },
       },
     );
@@ -117,6 +126,61 @@ test("codex head info extracts workspace and filters injected user text", async 
   assert.equal(headInfo.workspacePath, "/tmp/demo-project");
   assert.equal(headInfo.previewTitle, "帮我看下构建失败的原因");
   assert.equal(headInfo.createdAt, Date.parse("2026-10-01T10:00:02.000Z"));
+});
+
+test("codex head info filters plain-text injected instructions (AGENTS.md / INSTRUCTIONS)", async () => {
+  // 2026-10-12 用户反馈：实测 rollout 首条可见 user 消息常是「# AGENTS.md instructions…」
+  // 或携带 <INSTRUCTIONS> 块的模板注入，旧过滤只认整段 <tag> 包裹，标题取成了 SYSTEM 提示词前 50 字。
+  const records: JsonLineRecord[] = [
+    {
+      timestamp: "2026-10-01T10:00:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: "x",
+        timestamp: "2026-10-01T10:00:00.000Z",
+        cwd: "/tmp/demo",
+      },
+    },
+    {
+      timestamp: "2026-10-01T10:00:01.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: "# AGENTS.md instructions for /tmp/demo\nall project rules here",
+          },
+        ],
+      },
+    },
+    {
+      timestamp: "2026-10-01T10:00:02.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: "# PR Review System Prompt (v4.1)\n<INSTRUCTIONS>review rules</INSTRUCTIONS>",
+          },
+        ],
+      },
+    },
+    {
+      timestamp: "2026-10-01T10:00:03.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: "真正的用户输入" }],
+      },
+    },
+  ];
+  const headInfo = extractCodexNativeSessionHeadInfo(records);
+  assert.equal(headInfo.previewTitle, "真正的用户输入");
 });
 
 test("codex parser aggregates turns and drops non-visible records", async () => {
@@ -166,7 +230,9 @@ test("codex repo scans CODEX_HOME and imports via codex pipeline", async (t) => 
   await mkdir(isolatedHome, { recursive: true });
   const codexHome = join(dataDir, "codex-home");
   const projectDir = join(dataDir, "demo-project");
-  await mkdir(join(codexHome, "sessions", "2026", "10", "01"), { recursive: true });
+  await mkdir(join(codexHome, "sessions", "2026", "10", "01"), {
+    recursive: true,
+  });
   await mkdir(projectDir, { recursive: true });
   const sessionId = "rollout-2026-10-01T10-00-00-9b7b1a0e-1111";
   const emptySessionId = "rollout-2026-10-02T00-00-00-empty";
@@ -183,6 +249,19 @@ test("codex repo scans CODEX_HOME and imports via codex pipeline", async (t) => 
   await writeFile(
     join(codexHome, "sessions", "2026", "10", "01", `${emptySessionId}.jsonl`),
     `${JSON.stringify({ timestamp: "2026-10-02T00:00:00.000Z", type: "session_meta", payload: { id: "empty", cwd: projectDir } })}\n`,
+  );
+  // 归档线程：Codex 归档后 rollout 被移入 archived_sessions/，扫描必须显式排除。
+  const archivedSessionId = "rollout-2026-09-01T00-00-00-archived";
+  await mkdir(join(codexHome, "sessions", "archived_sessions"), {
+    recursive: true,
+  });
+  await writeFile(
+    join(codexHome, "sessions", "archived_sessions", `${archivedSessionId}.jsonl`),
+    `${buildRolloutLines({
+      cwd: projectDir,
+      userText: "归档的会话",
+      assistantText: "不应被扫描到。",
+    }).join("\n")}\n`,
   );
   const previousCodexHome = process.env.CODEX_HOME;
   const previousHome = process.env.HOME;
@@ -206,6 +285,7 @@ test("codex repo scans CODEX_HOME and imports via codex pipeline", async (t) => 
   assert.ok(candidates.every((candidate) => candidate.provider === "codex"));
   assert.ok(candidates.some((candidate) => candidate.sessionId === sessionId));
   assert.ok(candidates.every((candidate) => candidate.workspacePath === projectDir));
+  assert.ok(!candidates.some((candidate) => candidate.sessionId === archivedSessionId));
 
   const workspaceFiltered = await codexNativeSessionImportRepo.scanImportableSessions({
     workspacePath: "/definitely/not/here",
@@ -257,5 +337,97 @@ test("codex repo scans CODEX_HOME and imports via codex pipeline", async (t) => 
   assert.equal(taskFile.meta.migrationSource, "codex");
   assert.equal(taskFile.meta.title, "导入我");
 
-  await rm(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  await rm(dataDir, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 100,
+  });
+});
+
+test("codex import skips sessions continued in app and repairs stale ones", async (t) => {
+  const dataDir = await mkdtemp(join(tmpdir(), "zcode-codex-idempotent-"));
+  setDataBaseDir(dataDir);
+  const isolatedHome = join(dataDir, "isolated-home");
+  await mkdir(isolatedHome, { recursive: true });
+  const codexHome = join(dataDir, "codex-home");
+  const projectDir = join(dataDir, "demo-project");
+  await mkdir(join(codexHome, "sessions"), { recursive: true });
+  await mkdir(projectDir, { recursive: true });
+
+  const continuedId = "rollout-continued";
+  const staleId = "rollout-stale";
+  for (const id of [continuedId, staleId]) {
+    await writeFile(
+      join(codexHome, "sessions", `${id}.jsonl`),
+      `${buildRolloutLines({
+        cwd: projectDir,
+        userText: `${id} 的提问`,
+        assistantText: "回复。",
+      }).join("\n")}\n`,
+    );
+  }
+
+  const previousCodexHome = process.env.CODEX_HOME;
+  const previousHome = process.env.HOME;
+  process.env.CODEX_HOME = codexHome;
+  process.env.HOME = isolatedHome;
+  t.after(() => {
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = previousCodexHome;
+    }
+    if (previousHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = previousHome;
+    }
+  });
+
+  const taskIndexRepo = new TaskIndexRepo(join(dataDir, "tasks.sqlite"));
+  t.after(() => {
+    taskIndexRepo.close();
+  });
+
+  const now = Date.now();
+  const continuedTaskId = buildImportedCodexTaskId(projectDir, continuedId);
+  const staleTaskId = buildImportedCodexTaskId(projectDir, staleId);
+  // 已延续：任务 meta.updatedAt 远晚于源 rollout mtime（文件刚写入，mtime≈now）。
+  const continuedMeta = {
+    taskId: continuedTaskId,
+    updatedAt: now + 24 * 60 * 60 * 1000,
+    workspacePath: projectDir,
+  } as unknown as ZCodeTaskMeta;
+  // 未延续（只导入过）：updatedAt 与源文件同代，重导入 = 自动修复路径。
+  const staleMeta = {
+    taskId: staleTaskId,
+    updatedAt: now,
+    workspacePath: projectDir,
+  } as unknown as ZCodeTaskMeta;
+
+  const result = await importCodexNativeSessions({
+    taskIndexRepo,
+    sessionIds: [continuedId, staleId],
+    createImportedSession: async (source) => buildImportedCodexTaskFile(source).meta,
+    onTaskImported: () => {},
+    getExistingTaskMeta: async ({ taskId }) => {
+      if (taskId === continuedTaskId) return continuedMeta;
+      if (taskId === staleTaskId) return staleMeta;
+      return null;
+    },
+  });
+
+  assert.equal(result.imported.length, 1);
+  assert.equal(result.imported[0]?.sessionId, staleId);
+  assert.equal(result.skipped.length, 1);
+  assert.equal(result.skipped[0]?.sessionId, continuedId);
+  assert.equal(result.skipped[0]?.reason, "session_continued_in_app");
+
+  await rm(dataDir, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 100,
+  });
 });

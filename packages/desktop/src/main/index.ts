@@ -11,10 +11,7 @@ import { createLocalTtftExporter } from "./localTtftExporter.js";
 /* eslint-disable max-lines */
 import "./desktopEarlyDataBaseDirBootstrap.js";
 import "./desktopEarlyChromiumHardwareAccelerationBootstrap.js";
-import {
-  powerMonitor,
-  powerSaveBlocker,
-} from "electron";
+import { powerMonitor, powerSaveBlocker } from "electron";
 import { crashCapturePaths } from "./appCrashCaptureBootstrap.js";
 import { armsInitPromise } from "./appARMSBootstrap.js";
 import {
@@ -58,16 +55,9 @@ import {
 } from "electron";
 import type { UtilityProcess as ElectronUtilityProcess } from "electron";
 import spawn from "node:child_process";
-import {
-  join,
-  resolve,
-  sep,
-} from "node:path";
+import { join, resolve, sep } from "node:path";
 import { existsSync } from "node:fs";
-import {
-  homedir,
-  hostname,
-} from "node:os";
+import { homedir, hostname } from "node:os";
 import {
   createCredentialService,
   createSettingService,
@@ -107,15 +97,9 @@ import {
   ZCODE_ARMS_RUM_ENDPOINT,
   ZCODE_TELEMETRY_ENABLED,
 } from "@zcode/shared";
-import {
-  logger,
-  webRemoteControlRelayLogger,
-} from "./logger.js";
+import { logger, webRemoteControlRelayLogger } from "./logger.js";
 import { markMainLaunchAppReady } from "./desktopLaunchMarks.js";
-import {
-  createCuaPipFocusRouter,
-  resolveCuaPipWindowKey,
-} from "./cuaPipFocusRouter.js";
+import { createCuaPipFocusRouter, resolveCuaPipWindowKey } from "./cuaPipFocusRouter.js";
 import { createDesktopTelemetryFetch } from "./desktopTelemetryFetch.js";
 import {
   acknowledgePostUpdateReleaseNotes,
@@ -146,10 +130,7 @@ import {
 import { createPrimaryWindowCoordinator } from "./primaryWindowCoordinator.js";
 import { createTempTextAttachment } from "./tempTextAttachment.js";
 import { flushMainE2ECoverage } from "./e2eCoverage.js";
-import {
-  resolveStartupWindowBootstrap,
-  type StartupWindowBootstrap,
-} from "./startupWorkspace.js";
+import { resolveStartupWindowBootstrap, type StartupWindowBootstrap } from "./startupWorkspace.js";
 import {
   createStartupDeepLinkConsumptionGate,
   type ExplicitStartupWorkspaceRequest,
@@ -162,10 +143,7 @@ import { createWebRemoteControlFeatureGate } from "./webRemoteControlFeatureGate
 import { reconnectWebRemoteControlWorkspaceInRenderer } from "./webRemoteControlRendererReconnect.js";
 import { sendWebRemoteControlStatusChangedToWindow } from "./webRemoteControlStatusEvents.js";
 import { executeDesktopCommand } from "./desktopCommandHandlers.js";
-import {
-  clampDesktopZoomLevel,
-  resolveDesktopZoomLevelFromFactor,
-} from "./desktopZoom.js";
+import { clampDesktopZoomLevel, resolveDesktopZoomLevelFromFactor } from "./desktopZoom.js";
 import {
   getDesktopMenuLabel as getDesktopMenuLabelByLocale,
   rebuildApplicationMenu,
@@ -178,10 +156,7 @@ import { resolveWindowsAppUserModelIdForFlavor } from "../../scripts/desktop-pro
 import type { DesktopWindowSize } from "./desktopWindowSize.js";
 import { maybeWarnArchitectureMismatch } from "./desktopArchitectureGuard.js";
 import { maybeBlockStartupForForceUpdate } from "./forceUpdateGuard.js";
-import {
-  createDesktopTray,
-  updateWindowsDesktopTrayMenu,
-} from "./desktopTray.js";
+import { createDesktopTray, updateWindowsDesktopTrayMenu } from "./desktopTray.js";
 import {
   createCloseToTrayCapabilityMonitor,
   resolveCloseToTrayBootstrapValue,
@@ -228,10 +203,7 @@ import {
   loadWindow,
   spawnHostProcess,
 } from "./desktopHostProcess.js";
-import {
-  spawnCronScheduler,
-  type CronSchedulerHandle,
-} from "./desktopCronScheduler.js";
+import { spawnCronScheduler, type CronSchedulerHandle } from "./desktopCronScheduler.js";
 import {
   clearOAuthRoutesForWindow,
   handleDeepLink,
@@ -263,10 +235,7 @@ import {
 import { createWebRemoteControlSharedHostAttachments } from "./webRemoteControlSharedHostAttachments.js";
 import { createDesktopHelpConfigReader } from "./desktopHelpConfig.js";
 import { registerPlatformIpcHandlers } from "./desktopMainIpcPlatform.js";
-import {
-  loadCliMcpFromUserDirectory,
-  migrateLegacyCommonMcp,
-} from "./mcpUserDirectory/index.js";
+import { loadCliMcpFromUserDirectory, migrateLegacyCommonMcp } from "./mcpUserDirectory/index.js";
 import { registerRemoteIpcHandlers } from "./desktopMainIpcRemote.js";
 import { createRemoteControlProductionService } from "./remoteControl/wiring.js";
 import { registerRemoteControlIpc } from "./remoteControl/remoteControlIpc.js";
@@ -295,10 +264,7 @@ import {
   registerDesktopZCodeDataSizeTelemetry,
   stopDesktopZCodeDataSizeTelemetry,
 } from "./desktopZCodeDataSizeTelemetry.js";
-import {
-  configureDesktopMcpTelemetry,
-  reportMcpTelemetryToArms,
-} from "./desktopMcpTelemetry.js";
+import { configureDesktopMcpTelemetry, reportMcpTelemetryToArms } from "./desktopMcpTelemetry.js";
 import {
   configureDesktopNetworkTelemetry,
   registerDesktopNetworkTelemetry,
@@ -333,21 +299,11 @@ import {
   type DesktopPetManager,
 } from "./desktopPetWindow.js";
 import { createPetBubbleWindow } from "./desktopPetBubble.js";
-import {
-  readWebpSize,
-  mergePetSessionSummaries,
-  type PetSessionSummary,
-} from "@zcode/shared";
+import { readWebpSize, mergePetSessionSummaries, type PetSessionSummary } from "@zcode/shared";
 import { createPetMarketService } from "./desktopPetMarketService.js";
 import { registerPetMarketIpc } from "./desktopPetIpc.js";
-import {
-  createVoiceService,
-  type DesktopVoiceService,
-} from "./voice/desktopVoiceService.js";
-import {
-  registerVoiceIpc,
-  spawnVoiceEngineWorker,
-} from "./voice/desktopVoiceIpc.js";
+import { createVoiceService, type DesktopVoiceService } from "./voice/desktopVoiceService.js";
+import { registerVoiceIpc, spawnVoiceEngineWorker } from "./voice/desktopVoiceIpc.js";
 
 registerLocalMediaPreviewScheme(protocol, [PLUGIN_SANDBOX_PRIVILEGED_SCHEME]);
 registerPetPackScheme(protocol);
@@ -777,7 +733,10 @@ const hostRunningTaskCountMap = new Map<ElectronUtilityProcess, number>();
 /** 宠物会话气泡：各 host 最近一批会话摘要（host 退出以空批清理，见 desktopHostProcess）。 */
 const petSessionSummariesByHost = new Map<ElectronUtilityProcess, PetSessionSummary[]>();
 /** 最近一次合并结果：主题切换时无需等 host 重推即可刷新气泡外观。 */
-let lastMergedPetSummaries: { rows: PetSessionSummary[]; overflowCount: number } | null = null;
+let lastMergedPetSummaries: {
+  rows: PetSessionSummary[];
+  overflowCount: number;
+} | null = null;
 const windowsCuaOperationIndicator = createWindowsCuaOperationIndicator({
   platform: process.platform,
   getLocale: () => currentApplicationLocale,
@@ -1022,6 +981,45 @@ const localTtftExporter = createLocalTtftExporter({
 ipcMain.on(PlatformChannels.ReportLocalTtftBatch, (_event, batch: unknown) =>
   localTtftExporter.enqueue(batch),
 );
+// 会话拖出侧栏 → 独立新主窗口打开（specs/desktop/session-drag-out-window.md）。
+// 只接受本地 workspace：远程会话的新窗口承载（连接复用/远端 runtime 归属）暂不开放；
+// 原窗口不动（列表保留该会话，两窗口经各自 host 观察同一份磁盘会话状态）。
+ipcMain.handle(PlatformChannels.OpenSessionWindow, (event, payload: unknown) => {
+  const request = payload as
+    | {
+        workspacePath?: unknown;
+        workspaceIdentity?: unknown;
+        remoteSessionId?: unknown;
+        sessionId?: unknown;
+      }
+    | undefined;
+  if (
+    !request ||
+    typeof request.workspacePath !== "string" ||
+    request.workspacePath.trim().length === 0 ||
+    typeof request.sessionId !== "string" ||
+    request.sessionId.trim().length === 0
+  ) {
+    return { ok: false as const, error: "invalid-payload" };
+  }
+  if (typeof request.remoteSessionId === "string" && request.remoteSessionId.length > 0) {
+    return { ok: false as const, error: "remote-session-not-supported" };
+  }
+  logger.info("[session-window] opening session in new window", {
+    workspacePath: request.workspacePath,
+    sessionId: request.sessionId,
+    sourceWindowId: event.sender.id,
+  });
+  createWindowInstance({
+    restoreSession: true,
+    initialWorkspacePath: request.workspacePath,
+    ...(typeof request.workspaceIdentity === "string" && request.workspaceIdentity.trim()
+      ? { initialWorkspaceIdentity: request.workspaceIdentity }
+      : {}),
+    initialTaskId: request.sessionId,
+  });
+  return { ok: true as const };
+});
 const rendererActionTraceBroker = createRendererActionTraceBroker({
   exporter: createRendererActionTraceExporter({
     ...hostProcessLocalEnv,
@@ -1248,9 +1246,11 @@ function syncImmediateAppSettings(patch: Partial<AppSettings>) {
   if (
     patch.desktopPetEnabled !== undefined ||
     patch.desktopPetId !== undefined ||
-    patch.desktopPetPosition !== undefined
+    patch.desktopPetPosition !== undefined ||
+    patch.desktopPetScale !== undefined
   ) {
-    // 桌面宠物：enabled/petId 变化即时创建/销毁窗口（position 只在窗口不存在时生效）。
+    // 桌面宠物：enabled/petId 变化即时创建/销毁窗口（position 只在窗口不存在时生效；
+    // scale 对存活窗口即时 setSize）。
     void mainSettingService
       .get()
       .then((settings) =>
@@ -1258,10 +1258,13 @@ function syncImmediateAppSettings(patch: Partial<AppSettings>) {
           enabled: settings.desktopPetEnabled,
           petId: settings.desktopPetId,
           position: settings.desktopPetPosition,
+          scale: settings.desktopPetScale,
         }),
       )
       .catch((error) =>
-        logger.warn("[desktop-pet] apply settings failed", { error: String(error) }),
+        logger.warn("[desktop-pet] apply settings failed", {
+          error: String(error),
+        }),
       );
   }
 
@@ -2251,8 +2254,10 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
     bootstrap: {
       restoreSession: startupBootstrap.restoreSession,
       initialWorkspacePath: startupBootstrap.initialWorkspacePath,
+      initialWorkspaceIdentity: startupBootstrap.initialWorkspaceIdentity,
       initialWorkspacePurpose: startupBootstrap.initialWorkspacePurpose,
       unavailableWorkspacePath: startupBootstrap.unavailableWorkspacePath,
+      initialTaskId: startupBootstrap.initialTaskId,
     },
     agentWarmupTargets: startupBootstrap.agentWarmupTargets,
     // startupBootstrap 只标记 active workspace 是否不可用，但 local Host 会为所有
@@ -2369,7 +2374,9 @@ app.whenReady().then(async () => {
     ...(process.env.ZCODE_E2E_RUN_ID?.trim() &&
     Number.isInteger(Number(process.env.ZCODE_E2E_PLUGIN_SANDBOX_MAX_ENTRIES)) &&
     Number(process.env.ZCODE_E2E_PLUGIN_SANDBOX_MAX_ENTRIES) > 0
-      ? { registryMaxEntries: Number(process.env.ZCODE_E2E_PLUGIN_SANDBOX_MAX_ENTRIES) }
+      ? {
+          registryMaxEntries: Number(process.env.ZCODE_E2E_PLUGIN_SANDBOX_MAX_ENTRIES),
+        }
       : {}),
   });
   const petMarket = createPetMarketService({
@@ -2485,11 +2492,11 @@ app.whenReady().then(async () => {
   });
   registerVoiceIpc({ service: voiceService });
   // 首次使用预置官方内置宠物（本地无任何宠物时才动作；失败静默，不影响启动）。
-  void petMarket
-    .ensureBuiltinPets()
-    .catch((error) =>
-      logger.warn("[desktop-pet] builtin provision failed", { error: String(error) }),
-    );
+  void petMarket.ensureBuiltinPets().catch((error) =>
+    logger.warn("[desktop-pet] builtin provision failed", {
+      error: String(error),
+    }),
+  );
   // Electron 的 net.request 只能在 app ready 后使用；灰度请求仍是旁路预热，不阻塞首个 Host。
   void desktopContextPromptRollout?.refresh();
   installBrowserRestoreBootstrapProtocol(
@@ -2537,11 +2544,14 @@ app.whenReady().then(async () => {
       linuxMigrationInitialized: bootstrapSettings.closeToTrayLinuxMigrationInitialized,
       migrationPersisted: closeToTrayMigrationPersisted,
     });
-    currentExternalCdpRuntime = resolveExternalCdpRuntimeConfig({ settings: bootstrapSettings });
+    currentExternalCdpRuntime = resolveExternalCdpRuntimeConfig({
+      settings: bootstrapSettings,
+    });
     desktopPetManager.applySettings({
       enabled: bootstrapSettings.desktopPetEnabled,
       petId: bootstrapSettings.desktopPetId,
       position: bootstrapSettings.desktopPetPosition,
+      scale: bootstrapSettings.desktopPetScale,
     });
     keepAwakeWhileRunning = bootstrapSettings.keepAwakeWhileRunning ?? false;
     currentDesktopZoomLevel = clampDesktopZoomLevel(bootstrapSettings.desktopZoomLevel ?? 0);
@@ -2575,7 +2585,9 @@ app.whenReady().then(async () => {
     // 打包态必须与 NSIS 快捷方式使用同一 AUMID，否则 Shell 把它们当成不同应用。
     // 使用构建期产品身份，不依赖用户机器环境；开发态继续保持独立身份。
     app.setAppUserModelId(
-      resolveWindowsAppUserModelIdForFlavor(ZCODE_PRODUCT_FLAVOR, { isPackaged: app.isPackaged }),
+      resolveWindowsAppUserModelIdForFlavor(ZCODE_PRODUCT_FLAVOR, {
+        isPackaged: app.isPackaged,
+      }),
     );
   }
 

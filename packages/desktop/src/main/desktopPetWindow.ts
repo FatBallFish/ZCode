@@ -1,3 +1,5 @@
+/* eslint-disable max-lines -- 2026-10-12 增加 desktopPetScale 大小调节（倍率归一/存活窗口即时
+   resize/气泡跟随），宠物窗口生命周期与协议注册保持单文件收口，避免拆散唯一所有者。 */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BrowserWindow, Menu, app, ipcMain, protocol, screen } from "electron";
@@ -5,6 +7,8 @@ import type { MenuItemConstructorOptions } from "electron";
 import {
   DESKTOP_PET_DRAG_DIRECTION_CHANNEL,
   DESKTOP_PET_STATE_CHANNEL,
+  PET_FRAME_HEIGHT,
+  PET_FRAME_WIDTH,
   PlatformChannels,
   normalizePetManifest,
   petTaskKey,
@@ -33,7 +37,10 @@ export const PET_PACK_SCHEME = "petpack";
 /** app ready 前注册 privileged scheme（standard 使 query 参数按标准 URL 解析）。 */
 export function registerPetPackScheme(electronProtocol: typeof protocol): void {
   electronProtocol.registerSchemesAsPrivileged([
-    { scheme: PET_PACK_SCHEME, privileges: { standard: true, secure: true, stream: true } },
+    {
+      scheme: PET_PACK_SCHEME,
+      privileges: { standard: true, secure: true, stream: true },
+    },
   ]);
 }
 
@@ -59,8 +66,16 @@ export function installPetPackProtocol(
   });
 }
 
-/** 帧绘制缩放：192x208 → 约 115x125 DIP，宠物在桌面上足够小巧。 */
-const PET_WINDOW_SCALE = 0.6;
+/** 帧绘制基准缩放：192x208 × 0.6 → 约 115x125 DIP（scale=1 时），宠物在桌面上足够小巧。 */
+const PET_WINDOW_BASE_SCALE = 0.6;
+/** 用户可调显示倍率范围（settings.desktopPetScale，滑条步进 0.05）。 */
+const PET_SCALE_MIN = 0.5;
+const PET_SCALE_MAX = 1.8;
+
+function normalizePetScale(scale: number | undefined): number {
+  if (scale === undefined || !Number.isFinite(scale)) return 1;
+  return Math.min(PET_SCALE_MAX, Math.max(PET_SCALE_MIN, scale));
+}
 
 export interface DesktopPetManagerDeps {
   /** 宠物窗口专用 preload（out/preload/desktopPet.cjs）。 */
@@ -92,6 +107,8 @@ interface PetSettingsSnapshot {
   enabled?: boolean;
   petId?: string;
   position?: { x: number; y: number };
+  /** 显示倍率（0.5–1.8）；undefined=1。 */
+  scale?: number;
 }
 
 function clampIntoWorkArea(
@@ -99,8 +116,10 @@ function clampIntoWorkArea(
   size: { width: number; height: number },
 ): { x: number; y: number } {
   const display =
-    screen.getDisplayNearestPoint({ x: Math.round(position.x), y: Math.round(position.y) }) ??
-    screen.getPrimaryDisplay();
+    screen.getDisplayNearestPoint({
+      x: Math.round(position.x),
+      y: Math.round(position.y),
+    }) ?? screen.getPrimaryDisplay();
   const workArea = display.workArea;
   const x = Math.min(
     Math.max(Math.round(position.x), workArea.x),
@@ -129,10 +148,35 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
   let petWindow: BrowserWindow | null = null;
   let activePetId: string | undefined;
   let positionSaveTimer: ReturnType<typeof setTimeout> | undefined;
+  // 当前生效倍率；windowSize 是共享可变对象——dragController 与 resize 钉住每帧
+  // 读取其属性，倍率变化后无需重建控制器即自动生效。
+  let activeScale = 1;
 
   const windowSize = {
-    width: Math.round(192 * PET_WINDOW_SCALE),
-    height: Math.round(208 * PET_WINDOW_SCALE),
+    width: Math.round(PET_FRAME_WIDTH * PET_WINDOW_BASE_SCALE),
+    height: Math.round(PET_FRAME_HEIGHT * PET_WINDOW_BASE_SCALE),
+  };
+
+  /** 应用新倍率；返回尺寸是否实际变化（用于决定是否对存活窗口即时 resize）。 */
+  const applyScale = (scale: number | undefined): boolean => {
+    const next = normalizePetScale(scale);
+    if (next === activeScale) return false;
+    activeScale = next;
+    windowSize.width = Math.round(PET_FRAME_WIDTH * PET_WINDOW_BASE_SCALE * next);
+    windowSize.height = Math.round(PET_FRAME_HEIGHT * PET_WINDOW_BASE_SCALE * next);
+    return true;
+  };
+
+  /** 存活窗口的即时调大小：保持左上角锚点、夹取回可视区，气泡跟随。 */
+  const resizeLiveWindow = () => {
+    if (!petWindow || petWindow.isDestroyed()) return;
+    petWindow.setSize(windowSize.width, windowSize.height);
+    const [x, y] = petWindow.getPosition();
+    const clamped = clampIntoWorkArea({ x, y }, windowSize);
+    petWindow.setPosition(clamped.x, clamped.y, false);
+    persistPositionSoon();
+    const bounds = petBounds();
+    if (bounds) deps.bubble.reposition(bounds);
   };
 
   const sendState = (event: { state: DesktopPetManagerState }) => {
@@ -143,7 +187,10 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
   type DesktopPetManagerState = "idle" | "running" | "waiting" | "failed" | "review" | "waving";
 
   // 会话摘要驱动（specs/desktop/desktop-pet.md 会话状态气泡）：摘要优先、运行计数兜底。
-  let sessionSummaries: PetSessionBubblePayload = { rows: [], overflowCount: 0 };
+  let sessionSummaries: PetSessionBubblePayload = {
+    rows: [],
+    overflowCount: 0,
+  };
   // 用户关闭的终态行（taskKey）：不落盘，本次运行内不再展示；该会话重新进入
   // running/waiting 时自动移出集合（新活动复活）。
   const dismissedTerminalKeys = new Set<string>();
@@ -226,7 +273,10 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
       sheetHeight: size.height,
     });
     if (!normalized.ok) {
-      deps.logger.warn("[desktop-pet] pet manifest invalid", { petId, error: normalized.error });
+      deps.logger.warn("[desktop-pet] pet manifest invalid", {
+        petId,
+        error: normalized.error,
+      });
       return null;
     }
     return {
@@ -239,7 +289,9 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
   const createWindow = (settings: PetSettingsSnapshot) => {
     const view = resolveActivePet();
     if (!view) {
-      deps.logger.warn("[desktop-pet] enabled but pet unavailable", { petId: settings.petId });
+      deps.logger.warn("[desktop-pet] enabled but pet unavailable", {
+        petId: settings.petId,
+      });
       return;
     }
     petWindow = new BrowserWindow({
@@ -293,10 +345,10 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
     });
     // Windows 混合 DPI 尺寸钉住（2026-10-09 v1.0.7 用户实测：部分 Windows 机器拖动
     // 宠物时"一边移动一边放大"，切宠后恢复原大小）。根因：透明无边框窗跨不同缩放比
-    // 显示器时按 WM_DPICHANGED 的系统建议矩形放大窗口，Chromium 对 transparent 窗的
-    // DIP 补偿不完整（上游已知问题），且我们的代码从不改宠物窗尺寸、无人纠正；切宠
-    // 走整窗重建所以表现为"切宠恢复"。宠物窗尺寸是常量（帧 192×208×0.6），不存在
-    // 用户合法调尺寸的路径——任何尺寸漂移都立即纠正回固定大小。
+    // 显示器时按 WM_DPCHANGED 的系统建议矩形放大窗口，Chromium 对 transparent 窗的
+    // DIP 补偿不完整（上游已知问题），且我们的代码只在 desktopPetScale 变化时改宠物窗
+    // 尺寸、无人纠正系统侧漂移；切宠走整窗重建所以表现为"切宠恢复"。windowSize 随设置
+    // 更新（先改对象再 setSize），任何非当前期望尺寸的漂移都立即纠正回来。
     petWindow.on("resize", () => {
       if (!petWindow || petWindow.isDestroyed()) return;
       const [width, height] = petWindow.getSize();
@@ -350,7 +402,9 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
     repositionBubble: (bounds) => deps.bubble.reposition(bounds),
     sendDragDirection: (direction) => {
       if (petWindow && !petWindow.isDestroyed()) {
-        petWindow.webContents.send(DESKTOP_PET_DRAG_DIRECTION_CHANNEL, { direction });
+        petWindow.webContents.send(DESKTOP_PET_DRAG_DIRECTION_CHANNEL, {
+          direction,
+        });
       }
     },
   });
@@ -437,12 +491,17 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
       }
       const desiredActive = settings.enabled === true && Boolean(petId);
       const petChanged = petId !== activePetId;
+      // 大小是全局设置：切宠不重置（新宠物沿用当前倍率创建窗口）。
+      const scaleChanged = applyScale(settings.scale);
       if (!desiredActive) {
         if (petWindow) destroyWindow();
         activePetId = petId;
         return;
       }
-      if (petWindow && !petWindow.isDestroyed() && !petChanged) return;
+      if (petWindow && !petWindow.isDestroyed() && !petChanged) {
+        if (scaleChanged) resizeLiveWindow();
+        return;
+      }
       if (petWindow) destroyWindow();
       activePetId = petId;
       createWindow({ ...settings, petId });

@@ -71,12 +71,17 @@ export function isSuspiciousEmptyModelResult(
   toolCallCount: number,
   usage?: ModelUsage,
 ): boolean {
-  return (
-    responseLength === 0 &&
-    toolCallCount === 0 &&
-    isNonStopFinish(finishReason) &&
-    isZeroUsage(usage)
-  );
+  if (responseLength !== 0 || toolCallCount !== 0) return false;
+  if (finishReason === undefined) {
+    // 无 finish 视为异常流（原口径：零 usage 才算可疑）。
+    return isZeroUsage(usage);
+  }
+  // 修复依据（2026-10-12）：ChatGPT codex 端点对含异构 item 的 input 会返回
+  // completed/stop + usage 的「内容性空回」，旧谓词要求 non-stop + 零 usage，完全放行，
+  // 表现为「切到 ChatGPT 账号模型后秒回空 assistant 消息」。本产品中一轮补全
+  // 零文本且零工具调用没有任何可用语义——任何 finish 下都按可疑空回处理
+  // （adapter 侧会先重试一次，core 侧转为可读错误而非静默空消息）。
+  return true;
 }
 
 const SUSPICIOUS_EMPTY_MODEL_RESULT_MESSAGE =
@@ -169,11 +174,6 @@ export function tryCreateProviderBusinessModelErrorFromMetadata(
     recoverable: true,
     retryable: false,
   });
-}
-
-function isNonStopFinish(finishReason?: string): boolean {
-  const normalized = finishReason?.trim().toLowerCase();
-  return normalized !== "stop" && normalized !== "tool-calls" && normalized !== "tool_calls";
 }
 
 function isZeroUsage(usage?: ModelUsage): boolean {

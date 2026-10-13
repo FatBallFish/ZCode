@@ -2157,7 +2157,9 @@ export function createZCodeTaskServiceAdapter(
       const snapshot = await readBotGroupRuntimeSnapshot(botAgent(params), {
         ...params,
         ...((params.remoteSessionId ?? target?.remoteSessionId)
-          ? { remoteSessionId: params.remoteSessionId ?? target?.remoteSessionId }
+          ? {
+              remoteSessionId: params.remoteSessionId ?? target?.remoteSessionId,
+            }
           : {}),
         sessionId: params.taskId,
       });
@@ -2178,7 +2180,9 @@ export function createZCodeTaskServiceAdapter(
         workspacePath: params.workspacePath ?? target.workspacePath,
         workspaceIdentity: params.workspaceIdentity ?? target.workspaceIdentity,
         ...((params.remoteSessionId ?? target.remoteSessionId)
-          ? { remoteSessionId: params.remoteSessionId ?? target.remoteSessionId }
+          ? {
+              remoteSessionId: params.remoteSessionId ?? target.remoteSessionId,
+            }
           : {}),
       };
       const snapshot = await readBotGroupRuntimeSnapshot(botAgent(workspace), {
@@ -2220,7 +2224,9 @@ export function createZCodeTaskServiceAdapter(
         workspacePath: params.workspacePath ?? target.workspacePath,
         workspaceIdentity: params.workspaceIdentity ?? target.workspaceIdentity,
         ...((params.remoteSessionId ?? target.remoteSessionId)
-          ? { remoteSessionId: params.remoteSessionId ?? target.remoteSessionId }
+          ? {
+              remoteSessionId: params.remoteSessionId ?? target.remoteSessionId,
+            }
           : {}),
       };
       const admissionKey = JSON.stringify([
@@ -2260,7 +2266,10 @@ export function createZCodeTaskServiceAdapter(
             providerUserId: params.source.chatId,
             chatType: "group",
             ...(params.source.threadId
-              ? { threadId: params.source.threadId, rootMessageId: params.source.rootMessageId }
+              ? {
+                  threadId: params.source.threadId,
+                  rootMessageId: params.source.rootMessageId,
+                }
               : {}),
           },
         },
@@ -2453,7 +2462,9 @@ export function createZCodeTaskServiceAdapter(
           type: "stop",
           // 话题停止必须保留已观察到的执行身份；日志 traceId 不能替代 CLI 执行身份。
           payload: params.expectedForegroundExecutionId
-            ? { expectedForegroundExecutionId: params.expectedForegroundExecutionId }
+            ? {
+                expectedForegroundExecutionId: params.expectedForegroundExecutionId,
+              }
             : {},
           sessionId: params.taskId,
         }),
@@ -3155,6 +3166,13 @@ export function createZCodeTaskServiceAdapter(
         workspacePath: params.workspacePath,
         workspaceIdentity: params.workspaceIdentity,
         sessionIds: params.sessionIds,
+        // 幂等跳过判定（见 importCodexNativeSessions）：已续聊/改名的导入会话不覆盖。
+        getExistingTaskMeta: async ({ taskId, workspacePath }) =>
+          taskIndexRepo.getTaskMeta({
+            taskId,
+            workspacePath,
+            ...(params.workspacePath ? { workspaceIdentity: params.workspaceIdentity } : {}),
+          }),
         createImportedSession: async (source) => {
           const targetWorkspaceIdentity = params.workspacePath
             ? params.workspaceIdentity
@@ -3397,7 +3415,10 @@ export function createZCodeTaskServiceAdapter(
           result.deletedTaskIds.push(taskId);
         } catch (error) {
           result.failedTaskIds.push(taskId);
-          logger.warn(undefined, "[ArchivedTaskDeletion] 批次目标删除失败", { ...target, error });
+          logger.warn(undefined, "[ArchivedTaskDeletion] 批次目标删除失败", {
+            ...target,
+            error,
+          });
         }
       }
       if (result.deletedTaskIds.length > 0) {

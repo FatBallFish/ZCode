@@ -231,7 +231,7 @@ describe("WorkspaceHelpMenuButton", () => {
     }
   });
 
-  it("桌面导出日志复用平台导出及共享提示", async () => {
+  it("桌面导出日志复用平台导出且开始提示由 main 广播链路负责", async () => {
     await render(true);
     const item = captured.menuItems.find(
       (entry) => entry.label === "titleBar.menu.help.exportLogs",
@@ -239,10 +239,18 @@ describe("WorkspaceHelpMenuButton", () => {
     expect(item).toBeDefined();
     await item!.onSelect?.();
     expect(captured.exportLogs).toHaveBeenCalledExactlyOnceWith();
-    expect(captured.toast).toHaveBeenCalledWith("sidebar.exportLogs.pending", {
-      durationMs: Number.POSITIVE_INFINITY,
-    });
-    expect(captured.dismissToast).toHaveBeenCalledWith(7);
+    // bac58228 起契约：开始/成功 toast 由 main 广播 ExportLogsProgress、经
+    // useRootPlatformEffects 弹出；invoke 层成功路径不再本地弹「正在导出」，
+    // 也没有固定 7 号 toast 的定时 dismiss 语义。
+    expect(captured.toast).not.toHaveBeenCalled();
+    expect(captured.dismissToast).not.toHaveBeenCalled();
+
+    // invoke 抛错时本地兜底错误 toast。
+    captured.exportLogs.mockRejectedValueOnce(new Error("boom"));
+    await item!.onSelect?.();
+    expect(captured.toast).toHaveBeenCalledWith(
+      expect.stringContaining("sidebar.exportLogs.error"),
+    );
   });
 
   it("Web 和手机远控不显示本地导出日志入口", async () => {

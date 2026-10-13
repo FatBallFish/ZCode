@@ -8,7 +8,11 @@ import { usePlatform } from "@/hooks/usePlatform.js";
 import { useSettings } from "@/hooks/useSettingService.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { logger } from "@/logger.js";
-import { SettingsGroupCard, SettingsRow } from "@/settings/SettingsPageParts.js";
+import {
+  SettingsGroupCard,
+  SettingsRangeControl,
+  SettingsRow,
+} from "@/settings/SettingsPageParts.js";
 import { PetSpritePreview } from "@/settings/PetSpritePreview.js";
 import { PetManageView } from "@/settings/PetMarketManageView.js";
 
@@ -46,7 +50,9 @@ function PetSummaryView({ isDesktop, onManage }: { isDesktop: boolean; onManage:
       .petListInstalled?.()
       .then(setInstalled)
       .catch((error) =>
-        logger.warn("[pet-settings] list installed failed", { error: String(error) }),
+        logger.warn("[pet-settings] list installed failed", {
+          error: String(error),
+        }),
       );
   }, [available, platform]);
 
@@ -89,13 +95,38 @@ function PetSummaryView({ isDesktop, onManage }: { isDesktop: boolean; onManage:
       <SettingsGroupCard>
         <SettingsRow
           label={intl.formatMessage({ id: "settings.pet.enabled.title" })}
-          description={intl.formatMessage({ id: "settings.pet.enabled.description" })}
+          description={intl.formatMessage({
+            id: "settings.pet.enabled.description",
+          })}
           control={
             <Switch
-              aria-label={intl.formatMessage({ id: "settings.pet.enabled.title" })}
+              aria-label={intl.formatMessage({
+                id: "settings.pet.enabled.title",
+              })}
               checked={enabled && Boolean(petId)}
               disabled={installed.length === 0}
               onCheckedChange={(checked) => void handleEnabledChange(checked)}
+            />
+          }
+        />
+        <SettingsRow
+          label={intl.formatMessage({ id: "settings.pet.size.title" })}
+          description={intl.formatMessage({
+            id: "settings.pet.size.description",
+          })}
+          control={
+            <SettingsRangeControl
+              aria-label={intl.formatMessage({ id: "settings.pet.size.title" })}
+              value={Math.round((settings?.desktopPetScale ?? 1) * 100)}
+              min={50}
+              max={180}
+              step={5}
+              onChange={(value) =>
+                void update({
+                  desktopPetScale: value / 100,
+                } satisfies Partial<AppSettings>)
+              }
+              valueLabel={`${Math.round((settings?.desktopPetScale ?? 1) * 100)}%`}
             />
           }
         />

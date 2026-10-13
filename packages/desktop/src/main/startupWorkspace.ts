@@ -45,8 +45,12 @@ export const STARTUP_AGENT_WARMUP_LIMIT = 1;
 export interface StartupWindowBootstrap {
   restoreSession?: boolean;
   initialWorkspacePath?: string;
+  /** 身份隔离 key（identity workspace；本地路径场景缺省）。 */
+  initialWorkspaceIdentity?: string;
   initialWorkspacePurpose?: WorkspacePurpose;
   unavailableWorkspacePath?: string;
+  /** 启动后直接定位到的会话（拖出新建窗口等入口）。 */
+  initialTaskId?: string;
   agentWarmupTargets?: StartupWorkspaceWarmupTarget[];
 }
 

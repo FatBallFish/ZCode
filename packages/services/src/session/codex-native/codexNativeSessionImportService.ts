@@ -4,6 +4,7 @@ import { normalize, resolve } from "node:path";
 import type { ZCodeImportSessionsResult, ZCodeTaskMeta } from "@zcode/shared";
 import { createServiceLogger } from "#src/logger/serviceLogger.js";
 import { buildImportedCodexTaskFile } from "#src/session/codex-native/buildImportedCodexTaskFile.js";
+import { buildImportedCodexTaskId } from "#src/session/codex-native/buildImportedCodexTaskFile.js";
 import type { CodexNativeImportedSessionSource } from "#src/session/codex-native/codexNativeImportedSessionTypes.js";
 import { codexNativeSessionImportRepo } from "#src/session/codex-native/codexNativeSessionImportRepo.js";
 import { parseCodexNativeSessionFile } from "#src/session/codex-native/codexNativeSessionParser.js";
@@ -14,6 +15,12 @@ import {
 import type { TaskIndexRepo } from "#src/session/taskIndexRepo.js";
 
 const logger = createServiceLogger("codex-native-import");
+
+/**
+ * 「已在 App 内延续」判定松弛量：导入时 task meta.updatedAt 与源 rollout mtime 之间
+ * 存在消息时间戳/落盘顺序噪声；超出该窗口的活动（续聊、改名）才视为用户延续。
+ */
+const CONTINUATION_SLACK_MS = 5 * 60_000;
 
 function normalizePathForComparison(path: string): string {
   const normalized = normalize(resolve(path));
@@ -52,6 +59,11 @@ export async function importCodexNativeSessions(params: {
   sessionIds: string[];
   createImportedSession: (source: CodexNativeImportedSessionSource) => Promise<ZCodeTaskMeta>;
   onTaskImported: (meta: ZCodeTaskMeta) => void;
+  /** 已存在的同 taskId 任务 meta（幂等跳过判定用；缺省时退化为无条件导入）。 */
+  getExistingTaskMeta?: (params: {
+    taskId: string;
+    workspacePath: string;
+  }) => Promise<ZCodeTaskMeta | null>;
 }): Promise<ZCodeImportSessionsResult> {
   const normalizedSessionIds = [
     ...new Set(params.sessionIds.map((item) => item.trim()).filter(Boolean)),
@@ -108,6 +120,28 @@ export async function importCodexNativeSessions(params: {
           workspacePath: importedWorkspacePath,
         });
         continue;
+      }
+
+      // 会话级幂等（2026-10-12）：taskId 确定性派生，重复导入同一 rollout 命中同一任务。
+      // 已存在且 updatedAt 明显晚于源文件（超出松弛量）= 用户在 App 内续聊/改名过，
+      // 整体跳过不覆盖；否则继续走导入——createSession 的消息级清理会先删旧导入消息、
+      // 保留续聊内容，再重写导入消息与标题，即「已导入异常会话的自动修复」。
+      if (params.getExistingTaskMeta) {
+        const existingMeta = await params
+          .getExistingTaskMeta({
+            taskId: buildImportedCodexTaskId(importedWorkspacePath, sessionId),
+            workspacePath: importedWorkspacePath,
+          })
+          .catch(() => null);
+        if (existingMeta && existingMeta.updatedAt - candidate.updatedAt > CONTINUATION_SLACK_MS) {
+          result.skipped.push({
+            provider: "codex",
+            sessionId,
+            reason: "session_continued_in_app",
+            workspacePath: importedWorkspacePath,
+          });
+          continue;
+        }
       }
 
       const copiedArtifacts = await codexNativeSessionImportRepo.copySessionFileToWorkspace({

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card.js";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.js";
 import { Input } from "@/components/ui/input.js";
+import { Switch } from "@/components/ui/switch.js";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select.js";
 import { useClaudeSessionMigration } from "@/hooks/useClaudeSessionMigration.js";
+import { DEFAULT_LIMIT, UNLIMITED_SCAN_LIMIT_INPUT } from "@/hooks/useClaudeSessionMigration.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { MigrationCandidatesCard } from "@/settings/MigrationCandidatesCard.js";
 
@@ -103,7 +105,9 @@ export function MigrationSection({
           <div className="space-y-1">
             <CardTitle>{intl.formatMessage({ id: "settings.migration.filtersTitle" })}</CardTitle>
             <CardDescription>
-              {intl.formatMessage({ id: "settings.migration.filtersDescription" })}
+              {intl.formatMessage({
+                id: "settings.migration.filtersDescription",
+              })}
             </CardDescription>
           </div>
         </CardHeader>
@@ -112,7 +116,9 @@ export function MigrationSection({
             <Alert>
               <TriangleAlert className="size-4" />
               <AlertTitle>
-                {intl.formatMessage({ id: "settings.migration.unsupported.title" })}
+                {intl.formatMessage({
+                  id: "settings.migration.unsupported.title",
+                })}
               </AlertTitle>
               <AlertDescription>{unsupportedDescription}</AlertDescription>
             </Alert>
@@ -121,7 +127,9 @@ export function MigrationSection({
           <div className="grid gap-4 xl:grid-cols-3">
             <div className="space-y-2">
               <div className="text-ui-base font-medium text-foreground">
-                {intl.formatMessage({ id: "settings.migration.workspaceFilterLabel" })}
+                {intl.formatMessage({
+                  id: "settings.migration.workspaceFilterLabel",
+                })}
               </div>
               <Select
                 value={workspaceFilterMode}
@@ -135,11 +143,15 @@ export function MigrationSection({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">
-                    {intl.formatMessage({ id: "settings.migration.workspaceFilter.all" })}
+                    {intl.formatMessage({
+                      id: "settings.migration.workspaceFilter.all",
+                    })}
                   </SelectItem>
                   {hasCurrentWorkspaceFilter ? (
                     <SelectItem value="current">
-                      {intl.formatMessage({ id: "settings.migration.workspaceFilter.current" })}
+                      {intl.formatMessage({
+                        id: "settings.migration.workspaceFilter.current",
+                      })}
                     </SelectItem>
                   ) : null}
                 </SelectContent>
@@ -161,7 +173,9 @@ export function MigrationSection({
                 <SelectContent>
                   {RANGE_OPTIONS.map((option) => (
                     <SelectItem key={option} value={option}>
-                      {intl.formatMessage({ id: `settings.migration.range.${option}` })}
+                      {intl.formatMessage({
+                        id: `settings.migration.range.${option}`,
+                      })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -176,15 +190,43 @@ export function MigrationSection({
                 type="number"
                 min={1}
                 max={500}
-                value={limitInput}
-                disabled={!supportState.supported || isScanning || isImporting}
+                value={limitInput === UNLIMITED_SCAN_LIMIT_INPUT ? "" : limitInput}
+                disabled={
+                  !supportState.supported ||
+                  isScanning ||
+                  isImporting ||
+                  limitInput === UNLIMITED_SCAN_LIMIT_INPUT
+                }
                 onChange={(event) => setLimitInput(event.target.value)}
               />
+              {/* 「不限」开关（2026-10-12）：设置页此前只能填 1–500 的数字，清空输入会
+                  静默回退 100，用户以为选了不限仍只扫到 100 条（自测反馈）。 */}
+              <label className="flex cursor-pointer items-center justify-between gap-2 py-0.5">
+                <span className="text-ui-base text-foreground-subtle">
+                  {intl.formatMessage({
+                    id: "settings.migration.limitUnlimited",
+                  })}
+                </span>
+                <Switch
+                  checked={limitInput === UNLIMITED_SCAN_LIMIT_INPUT}
+                  disabled={!supportState.supported || isScanning || isImporting}
+                  onCheckedChange={(checked) =>
+                    setLimitInput(checked ? UNLIMITED_SCAN_LIMIT_INPUT : String(DEFAULT_LIMIT))
+                  }
+                  aria-label={intl.formatMessage({
+                    id: "settings.migration.limitUnlimited",
+                  })}
+                />
+              </label>
               <div className="text-ui-base text-foreground-subtle">
-                {intl.formatMessage(
-                  { id: "settings.migration.limitHint" },
-                  { max: String(scanLimit) },
-                )}
+                {limitInput === UNLIMITED_SCAN_LIMIT_INPUT
+                  ? intl.formatMessage({
+                      id: "settings.migration.limitUnlimitedHint",
+                    })
+                  : intl.formatMessage(
+                      { id: "settings.migration.limitHint" },
+                      { max: String(scanLimit) },
+                    )}
               </div>
             </div>
           </div>
@@ -193,7 +235,9 @@ export function MigrationSection({
             <Alert>
               <TriangleAlert className="size-4" />
               <AlertTitle>
-                {intl.formatMessage({ id: "settings.migration.scanFailedTitle" })}
+                {intl.formatMessage({
+                  id: "settings.migration.scanFailedTitle",
+                })}
               </AlertTitle>
               <AlertDescription>
                 {intl.formatMessage(

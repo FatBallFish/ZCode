@@ -56,6 +56,7 @@ import {
   type WorkbenchSessionDragPayload,
 } from "@/v4/workbenchDragDrop.js";
 import { registerWorkbenchPointerDropTarget } from "@/v4/workbenchPointerDragDrop.js";
+import { setWorkbenchDropZoneActive } from "@/v4/workbenchWindowDragOut.js";
 import {
   acquireSessionsIndex,
   releaseSessionsIndex,
@@ -503,6 +504,16 @@ export function WorkbenchLeafPane({
       onDrop: (side, payload) => onDropSession(paneId, side, payload),
     });
   }, [canDropSession, canSplit, onDropSession, paneId]);
+
+  // 分屏高亮区活动上报：拖出新窗口引导（workbenchWindowDragOut）在命中分屏区时
+  // 必须让位给既有的半区高亮，避免两套引导同时出现。
+  useEffect(() => {
+    if (!dropSide) {
+      return undefined;
+    }
+    setWorkbenchDropZoneActive(paneId, true);
+    return () => setWorkbenchDropZoneActive(paneId, false);
+  }, [dropSide, paneId]);
 
   if (!isPrimary && !binding) {
     // sanitize/迁移保证非 primary 叶子必有绑定；此处是转移瞬间的防御渲染。

@@ -18,19 +18,13 @@ import type {
   DragStartEvent,
   DropAnimation,
 } from "@dnd-kit/core";
-import type {
-  ZCodeGroupedTaskView,
-  ZCodeTaskGroupColor,
-} from "@zcode/services";
+import type { ZCodeGroupedTaskView, ZCodeTaskGroupColor } from "@zcode/services";
 import { OFF_PEAK_DEFAULT_GROUP_ID, type ZCodeTaskMeta } from "@zcode/shared";
 import { createPortal } from "react-dom";
 import { cn } from "@/components/lib/utils.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { TaskRenameDialog } from "@/TaskRenameDialog.js";
-import {
-  shouldHideGroupedTaskContent,
-  useGroupedTaskView,
-} from "@/hooks/useGroupedTaskView.js";
+import { shouldHideGroupedTaskContent, useGroupedTaskView } from "@/hooks/useGroupedTaskView.js";
 import type { WorkspaceTabState } from "@/store/tabStore.js";
 import { buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
 import { formatWorktreeWorkspaceLabel, useWorktreeStore } from "@/store/worktreeStore.js";
@@ -38,10 +32,7 @@ import { getPathLeaf } from "@/lib/path.js";
 import { resolveTaskFileTreeTargetFromTabs } from "@/lib/taskFileTreeTarget.js";
 import { toast } from "@/components/ui/toast.js";
 import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
-import {
-  selectWorkspaceZCodeState,
-  useZCodeSessionStore,
-} from "@/store/zcodeSessionStore.js";
+import { selectWorkspaceZCodeState, useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
 import { useRemoteWorkspaceSessionStore } from "@/store/remoteWorkspaceSessionStore.js";
 import { buildWorkspaceServiceLookup } from "@/lib/workspaceServiceResolver.js";
 import { applyTaskQueryCacheMutation } from "@/store/taskQueryCacheStore.js";
@@ -77,19 +68,20 @@ import {
   updateWorkbenchPointerDrag,
 } from "@/v4/workbenchPointerDragDrop.js";
 import {
+  finishSessionPointerDragOutsideViewport,
+  updateSessionPointerDragOutsideViewport,
+} from "@/v4/workbenchWindowDragOut.js";
+import {
   createWorkbenchPointerPositionTracker,
   type WorkbenchPointerPositionTracker,
 } from "@/v4/workbenchPointerPositionTracker.js";
 
-function findNearestScrollableAncestor(
-  element: HTMLElement,
-): HTMLElement | null {
+function findNearestScrollableAncestor(element: HTMLElement): HTMLElement | null {
   let current = element.parentElement;
   while (current) {
     const style = window.getComputedStyle(current);
     const canScrollY =
-      /(auto|scroll)/.test(style.overflowY) &&
-      current.scrollHeight > current.clientHeight;
+      /(auto|scroll)/.test(style.overflowY) && current.scrollHeight > current.clientHeight;
     if (canScrollY) {
       return current;
     }
@@ -113,14 +105,8 @@ function areTaskGroupMenuItemsEqual(
   );
 }
 
-function areStringArraysEqual(
-  left: readonly string[],
-  right: readonly string[],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every((item, index) => item === right[index])
-  );
+function areStringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((item, index) => item === right[index]);
 }
 
 function getGroupedTaskDragTaskKey(value: unknown): string | null {
@@ -128,9 +114,7 @@ function getGroupedTaskDragTaskKey(value: unknown): string | null {
     return null;
   }
   const data = value as { type?: unknown; taskKey?: unknown };
-  return data.type === "grouped-task" && typeof data.taskKey === "string"
-    ? data.taskKey
-    : null;
+  return data.type === "grouped-task" && typeof data.taskKey === "string" ? data.taskKey : null;
 }
 
 function getGroupedTaskDragGroupId(value: unknown): string | null {
@@ -138,9 +122,7 @@ function getGroupedTaskDragGroupId(value: unknown): string | null {
     return null;
   }
   const data = value as { type?: unknown; groupId?: unknown };
-  return data.type === "grouped-group" && typeof data.groupId === "string"
-    ? data.groupId
-    : null;
+  return data.type === "grouped-group" && typeof data.groupId === "string" ? data.groupId : null;
 }
 
 function getGroupedTaskDragType(value: unknown): string | null {
@@ -166,8 +148,7 @@ function getGroupedTaskCollapsedOverGroupId(value: unknown): string | null {
     return null;
   }
   const data = value as { type?: unknown; groupId?: unknown };
-  return data.type === "grouped-collapsed-group" &&
-    typeof data.groupId === "string"
+  return data.type === "grouped-collapsed-group" && typeof data.groupId === "string"
     ? data.groupId
     : null;
 }
@@ -177,8 +158,7 @@ function getGroupedTaskHeaderOverGroupId(value: unknown): string | null {
     return null;
   }
   const data = value as { type?: unknown; groupId?: unknown };
-  return data.type === "grouped-expanded-group-header" &&
-    typeof data.groupId === "string"
+  return data.type === "grouped-expanded-group-header" && typeof data.groupId === "string"
     ? data.groupId
     : null;
 }
@@ -188,8 +168,7 @@ function getGroupedTaskFooterOverGroupId(value: unknown): string | null {
     return null;
   }
   const data = value as { type?: unknown; groupId?: unknown };
-  return data.type === "grouped-expanded-group-footer" &&
-    typeof data.groupId === "string"
+  return data.type === "grouped-expanded-group-footer" && typeof data.groupId === "string"
     ? data.groupId
     : null;
 }
@@ -199,8 +178,7 @@ function getGroupedTaskEmptyOverGroupId(value: unknown): string | null {
     return null;
   }
   const data = value as { type?: unknown; groupId?: unknown };
-  return data.type === "grouped-empty-drop-zone" &&
-    typeof data.groupId === "string"
+  return data.type === "grouped-empty-drop-zone" && typeof data.groupId === "string"
     ? data.groupId
     : null;
 }
@@ -216,9 +194,7 @@ const groupedTaskCollisionDetection: CollisionDetection = (args) => {
           return type === "grouped-task" || type === "grouped-group-over";
         })
       : args.droppableContainers.filter(
-          (container) =>
-            getGroupedTaskDragType(container.data.current) !==
-            "grouped-group-over",
+          (container) => getGroupedTaskDragType(container.data.current) !== "grouped-group-over",
         );
   return closestCenter({
     ...args,
@@ -249,9 +225,7 @@ function getGroupedTaskOverCollapsedGroupPreviewView(
   position: GroupedTaskDragDirectionPosition,
 ): ZCodeGroupedTaskView {
   const activeTaskKey = getGroupedTaskDragTaskKey(event.active.data.current);
-  const overGroupId = getGroupedTaskCollapsedOverGroupId(
-    event.over?.data.current,
-  );
+  const overGroupId = getGroupedTaskCollapsedOverGroupId(event.over?.data.current);
   if (!activeTaskKey || !overGroupId) {
     return view;
   }
@@ -385,41 +359,35 @@ const GROUPED_TASK_AUTO_SCROLL_THRESHOLD = {
   y: 0.1,
 } as const;
 
-function collectGroupedTaskLayoutRects(
-  root: HTMLElement | null,
-): GroupedTaskLayoutRects {
+function collectGroupedTaskLayoutRects(root: HTMLElement | null): GroupedTaskLayoutRects {
   const rects: GroupedTaskLayoutRects = new Map();
   if (!root) {
     return rects;
   }
-  root
-    .querySelectorAll<HTMLElement>("[data-grouped-layout-key]")
-    .forEach((element) => {
-      const key = element.getAttribute("data-grouped-layout-key");
-      if (!key) {
-        return;
-      }
-      const rect = element.getBoundingClientRect();
-      rects.set(`layout:${key}`, {
-        height: rect.height,
-        left: rect.left,
-        top: rect.top,
-      });
+  root.querySelectorAll<HTMLElement>("[data-grouped-layout-key]").forEach((element) => {
+    const key = element.getAttribute("data-grouped-layout-key");
+    if (!key) {
+      return;
+    }
+    const rect = element.getBoundingClientRect();
+    rects.set(`layout:${key}`, {
+      height: rect.height,
+      left: rect.left,
+      top: rect.top,
     });
-  root
-    .querySelectorAll<HTMLElement>("[data-grouped-task-key]")
-    .forEach((element) => {
-      const key = element.getAttribute("data-grouped-task-key");
-      if (!key) {
-        return;
-      }
-      const rect = element.getBoundingClientRect();
-      rects.set(`task:${key}`, {
-        height: rect.height,
-        left: rect.left,
-        top: rect.top,
-      });
+  });
+  root.querySelectorAll<HTMLElement>("[data-grouped-task-key]").forEach((element) => {
+    const key = element.getAttribute("data-grouped-task-key");
+    if (!key) {
+      return;
+    }
+    const rect = element.getBoundingClientRect();
+    rects.set(`task:${key}`, {
+      height: rect.height,
+      left: rect.left,
+      top: rect.top,
     });
+  });
   return rects;
 }
 
@@ -431,9 +399,7 @@ function measureGroupedTaskPreviewWidth(
     return null;
   }
   const targetDomKey = encodeURIComponent(targetTaskKey);
-  for (const element of root.querySelectorAll<HTMLElement>(
-    "[data-grouped-task-key]",
-  )) {
+  for (const element of root.querySelectorAll<HTMLElement>("[data-grouped-task-key]")) {
     if (element.getAttribute("data-grouped-task-key") === targetDomKey) {
       return element.getBoundingClientRect().width;
     }
@@ -448,9 +414,7 @@ function measureGroupedGroupPreviewWidth(
   if (!root) {
     return null;
   }
-  for (const element of root.querySelectorAll<HTMLElement>(
-    "[data-grouped-group-item-id]",
-  )) {
+  for (const element of root.querySelectorAll<HTMLElement>("[data-grouped-group-item-id]")) {
     if (element.getAttribute("data-grouped-group-item-id") === targetGroupId) {
       return element.getBoundingClientRect().width;
     }
@@ -458,9 +422,7 @@ function measureGroupedGroupPreviewWidth(
   return null;
 }
 
-function resolveStickyGroupedTaskGroupId(
-  root: HTMLElement | null,
-): string | null {
+function resolveStickyGroupedTaskGroupId(root: HTMLElement | null): string | null {
   if (!root) {
     return null;
   }
@@ -470,17 +432,13 @@ function resolveStickyGroupedTaskGroupId(
   }
   const containerTop = scrollContainer.getBoundingClientRect().top;
   let stickyGroupId: string | null = null;
-  for (const element of root.querySelectorAll<HTMLElement>(
-    "[data-grouped-group-item-id]",
-  )) {
+  for (const element of root.querySelectorAll<HTMLElement>("[data-grouped-group-item-id]")) {
     const groupId = element.getAttribute("data-grouped-group-item-id");
     if (element.getAttribute("data-group-collapsed") === "true") {
       continue;
     }
     const header = groupId
-      ? root.querySelector<HTMLElement>(
-          `[data-grouped-group-header-id="${CSS.escape(groupId)}"]`,
-        )
+      ? root.querySelector<HTMLElement>(`[data-grouped-group-header-id="${CSS.escape(groupId)}"]`)
       : null;
     if (!groupId || !header) {
       continue;
@@ -489,8 +447,7 @@ function resolveStickyGroupedTaskGroupId(
     const headerRect = header.getBoundingClientRect();
     const headerHeight = headerRect.height || 32;
     const headerHasScrolledPastTop = headerRect.top < containerTop - 0.5;
-    const groupStillCoversTop =
-      groupRect.bottom > containerTop + headerHeight + 0.5;
+    const groupStillCoversTop = groupRect.bottom > containerTop + headerHeight + 0.5;
     if (headerHasScrolledPastTop && groupStillCoversTop) {
       stickyGroupId = groupId;
     }
@@ -524,13 +481,8 @@ function animateGroupedTaskLayoutFrom(
     const deltaX = previousRect.left - nextRect.left;
     const deltaY = previousRect.top - nextRect.top;
     const deltaHeight = previousRect.height - nextRect.height;
-    const shouldAnimateHeight =
-      Boolean(layoutKey) && Math.abs(deltaHeight) >= 0.5;
-    if (
-      Math.abs(deltaX) < 0.5 &&
-      Math.abs(deltaY) < 0.5 &&
-      !shouldAnimateHeight
-    ) {
+    const shouldAnimateHeight = Boolean(layoutKey) && Math.abs(deltaHeight) >= 0.5;
+    if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5 && !shouldAnimateHeight) {
       return;
     }
     element.getAnimations().forEach((animation) => animation.cancel());
@@ -593,11 +545,7 @@ export function WorkspaceGroupedTasksSection({
   activeWorkspaceIdentity?: string;
   activeTaskId: string | null;
   mobileActiveTaskKey?: string | null;
-  onSelectTask: (
-    workspacePath: string,
-    taskId: string,
-    workspaceIdentity?: string,
-  ) => void;
+  onSelectTask: (workspacePath: string, taskId: string, workspaceIdentity?: string) => void;
   onCreateTask: (request?: CreateTaskRequest) => void;
   onOpenFileTree?: (target: {
     workspacePath: string;
@@ -609,18 +557,14 @@ export function WorkspaceGroupedTasksSection({
   onCreateDraftTaskActionChange?: (action: (() => void) | null) => void;
   collapsedGroupIds: ReadonlySet<string>;
   onGroupedTaskGroupIdsChange?: (groupIds: string[]) => void;
-  onCollapsedGroupIdsChange: (
-    updater: (currentGroupIds: Set<string>) => Set<string>,
-  ) => void;
+  onCollapsedGroupIdsChange: (updater: (currentGroupIds: Set<string>) => Set<string>) => void;
   onStickyGroupHeaderChange?: (node: ReactNode | null) => void;
   /** 闲时系统分组的「+」/右键新建路由到 Automations 主视图。 */
   onOpenAutomations?: () => void;
 }) {
   const { intl } = useZCodeIntl();
   const baseServices = useBaseWorkspaceServices();
-  const sessionsById = useRemoteWorkspaceSessionStore(
-    (state) => state.sessionsById,
-  );
+  const sessionsById = useRemoteWorkspaceSessionStore((state) => state.sessionsById);
   const sessionIdByWorkspaceIdentity = useRemoteWorkspaceSessionStore(
     (state) => state.sessionIdByWorkspaceIdentity,
   );
@@ -636,42 +580,25 @@ export function WorkspaceGroupedTasksSection({
     [sessionIdByWorkspaceIdentity, sessionIdByWorkspacePath, sessionsById],
   );
   const workspaceServiceLookup = useMemo(
-    () =>
-      buildWorkspaceServiceLookup(
-        workspaceTabs,
-        baseServices,
-        serviceResolverState,
-      ),
+    () => buildWorkspaceServiceLookup(workspaceTabs, baseServices, serviceResolverState),
     [baseServices, serviceResolverState, workspaceTabs],
   );
-  const removeTaskState = useZCodeSessionStore(
-    (state) => state.removeTaskState,
-  );
+  const removeTaskState = useZCodeSessionStore((state) => state.removeTaskState);
   const upsertOptimisticTaskListItem = useZCodeSessionStore(
     (state) => state.upsertOptimisticTaskListItem,
   );
-  const setTaskUnreadIndicator = useZCodeSessionStore(
-    (state) => state.setTaskUnreadIndicator,
-  );
+  const setTaskUnreadIndicator = useZCodeSessionStore((state) => state.setTaskUnreadIndicator);
   const groupedDraftTask = useZCodeSessionStore(
     (state) =>
-      selectWorkspaceZCodeState(
-        state,
-        activeWorkspacePath,
-        activeWorkspaceIdentity,
-      ).groupedDraftTask,
+      selectWorkspaceZCodeState(state, activeWorkspacePath, activeWorkspaceIdentity)
+        .groupedDraftTask,
   );
   const groupedDraftFocusVersion = useZCodeSessionStore(
     (state) =>
-      selectWorkspaceZCodeState(
-        state,
-        activeWorkspacePath,
-        activeWorkspaceIdentity,
-      ).draftFocusVersion,
+      selectWorkspaceZCodeState(state, activeWorkspacePath, activeWorkspaceIdentity)
+        .draftFocusVersion,
   );
-  const clearGroupedDraftTask = useZCodeSessionStore(
-    (state) => state.clearGroupedDraftTask,
-  );
+  const clearGroupedDraftTask = useZCodeSessionStore((state) => state.clearGroupedDraftTask);
   const {
     view: authoritativeView,
     setView,
@@ -686,9 +613,7 @@ export function WorkspaceGroupedTasksSection({
   } = useGroupedTaskView({
     workspaceTabs,
   });
-  const [archivingTaskKeys, setArchivingTaskKeys] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
+  const [archivingTaskKeys, setArchivingTaskKeys] = useState<ReadonlySet<string>>(() => new Set());
   const view = useMemo(
     () => filterGroupedViewByTaskKeys(authoritativeView, archivingTaskKeys),
     [archivingTaskKeys, authoritativeView],
@@ -727,22 +652,14 @@ export function WorkspaceGroupedTasksSection({
   const layoutAnimationFrameRef = useRef<number | null>(null);
   const dragDirectionRef = useRef<GroupedTaskDragDirectionPosition>("after");
   const lastDragDeltaYRef = useRef(0);
-  const workbenchDragPayloadRef =
-    useRef<WorkbenchSessionDragPayload | null>(null);
-  const workbenchPointerPositionTrackerRef =
-    useRef<WorkbenchPointerPositionTracker | null>(null);
+  const workbenchDragPayloadRef = useRef<WorkbenchSessionDragPayload | null>(null);
+  const workbenchPointerPositionTrackerRef = useRef<WorkbenchPointerPositionTracker | null>(null);
   const [renamingTaskKey, setRenamingTaskKey] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [newGroupSetupId, setNewGroupSetupId] = useState<string | null>(null);
-  const [activeDragTaskKey, setActiveDragTaskKey] = useState<string | null>(
-    null,
-  );
-  const [activeDragGroupId, setActiveDragGroupId] = useState<string | null>(
-    null,
-  );
-  const [activeDragOverlayWidth, setActiveDragOverlayWidth] = useState<
-    number | null
-  >(null);
+  const [activeDragTaskKey, setActiveDragTaskKey] = useState<string | null>(null);
+  const [activeDragGroupId, setActiveDragGroupId] = useState<string | null>(null);
+  const [activeDragOverlayWidth, setActiveDragOverlayWidth] = useState<number | null>(null);
   const [stickyGroupId, setStickyGroupId] = useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -751,19 +668,16 @@ export function WorkspaceGroupedTasksSection({
       },
     }),
   );
-  const isGroupedDraftActive = Boolean(
-    groupedDraftTask && activeTaskId === null,
-  );
+  const isGroupedDraftActive = Boolean(groupedDraftTask && activeTaskId === null);
   const handleGroupedPointerDownCapture = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       // 必须在 dnd-kit 激活前监听，才能捕获越过 6px 阈值的首个
       // pointermove；快速拖到 Workbench 后立即松手也要使用真实 viewport 坐标。
       workbenchPointerPositionTrackerRef.current?.dispose();
-      workbenchPointerPositionTrackerRef.current =
-        createWorkbenchPointerPositionTracker(
-          event.currentTarget.ownerDocument,
-          event.nativeEvent,
-        );
+      workbenchPointerPositionTrackerRef.current = createWorkbenchPointerPositionTracker(
+        event.currentTarget.ownerDocument,
+        event.nativeEvent,
+      );
     },
     [],
   );
@@ -895,11 +809,7 @@ export function WorkspaceGroupedTasksSection({
   }, [groupIds, onGroupedTaskGroupIdsChange]);
   useEffect(() => {
     const rootElement = groupedSectionRootRef.current;
-    if (
-      !rootElement ||
-      activeDragTaskKey !== null ||
-      activeDragGroupId !== null
-    ) {
+    if (!rootElement || activeDragTaskKey !== null || activeDragGroupId !== null) {
       setStickyGroupId(null);
       return undefined;
     }
@@ -925,9 +835,7 @@ export function WorkspaceGroupedTasksSection({
     });
     window.addEventListener("resize", scheduleUpdate);
     const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(scheduleUpdate);
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleUpdate);
     resizeObserver?.observe(rootElement);
     return () => {
       if (animationFrame !== null) {
@@ -986,16 +894,13 @@ export function WorkspaceGroupedTasksSection({
         id: "workspaceSidebar.conversationsSection",
       });
     }
-    return (
-      tab?.label || getPathLeaf(activeWorkspacePath) || activeWorkspacePath
-    );
+    return tab?.label || getPathLeaf(activeWorkspacePath) || activeWorkspacePath;
   }, [activeWorkspaceIdentity, activeWorkspacePath, intl, workspaceTabByKey]);
 
   const getTaskRemoteSessionId = useCallback(
     (task: ZCodeTaskMeta) =>
-      workspaceServiceLookup.get(
-        buildTaskWorkspaceKey(task.workspacePath, task.workspaceIdentity),
-      )?.remoteSessionId,
+      workspaceServiceLookup.get(buildTaskWorkspaceKey(task.workspacePath, task.workspaceIdentity))
+        ?.remoteSessionId,
     [workspaceServiceLookup],
   );
 
@@ -1026,9 +931,7 @@ export function WorkspaceGroupedTasksSection({
   }, [handleCreateGroup, onCreateGroupActionChange]);
 
   const handleNewGroupSetupStarted = useCallback((groupId: string) => {
-    setNewGroupSetupId((currentGroupId) =>
-      currentGroupId === groupId ? null : currentGroupId,
-    );
+    setNewGroupSetupId((currentGroupId) => (currentGroupId === groupId ? null : currentGroupId));
   }, []);
 
   const handleToggleGroupCollapsed = useCallback(
@@ -1113,16 +1016,12 @@ export function WorkspaceGroupedTasksSection({
     }
 
     try {
-      const meta = await workspaceServices.services.zcodeTaskService.renameTask(
-        {
-          taskId: task.taskId,
-          workspacePath: task.workspacePath,
-          title: normalizedTitle,
-          ...(task.workspaceIdentity
-            ? { workspaceIdentity: task.workspaceIdentity }
-            : {}),
-        },
-      );
+      const meta = await workspaceServices.services.zcodeTaskService.renameTask({
+        taskId: task.taskId,
+        workspacePath: task.workspacePath,
+        title: normalizedTitle,
+        ...(task.workspaceIdentity ? { workspaceIdentity: task.workspaceIdentity } : {}),
+      });
 
       if (!meta) {
         toast(intl.formatMessage({ id: "taskList.renameFailed" }));
@@ -1130,11 +1029,7 @@ export function WorkspaceGroupedTasksSection({
       }
 
       setView((currentView) => replaceTaskInGroupedView(currentView, meta));
-      upsertOptimisticTaskListItem(
-        task.workspacePath,
-        meta,
-        task.workspaceIdentity,
-      );
+      upsertOptimisticTaskListItem(task.workspacePath, meta, task.workspaceIdentity);
       applyTaskQueryCacheMutation({
         previousTask: task,
         nextTask: meta,
@@ -1170,23 +1065,12 @@ export function WorkspaceGroupedTasksSection({
           taskId: task.taskId,
           workspacePath: task.workspacePath,
           unread: true,
-          ...(task.workspaceIdentity
-            ? { workspaceIdentity: task.workspaceIdentity }
-            : {}),
+          ...(task.workspaceIdentity ? { workspaceIdentity: task.workspaceIdentity } : {}),
         })
         .then((meta) => {
-          setTaskUnreadIndicator(
-            task.workspacePath,
-            task.taskId,
-            true,
-            task.workspaceIdentity,
-          );
+          setTaskUnreadIndicator(task.workspacePath, task.taskId, true, task.workspaceIdentity);
           setView((currentView) => replaceTaskInGroupedView(currentView, meta));
-          upsertOptimisticTaskListItem(
-            task.workspacePath,
-            meta,
-            task.workspaceIdentity,
-          );
+          upsertOptimisticTaskListItem(task.workspacePath, meta, task.workspaceIdentity);
           applyTaskQueryCacheMutation({
             previousTask: task,
             nextTask: meta,
@@ -1198,13 +1082,7 @@ export function WorkspaceGroupedTasksSection({
           toast(intl.formatMessage({ id: "taskList.markAsUnreadFailed" }));
         });
     },
-    [
-      intl,
-      setTaskUnreadIndicator,
-      setView,
-      upsertOptimisticTaskListItem,
-      workspaceServiceLookup,
-    ],
+    [intl, setTaskUnreadIndicator, setView, upsertOptimisticTaskListItem, workspaceServiceLookup],
   );
 
   const handleCloseTask = useCallback(
@@ -1228,34 +1106,20 @@ export function WorkspaceGroupedTasksSection({
         .archiveTask({
           taskId: task.taskId,
           workspacePath: task.workspacePath,
-          ...(task.workspaceIdentity
-            ? { workspaceIdentity: task.workspaceIdentity }
-            : {}),
+          ...(task.workspaceIdentity ? { workspaceIdentity: task.workspaceIdentity } : {}),
         })
         .then((meta) => {
           // grouped 的后台 refresh 可能携带归档前的 membership，直接覆盖乐观删除。
           // 归档成功后主动换代 membership；渲染层在权威列表确认消失前继续屏蔽该 task。
           bumpTaskListMembershipVersion();
-          removeTaskState(
-            task.workspacePath,
-            task.taskId,
-            task.workspaceIdentity,
-          );
+          removeTaskState(task.workspacePath, task.taskId, task.workspaceIdentity);
           if (task.workspaceIdentity) {
             useRemoteTimelineTaskStore
               .getState()
-              .removeTask(
-                task.workspacePath,
-                task.taskId,
-                task.workspaceIdentity,
-              );
+              .removeTask(task.workspacePath, task.taskId, task.workspaceIdentity);
             useRemotePinnedTaskStore
               .getState()
-              .removeTask(
-                task.workspacePath,
-                task.taskId,
-                task.workspaceIdentity,
-              );
+              .removeTask(task.workspacePath, task.taskId, task.workspaceIdentity);
           }
           applyTaskQueryCacheMutation({
             previousTask: task,
@@ -1316,19 +1180,14 @@ export function WorkspaceGroupedTasksSection({
 
   const setViewWithGroupedTaskAnimation = useCallback(
     (nextView: ZCodeGroupedTaskView) => {
-      const previousRects = collectGroupedTaskLayoutRects(
-        groupedSectionRootRef.current,
-      );
+      const previousRects = collectGroupedTaskLayoutRects(groupedSectionRootRef.current);
       setView(nextView);
       if (layoutAnimationFrameRef.current !== null) {
         window.cancelAnimationFrame(layoutAnimationFrameRef.current);
       }
       layoutAnimationFrameRef.current = window.requestAnimationFrame(() => {
         layoutAnimationFrameRef.current = null;
-        animateGroupedTaskLayoutFrom(
-          groupedSectionRootRef.current,
-          previousRects,
-        );
+        animateGroupedTaskLayoutFrom(groupedSectionRootRef.current, previousRects);
       });
     },
     [setView],
@@ -1365,9 +1224,7 @@ export function WorkspaceGroupedTasksSection({
       dragDirectionRef.current = "after";
       lastDragDeltaYRef.current = 0;
       lastDragOverEventRef.current = null;
-      const nextActiveGroupId = getGroupedTaskDragGroupId(
-        event.active.data.current,
-      );
+      const nextActiveGroupId = getGroupedTaskDragGroupId(event.active.data.current);
       if (nextActiveGroupId) {
         dragOriginViewRef.current = authoritativeView;
         dragPreviewViewRef.current = authoritativeView;
@@ -1390,9 +1247,7 @@ export function WorkspaceGroupedTasksSection({
         });
         return;
       }
-      const nextActiveTaskKey = getGroupedTaskDragTaskKey(
-        event.active.data.current,
-      );
+      const nextActiveTaskKey = getGroupedTaskDragTaskKey(event.active.data.current);
       if (!nextActiveTaskKey) {
         return;
       }
@@ -1419,36 +1274,21 @@ export function WorkspaceGroupedTasksSection({
       }
       setActiveDragTaskKey(nextActiveTaskKey);
     },
-    [
-      collapsedGroupIds,
-      getTaskRemoteSessionId,
-      onCollapsedGroupIdsChange,
-      authoritativeView,
-      view,
-    ],
+    [collapsedGroupIds, getTaskRemoteSessionId, onCollapsedGroupIdsChange, authoritativeView, view],
   );
 
   const applyGroupedTaskDragOverPreview = useCallback(
     (event: DragOverEvent) => {
-      const activeTaskKey = getGroupedTaskDragTaskKey(
-        event.active.data.current,
-      );
-      const activeGroupId = getGroupedTaskDragGroupId(
-        event.active.data.current,
-      );
+      const activeTaskKey = getGroupedTaskDragTaskKey(event.active.data.current);
+      const activeGroupId = getGroupedTaskDragGroupId(event.active.data.current);
       if ((!activeTaskKey && !activeGroupId) || !event.over) {
         return;
       }
-      const currentPreviewView =
-        dragPreviewViewRef.current ?? authoritativeView;
+      const currentPreviewView = dragPreviewViewRef.current ?? authoritativeView;
       const dragDirection = dragDirectionRef.current;
       const nextView = activeGroupId
         ? getGroupedGroupOverTaskPreviewView(
-            getGroupedGroupOverGroupPreviewView(
-              currentPreviewView,
-              event,
-              dragDirection,
-            ),
+            getGroupedGroupOverGroupPreviewView(currentPreviewView, event, dragDirection),
             event,
             dragDirection,
           )
@@ -1474,8 +1314,7 @@ export function WorkspaceGroupedTasksSection({
           );
       if (
         nextView === currentPreviewView ||
-        getGroupedTaskViewSignature(nextView) ===
-          getGroupedTaskViewSignature(currentPreviewView)
+        getGroupedTaskViewSignature(nextView) === getGroupedTaskViewSignature(currentPreviewView)
       ) {
         return;
       }
@@ -1490,11 +1329,9 @@ export function WorkspaceGroupedTasksSection({
       const workbenchPayload = workbenchDragPayloadRef.current;
       const position = workbenchPointerPositionTrackerRef.current?.getPosition();
       if (workbenchPayload && position) {
-        updateWorkbenchPointerDrag(
-          workbenchPayload,
-          position.x,
-          position.y,
-        );
+        updateWorkbenchPointerDrag(workbenchPayload, position.x, position.y);
+        // 指针拖拽通道的「拖出窗口」引导（HTML5 通道由 workbenchWindowDragOut 自行追踪）。
+        updateSessionPointerDragOutsideViewport(workbenchPayload, position.x, position.y);
       }
       const nextDeltaY = event.delta.y;
       const previousDirection = dragDirectionRef.current;
@@ -1504,10 +1341,7 @@ export function WorkspaceGroupedTasksSection({
         dragDirectionRef.current = "before";
       }
       lastDragDeltaYRef.current = nextDeltaY;
-      if (
-        dragDirectionRef.current !== previousDirection &&
-        lastDragOverEventRef.current
-      ) {
+      if (dragDirectionRef.current !== previousDirection && lastDragOverEventRef.current) {
         applyGroupedTaskDragOverPreview(lastDragOverEventRef.current);
       }
     },
@@ -1524,6 +1358,8 @@ export function WorkspaceGroupedTasksSection({
 
   const resetGroupedTaskDrag = useCallback(() => {
     cancelWorkbenchPointerDrag();
+    // 指针拖拽的整体收尾也会清掉「拖出窗口」引导态（无 payload → 仅复位）。
+    finishSessionPointerDragOutsideViewport(null, 0, 0);
     workbenchDragPayloadRef.current = null;
     workbenchPointerPositionTrackerRef.current?.dispose();
     workbenchPointerPositionTrackerRef.current = null;
@@ -1540,8 +1376,7 @@ export function WorkspaceGroupedTasksSection({
   const handleGroupedTaskDragCancel = useCallback(
     (event?: DragCancelEvent) => {
       const activeGroupId =
-        getGroupedTaskDragGroupId(event?.active.data.current) ??
-        activeDragGroupId;
+        getGroupedTaskDragGroupId(event?.active.data.current) ?? activeDragGroupId;
       if (activeGroupId) {
         restoreGroupDragCollapsedState();
         resetGroupedTaskDrag();
@@ -1563,19 +1398,16 @@ export function WorkspaceGroupedTasksSection({
   const handleGroupedTaskDragEnd = useCallback(
     (event: DragEndEvent) => {
       const activeGroupId =
-        getGroupedTaskDragGroupId(event.active.data.current) ??
-        activeDragGroupId;
+        getGroupedTaskDragGroupId(event.active.data.current) ?? activeDragGroupId;
       if (activeGroupId) {
         const originView = dragOriginViewRef.current;
-        const currentPreviewView =
-          dragPreviewViewRef.current ?? authoritativeView;
+        const currentPreviewView = dragPreviewViewRef.current ?? authoritativeView;
         const nextView = currentPreviewView;
         restoreGroupDragCollapsedState();
         resetGroupedTaskDrag();
         if (
           !originView ||
-          getGroupedTaskViewSignature(nextView) ===
-            getGroupedTaskViewSignature(originView)
+          getGroupedTaskViewSignature(nextView) === getGroupedTaskViewSignature(originView)
         ) {
           if (originView) {
             setViewWithGroupedTaskAnimation(originView);
@@ -1607,14 +1439,28 @@ export function WorkspaceGroupedTasksSection({
         setViewWithGroupedTaskAnimation(originView);
         return;
       }
-      const currentPreviewView =
-        dragPreviewViewRef.current ?? authoritativeView;
+      // 未命中任何分屏目标且指针已在窗口外 → 拖出侧栏释放，新窗口打开该会话。
+      if (
+        workbenchPayload &&
+        workbenchDropPosition &&
+        finishSessionPointerDragOutsideViewport(
+          workbenchPayload,
+          workbenchDropPosition.x,
+          workbenchDropPosition.y,
+        )
+      ) {
+        resetGroupedTaskDrag();
+        if (originView) {
+          setViewWithGroupedTaskAnimation(originView);
+        }
+        return;
+      }
+      const currentPreviewView = dragPreviewViewRef.current ?? authoritativeView;
       const nextView = currentPreviewView;
       resetGroupedTaskDrag();
       if (
         !originView ||
-        getGroupedTaskViewSignature(nextView) ===
-          getGroupedTaskViewSignature(originView)
+        getGroupedTaskViewSignature(nextView) === getGroupedTaskViewSignature(originView)
       ) {
         if (originView) {
           setViewWithGroupedTaskAnimation(originView);
@@ -1639,19 +1485,13 @@ export function WorkspaceGroupedTasksSection({
   );
 
   const activeDragTask = useMemo(
-    () =>
-      activeDragTaskKey
-        ? findTaskInGroupedView(view, activeDragTaskKey)
-        : null,
+    () => (activeDragTaskKey ? findTaskInGroupedView(view, activeDragTaskKey) : null),
     [activeDragTaskKey, view],
   );
   const activeDragGroup = useMemo(
     () =>
       activeDragGroupId
-        ? view.nodes.find(
-            (node) =>
-              node.type === "group" && node.group.id === activeDragGroupId,
-          )
+        ? view.nodes.find((node) => node.type === "group" && node.group.id === activeDragGroupId)
         : null,
     [activeDragGroupId, view.nodes],
   );
@@ -1668,14 +1508,11 @@ export function WorkspaceGroupedTasksSection({
     };
   }, [activeDragTaskKey, activeDragGroupId]);
 
-  const groupedTooltipsDisabled =
-    activeDragTaskKey !== null || activeDragGroupId !== null;
+  const groupedTooltipsDisabled = activeDragTaskKey !== null || activeDragGroupId !== null;
   const stickyGroupNode = useMemo(
     () =>
       stickyGroupId
-        ? view.nodes.find(
-            (node) => node.type === "group" && node.group.id === stickyGroupId,
-          )
+        ? view.nodes.find((node) => node.type === "group" && node.group.id === stickyGroupId)
         : null,
     [view.nodes, stickyGroupId],
   );
@@ -1718,10 +1555,7 @@ export function WorkspaceGroupedTasksSection({
   const renderTopLevelNode = useCallback(
     (node: ZCodeGroupedTaskView["nodes"][number]) =>
       node.type === "group" ? (
-        <div
-          key={node.group.id}
-          data-grouped-layout-key={`group:${node.group.id}`}
-        >
+        <div key={node.group.id} data-grouped-layout-key={`group:${node.group.id}`}>
           <GroupItem
             node={node}
             groups={groups}
@@ -1854,10 +1688,7 @@ export function WorkspaceGroupedTasksSection({
   const groupedTaskDragOverlay = (
     <DragOverlay dropAnimation={GROUPED_TASK_DROP_ANIMATION}>
       {activeDragTask ? (
-        <div
-          className={dragOverlayWidthClassName}
-          style={dragOverlayWidthStyle}
-        >
+        <div className={dragOverlayWidthClassName} style={dragOverlayWidthStyle}>
           <GroupedTaskItem
             task={activeDragTask}
             groups={groups}
@@ -1935,9 +1766,7 @@ export function WorkspaceGroupedTasksSection({
             isGroupCollapsed={isGroupCollapsed}
             renderNode={renderTopLevelNode}
           />
-          {view.nodes.length === 0 &&
-          !groupedDraftTask &&
-          !loading ? (
+          {view.nodes.length === 0 && !groupedDraftTask && !loading ? (
             <div className="px-3 py-2 text-ui-base text-foreground-subtle">
               {intl.formatMessage({ id: "taskList.noTasks" })}
             </div>

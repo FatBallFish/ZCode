@@ -195,7 +195,12 @@ export function createDesktopPlatform(options: {
       Promise.resolve({ runningAgentSessionCount: 0 }),
     getZCodeStdioTapDevState: () =>
       window.zcode.getZCodeStdioTapDevState?.() ??
-      Promise.resolve({ enabled: false, visible: false, logDir: "", statePath: "" }),
+      Promise.resolve({
+        enabled: false,
+        visible: false,
+        logDir: "",
+        statePath: "",
+      }),
     onSettingsChanged: (callback) => window.zcode.onSettingsChanged?.(callback) ?? (() => {}),
     // 桌面宠物（specs/desktop/desktop-pet.md）：市场与本地包操作全部经 main 代理。
     petListInstalled: () => window.zcode.petListInstalled?.() ?? Promise.resolve([]),
@@ -214,6 +219,10 @@ export function createDesktopPlatform(options: {
       window.zcode.petGetInstalledPreview?.(petId) ?? Promise.resolve(null),
     petImportFromCodex: () =>
       window.zcode.petImportFromCodex?.() ?? Promise.resolve({ imported: [], skipped: [] }),
+    // 会话拖出侧栏 → 新窗口打开（specs/desktop/session-drag-out-window.md）。
+    openSessionInNewWindow: (payload) =>
+      window.zcode.openSessionInNewWindow?.(payload) ??
+      Promise.resolve({ ok: false as const, error: "unavailable" }),
     onOpenPetSettings: (callback) => window.zcode.onOpenPetSettings?.(callback) ?? (() => {}),
     onApplicationLocaleChanged: (callback) =>
       window.zcode.onApplicationLocaleChanged?.(callback) ?? (() => {}),

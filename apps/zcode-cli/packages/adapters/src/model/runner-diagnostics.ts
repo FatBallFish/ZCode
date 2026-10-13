@@ -438,17 +438,12 @@ function isSuspiciousModelCompletion(input: {
   toolCallCount: number;
   usage?: ModelUsage;
 }): boolean {
-  return (
-    input.textLength === 0 &&
-    input.toolCallCount === 0 &&
-    isNonStopFinish(input.finishReason) &&
-    isZeroUsage(input.usage)
-  );
-}
-
-function isNonStopFinish(finishReason?: string): boolean {
-  const normalized = finishReason?.trim().toLowerCase();
-  return normalized !== "stop" && normalized !== "tool-calls" && normalized !== "tool_calls";
+  if (input.textLength !== 0 || input.toolCallCount !== 0) return false;
+  if (input.finishReason === undefined) return isZeroUsage(input.usage);
+  // 与 core isSuspiciousEmptyModelResult 同口径（2026-10-12）：任何 finish 下的
+  // 零文本+零工具补全都触发一次空回重试。旧口径（non-stop+零 usage）放行了
+  // ChatGPT codex 的「stop + usage 内容性空回」，表现为切模型后秒回空输出。
+  return true;
 }
 
 function isZeroUsage(usage?: ModelUsage): boolean {

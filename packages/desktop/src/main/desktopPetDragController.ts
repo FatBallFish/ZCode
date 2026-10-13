@@ -48,6 +48,8 @@ interface PetDragSession {
   anchorOrigin: { x: number; y: number };
   tracker: ReturnType<typeof createPetDragDirectionTracker>;
   lastApplied: { x: number; y: number };
+  /** 气泡跟随降频计数：气泡同为透明窗，逐 tick setBounds 会叠加合成开销。 */
+  bubbleTick: number;
 }
 
 export function createPetDragController(deps: PetDragControllerDeps): PetDragController {
@@ -98,7 +100,12 @@ export function createPetDragController(deps: PetDragControllerDeps): PetDragCon
     }
     // 程序化 setBounds 不保证触发 moved 事件；拖拽路径自行驱动持久化与气泡跟随。
     deps.persistPositionSoon();
-    deps.repositionBubble(petWindow.getBounds());
+    // 气泡以 ~20Hz 跟随（每 3 tick）：60Hz 下人眼对副窗跟随延迟不敏感，
+    // 但透明窗逐帧 setBounds 在高分屏上会叠加明显的合成负载（拖动卡顿反馈主因之一）。
+    session.bubbleTick = (session.bubbleTick + 1) % 3;
+    if (session.bubbleTick === 0) {
+      deps.repositionBubble(petWindow.getBounds());
+    }
   };
 
   return {
@@ -114,12 +121,18 @@ export function createPetDragController(deps: PetDragControllerDeps): PetDragCon
         anchorOrigin: { x: originX, y: originY },
         tracker: createPetDragDirectionTracker(),
         lastApplied: { x: originX, y: originY },
+        bubbleTick: 0,
       };
     },
     end() {
       const movedPx = dragSession?.tracker.movedPx ?? 0;
       stopDragLoop();
       deps.persistPositionSoon();
+      // 跟随降频（每 3 tick）可能在松手瞬间欠一拍，结束时对齐一次最终位置。
+      const petWindow = deps.getPetWindow();
+      if (petWindow && !petWindow.isDestroyed()) {
+        deps.repositionBubble(petWindow.getBounds());
+      }
       return { movedPx };
     },
     stop() {

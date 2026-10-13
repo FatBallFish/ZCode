@@ -307,14 +307,17 @@ contextBridge.exposeInMainWorld("zcode", {
   },
   disposeRemoteSession: (sessionId: string): Promise<void> =>
     ipcRenderer.invoke(PlatformChannels.DisposeRemoteSession, sessionId),
-  remoteControlGetState: (): Promise<{ state: DesktopRemoteControlState; enabled: boolean }> =>
-    ipcRenderer.invoke(PlatformChannels.RemoteControlGetState),
+  remoteControlGetState: (): Promise<{
+    state: DesktopRemoteControlState;
+    enabled: boolean;
+  }> => ipcRenderer.invoke(PlatformChannels.RemoteControlGetState),
   remoteControlStart: (): Promise<{ state: DesktopRemoteControlState }> =>
     ipcRenderer.invoke(PlatformChannels.RemoteControlStart),
   remoteControlStop: (): Promise<{ state: DesktopRemoteControlState }> =>
     ipcRenderer.invoke(PlatformChannels.RemoteControlStop),
-  remoteControlRefreshTicket: (): Promise<{ state: DesktopRemoteControlState }> =>
-    ipcRenderer.invoke(PlatformChannels.RemoteControlRefreshTicket),
+  remoteControlRefreshTicket: (): Promise<{
+    state: DesktopRemoteControlState;
+  }> => ipcRenderer.invoke(PlatformChannels.RemoteControlRefreshTicket),
   remoteControlDisconnect: (): Promise<{ state: DesktopRemoteControlState }> =>
     ipcRenderer.invoke(PlatformChannels.RemoteControlDisconnect),
   remoteControlSetAutoRefresh: (enabled: boolean): Promise<{ state: DesktopRemoteControlState }> =>
@@ -737,7 +740,11 @@ contextBridge.exposeInMainWorld("zcode", {
   ): (() => void) => {
     const handler = (
       _event: unknown,
-      payload: { taskId: string; workspacePath: string; workspaceIdentity?: string },
+      payload: {
+        taskId: string;
+        workspacePath: string;
+        workspaceIdentity?: string;
+      },
     ) => callback(payload);
     ipcRenderer.on(PlatformChannels.OpenPetTask, handler);
     return () => ipcRenderer.removeListener(PlatformChannels.OpenPetTask, handler);
@@ -954,6 +961,12 @@ contextBridge.exposeInMainWorld("zcode", {
     ipcRenderer.invoke(PlatformChannels.PetGetInstalledPreview, { petId }),
   /** 桌面宠物：只读导入 ~/.codex/pets 下的合法包。 */
   petImportFromCodex: () => ipcRenderer.invoke(PlatformChannels.PetImportFromCodex),
+  /** 把会话在独立新主窗口打开（拖出侧栏释放；本地 workspace 限定）。 */
+  openSessionInNewWindow: (payload: {
+    workspacePath: string;
+    workspaceIdentity?: string;
+    sessionId: string;
+  }) => ipcRenderer.invoke(PlatformChannels.OpenSessionWindow, payload),
   /** 读取开发态 stdio tap proxy 开关状态 */
   getZCodeStdioTapDevState: (): Promise<ZCodeStdioTapDevState> =>
     ipcRenderer.invoke(PlatformChannels.GetZCodeStdioTapDevState),
@@ -1168,7 +1181,13 @@ ipcRenderer.on(
 
 ipcRenderer.on(
   PlatformChannels.VoiceSessionEvent,
-  (_event, payload: { sessionId: string; event: import("@zcode/shared").VoiceSessionEvent }) => {
+  (
+    _event,
+    payload: {
+      sessionId: string;
+      event: import("@zcode/shared").VoiceSessionEvent;
+    },
+  ) => {
     for (const callback of voiceSessionEventCallbacks) {
       try {
         callback(payload);

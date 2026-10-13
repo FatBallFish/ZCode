@@ -19,16 +19,20 @@ import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { getPathLeaf } from "@/lib/path.js";
-import {
-  formatTaskTitleWithChanges,
-  getTaskChangeSummary,
-} from "@/lib/taskChangeSummary.js";
+import { formatTaskTitleWithChanges, getTaskChangeSummary } from "@/lib/taskChangeSummary.js";
 import {
   deriveTaskLeadingIndicator,
   formatTaskRelativeTime,
 } from "@/lib/taskListItemPresentation.js";
 import { getTaskListAttention, getTaskListRowActivity } from "@/v4/taskListRowActivity.js";
 import { TaskListItemContextMenu } from "@/TaskListItemContextMenu.js";
+import { TaskHoverDetailsContent } from "@/TaskHoverDetails.js";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip.js";
 import { TaskInteractionBadge } from "@/TaskInteractionBadge.js";
 import { useTaskListItemContextActions } from "@/useTaskListItemContextActions.js";
 import { useFeedbackStore, FEEDBACK_ENTRY_ENABLED } from "@/feedback/feedbackStore.js";
@@ -37,6 +41,7 @@ import { buildTaskFeedbackDescription } from "@/lib/taskFeedbackDraft.js";
 import { toast } from "@/components/ui/toast.js";
 import { buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
 import { useV4SplitPaneEntry } from "@/v4/splitPaneEntryContext.js";
+import { trackSessionDragForWindowOpen } from "@/v4/workbenchWindowDragOut.js";
 import { buildWorkbenchSessionKey, useWorkbenchGroupStore } from "@/v4/workbenchGroupStore.js";
 import { useTaskInteractionAutoResolutionSnooze } from "@/hooks/useTaskInteractionAutoResolutionSnooze.js";
 import {
@@ -54,10 +59,7 @@ import { TaskRowActionButton } from "@/workspace-grouped-tasks/task-row-action-b
 import { TaskWorkflowRunLines } from "@/components/workflow-run-line/TaskWorkflowRunLines.js";
 
 type TaskListItemIntl = {
-  formatMessage: (
-    desc: { id: string },
-    values?: Record<string, string>,
-  ) => string;
+  formatMessage: (desc: { id: string }, values?: Record<string, string>) => string;
 };
 
 interface TaskListItemProps {
@@ -89,16 +91,10 @@ function areJsonFieldsEqual(left: unknown, right: unknown) {
 }
 
 function getTaskAutomationIdentity(task: ZCodeTaskMeta): string | undefined {
-  return (
-    task.cronAutomationId ??
-    (task as ZCodeTaskMeta & { automationId?: string }).automationId
-  );
+  return task.cronAutomationId ?? (task as ZCodeTaskMeta & { automationId?: string }).automationId;
 }
 
-function areTaskListItemTaskFieldsEqual(
-  left: ZCodeTaskMeta,
-  right: ZCodeTaskMeta,
-) {
+function areTaskListItemTaskFieldsEqual(left: ZCodeTaskMeta, right: ZCodeTaskMeta) {
   if (left === right) {
     return true;
   }
@@ -120,10 +116,7 @@ function areTaskListItemTaskFieldsEqual(
   );
 }
 
-function areTaskListItemPropsEqual(
-  left: TaskListItemProps,
-  right: TaskListItemProps,
-) {
+function areTaskListItemPropsEqual(left: TaskListItemProps, right: TaskListItemProps) {
   return (
     left.workspacePath === right.workspacePath &&
     left.remoteSessionId === right.remoteSessionId &&
@@ -180,8 +173,7 @@ export const MemoTaskItem = memo(function TaskListItem({
   const itemRef = useRef<HTMLLIElement | null>(null);
   const workspaceActionsDisabled = useOptionalTabStore(
     (state) =>
-      actionsDisabled ||
-      isWorkspaceReadOnly(state, task.workspacePath, task.workspaceIdentity),
+      actionsDisabled || isWorkspaceReadOnly(state, task.workspacePath, task.workspaceIdentity),
   );
   const workspaceActionsDisabledReason = workspaceActionsDisabled
     ? (actionsDisabledReason ??
@@ -228,9 +220,7 @@ export const MemoTaskItem = memo(function TaskListItem({
   const taskWorkspaceScope = useMemo(
     () => ({
       workspacePath,
-      ...(task.workspaceIdentity?.trim()
-        ? { workspaceIdentity: task.workspaceIdentity }
-        : {}),
+      ...(task.workspaceIdentity?.trim() ? { workspaceIdentity: task.workspaceIdentity } : {}),
       ...(remoteSessionId ? { remoteSessionId } : {}),
     }),
     [remoteSessionId, task.workspaceIdentity, workspacePath],
@@ -243,16 +233,13 @@ export const MemoTaskItem = memo(function TaskListItem({
     Boolean(state.sessionIndex[taskWorkbenchSessionKey]),
   );
   const canDragToWorkbench =
-    !workspaceActionsDisabled &&
-    splitPaneEntryEnabled &&
-    !isSessionInWorkbenchGroup;
+    !workspaceActionsDisabled && splitPaneEntryEnabled && !isSessionInWorkbenchGroup;
 
   // V4 runtime/interaction 已由 sessions-index 投影，旧 Zustand map 不再接收
   // 后台会话 delta。row 直接消费随列表条目到达的 activity sidecar，避免 spinner/attention 假静止。
   const taskActivity = getTaskListRowActivity(task);
   const taskAttention = getTaskListAttention(task);
-  const hasPendingInteraction =
-    Boolean(task.pendingInteraction) || taskAttention !== null;
+  const hasPendingInteraction = Boolean(task.pendingInteraction) || taskAttention !== null;
   const taskAttentionLabel = taskAttention
     ? intl.formatMessage({
         id: taskAttention.kind === "userInput" ? "taskList.userInputTag" : "taskList.permissionTag",
@@ -268,9 +255,7 @@ export const MemoTaskItem = memo(function TaskListItem({
   const taskTitle =
     task.title ||
     intl.formatMessage({
-      id: task.forkedFromTaskId
-        ? "taskList.forkedUntitled"
-        : "taskList.untitled",
+      id: task.forkedFromTaskId ? "taskList.forkedUntitled" : "taskList.untitled",
     });
   const handleSelect = useCallback(() => {
     runUserAction({
@@ -290,9 +275,7 @@ export const MemoTaskItem = memo(function TaskListItem({
       const payload = {
         kind: "zcode/session" as const,
         workspacePath,
-        ...(task.workspaceIdentity?.trim()
-          ? { workspaceIdentity: task.workspaceIdentity }
-          : {}),
+        ...(task.workspaceIdentity?.trim() ? { workspaceIdentity: task.workspaceIdentity } : {}),
         ...(remoteSessionId ? { remoteSessionId } : {}),
         sessionId: task.taskId,
       };
@@ -302,6 +285,8 @@ export const MemoTaskItem = memo(function TaskListItem({
         serializeWorkbenchSessionDragPayload(payload),
       );
       event.dataTransfer.setData("text/plain", taskTitle);
+      // 拖出侧栏 → 新窗口追踪（本地会话限定；远程/无 opener 时为 no-op）。
+      trackSessionDragForWindowOpen(payload);
       // 浏览器默认 drag preview 背景透明、边界不清晰；保留原行内容，
       // 只补齐 Grouped drag overlay 使用的背景、边框和阴影。
       const cleanupDragPreview = createTaskWorkbenchDragPreview({
@@ -340,7 +325,11 @@ export const MemoTaskItem = memo(function TaskListItem({
         return;
       }
       runUserAction({
-        input: { featureId: "workbench.file", action: "open_tree", trigger: "button" },
+        input: {
+          featureId: "workbench.file",
+          action: "open_tree",
+          trigger: "button",
+        },
         operation: () => onOpenFileTree?.(task),
         completed: { resultSource: "local_commit" },
         failureStage: "file_tree_open",
@@ -357,7 +346,11 @@ export const MemoTaskItem = memo(function TaskListItem({
         return;
       }
       runUserAction({
-        input: { featureId: "task.lifecycle", action: "archive", trigger: "button" },
+        input: {
+          featureId: "task.lifecycle",
+          action: "archive",
+          trigger: "button",
+        },
         operation: () => onArchiveTaskInline(event, task.taskId),
         completed: { resultSource: "optimistic_projection" },
         failureStage: "task_archive",
@@ -402,25 +395,18 @@ export const MemoTaskItem = memo(function TaskListItem({
     variant === "timeline" && leadingIndicator === "none" && !isPinned;
   // 手机远控标记和置顶状态共用左侧 leading 槽。
   // 已置顶任务如果继续常显 Pin，会和绝对定位的手机图标重叠；手机激活态默认让手机图标优先，hover 时再显示 Pin 操作。
-  const showPinnedState =
-    isPinned && leadingIndicator === "none" && !isMobileActive;
-  const shouldMountWorkspaceTaskActions =
-    hoverActionsVisible || focusActionsVisible || isHoverNone;
+  const showPinnedState = isPinned && leadingIndicator === "none" && !isMobileActive;
+  const shouldMountWorkspaceTaskActions = hoverActionsVisible || focusActionsVisible || isHoverNone;
   // Bugfix：hover:none 只代表触屏端需要常驻 action，不代表应永久隐藏时间、状态和变更摘要。
   // 元信息仅在真实 hover / focus 交互时让位，保持旧触屏布局的“元信息 + action”语义。
-  const shouldSuppressWorkspaceTaskMetadata =
-    hoverActionsVisible || focusActionsVisible;
+  const shouldSuppressWorkspaceTaskMetadata = hoverActionsVisible || focusActionsVisible;
   const taskTimeLabel = formatTaskRelativeTime(task.updatedAt, intl);
   const taskChangeSummary = getTaskChangeSummary(task);
   const isRemoteTask = Boolean(task.workspaceIdentity?.trim());
   const archiveLabel = intl.formatMessage({
     id: isArchiveConfirming ? "common.confirm" : "taskList.archive",
   });
-  const taskTitleWithChanges = formatTaskTitleWithChanges(
-    taskTitle,
-    taskChangeSummary,
-    intl,
-  );
+  const taskTitleWithChanges = formatTaskTitleWithChanges(taskTitle, taskChangeSummary, intl);
   const workspaceLabel = getPathLeaf(task.workspacePath);
   const taskItemKey = `${buildTaskWorkspaceKey(task.workspacePath, task.workspaceIdentity)}:${task.taskId}`;
   // 工作流运行行：标题下的第二条通道，
@@ -445,9 +431,7 @@ export const MemoTaskItem = memo(function TaskListItem({
           <span className="text-diff-added">+{taskChangeSummary.added}</span>
         ) : null}
         {taskChangeSummary.removed > 0 ? (
-          <span className="ml-1 text-diff-removed">
-            -{taskChangeSummary.removed}
-          </span>
+          <span className="ml-1 text-diff-removed">-{taskChangeSummary.removed}</span>
         ) : null}
       </span>
     ) : null;
@@ -455,15 +439,11 @@ export const MemoTaskItem = memo(function TaskListItem({
     !workspaceActionsDisabled &&
     !hasPendingInteraction &&
     (shouldMountWorkspaceTaskActions || isArchiveConfirming);
-  const archiveActionVisibilityClassName = isArchiveConfirming
-    ? "flex"
-    : "flex";
+  const archiveActionVisibilityClassName = isArchiveConfirming ? "flex" : "flex";
   const archiveActionNode = shouldRenderArchiveAction ? (
     /* 交互调整：任务进入“等待归档确认”后，右侧 hover 区不再显示归档按钮。
        否则一个 item 同时出现“待确认状态”和“可归档操作”，视觉重心会互相打架。 */
-    <div
-      className={cn("items-center gap-0.5", archiveActionVisibilityClassName)}
-    >
+    <div className={cn("items-center gap-0.5", archiveActionVisibilityClassName)}>
       {isArchiveConfirming ? (
         <ControlHintTooltip title={archiveLabel} side="top" align="center">
           <Button
@@ -477,10 +457,7 @@ export const MemoTaskItem = memo(function TaskListItem({
             onClick={handleArchive}
             data-testid={testId(TID_TASK_ARCHIVE, task.taskId)}
             // Bugfix: 归档确认态是显式等待用户决策的状态，必须持续显示 destructive 按钮。
-            className={cn(
-              "shrink-0 border-destructive/20 px-2",
-              archiveActionVisibilityClassName,
-            )}
+            className={cn("shrink-0 border-destructive/20 px-2", archiveActionVisibilityClassName)}
             aria-label={archiveLabel}
           >
             <span>{intl.formatMessage({ id: "common.confirm" })}</span>
@@ -509,8 +486,7 @@ export const MemoTaskItem = memo(function TaskListItem({
   // 远端 task 的 session 未就绪时 resolver 会拒绝打开；渲染层同步隐藏入口，
   // 避免展示一个点击后无反馈的按钮。本地 task 不依赖已打开 tab，仍可直接按路径打开。
   const canOpenFileTree =
-    Boolean(onOpenFileTree) &&
-    (!task.workspaceIdentity?.trim() || Boolean(remoteSessionId));
+    Boolean(onOpenFileTree) && (!task.workspaceIdentity?.trim() || Boolean(remoteSessionId));
   const fileTreeActionNode =
     canOpenFileTree &&
     !workspaceActionsDisabled &&
@@ -557,288 +533,315 @@ export const MemoTaskItem = memo(function TaskListItem({
   // hover:none 只让右侧 task actions 常驻；如果也用它接管 leading 槽，
   // 触屏端的错误、未读和 loading 状态会被 Pin 永久替换。
   const shouldRenderPinAction =
-    showPinAction &&
-    (showPinnedState || shouldSuppressWorkspaceTaskMetadata);
+    showPinAction && (showPinnedState || shouldSuppressWorkspaceTaskMetadata);
   return (
-    <li
-      ref={itemRef}
-      data-testid={testId(TID_TASK_ITEM, task.taskId)}
-      data-task-item-key={taskItemKey}
-      data-mobile-active-task={isMobileActive ? "true" : undefined}
-      data-archive-confirming-task-id={
-        isArchiveConfirming ? task.taskId : undefined
-      }
-      onClick={handleSelect}
-      onContextMenu={handleContextMenu}
-      draggable={canDragToWorkbench}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onFocusCapture={() => setFocusActionsVisible(true)}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setFocusActionsVisible(false);
-        }
-      }}
-      tabIndex={0}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) {
-          return;
-        }
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          handleSelect();
-        }
-      }}
-      className={cn(
-        "group/task-item flex cursor-pointer gap-2 rounded-lg pl-2.5 pr-1 py-1 transition-[background-color,border-color,box-shadow]",
-        // 默认行 32px 时前置槽整行居中；长出工作流运行行后行体是两行的纵向列，槽改为对齐首行。
-        variant === "timeline" ? "items-start py-1.5" : hasWorkflowRunLines ? "items-start" : "items-center",
-        isActive ? "bg-selected" : "hover:bg-surface-hover",
-      )}
-    >
-      {/* Bugfix: 之前任务列表依赖 divide-y 画分隔线，深色侧栏里每个 item 上下都会出现明显黑线，
+    <TooltipProvider>
+      <Tooltip delayDuration={450}>
+        <TooltipTrigger asChild>
+          <li
+            ref={itemRef}
+            data-testid={testId(TID_TASK_ITEM, task.taskId)}
+            data-task-item-key={taskItemKey}
+            data-mobile-active-task={isMobileActive ? "true" : undefined}
+            data-archive-confirming-task-id={isArchiveConfirming ? task.taskId : undefined}
+            onClick={handleSelect}
+            onContextMenu={handleContextMenu}
+            draggable={canDragToWorkbench}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onFocusCapture={() => setFocusActionsVisible(true)}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                setFocusActionsVisible(false);
+              }
+            }}
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.target !== event.currentTarget) {
+                return;
+              }
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handleSelect();
+              }
+            }}
+            className={cn(
+              "group/task-item flex cursor-pointer gap-2 rounded-lg pl-2.5 pr-1 py-1 transition-[background-color,border-color,box-shadow]",
+              // 默认行 32px 时前置槽整行居中；长出工作流运行行后行体是两行的纵向列，槽改为对齐首行。
+              variant === "timeline"
+                ? "items-start py-1.5"
+                : hasWorkflowRunLines
+                  ? "items-start"
+                  : "items-center",
+              // 当前展示会话高亮：bg-selected（10% 中性混合）在深色侧栏里过淡，用户反馈
+              // 「项目和会话都收起后找不到当前打开的会话」——补一条品牌色左侧标条强化定位。
+              isActive
+                ? "bg-selected shadow-[inset_2px_0_0_0_var(--color-brand)]"
+                : "hover:bg-surface-hover",
+            )}
+          >
+            {/* Bugfix: 之前任务列表依赖 divide-y 画分隔线，深色侧栏里每个 item 上下都会出现明显黑线，
               视觉上像被两条边框夹住。这里改成“列表留白 + item 自己带圆角态”，
               让 hover/active 的层级由卡片背景承担，不再依赖分隔线。 */}
 
-      <div
-        className={cn(
-          "relative flex size-4 shrink-0 items-center justify-center",
-          // 行体是纵向列（标题行 + 运行行）时前置槽对齐首行而不是整行：默认 24px 首行居中 = 上留 4px。
-          variant === "timeline" ? "mt-0.5" : hasWorkflowRunLines ? "mt-1" : undefined,
-        )}
-      >
-        <span
-          aria-hidden="true"
-          className={cn(
-            "flex size-4 items-center justify-center transition-opacity",
-            shouldRenderPinAction && "hidden",
-            isMobileActive && "invisible",
-          )}
-        >
-          {leadingIndicator === "error" ? (
-            <span
-              data-error-indicator="true"
-              className="h-1.5 w-1.5 rounded-full bg-destructive"
-            />
-          ) : leadingIndicator === "unread" ? (
-            <span
-              data-unread-indicator="true"
-              className="h-1.5 w-1.5 rounded-full bg-sky-500 dark:bg-sky-400"
-            />
-          ) : leadingIndicator === "loading" ? (
-            <LoaderIcon className="size-4 animate-spin text-foreground-subtle" />
-          ) : isWorktreeSession ? (
-            <GitBranch data-worktree-indicator="true" className="size-3.5 text-foreground-subtle" />
-          ) : showTimelineIdleIndicator ? (
-            <span
-              data-idle-indicator="true"
-              className="h-1.5 w-1.5 rounded-full bg-border"
-            />
-          ) : null}
-        </span>
-        {shouldRenderPinAction ? (
-          <ControlHintTooltip
-            title={
-              workspaceActionsDisabledReason ??
-              intl.formatMessage({
-                id: isPinned ? "taskList.unpin" : "taskList.pin",
-              })
-            }
-            side="top"
-            align="center"
-          >
-            {pinActionButton}
-          </ControlHintTooltip>
-        ) : null}
-      </div>
-
-      {variant === "timeline" ? (
-        <div className="relative flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex min-w-0 items-center gap-1.5">
-            {isMobileActive && !shouldSuppressWorkspaceTaskMetadata ? (
-              <ControlHintTooltip
-                title={intl.formatMessage({ id: "taskList.mobileActive" })}
-                side="right"
-                align="center"
-                triggerClassName="absolute -left-6 top-2 z-10 -translate-y-1/2"
-              >
-                <span
-                  data-mobile-active-task="true"
-                  className="inline-flex size-4 items-center justify-center rounded-sm text-success"
-                  aria-label={intl.formatMessage({
-                    id: "taskList.mobileActive",
-                  })}
-                >
-                  <Smartphone className="size-3.5" />
-                </span>
-              </ControlHintTooltip>
-            ) : null}
-            <TaskTitleOverflowText
-              className="text-ui-base text-foreground"
-              title={taskTitleWithChanges}
+            <div
+              className={cn(
+                "relative flex size-4 shrink-0 items-center justify-center",
+                // 行体是纵向列（标题行 + 运行行）时前置槽对齐首行而不是整行：默认 24px 首行居中 = 上留 4px。
+                variant === "timeline" ? "mt-0.5" : hasWorkflowRunLines ? "mt-1" : undefined,
+              )}
             >
-              {/* Bugfix: workspace/timeline task 标题之前使用 truncate，会在长标题末尾显示省略号；
-                      grouped task 已改为右侧渐隐。这里统一 task 列表标题溢出策略，避免同一侧栏里出现两种截断语义。 */}
-              {taskTitle}
-            </TaskTitleOverflowText>
-            {task.pendingInteraction ? (
-              <TaskInteractionBadge
-                interaction={task.pendingInteraction}
-                formatMessage={(id) => intl.formatMessage({ id })}
-                onSnoozeCountdown={snoozeInteractionAutoResolution}
-              />
-            ) : taskAttentionDisplay ? (
-              <Badge className="h-5 shrink-0 border-transparent bg-success/14 px-2 text-ui-base font-medium text-success dark:bg-success/18">
-                {taskAttentionDisplay}
-              </Badge>
-            ) : null}
-          </div>
-          <div className="flex min-w-0 items-center justify-between gap-2 text-ui-base text-foreground-subtle h-6">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate">{workspaceLabel}</span>
-            </div>
-            <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
-              {!hasPendingInteraction ? (
-                <span
-                  data-task-row-metadata="true"
-                  className={cn(
-                    "flex items-center gap-1.5",
-                    isArchiveConfirming || shouldSuppressWorkspaceTaskMetadata
-                      ? "hidden"
-                      : undefined,
-                  )}
-                >
-                  {changeSummaryNode}
-                  {changeSummaryNode ? (
-                    <span
-                      aria-hidden="true"
-                      className="shrink-0 text-foreground-subtlest"
-                    >
-                      ·
-                    </span>
-                  ) : null}
-                  {isTaskCron ? (
-                    // 定时任务 icon 不能占用左侧状态槽；未读、运行中、置顶 hover 都会接管那里。
-                    // 放在时间前面，和 grouped task row 的元信息位置一致，状态变化时也不会丢。
-                    <Clock
-                      data-cron-task-icon="true"
-                      aria-label={intl.formatMessage({
-                        id: "taskList.cronTaskLabel",
-                      })}
-                      className="size-3.5 shrink-0"
-                    />
-                  ) : isTaskOffPeak ? (
-                    <Moon
-                      data-off-peak-task-icon="true"
-                      aria-label={intl.formatMessage({ id: "taskList.offPeakTaskLabel" })}
-                      className="size-3.5 shrink-0"
-                    />
-                  ) : null}
-                  <span className="mr-1">{taskTimeLabel}</span>
-                </span>
-              ) : null}
-              {taskActionGroupNode}
-            </div>
-          </div>
-          {workflowRunLinesNode}
-        </div>
-      ) : (
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="relative min-w-0 flex h-6 flex-1 flex-wrap items-center gap-1.5">
-              {isMobileActive && !shouldSuppressWorkspaceTaskMetadata ? (
-                <ControlHintTooltip
-                  title={intl.formatMessage({ id: "taskList.mobileActive" })}
-                  side="right"
-                  align="center"
-                  triggerClassName="absolute -left-6 top-1/2 z-10 -translate-y-1/2"
-                >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex size-4 items-center justify-center transition-opacity",
+                  shouldRenderPinAction && "hidden",
+                  isMobileActive && "invisible",
+                )}
+              >
+                {leadingIndicator === "error" ? (
                   <span
-                    data-mobile-active-task="true"
-                    className="inline-flex size-4 items-center justify-center rounded-sm text-success"
-                    aria-label={intl.formatMessage({
-                      id: "taskList.mobileActive",
-                    })}
+                    data-error-indicator="true"
+                    className="h-1.5 w-1.5 rounded-full bg-destructive"
+                  />
+                ) : leadingIndicator === "unread" ? (
+                  <span
+                    data-unread-indicator="true"
+                    className="h-1.5 w-1.5 rounded-full bg-sky-500 dark:bg-sky-400"
+                  />
+                ) : leadingIndicator === "loading" ? (
+                  <LoaderIcon className="size-4 animate-spin text-foreground-subtle" />
+                ) : isWorktreeSession ? (
+                  <GitBranch
+                    data-worktree-indicator="true"
+                    className="size-3.5 text-foreground-subtle"
+                  />
+                ) : showTimelineIdleIndicator ? (
+                  <span data-idle-indicator="true" className="h-1.5 w-1.5 rounded-full bg-border" />
+                ) : null}
+              </span>
+              {shouldRenderPinAction ? (
+                <ControlHintTooltip
+                  title={
+                    workspaceActionsDisabledReason ??
+                    intl.formatMessage({
+                      id: isPinned ? "taskList.unpin" : "taskList.pin",
+                    })
+                  }
+                  side="top"
+                  align="center"
+                >
+                  {pinActionButton}
+                </ControlHintTooltip>
+              ) : null}
+            </div>
+
+            {variant === "timeline" ? (
+              <div className="relative flex min-w-0 flex-1 flex-col gap-0.5">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  {isMobileActive && !shouldSuppressWorkspaceTaskMetadata ? (
+                    <ControlHintTooltip
+                      title={intl.formatMessage({
+                        id: "taskList.mobileActive",
+                      })}
+                      side="right"
+                      align="center"
+                      triggerClassName="absolute -left-6 top-2 z-10 -translate-y-1/2"
+                    >
+                      <span
+                        data-mobile-active-task="true"
+                        className="inline-flex size-4 items-center justify-center rounded-sm text-success"
+                        aria-label={intl.formatMessage({
+                          id: "taskList.mobileActive",
+                        })}
+                      >
+                        <Smartphone className="size-3.5" />
+                      </span>
+                    </ControlHintTooltip>
+                  ) : null}
+                  <TaskTitleOverflowText
+                    className="text-ui-base text-foreground"
+                    title={taskTitleWithChanges}
                   >
-                    {/* Bugfix: mobileViewState 已经能告诉桌面端手机正在看的 task，
+                    {/* Bugfix: workspace/timeline task 标题之前使用 truncate，会在长标题末尾显示省略号；
+                      grouped task 已改为右侧渐隐。这里统一 task 列表标题溢出策略，避免同一侧栏里出现两种截断语义。 */}
+                    {taskTitle}
+                  </TaskTitleOverflowText>
+                  {task.pendingInteraction ? (
+                    <TaskInteractionBadge
+                      interaction={task.pendingInteraction}
+                      formatMessage={(id) => intl.formatMessage({ id })}
+                      onSnoozeCountdown={snoozeInteractionAutoResolution}
+                    />
+                  ) : taskAttentionDisplay ? (
+                    <Badge className="h-5 shrink-0 border-transparent bg-success/14 px-2 text-ui-base font-medium text-success dark:bg-success/18">
+                      {taskAttentionDisplay}
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className="flex min-w-0 items-center justify-between gap-2 text-ui-base text-foreground-subtle h-6">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate">{workspaceLabel}</span>
+                  </div>
+                  <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
+                    {!hasPendingInteraction ? (
+                      <span
+                        data-task-row-metadata="true"
+                        className={cn(
+                          "flex items-center gap-1.5",
+                          isArchiveConfirming || shouldSuppressWorkspaceTaskMetadata
+                            ? "hidden"
+                            : undefined,
+                        )}
+                      >
+                        {changeSummaryNode}
+                        {changeSummaryNode ? (
+                          <span aria-hidden="true" className="shrink-0 text-foreground-subtlest">
+                            ·
+                          </span>
+                        ) : null}
+                        {isTaskCron ? (
+                          // 定时任务 icon 不能占用左侧状态槽；未读、运行中、置顶 hover 都会接管那里。
+                          // 放在时间前面，和 grouped task row 的元信息位置一致，状态变化时也不会丢。
+                          <Clock
+                            data-cron-task-icon="true"
+                            aria-label={intl.formatMessage({
+                              id: "taskList.cronTaskLabel",
+                            })}
+                            className="size-3.5 shrink-0"
+                          />
+                        ) : isTaskOffPeak ? (
+                          <Moon
+                            data-off-peak-task-icon="true"
+                            aria-label={intl.formatMessage({
+                              id: "taskList.offPeakTaskLabel",
+                            })}
+                            className="size-3.5 shrink-0"
+                          />
+                        ) : null}
+                        <span className="mr-1">{taskTimeLabel}</span>
+                      </span>
+                    ) : null}
+                    {taskActionGroupNode}
+                  </div>
+                </div>
+                {workflowRunLinesNode}
+              </div>
+            ) : (
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="relative min-w-0 flex h-6 flex-1 flex-wrap items-center gap-1.5">
+                    {isMobileActive && !shouldSuppressWorkspaceTaskMetadata ? (
+                      <ControlHintTooltip
+                        title={intl.formatMessage({
+                          id: "taskList.mobileActive",
+                        })}
+                        side="right"
+                        align="center"
+                        triggerClassName="absolute -left-6 top-1/2 z-10 -translate-y-1/2"
+                      >
+                        <span
+                          data-mobile-active-task="true"
+                          className="inline-flex size-4 items-center justify-center rounded-sm text-success"
+                          aria-label={intl.formatMessage({
+                            id: "taskList.mobileActive",
+                          })}
+                        >
+                          {/* Bugfix: mobileViewState 已经能告诉桌面端手机正在看的 task，
                         但列表未消费这个状态，用户会误以为只有桌面端在操作。上一版把图标作为标题前的 flex 子项，
                         会把当前行标题往右挤，造成上下 task 标题不对齐；这里改成绝对定位到原有 leading 槽，
                         标题文本仍然从原来的位置开始；同时 hover 时隐藏手机标记，把原来的置顶按钮还给用户。 */}
-                    <Smartphone className="size-3.5" />
-                  </span>
-                </ControlHintTooltip>
-              ) : null}
-              <TaskTitleOverflowText
-                className="text-ui-base text-foreground"
-                title={taskTitleWithChanges}
-              >
-                {/* Bugfix: 默认 workspace task item 和 timeline item 共享标题溢出规则；
+                          <Smartphone className="size-3.5" />
+                        </span>
+                      </ControlHintTooltip>
+                    ) : null}
+                    <TaskTitleOverflowText
+                      className="text-ui-base text-foreground"
+                      title={taskTitleWithChanges}
+                    >
+                      {/* Bugfix: 默认 workspace task item 和 timeline item 共享标题溢出规则；
                         使用 mask 渐隐而不是省略号，和 grouped task row 保持一致。 */}
-                {taskTitle}
-              </TaskTitleOverflowText>
-              {changeSummaryNode ? (
-                <span
-                  className={cn(
-                    isArchiveConfirming || shouldSuppressWorkspaceTaskMetadata
-                      ? "hidden"
-                      : undefined,
-                  )}
-                >
-                  {changeSummaryNode}
-                </span>
-              ) : null}
-              {task.pendingInteraction ? (
-                <TaskInteractionBadge
-                  interaction={task.pendingInteraction}
-                  formatMessage={(id) => intl.formatMessage({ id })}
-                  onSnoozeCountdown={snoozeInteractionAutoResolution}
-                />
-              ) : taskAttentionDisplay ? (
-                <Badge className="h-5 shrink-0 border-transparent bg-success/14 px-2 text-ui-sm font-medium text-success dark:bg-success/18">
-                  {taskAttentionDisplay}
-                </Badge>
-              ) : null}
-            </div>
+                      {taskTitle}
+                    </TaskTitleOverflowText>
+                    {changeSummaryNode ? (
+                      <span
+                        className={cn(
+                          isArchiveConfirming || shouldSuppressWorkspaceTaskMetadata
+                            ? "hidden"
+                            : undefined,
+                        )}
+                      >
+                        {changeSummaryNode}
+                      </span>
+                    ) : null}
+                    {task.pendingInteraction ? (
+                      <TaskInteractionBadge
+                        interaction={task.pendingInteraction}
+                        formatMessage={(id) => intl.formatMessage({ id })}
+                        onSnoozeCountdown={snoozeInteractionAutoResolution}
+                      />
+                    ) : taskAttentionDisplay ? (
+                      <Badge className="h-5 shrink-0 border-transparent bg-success/14 px-2 text-ui-sm font-medium text-success dark:bg-success/18">
+                        {taskAttentionDisplay}
+                      </Badge>
+                    ) : null}
+                  </div>
 
-            {!hasPendingInteraction ? (
-              // 交互胶囊已经占用右侧状态位；继续显示相对时间会和“等待确认”并排挤压标题。
-              <span
-                data-task-row-metadata="true"
-                className={cn(
-                  "mr-0.5 flex shrink-0 items-center gap-1 text-ui-sm text-foreground-subtle",
-                  isArchiveConfirming || shouldSuppressWorkspaceTaskMetadata
-                    ? "hidden"
-                    : undefined,
-                )}
-              >
-                {isTaskCron ? (
-                  // 定时任务 icon 归属时间元信息，而不是左侧状态位；否则 unread/loading 会把 icon 顶掉。
-                  <Clock
-                    data-cron-task-icon="true"
-                    aria-label={intl.formatMessage({
-                      id: "taskList.cronTaskLabel",
-                    })}
-                    className="size-3.5 shrink-0"
-                  />
-                ) : isTaskOffPeak ? (
-                  <Moon
-                    data-off-peak-task-icon="true"
-                    aria-label={intl.formatMessage({ id: "taskList.offPeakTaskLabel" })}
-                    className="size-3.5 shrink-0"
-                  />
-                ) : null}
-                {taskTimeLabel}
-              </span>
-            ) : null}
+                  {!hasPendingInteraction ? (
+                    // 交互胶囊已经占用右侧状态位；继续显示相对时间会和“等待确认”并排挤压标题。
+                    <span
+                      data-task-row-metadata="true"
+                      className={cn(
+                        "mr-0.5 flex shrink-0 items-center gap-1 text-ui-sm text-foreground-subtle",
+                        isArchiveConfirming || shouldSuppressWorkspaceTaskMetadata
+                          ? "hidden"
+                          : undefined,
+                      )}
+                    >
+                      {isTaskCron ? (
+                        // 定时任务 icon 归属时间元信息，而不是左侧状态位；否则 unread/loading 会把 icon 顶掉。
+                        <Clock
+                          data-cron-task-icon="true"
+                          aria-label={intl.formatMessage({
+                            id: "taskList.cronTaskLabel",
+                          })}
+                          className="size-3.5 shrink-0"
+                        />
+                      ) : isTaskOffPeak ? (
+                        <Moon
+                          data-off-peak-task-icon="true"
+                          aria-label={intl.formatMessage({
+                            id: "taskList.offPeakTaskLabel",
+                          })}
+                          className="size-3.5 shrink-0"
+                        />
+                      ) : null}
+                      {taskTimeLabel}
+                    </span>
+                  ) : null}
 
-            {taskActionGroupNode}
-          </div>
-          {workflowRunLinesNode}
-        </div>
-      )}
-    </li>
+                  {taskActionGroupNode}
+                </div>
+                {workflowRunLinesNode}
+              </div>
+            )}
+          </li>
+        </TooltipTrigger>
+        {/* 会话行 hover 详情卡：名称/项目/工作位置/最近会话模糊时间（自测反馈）。
+            delayDuration 450ms 避免鼠标扫过列表时连环弹卡。 */}
+        <TooltipContent side="right" align="center" sideOffset={6} className="p-2.5">
+          <TaskHoverDetailsContent
+            task={task}
+            projectLabel={workspaceLabel}
+            rootWorkspacePath={workspacePath}
+            remoteSessionId={remoteSessionId}
+            intl={intl}
+          />
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }, areTaskListItemPropsEqual);
 
@@ -871,12 +874,10 @@ export function TaskListItemContextMenuContent({
 }) {
   const workspaceActionsDisabled = useOptionalTabStore(
     (state) =>
-      disableTaskActions ||
-      isWorkspaceReadOnly(state, task.workspacePath, task.workspaceIdentity),
+      disableTaskActions || isWorkspaceReadOnly(state, task.workspacePath, task.workspaceIdentity),
   );
   const workspaceActionsDisabledReason = workspaceActionsDisabled
-    ? (disabledReason ??
-      intl.formatMessage({ id: "workspaceSidebar.unavailableLocalDirectory" }))
+    ? (disabledReason ?? intl.formatMessage({ id: "workspaceSidebar.unavailableLocalDirectory" }))
     : undefined;
   // 收尾：「在分屏打开」仅桌面 shell（context 由 WorkspaceShellLayout 提供；
   // 手机远控/无 Provider 环境默认 false → 菜单项整体不渲染）。
@@ -917,9 +918,7 @@ export function TaskListItemContextMenuContent({
   const taskTitle =
     task.title ||
     intl.formatMessage({
-      id: task.forkedFromTaskId
-        ? "taskList.forkedUntitled"
-        : "taskList.untitled",
+      id: task.forkedFromTaskId ? "taskList.forkedUntitled" : "taskList.untitled",
     });
 
   const handleOpenTaskFeedback = useCallback(async () => {
@@ -1008,10 +1007,7 @@ export function TaskListItemContextMenuContent({
           : undefined
       }
       onCopyWorkspacePath={() => {
-        void handleCopyText(
-          intl.formatMessage({ id: "appHeader.copyPath" }),
-          workspacePath,
-        );
+        void handleCopyText(intl.formatMessage({ id: "appHeader.copyPath" }), workspacePath);
       }}
       onCopyTaskPath={() => {
         void handleCopyText(
@@ -1026,10 +1022,7 @@ export function TaskListItemContextMenuContent({
         );
       }}
       onCopySessionId={() => {
-        void handleCopyText(
-          intl.formatMessage({ id: "appHeader.copySessionId" }),
-          task.taskId,
-        );
+        void handleCopyText(intl.formatMessage({ id: "appHeader.copySessionId" }), task.taskId);
       }}
       onViewModelTrajectory={() => {
         // 通过单例 store 把“打开轨迹”请求交给所属 workspace 的侧边栏控制器（useAppPanels）。

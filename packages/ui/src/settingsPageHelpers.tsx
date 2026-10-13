@@ -55,6 +55,7 @@ export function GeneralSectionContent({
   closeToTrayOnWindows,
   keepAwakeWhileRunning = false,
   desktopChromiumHardwareAccelerationEnabled = true,
+  desktopChromiumHighPerformanceGpuEnabled = false,
   receivePreviewUpdates,
   autoDownloadAndInstallUpdates,
   dataBaseDir,
@@ -99,6 +100,7 @@ export function GeneralSectionContent({
   onCloseToTrayOnWindowsChange,
   onKeepAwakeWhileRunningChange = async () => {},
   onDesktopChromiumHardwareAccelerationChange = async () => {},
+  onDesktopChromiumHighPerformanceGpuChange = async () => {},
   onReceivePreviewUpdatesChange,
   onAutoDownloadAndInstallUpdatesChange,
   onMessageStreamShowReasoningChange,
@@ -119,6 +121,7 @@ export function GeneralSectionContent({
   closeToTrayOnWindows: boolean;
   keepAwakeWhileRunning?: boolean;
   desktopChromiumHardwareAccelerationEnabled?: boolean;
+  desktopChromiumHighPerformanceGpuEnabled?: boolean;
   receivePreviewUpdates: boolean;
   autoDownloadAndInstallUpdates: boolean;
   dataBaseDir: string;
@@ -173,6 +176,7 @@ export function GeneralSectionContent({
   onCloseToTrayOnWindowsChange: (enabled: boolean) => Promise<void>;
   onKeepAwakeWhileRunningChange?: (enabled: boolean) => Promise<void>;
   onDesktopChromiumHardwareAccelerationChange?: (enabled: boolean) => Promise<void>;
+  onDesktopChromiumHighPerformanceGpuChange?: (enabled: boolean) => Promise<void>;
   onReceivePreviewUpdatesChange: (enabled: boolean) => Promise<void>;
   onAutoDownloadAndInstallUpdatesChange: (enabled: boolean) => Promise<void>;
   onMessageStreamShowReasoningChange: (enabled: boolean) => Promise<void>;
@@ -337,7 +341,9 @@ export function GeneralSectionContent({
         <SettingsRow
           controlLayout="wide"
           label={intl.formatMessage({ id: "settings.interfaceMode" })}
-          description={intl.formatMessage({ id: "settings.interfaceMode.description" })}
+          description={intl.formatMessage({
+            id: "settings.interfaceMode.description",
+          })}
           control={
             <Select
               value={interfaceMode}
@@ -346,7 +352,9 @@ export function GeneralSectionContent({
               <SelectTrigger
                 size="lg"
                 className="w-full min-w-0 sm:w-64"
-                aria-label={intl.formatMessage({ id: "settings.interfaceMode" })}
+                aria-label={intl.formatMessage({
+                  id: "settings.interfaceMode",
+                })}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -367,7 +375,9 @@ export function GeneralSectionContent({
       <SettingsGroupCard>
         <SettingsRow
           label={intl.formatMessage({ id: "settings.terminalProfile" })}
-          description={intl.formatMessage({ id: "settings.terminalProfileDescription" })}
+          description={intl.formatMessage({
+            id: "settings.terminalProfileDescription",
+          })}
           control={
             <Switch
               checked={terminalInheritSystemProfile}
@@ -379,7 +389,9 @@ export function GeneralSectionContent({
         />
         <SettingsRow
           label={intl.formatMessage({ id: "settings.terminalFontFamily" })}
-          description={intl.formatMessage({ id: "settings.terminalFontFamilyDescription" })}
+          description={intl.formatMessage({
+            id: "settings.terminalFontFamilyDescription",
+          })}
           control={
             <Button
               type="button"
@@ -411,7 +423,9 @@ export function GeneralSectionContent({
         />
         {showIntegratedTerminalShell ? (
           <SettingsRow
-            label={intl.formatMessage({ id: "settings.integratedTerminalShell" })}
+            label={intl.formatMessage({
+              id: "settings.integratedTerminalShell",
+            })}
             description={intl.formatMessage({
               id: "settings.integratedTerminalShellDescription",
             })}
@@ -427,7 +441,9 @@ export function GeneralSectionContent({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">
-                    {intl.formatMessage({ id: "settings.integratedTerminalShell.auto" })}
+                    {intl.formatMessage({
+                      id: "settings.integratedTerminalShell.auto",
+                    })}
                   </SelectItem>
                   {visibleIntegratedTerminalShellOptions.map((option) => (
                     <SelectItem key={option.id} value={option.id}>
@@ -464,7 +480,9 @@ export function GeneralSectionContent({
       <SettingsGroupCard>
         <SettingsRow
           label={intl.formatMessage({ id: "settings.httpProxy" })}
-          description={intl.formatMessage({ id: "settings.httpProxyDescription" })}
+          description={intl.formatMessage({
+            id: "settings.httpProxyDescription",
+          })}
           control={
             <Button
               type="button"
@@ -589,13 +607,36 @@ export function GeneralSectionContent({
               }
             />
             <SettingsRow
-              label={intl.formatMessage({ id: "settings.receivePreviewUpdates" })}
+              label={intl.formatMessage({
+                id: "settings.desktopChromiumHighPerformanceGpu",
+              })}
+              description={intl.formatMessage({
+                id: "settings.desktopChromiumHighPerformanceGpuDescription",
+              })}
+              control={
+                <Switch
+                  aria-label={intl.formatMessage({
+                    id: "settings.desktopChromiumHighPerformanceGpu",
+                  })}
+                  checked={desktopChromiumHighPerformanceGpuEnabled}
+                  onCheckedChange={(checked) => {
+                    void onDesktopChromiumHighPerformanceGpuChange(checked);
+                  }}
+                />
+              }
+            />
+            <SettingsRow
+              label={intl.formatMessage({
+                id: "settings.receivePreviewUpdates",
+              })}
               description={intl.formatMessage({
                 id: "settings.receivePreviewUpdatesDescription",
               })}
               control={
                 <Switch
-                  aria-label={intl.formatMessage({ id: "settings.receivePreviewUpdates" })}
+                  aria-label={intl.formatMessage({
+                    id: "settings.receivePreviewUpdates",
+                  })}
                   checked={receivePreviewUpdates}
                   onCheckedChange={(checked) => {
                     void onReceivePreviewUpdatesChange(checked);
@@ -653,7 +694,9 @@ export function GeneralSectionContent({
               linuxCloseToTray?.unavailable
                 ? linuxCloseToTray.gnomeLikeHint
                   ? `${intl.formatMessage({ id: "settings.closeToTrayUnavailable" })} ${intl.formatMessage({ id: "settings.closeToTrayGnomeHint" })}`
-                  : intl.formatMessage({ id: "settings.closeToTrayUnavailable" })
+                  : intl.formatMessage({
+                      id: "settings.closeToTrayUnavailable",
+                    })
                 : intl.formatMessage({
                     id: "settings.closeToTrayOnWindowsDescription",
                   })
@@ -694,7 +737,9 @@ export function GeneralSectionContent({
 
       <SettingsGroupCard>
         <SettingsRow
-          label={intl.formatMessage({ id: "settings.zcodeInteractionBehavior" })}
+          label={intl.formatMessage({
+            id: "settings.zcodeInteractionBehavior",
+          })}
           description={intl.formatMessage({
             id: "settings.zcodeInteractionBehaviorDescription",
           })}
@@ -749,7 +794,9 @@ export function GeneralSectionContent({
           })}
           control={
             <Switch
-              aria-label={intl.formatMessage({ id: "settings.modelIoFullRetention" })}
+              aria-label={intl.formatMessage({
+                id: "settings.modelIoFullRetention",
+              })}
               checked={modelIoFullRetentionEnabled}
               onCheckedChange={(checked) => {
                 void onModelIoFullRetentionEnabledChange(checked);
@@ -758,13 +805,17 @@ export function GeneralSectionContent({
           }
         />
         <SettingsRow
-          label={intl.formatMessage({ id: "settings.messageStreamShowReasoning" })}
+          label={intl.formatMessage({
+            id: "settings.messageStreamShowReasoning",
+          })}
           description={intl.formatMessage({
             id: "settings.messageStreamShowReasoningDescription",
           })}
           control={
             <Switch
-              aria-label={intl.formatMessage({ id: "settings.messageStreamShowReasoning" })}
+              aria-label={intl.formatMessage({
+                id: "settings.messageStreamShowReasoning",
+              })}
               checked={messageStreamShowReasoning}
               onCheckedChange={(checked) => {
                 void onMessageStreamShowReasoningChange(checked);
@@ -779,7 +830,9 @@ export function GeneralSectionContent({
           })}
           control={
             <Switch
-              aria-label={intl.formatMessage({ id: "settings.messageStreamShowTodos" })}
+              aria-label={intl.formatMessage({
+                id: "settings.messageStreamShowTodos",
+              })}
               checked={messageStreamShowTodos}
               onCheckedChange={(checked) => {
                 void onMessageStreamShowTodosChange(checked);
@@ -794,7 +847,9 @@ export function GeneralSectionContent({
           })}
           control={
             <Switch
-              aria-label={intl.formatMessage({ id: "settings.toolGroupingExplore" })}
+              aria-label={intl.formatMessage({
+                id: "settings.toolGroupingExplore",
+              })}
               checked={toolGroupingExploreEnabled}
               onCheckedChange={(checked) => {
                 void onToolGroupingExploreEnabledChange(checked);
@@ -809,7 +864,9 @@ export function GeneralSectionContent({
           })}
           control={
             <Switch
-              aria-label={intl.formatMessage({ id: "settings.toolGroupingTerminal" })}
+              aria-label={intl.formatMessage({
+                id: "settings.toolGroupingTerminal",
+              })}
               checked={toolGroupingTerminalEnabled}
               onCheckedChange={(checked) => {
                 void onToolGroupingTerminalEnabledChange(checked);
@@ -824,7 +881,9 @@ export function GeneralSectionContent({
           })}
           control={
             <Switch
-              aria-label={intl.formatMessage({ id: "settings.toolGroupingChanges" })}
+              aria-label={intl.formatMessage({
+                id: "settings.toolGroupingChanges",
+              })}
               checked={toolGroupingChangesEnabled}
               onCheckedChange={(checked) => {
                 void onToolGroupingChangesEnabledChange(checked);

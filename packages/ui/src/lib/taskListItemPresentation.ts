@@ -49,5 +49,17 @@ export function formatTaskRelativeTime(
   }
 
   const days = Math.floor(hours / 24);
-  return intl.formatMessage({ id: "taskList.daysAgo" }, { days: String(days) });
+  // 「天」只数到 30：跨月/跨年的会话用月/年表达更符合直觉（自测反馈希望看到
+  // 「X个月前」这类模糊间隔）；月按 30 天近似即可，不追历法精度。
+  if (days < 30) {
+    return intl.formatMessage({ id: "taskList.daysAgo" }, { days: String(days) });
+  }
+
+  const months = Math.floor(days / 30);
+  if (months < 12) {
+    return intl.formatMessage({ id: "taskList.monthsAgo" }, { months: String(months) });
+  }
+
+  const years = Math.floor(months / 12);
+  return intl.formatMessage({ id: "taskList.yearsAgo" }, { years: String(years) });
 }

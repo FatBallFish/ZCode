@@ -529,6 +529,8 @@ export const PlatformChannels = {
   /** Main → Renderer：气泡点击跳转指定会话（携带 workspace 地址直连，不依赖列表缓存命中） */
   OpenPetTask: "zcode:open-pet-task",
   OpenPetSettings: "zcode:open-pet-settings",
+  /** Renderer → Main：把会话拖出侧栏后在独立新主窗口打开（本地 workspace 限定）。 */
+  OpenSessionWindow: "zcode:open-session-window",
   // ── 语音输入（specs/desktop/voice-input.md；main VoiceService 为唯一所有者）──
   /** Renderer → Main：模型/引擎状态快照（设置页与麦克风入口） */
   VoiceGetState: "zcode:voice:get-state",
@@ -1433,7 +1435,10 @@ export interface PlatformChannelMap {
   };
   [PlatformChannels.PetImportFromCodex]: {
     request: void;
-    response: { imported: string[]; skipped: { petId: string; reason: string }[] };
+    response: {
+      imported: string[];
+      skipped: { petId: string; reason: string }[];
+    };
   };
   [PlatformChannels.PetGetActive]: {
     request: void;
@@ -1530,14 +1535,20 @@ export interface PlatformChannelMap {
   };
   [PlatformChannels.VoiceOpenMicPermissionSettings]: {
     request: void;
-    response: { ok: boolean; status?: import("./voice.js").VoiceMicPermissionStatus };
+    response: {
+      ok: boolean;
+      status?: import("./voice.js").VoiceMicPermissionStatus;
+    };
   };
   [PlatformChannels.VoiceStateChanged]: {
     request: import("./voice.js").VoiceStateSnapshot;
     response: void;
   };
   [PlatformChannels.VoiceSessionEvent]: {
-    request: { sessionId: string; event: import("./voice.js").VoiceSessionEvent };
+    request: {
+      sessionId: string;
+      event: import("./voice.js").VoiceSessionEvent;
+    };
     response: void;
   };
   [PlatformChannels.GetInstalledAppsForFile]: {

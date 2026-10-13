@@ -34,6 +34,27 @@ repo 扫描（head 解析：cwd/标题/时间）
 - model 取 `turn_context.payload.model` 最后出现值；不落运行态 mode（固定 build）。
 - 导入 taskId：`codex-import-{sha256("codex:"+workspacePath+":"+sessionId)[:24]}`（确定性，
   重复导入幂等覆盖）；重导入前 CLI 按 metadata.migrationSource 清旧消息。
+- **注入过滤扩展（2026-10-12/13）**：除整段 `<tag>` 包裹（tag 集合补 `user_action`）外，
+  还按前缀/跨段状态机剔除：`# AGENTS.md instructions for …`、`# Files mentioned by the
+  user:`（含 `## <文件名>: /绝对路径` 附件续段）、`# Chrome tabs:`、`# Context from my IDE
+  setup:`、`# PR Review System Prompt`、`<codex_internal_context …>`、
+  `<in-app-browser-context …>`、含 `<INSTRUCTIONS>…</INSTRUCTIONS>` 块的模板注入。块型
+  注入内部含空行、按空行切段后续段无标记——用跨段状态机（块开→闭合前的续段全部丢弃）
+  处理；**不做整条消息判定**（Codex 会把注入块与真实输入拼在同一条 user 消息里，整条
+  丢弃会吞掉真实输入，本机语料 376/400 的真实输入与注入同条）。本机 400 文件采样：注入
+  噪声标题从 ~90% 降到 4%（余下多为用户自有工作流模板正文，语义上即任务内容）。
+  Codex 正式线程名（threads 表 title）多为首条 user 消息派生，过滤修正后标题与 Codex
+  侧一致；用户手动改名的线程名存于 `~/.codex/state_5.sqlite`，引入 sqlite 读取的跨平台
+  成本过高，不做。
+- **归档过滤（2026-10-12）**：扫描显式跳过 `archived_sessions/` 目录（Codex 归档线程的
+  rollout 会被移入该目录；个别版本残留时也按目录名排除）。
+- **会话级幂等（2026-10-12）**：导入前按确定性 taskId 查 tasks-index；已存在且
+  `meta.updatedAt - 源文件 mtime > 5min`（松弛量）判定为「已在 App 内延续/改名」→ 整体跳过
+  （skipped reason=`session_continued_in_app`）；否则重导入——CLI 消息级清理保留续聊内容、
+  重写导入消息与标题，即「已导入异常会话的自动修复」。
+- **「每句话一个任务」复核结论（2026-10-12）**：导入器严格 1 rollout 文件 = 1 会话 = 1 任务，
+  不按消息/时间切分；任务数量多源于 Codex CLI 为每个线程/每次 `codex exec` 各写一个 rollout
+  文件（本机实测 ~/.codex/sessions 下 3000+ 文件）。非导入器缺陷，不做静默合并/丢弃。
 
 ## 协议与类型
 
@@ -52,6 +73,9 @@ repo 扫描（head 解析：cwd/标题/时间）
 - 导入：按候选 provider 拆分 sessionIds 分别调用两个导入服务，结果合并；单来源失败记
   importError 但保留另一来源的部分成功结果。
 - 工作区卡片展示总数徽标；含 Codex 记录时附「Claude Code n · Codex m」来源分布。
+- **数量上限（2026-10-12）**：设置迁移页增加「不限数量（扫描全部）」开关（复用 onboarding 的
+  `UNLIMITED_SCAN_LIMIT_INPUT` 语义，扫描不传 limit）；数字输入框（1–500）保留为默认路径。
+  此前设置页只能填数字、清空输入静默回退 100，用户「选了不限仍只有 100 条」的反馈即源于此。
 
 ## 验收
 

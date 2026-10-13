@@ -23,6 +23,9 @@
       /* 主题跟随 App（nativeTheme 解析后由 main 随载荷下发；data-theme 在 body 上切换）。 */
       /* 无 box-shadow：透明窗的阴影会被裁进窗口矩形，在浅色壁纸/浅色主题下表现为
           圆角外的方形底色；卡片直接纯透明四角。 */
+      /* 半透明背景：不透明底会完全遮挡宠物身后区域。注意 Electron 透明窗里
+          backdrop-filter 只作用于页面内元素、采不到窗口后的桌面内容，因此只降
+          alpha 不加模糊；文字仍用近前景色保持对比度。 */
       #card {
         box-sizing: border-box;
         height: 100%;
@@ -31,12 +34,12 @@
         flex-direction: column;
         gap: 6px;
         border-radius: 14px;
-        background: rgba(24, 24, 27, 0.92);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(24, 24, 27, 0.75);
+        border: 1px solid rgba(255, 255, 255, 0.12);
       }
       body[data-theme="light"] #card {
-        background: rgba(250, 250, 250, 0.95);
-        border: 1px solid rgba(0, 0, 0, 0.08);
+        background: rgba(250, 250, 250, 0.78);
+        border: 1px solid rgba(0, 0, 0, 0.1);
       }
       .header {
         flex: none;

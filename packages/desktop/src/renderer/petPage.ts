@@ -55,6 +55,19 @@ async function main() {
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(canvas.clientWidth * dpr);
   canvas.height = Math.round(canvas.clientHeight * dpr);
+  // 窗口尺寸变化（desktopPetScale 调整、跨 DPI 屏被系统拉伸后由 main 钉回）时
+  // 重算画布物理尺寸；canvas CSS 为 100%×100%，绘制按画布尺寸等比缩放帧图。
+  let lastDrawnSpriteIndex = -1;
+  const syncCanvasSize = () => {
+    const nextDpr = window.devicePixelRatio || 1;
+    const width = Math.round(canvas.clientWidth * nextDpr);
+    const height = Math.round(canvas.clientHeight * nextDpr);
+    if (width === canvas.width && height === canvas.height) return;
+    canvas.width = width;
+    canvas.height = height;
+    lastDrawnSpriteIndex = -1; // 画布被清空，强制重绘当前帧
+  };
+  window.addEventListener("resize", syncCanvasSize);
 
   const sheet = new Image();
   sheet.src = spritesheetUrl;
@@ -71,7 +84,15 @@ async function main() {
     performance.now() + LOOK_INTERVAL_MIN_MS + Math.random() * LOOK_INTERVAL_JITTER_MS;
 
   const draw = () => {
+    // 拖拽期间冻结绘制：main 侧 60Hz setBounds 移动透明窗时，renderer 再以 60Hz
+    // 重绘 canvas 会持续产生纹理上传，高分屏/混合显卡（核显承担桌面合成）下明显
+    // 加剧拖动卡顿。保留最后一帧即可——内容不变时合成器可复用已有纹理。
+    if (dragging) return;
+    if (document.hidden) return;
     const spriteIndex = animator.tick(performance.now());
+    // 同帧不重绘：慢动画（idle 帧间隔常 ≥100ms）下避免 16ms tick 反复上传同一帧。
+    if (spriteIndex === lastDrawnSpriteIndex) return;
+    lastDrawnSpriteIndex = spriteIndex;
     const column = spriteIndex % pet.columns;
     const row = Math.floor(spriteIndex / pet.columns);
     context.clearRect(0, 0, canvas.width, canvas.height);

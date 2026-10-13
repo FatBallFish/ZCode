@@ -27,7 +27,9 @@ const FRAME_SAMPLES = TARGET_SAMPLE_RATE / 10;
 const ERROR_AUTO_DISMISS_MS = 3_000;
 const CLEANUP_TIMEOUT_MS = 60_000;
 
-/** AudioWorklet 处理器：mono 混音 + 线性插值重采样到 16k，分帧输出 Int16。 */
+/** AudioWorklet 处理器：mono 混音 + 线性插值重采样到 16k，分帧输出 Int16。
+ * 每帧附带 RMS 电平（音浪动画）；支持 flush 消息把重采样累加器里的尾帧
+ * （<100ms）补发出来——否则用户停止录音瞬间说的最后半句会被整帧丢弃。 */
 const VOICE_PUMP_WORKLET_SOURCE = `
 class VoicePumpProcessor extends AudioWorkletProcessor {
   constructor(options) {
@@ -37,6 +39,13 @@ class VoicePumpProcessor extends AudioWorkletProcessor {
     this._carry = new Float32Array(0);
     this._readPos = 0;
     this._out = [];
+    this.port.onmessage = (event) => {
+      const data = event.data;
+      if (data && data.type === "flush") {
+        this._emit(this._out.length);
+        this.port.postMessage({ type: "flushed" });
+      }
+    };
   }
   process(inputs) {
     const frames = inputs[0];
@@ -58,7 +67,7 @@ class VoicePumpProcessor extends AudioWorkletProcessor {
       this._out.push(sample);
       this._readPos += this._step;
       if (this._out.length >= ${FRAME_SAMPLES}) {
-        this._emit();
+        this._emit(${FRAME_SAMPLES});
       }
     }
     const consumed = Math.floor(this._readPos);
@@ -68,14 +77,18 @@ class VoicePumpProcessor extends AudioWorkletProcessor {
     }
     return true;
   }
-  _emit() {
-    const frame = new Int16Array(${FRAME_SAMPLES});
-    for (let i = 0; i < ${FRAME_SAMPLES}; i++) {
+  _emit(count) {
+    if (!(count > 0) || this._out.length < count) return;
+    const frame = new Int16Array(count);
+    let sumSquares = 0;
+    for (let i = 0; i < count; i++) {
       const clamped = Math.max(-1, Math.min(1, this._out[i]));
       frame[i] = Math.round(clamped * 32767);
+      sumSquares += clamped * clamped;
     }
-    this._out.splice(0, ${FRAME_SAMPLES});
-    this.port.postMessage(frame, [frame.buffer]);
+    this._out.splice(0, count);
+    const rms = Math.sqrt(sumSquares / count);
+    this.port.postMessage({ type: "frame", frame, rms }, [frame.buffer]);
   }
 }
 registerProcessor("voice-pump", VoicePumpProcessor);
@@ -119,6 +132,8 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
   const sessionRef = useRef<{ sessionId: string; modelId: string } | null>(null);
   const phaseRef = useRef<VoiceInputPhase>("idle");
   const errorDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** worklet flush 应答的 resolve（flushMicTail 挂起期间非空）。 */
+  const micFlushResolveRef = useRef<(() => void) | null>(null);
 
   const setPhase = (phase: VoiceInputPhase) => {
     phaseRef.current = phase;
@@ -127,7 +142,9 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
 
   const failWith = (key: string, detail?: string) => {
     if (errorDismissTimerRef.current) clearTimeout(errorDismissTimerRef.current);
-    useVoiceInputStore.setState({ error: { key, ...(detail ? { detail } : {}) } });
+    useVoiceInputStore.setState({
+      error: { key, ...(detail ? { detail } : {}) },
+    });
     setPhase("error");
     errorDismissTimerRef.current = setTimeout(() => {
       if (phaseRef.current === "error") {
@@ -146,6 +163,7 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
       downloadProgress: null,
       engineLoading: false,
       finishingStage: null,
+      audioLevel: 0,
       error: null,
     });
     phaseRef.current = "idle";
@@ -154,6 +172,7 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
   const stopMic = () => {
     const mic = micRef.current;
     micRef.current = null;
+    micFlushResolveRef.current = null;
     if (!mic) return;
     try {
       mic.node.port.onmessage = null;
@@ -167,7 +186,39 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
     }
   };
 
-  const setupMic = async (onFrame: (frame: Int16Array) => void): Promise<void> => {
+  /**
+   * 停麦前冲刷尾帧：worklet 按 100ms 整帧输出，直接停麦会丢掉重采样累加器里
+   * <100ms 的尾部语音（用户反馈「最后半句没识别就返回了」）。向 worklet 发
+   * flush 让它把剩余样本补发成一帧（经 onFrame 正常送 main），等 flushed
+   * 应答（150ms 超时兜底）后再停麦、发起 finish——保证 worker 先收到全部
+   * 音频再收到 finish，尾部识别完整后才返回结果（期间浮窗保持 finishing 态）。
+   */
+  const flushMicTail = async (): Promise<void> => {
+    const mic = micRef.current;
+    if (!mic) return;
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        micFlushResolveRef.current = null;
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(done, 150);
+      micFlushResolveRef.current = done;
+      try {
+        mic.node.port.postMessage({ type: "flush" });
+      } catch {
+        done();
+      }
+    });
+    // 再让出一个宏任务：flush 帧（先于 flushed 发出）的转发此时已进事件队列，
+    // 确保其 IPC send 先于 finish invoke。
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  };
+
+  const setupMic = async (onFrame: (frame: Int16Array, rms: number) => void): Promise<void> => {
     // 指定设备用 exact 约束；设备已拔出时 getUserMedia 抛 OverconstrainedError，
     // 回退一次系统默认而不是让整次录音失败（spec §3.4）。
     const deviceId = latest.current.settings?.voiceInputDeviceId;
@@ -220,7 +271,17 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
     const sink = context.createGain();
     sink.gain.value = 0;
     node.port.onmessage = (event: MessageEvent) => {
-      if (event.data instanceof Int16Array) onFrame(event.data);
+      const data = event.data;
+      if (data && typeof data === "object") {
+        if (data.type === "frame" && data.frame instanceof Int16Array) {
+          onFrame(data.frame, typeof data.rms === "number" ? data.rms : 0);
+        } else if (data.type === "flushed") {
+          micFlushResolveRef.current?.();
+        }
+      } else if (data instanceof Int16Array) {
+        // 防御：旧形态裸帧（理论不会出现）。
+        onFrame(data, 0);
+      }
     };
     source.connect(node);
     node.connect(sink);
@@ -250,7 +311,9 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
         selectionWithLevel = { ...selection, reasoningLevel };
       }
     }
-    const systemPrompt = currentIntl.formatMessage({ id: "voice.cleanup.systemPrompt" });
+    const systemPrompt = currentIntl.formatMessage({
+      id: "voice.cleanup.systemPrompt",
+    });
     const userPrompt = currentIntl.formatMessage(
       { id: "voice.cleanup.userPrompt" },
       { transcript },
@@ -262,7 +325,11 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
           providerId: selectionWithLevel.providerId,
           modelId: selectionWithLevel.modelId,
           ...(selectionWithLevel.reasoningLevel
-            ? { options: { reasoningLevel: selectionWithLevel.reasoningLevel } }
+            ? {
+                options: {
+                  reasoningLevel: selectionWithLevel.reasoningLevel,
+                },
+              }
             : {}),
         },
         messages: [
@@ -317,13 +384,16 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
       downloadProgress: null,
       engineLoading: true,
       finishingStage: null,
+      audioLevel: 0,
       error: null,
     });
     phaseRef.current = "preparing";
 
     // 麦克风授权与引擎准备并行（下载/加载可能耗时数十秒，授权弹窗同时出现）。
-    const micPromise = setupMic((frame) => {
+    const micPromise = setupMic((frame, rms) => {
       const session = sessionRef.current;
+      // 音浪动画电平（store 仅渲染态；10Hz 更新不构成性能压力）。
+      useVoiceInputStore.setState({ audioLevel: rms });
       if (session) latest.current.platform.voiceFeedAudio?.(session.sessionId, frame);
     }).catch((error: Error) => error);
 
@@ -364,7 +434,10 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
       return;
     }
 
-    sessionRef.current = { sessionId: sessionResult.sessionId, modelId: sessionResult.modelId };
+    sessionRef.current = {
+      sessionId: sessionResult.sessionId,
+      modelId: sessionResult.modelId,
+    };
     useVoiceInputStore.setState({
       sessionId: sessionResult.sessionId,
       modelId: sessionResult.modelId,
@@ -383,8 +456,11 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
       resetToIdle();
       return;
     }
-    // 先停麦再 finish：worker 侧已缓冲的音频足够完成尾段识别。
+    // 先冲刷尾帧再停麦、再 finish：worker 必须先收齐全部音频（含 <100ms 尾帧）
+    // 才能收到 finish；识别弹窗保持 finishing 态直到尾部识别完成。
+    await flushMicTail();
     stopMic();
+    useVoiceInputStore.setState({ audioLevel: 0 });
     setPhase("finishing");
     useVoiceInputStore.setState({ finishingStage: "transcribing" });
 

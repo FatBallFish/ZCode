@@ -772,6 +772,8 @@ export function SettingsPage({
     desktopChromiumHardwareAccelerationEnabled,
     setDesktopChromiumHardwareAccelerationEnabled,
   ] = useState(true);
+  const [desktopChromiumHighPerformanceGpuEnabled, setDesktopChromiumHighPerformanceGpuEnabled] =
+    useState(false);
   const [receivePreviewUpdates, setReceivePreviewUpdates] = useState(false);
   const [autoDownloadAndInstallUpdates, setAutoDownloadAndInstallUpdates] = useState(false);
   const [messageStreamShowReasoning, setMessageStreamShowReasoning] = useState(true);
@@ -861,6 +863,9 @@ export function SettingsPage({
         setDesktopChromiumHardwareAccelerationEnabled(
           settings.desktopChromiumHardwareAccelerationEnabled ?? true,
         );
+        setDesktopChromiumHighPerformanceGpuEnabled(
+          settings.desktopChromiumHighPerformanceGpuEnabled ?? false,
+        );
         setReceivePreviewUpdates(settings.receivePreviewUpdates ?? false);
         setAutoDownloadAndInstallUpdates(settings.autoDownloadAndInstallUpdates ?? false);
         setMessageStreamShowReasoning(settings.messageStreamShowReasoning ?? true);
@@ -911,7 +916,10 @@ export function SettingsPage({
         featureId: "settings.terminal",
         action: "toggle_system_profile",
         trigger: "switch",
-        operation: () => services.settingService.update({ terminalInheritSystemProfile: enabled }),
+        operation: () =>
+          services.settingService.update({
+            terminalInheritSystemProfile: enabled,
+          }),
         completed: {
           resultSource: "setting_service",
           stateAfter: enabled ? "enabled" : "disabled",
@@ -929,8 +937,13 @@ export function SettingsPage({
         action: "save_font_family",
         trigger: "button",
         operation: () =>
-          services.settingService.update({ terminalFontFamily: normalizedFontFamily }),
-        completed: { resultSource: "setting_service", configured: normalizedFontFamily.length > 0 },
+          services.settingService.update({
+            terminalFontFamily: normalizedFontFamily,
+          }),
+        completed: {
+          resultSource: "setting_service",
+          configured: normalizedFontFamily.length > 0,
+        },
       });
       setTerminalFontFamily(normalizedFontFamily);
     },
@@ -942,7 +955,10 @@ export function SettingsPage({
         featureId: "settings.terminal",
         action: "change_shell",
         trigger: "select",
-        operation: () => services.settingService.update({ integratedTerminalShell: selection }),
+        operation: () =>
+          services.settingService.update({
+            integratedTerminalShell: selection,
+          }),
         completed: {
           resultSource: "setting_service",
           valueAfter: selection.mode === "auto" ? "auto" : "explicit",
@@ -973,7 +989,10 @@ export function SettingsPage({
         featureId: "settings.conversation",
         action: "toggle_ask_user_auto_resolution",
         trigger: "switch",
-        operation: () => updateSharedSettings({ askUserQuestionAutoResolutionEnabled: enabled }),
+        operation: () =>
+          updateSharedSettings({
+            askUserQuestionAutoResolutionEnabled: enabled,
+          }),
         completed: {
           resultSource: "shared_settings",
           stateAfter: enabled ? "enabled" : "disabled",
@@ -1059,7 +1078,10 @@ export function SettingsPage({
             // Bugfix: 清空 No Proxy 必须传空串，否则旧绕过规则会继续影响下次启动。
             httpProxyNoProxy: normalizedNoProxy,
           }),
-        completed: { resultSource: "setting_service", configured: normalizedNoProxy.length > 0 },
+        completed: {
+          resultSource: "setting_service",
+          configured: normalizedNoProxy.length > 0,
+        },
       });
       setHttpProxyNoProxy(normalizedNoProxy);
       toast(intl.formatMessage({ id: "settings.httpProxySavedHint" }));
@@ -1126,8 +1148,14 @@ export function SettingsPage({
         featureId: "settings.task",
         action: "change_auto_archive_days",
         trigger: "select",
-        operation: () => services.settingService.update({ taskAutoArchiveOlderThanDays: days }),
-        completed: { resultSource: "setting_service", valueAfter: String(days) },
+        operation: () =>
+          services.settingService.update({
+            taskAutoArchiveOlderThanDays: days,
+          }),
+        completed: {
+          resultSource: "setting_service",
+          valueAfter: String(days),
+        },
       });
       setTaskAutoArchiveOlderThanDays(days);
     },
@@ -1173,7 +1201,9 @@ export function SettingsPage({
         action: "toggle_hardware_acceleration",
         trigger: "switch",
         operation: () =>
-          services.settingService.update({ desktopChromiumHardwareAccelerationEnabled: enabled }),
+          services.settingService.update({
+            desktopChromiumHardwareAccelerationEnabled: enabled,
+          }),
         completed: {
           resultSource: "setting_service",
           stateAfter: enabled ? "enabled" : "disabled",
@@ -1189,6 +1219,31 @@ export function SettingsPage({
     },
     [services.settingService, intl],
   );
+  const handleDesktopChromiumHighPerformanceGpuChange = useCallback(
+    async (enabled: boolean) => {
+      await runSettingsActionAsync({
+        featureId: "settings.desktop",
+        action: "toggle_high_performance_gpu",
+        trigger: "switch",
+        operation: () =>
+          services.settingService.update({
+            desktopChromiumHighPerformanceGpuEnabled: enabled,
+          }),
+        completed: {
+          resultSource: "setting_service",
+          stateAfter: enabled ? "enabled" : "disabled",
+          requiresRestart: true,
+        },
+      });
+      setDesktopChromiumHighPerformanceGpuEnabled(enabled);
+      toast(
+        intl.formatMessage({
+          id: "settings.desktopChromiumHardwareAccelerationSavedHint",
+        }),
+      );
+    },
+    [services.settingService, intl],
+  );
   const handleEmbeddedBrowserAllowInsecureCertificatesChange = useCallback(
     async (enabled: boolean) => {
       await runSettingsActionAsync({
@@ -1196,7 +1251,9 @@ export function SettingsPage({
         action: "toggle_insecure_certificates",
         trigger: "switch",
         operation: () =>
-          services.settingService.update({ embeddedBrowserAllowInsecureCertificates: enabled }),
+          services.settingService.update({
+            embeddedBrowserAllowInsecureCertificates: enabled,
+          }),
         completed: {
           resultSource: "setting_service",
           stateAfter: enabled ? "enabled" : "disabled",
@@ -1342,7 +1399,11 @@ export function SettingsPage({
     (value: string) => {
       if (value === "system") {
         runUserAction({
-          input: { featureId: "settings.locale", action: "change_locale", trigger: "select" },
+          input: {
+            featureId: "settings.locale",
+            action: "change_locale",
+            trigger: "select",
+          },
           operation: () => setLocalePreference("system"),
           completed: { resultSource: "local_commit", valueAfter: "system" },
           failureStage: "local_commit",
@@ -1351,7 +1412,11 @@ export function SettingsPage({
       }
       if (value === "zh-CN" || value === "en-US") {
         runUserAction({
-          input: { featureId: "settings.locale", action: "change_locale", trigger: "select" },
+          input: {
+            featureId: "settings.locale",
+            action: "change_locale",
+            trigger: "select",
+          },
           operation: () => setLocalePreference(value as Locale),
           completed: { resultSource: "local_commit", valueAfter: value },
           failureStage: "local_commit",
@@ -1370,7 +1435,11 @@ export function SettingsPage({
         value === "system"
       ) {
         runUserAction({
-          input: { featureId: "settings.appearance", action: "change_theme", trigger: "select" },
+          input: {
+            featureId: "settings.appearance",
+            action: "change_theme",
+            trigger: "select",
+          },
           operation: () => setTheme(value as Theme),
           completed: { resultSource: "local_commit", valueAfter: value },
           failureStage: "local_commit",
@@ -1399,7 +1468,9 @@ export function SettingsPage({
         completed: {
           resultSource: "local_commit",
           ...(typeof value === "boolean"
-            ? { stateAfter: value ? ("enabled" as const) : ("disabled" as const) }
+            ? {
+                stateAfter: value ? ("enabled" as const) : ("disabled" as const),
+              }
             : { valueAfter: String(value) }),
         },
         failureStage: "local_commit",
@@ -1566,7 +1637,10 @@ export function SettingsPage({
                                     setSettingsSectionNavigationVersion((version) => version + 1);
                                     setActiveSettingsSection(id);
                                   },
-                                  completed: { resultSource: "local_commit", sectionId: id },
+                                  completed: {
+                                    resultSource: "local_commit",
+                                    sectionId: id,
+                                  },
                                   failureStage: "navigation_commit",
                                 });
                               }}
@@ -1742,6 +1816,9 @@ export function SettingsPage({
                             desktopChromiumHardwareAccelerationEnabled={
                               desktopChromiumHardwareAccelerationEnabled
                             }
+                            desktopChromiumHighPerformanceGpuEnabled={
+                              desktopChromiumHighPerformanceGpuEnabled
+                            }
                             receivePreviewUpdates={receivePreviewUpdates}
                             autoDownloadAndInstallUpdates={autoDownloadAndInstallUpdates}
                             dataBaseDir={dataBaseDir}
@@ -1822,6 +1899,9 @@ export function SettingsPage({
                             onKeepAwakeWhileRunningChange={handleKeepAwakeWhileRunningChange}
                             onDesktopChromiumHardwareAccelerationChange={
                               handleDesktopChromiumHardwareAccelerationChange
+                            }
+                            onDesktopChromiumHighPerformanceGpuChange={
+                              handleDesktopChromiumHighPerformanceGpuChange
                             }
                             onReceivePreviewUpdatesChange={handleReceivePreviewUpdatesChange}
                             onAutoDownloadAndInstallUpdatesChange={
@@ -1928,7 +2008,10 @@ export function SettingsPage({
                             onCreateTask={onCreateTask}
                             onOpenPluginStore={(_returnScopeKey, intent) => {
                               // 添加市场与浏览插件都先离开设置层，再显示商店。
-                              requestPluginStoreOpen({ returnScopeKey: "user", intent });
+                              requestPluginStoreOpen({
+                                returnScopeKey: "user",
+                                intent,
+                              });
                               onBack?.();
                             }}
                           />
@@ -1942,7 +2025,10 @@ export function SettingsPage({
                             onCreateTask={onCreateTask}
                             onOpenPluginStore={(_returnScopeKey, intent) => {
                               // 添加市场与浏览插件都先离开设置层，再显示商店。
-                              requestPluginStoreOpen({ returnScopeKey: "user", intent });
+                              requestPluginStoreOpen({
+                                returnScopeKey: "user",
+                                intent,
+                              });
                               onBack?.();
                             }}
                           />
@@ -1956,7 +2042,10 @@ export function SettingsPage({
                             onCreateTask={onCreateTask}
                             onOpenPluginStore={(_returnScopeKey, intent) => {
                               // 添加市场与浏览插件都先离开设置层，再显示商店。
-                              requestPluginStoreOpen({ returnScopeKey: "user", intent });
+                              requestPluginStoreOpen({
+                                returnScopeKey: "user",
+                                intent,
+                              });
                               onBack?.();
                             }}
                           />
@@ -1994,7 +2083,10 @@ export function SettingsPage({
                             onCreateTask={onCreateTask}
                             onOpenPluginStore={(_returnScopeKey, intent) => {
                               // 添加市场与浏览插件都先离开设置层，再显示商店。
-                              requestPluginStoreOpen({ returnScopeKey: "user", intent });
+                              requestPluginStoreOpen({
+                                returnScopeKey: "user",
+                                intent,
+                              });
                               onBack?.();
                             }}
                           />

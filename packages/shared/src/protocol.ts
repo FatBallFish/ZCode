@@ -320,6 +320,12 @@ export interface AppSettings {
   };
   /** 桌面端 Chromium 硬件加速开关；只在下次启动 main 进程早期生效，Web/手机端忽略。 */
   desktopChromiumHardwareAccelerationEnabled?: boolean;
+  /**
+   * 桌面端高性能 GPU 优先（Chromium force_high_performance_gpu；混合显卡笔记本上
+   * NVIDIA/AMD 面板按程序指定常被 Windows 拒绝）。undefined=false；同样只在下次
+   * 启动 main 进程早期生效。docs/desktop/windows-nvidia-gpu-preference.md。
+   */
+  desktopChromiumHighPerformanceGpuEnabled?: boolean;
   /** 是否在消息流中展示模型思考过程 */
   messageStreamShowReasoning?: boolean;
   // TODO(settings-schema-version): 能证明所有受支持升级路径都已执行本次迁移后，改用统一 settings schema version，并一起删除此 marker、迁移函数和持久化判断。
@@ -426,6 +432,11 @@ export interface AppSettings {
   /** 宠物窗口位置（拖拽结束持久化；创建时夹取进屏幕可视区）。 */
   desktopPetPosition?: { x: number; y: number };
   /**
+   * 宠物显示大小：相对默认尺寸的倍率（0.5–1.8），undefined=1。
+   * 全局生效（不随宠物切换重置）；main 在 applySettings 时对存活窗口即时 setSize。
+   */
+  desktopPetScale?: number;
+  /**
    * Git worktree 配置（specs/desktop/worktrees.md）；undefined=全默认。
    * 唯一消费者是 host 内 WorktreeService（每次操作时现读，无缓存失效问题）。
    */
@@ -443,5 +454,9 @@ export interface AppSettings {
   /** 语音转义后是否自动调用所选模型做语义整理；undefined=关闭。 */
   voiceCleanupEnabled?: boolean;
   /** 语义整理使用的模型（复用 provider/model 体系，走 workspace/generateText）。 */
-  voiceCleanupSelection?: { providerId: string; modelId: string; reasoningLevel?: string };
+  voiceCleanupSelection?: {
+    providerId: string;
+    modelId: string;
+    reasoningLevel?: string;
+  };
 }
