@@ -27,6 +27,7 @@ export function WorkspaceHeaderActionSection({
   onSelectedEditorChange,
   simplifyForNarrowRemote = false,
   hideHelpMenu = false,
+  hideSidePaneToggle = false,
   showWindowControls = false,
   useWindowsCaptionSpacing = false,
 }: WorkspaceHeaderActionSectionProps) {
@@ -72,7 +73,7 @@ export function WorkspaceHeaderActionSection({
         </>
       ) : null}
       {/* 远程控制移动端只保留图标，避免 diff 数字把按钮撑宽导致标题拥挤。 */}
-      {!isSidePaneOpen ? (
+      {!hideSidePaneToggle && !isSidePaneOpen ? (
         <WorkspaceSidePaneToggleButton
           isSidePaneOpen={isSidePaneOpen}
           onToggleSidePane={onToggleSidePane}
@@ -80,6 +81,7 @@ export function WorkspaceHeaderActionSection({
           useWindowsCaptionSpacing={useWindowsCaptionSpacing}
         />
       ) : null}
+      {/* 内联窗控（Win/Linux）不随侧面板按钮隐藏——会话窗口也要能关/最小化。 */}
       {showWindowControls && !isSidePaneOpen ? <DesktopWindowControls /> : null}
     </div>
   );

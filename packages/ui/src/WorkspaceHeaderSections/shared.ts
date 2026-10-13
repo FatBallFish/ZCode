@@ -78,6 +78,8 @@ export interface WorkspaceHeaderActionSectionProps {
   onSelectedEditorChange?: (editor: EditorInfo | null) => void;
   simplifyForNarrowRemote?: boolean;
   hideHelpMenu?: boolean;
+  /** 隐藏侧面板切换按钮（会话窗口等不承载 shell 侧面板的宿主）。 */
+  hideSidePaneToggle?: boolean;
   showWindowControls?: boolean;
   useWindowsCaptionSpacing?: boolean;
 }

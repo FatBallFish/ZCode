@@ -348,13 +348,15 @@ function initializeBusinessRoot(port: MessagePort): void {
           resolveSystemLocale={desktopPlatform.getSystemLocale}
         >
           <StartupReadyNotifier />
-          {/* 轻量会话窗口：仅渲染会话页（SessionWindowRoot），跳过完整 App 引导。 */}
+          {/* 轻量会话窗口：仅渲染会话页 + Header（SessionWindowRoot），跳过完整 App 引导。 */}
           <SessionWindowRoot
             services={services}
             platform={desktopPlatform}
             workspacePath={initialWorkspaceAbsPath ?? ""}
             workspaceIdentity={initialWorkspaceIdentity}
             sessionId={initialTaskId ?? ""}
+            isMacDesktop={isMacDesktop}
+            isWindowsDesktop={isWindowsDesktop}
           />
         </ZCodeIntlProvider>
       </AppErrorBoundary>

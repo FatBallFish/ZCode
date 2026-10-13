@@ -59,6 +59,7 @@ export function WorkspaceHeader({
   isSidebarVisible,
   isTerminalOpen,
   isSidePaneOpen,
+  hideSidePaneToggle = false,
   onRefreshGit,
   onToggleTerminal,
   onToggleSidePane,
@@ -107,6 +108,8 @@ export function WorkspaceHeader({
   isSidebarVisible: boolean;
   isTerminalOpen: boolean;
   isSidePaneOpen: boolean;
+  /** 隐藏侧面板切换按钮（会话窗口等不承载 shell 侧面板的宿主）。 */
+  hideSidePaneToggle?: boolean;
   onRefreshGit: () => void;
   onToggleTerminal: () => void;
   onToggleBrowser: () => void;
@@ -227,12 +230,12 @@ export function WorkspaceHeader({
           toggleSidePaneShortcutLabel={toggleSidePaneShortcutLabel}
           simplifyForNarrowRemote={simplifyForNarrowRemote}
           hideHelpMenu={false}
+          hideSidePaneToggle={hideSidePaneToggle}
           showWindowControls={usesInlineWindowControls}
           // 面板操作按钮沿用 macOS 紧凑样式，Windows/Linux 窗控跟随最右侧 Header。
           onSelectedEditorChange={setSelectedEditor}
         />
       </div>
-
     </header>
   );
 }

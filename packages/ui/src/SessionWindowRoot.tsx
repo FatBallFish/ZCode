@@ -1,20 +1,22 @@
 /**
  * 独立会话窗口根组件（specs/desktop/session-drag-out-window.md）。
  *
- * 会话拖出侧栏/右键「在新窗口打开会话」创建的轻量窗口：只渲染主 App 右侧的
- * 会话页（V4WorkspaceChatArea 单 pane），不带项目侧栏/页签/命令面板/引导等其余
- * 功能。复用 Root 的核心 Provider 栈（services/platform/store/tab/diffs），但
- * 跳过 App 的完整引导（onboarding、页签恢复、OAuth 等）——见 desktop main.tsx
- * 的 windowKind === "session" 分支。
+ * 会话拖出侧栏/右键「在新窗口打开会话」创建的轻量窗口：WorkspaceHeader（会话名/更多
+ * 菜单/在 XXX 打开/分享/帮助/终端切换，兼作窗口拖动区）+ 会话页（V4WorkspaceChatArea
+ * 单 pane）+ 可展开终端面板；无项目侧栏/页签/命令面板。复用 Root 的核心 Provider 栈，
+ * 数据装配复用 App 同款 hooks（useWorkspaceActiveTaskState / useGitRepository 等）。
  */
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { LucideProvider } from "lucide-react";
+import type { RefObject } from "react";
+import type { PanelImperativeHandle } from "react-resizable-panels";
 import type { IServiceAccessor } from "@zcode/services";
 import type { IPlatformService } from "@zcode/shared";
+import { getPathLeaf } from "@/lib/path.js";
 import { TooltipProvider } from "@/components/ui/tooltip.js";
 import { PlatformProvider } from "@/hooks/usePlatform.js";
 import { ServiceProvider } from "@/hooks/useServices.js";
-import { StoreProvider } from "@/store/StoreProvider.js";
+import { StoreProvider, useZCodeStore } from "@/store/StoreProvider.js";
 import { TabStoreProvider } from "@/store/TabStoreProvider.js";
 import { DiffsWorkerPoolProvider } from "@/root/DiffsWorkerPoolProvider.js";
 import { AssistantCodeCommentFeatureProvider } from "@/AssistantCodeCommentFeatureProvider.js";
@@ -24,8 +26,19 @@ import { RequestSecurityHost } from "@/request-security-edition/index.js";
 import { MarketingTouchProvider } from "@/components/marketing-touch/MarketingTouchProvider.js";
 import { V4WorkspaceChatArea } from "@/v4/V4WorkspaceChatArea.js";
 import { useTheme } from "@/useTheme.js";
+import { WorkspaceHeader } from "@/WorkspaceHeader.js";
+import { useWorkspaceShellZCodeState } from "@/app-shell/useWorkspaceShellZCodeState.js";
+import { useWorkspaceActiveTaskState } from "@/hooks/useWorkspaceActiveTaskState.js";
+import { useWorkspaceProviderConfigFile } from "@/hooks/useWorkspaceProviderConfigFile.js";
+import { useGitRepository } from "@/hooks/useGitRepository.js";
+import { getGitDirtyFileCount } from "@/git-branch-switcher/display.js";
+import { AnimatedTerminalPanel } from "@/app-shell/AnimatedTerminalPanel.js";
+import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.js";
+import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 
 const DEFAULT_LUCIDE_STROKE_WIDTH = 1.5;
+/** 会话窗口竖向布局的 panel id（聊天区 + 终端，见 ResizablePanelGroup panelIds 注释）。 */
+const SESSION_WINDOW_BODY_PANEL_IDS = ["session-chat", "terminal"];
 
 export function SessionWindowRoot({
   services,
@@ -33,12 +46,16 @@ export function SessionWindowRoot({
   workspacePath,
   workspaceIdentity,
   sessionId,
+  isMacDesktop = false,
+  isWindowsDesktop = false,
 }: {
   services: IServiceAccessor;
   platform: IPlatformService;
   workspacePath: string;
   workspaceIdentity?: string;
   sessionId: string;
+  isMacDesktop?: boolean;
+  isWindowsDesktop?: boolean;
 }) {
   return (
     <LucideProvider strokeWidth={DEFAULT_LUCIDE_STROKE_WIDTH}>
@@ -57,9 +74,12 @@ export function SessionWindowRoot({
                         <RequestSecurityHost />
                         <MarketingTouchProvider desktop>
                           <SessionWindowBody
+                            services={services}
                             workspacePath={workspacePath}
                             workspaceIdentity={workspaceIdentity}
                             sessionId={sessionId}
+                            isMacDesktop={isMacDesktop}
+                            isWindowsDesktop={isWindowsDesktop}
                           />
                         </MarketingTouchProvider>
                       </RewardsProvider>
@@ -76,17 +96,69 @@ export function SessionWindowRoot({
 }
 
 function SessionWindowBody({
+  services,
   workspacePath,
   workspaceIdentity,
   sessionId,
+  isMacDesktop,
+  isWindowsDesktop,
 }: {
+  services: IServiceAccessor;
   workspacePath: string;
   workspaceIdentity?: string;
   sessionId: string;
+  isMacDesktop: boolean;
+  isWindowsDesktop: boolean;
 }) {
+  const { intl } = useZCodeIntl();
   // 主题与主窗口共用同一 localStorage 键（同 partition），初始化即应用。
   useTheme();
   const [currentSessionId, setCurrentSessionId] = useState(sessionId);
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [gitRefreshVersion, setGitRefreshVersion] = useState(0);
+  const terminalPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const terminalPanelElementRef = useRef<HTMLDivElement | null>(null);
+
+  // Header 数据装配：与 App 同款 hooks（会话标题/日志路径/Git 摘要/用户态）。
+  const { workspaceShellZCodeState } = useWorkspaceShellZCodeState(
+    workspacePath,
+    workspaceIdentity,
+  );
+  const user = useZCodeStore((state) => state.user);
+  const {
+    resolvedActiveTaskMeta,
+    activeTraceId,
+    activeSessionId,
+    activeTaskProvider,
+    workspaceHeaderProvider,
+    activeTaskChangeSummary,
+    activeTaskTitle,
+    taskNativeSessionLogFile,
+    taskSessionFile,
+  } = useWorkspaceActiveTaskState({
+    workspaceAbsPath: workspacePath,
+    activeTaskId: currentSessionId,
+    workspaceIdentity,
+    selectedProvider: workspaceShellZCodeState.selectedProvider,
+    intl,
+  });
+  const providerConfigFile = useWorkspaceProviderConfigFile(
+    workspacePath,
+    workspaceHeaderProvider,
+    null,
+    workspaceIdentity,
+  );
+  const gitState = useGitRepository({
+    workspacePath,
+    activeTaskId: currentSessionId,
+    includeExtendedData: false,
+    refreshToken: gitRefreshVersion,
+    workspaceIdentity,
+  });
+  const gitDirtyFileCount = useMemo(
+    () => getGitDirtyFileCount(gitState.datasets),
+    [gitState.datasets],
+  );
 
   const handleSessionCreated = useCallback((createdSessionId: string) => {
     // 会话内在本窗口 /new 首发创建出新会话：无页签/侧栏可切换，就地跟进新会话。
@@ -99,15 +171,86 @@ function SessionWindowBody({
   }, []);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-background text-foreground">
-      <V4WorkspaceChatArea
-        workspacePath={workspacePath}
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
+      {/* Header 兼作窗口拖动区（内部 [app-region:drag]，按钮区 no-drag）。 */}
+      <WorkspaceHeader
+        variant="task"
+        workspaceAbsPath={workspacePath}
         workspaceIdentity={workspaceIdentity}
+        projectName={getPathLeaf(workspacePath) || workspacePath}
+        activeTaskTitle={activeTaskTitle}
+        activeTaskChangeSummary={activeTaskChangeSummary}
+        hasUpdateReady={false}
+        activeTaskId={currentSessionId}
+        user={user}
+        activeTraceId={activeTraceId}
+        activeSessionId={activeSessionId}
+        activeTaskProvider={activeTaskProvider}
+        resolvedActiveTaskMeta={resolvedActiveTaskMeta}
+        sessionLogPath={taskSessionFile?.path ?? null}
+        nativeSessionLogProvider={taskNativeSessionLogFile.provider}
+        nativeSessionLogPath={taskNativeSessionLogFile.path}
+        nativeSessionLogExists={taskNativeSessionLogFile.exists}
+        nativeSessionLogLoading={taskNativeSessionLogFile.loading}
+        providerWorkspaceConfigPath={providerConfigFile.path}
+        providerWorkspaceConfigExists={providerConfigFile.exists}
+        providerWorkspaceConfigLoading={providerConfigFile.loading}
+        workspaceHeaderState={{
+          selectedProvider: workspaceShellZCodeState.selectedProvider,
+        }}
+        gitSummary={gitState.summary}
+        gitDirtyFileCount={gitDirtyFileCount}
+        isMacDesktop={isMacDesktop}
+        isWindowsDesktop={isWindowsDesktop}
         isDesktop
-        sessionId={currentSessionId}
-        onSessionCreated={handleSessionCreated}
-        onSessionDeleted={handleSessionDeleted}
+        // 无侧栏：让 Header 为 macOS 红绿灯 / Win&Linux 内联窗控预留左侧内边距。
+        isSidebarVisible={false}
+        isTerminalOpen={isTerminalOpen}
+        isSidePaneOpen={false}
+        // 侧面板（文件树/Git/浏览器面板）依赖 shell 级面板装配，会话窗口 v1 不承载。
+        hideSidePaneToggle
+        onRefreshGit={() => setGitRefreshVersion((value) => value + 1)}
+        onToggleTerminal={() => setIsTerminalOpen((open) => !open)}
+        onToggleBrowser={() => {}}
+        onToggleSidePane={() => {}}
+        onReloadSession={() => {}}
+        reloadSessionDisabled
+        onCreateTask={() => {}}
+        onOpenWorkspace={() => {}}
       />
+      <div className="flex min-h-0 flex-1 flex-col">
+        {/* 终端面板内是 ResizablePanel/Handle，必须挂在竖向 PanelGroup 里
+            （shell 中由外层 workspace-body-layout Group 承担；单挂会抛
+            "Group Context not found"，实测会话窗口崩溃进错误边界）。 */}
+        <ResizablePanelGroup
+          layoutId="session-window-body-layout"
+          panelIds={SESSION_WINDOW_BODY_PANEL_IDS}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <ResizablePanel id="session-chat" minSize="30%" className="min-h-0">
+            <V4WorkspaceChatArea
+              workspacePath={workspacePath}
+              workspaceIdentity={workspaceIdentity}
+              isDesktop
+              sessionId={currentSessionId}
+              onSessionCreated={handleSessionCreated}
+              onSessionDeleted={handleSessionDeleted}
+            />
+          </ResizablePanel>
+          <AnimatedTerminalPanel
+            services={services}
+            workspaceAbsPath={workspacePath}
+            workspaceIdentity={workspaceIdentity}
+            openWorkspaceKeys={[workspacePath]}
+            isVisible={isTerminalOpen}
+            isWindowsDesktop={isWindowsDesktop}
+            panelRef={terminalPanelRef as RefObject<PanelImperativeHandle | null>}
+            panelElementRef={terminalPanelElementRef}
+            onClose={() => setIsTerminalOpen(false)}
+            onOpenBrowserUrl={() => {}}
+          />
+        </ResizablePanelGroup>
+      </div>
     </div>
   );
 }
