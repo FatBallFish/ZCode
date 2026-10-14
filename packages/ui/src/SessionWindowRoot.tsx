@@ -420,6 +420,7 @@ function SessionWindowBody({
         isDesktop
         // 无侧栏：让 Header 为 macOS 红绿灯 / Win&Linux 内联窗控预留左侧内边距。
         isSidebarVisible={false}
+        compactWindowControlsInset
         isTerminalOpen={isTerminalOpen}
         isSidePaneOpen={isSidePaneOpen}
         onRefreshGit={handleRefreshGit}

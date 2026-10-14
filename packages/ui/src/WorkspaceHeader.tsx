@@ -59,6 +59,7 @@ export function WorkspaceHeader({
   isSidebarVisible,
   isTerminalOpen,
   isSidePaneOpen,
+  compactWindowControlsInset = false,
   hideSidePaneToggle = false,
   onRefreshGit,
   onToggleTerminal,
@@ -101,6 +102,12 @@ export function WorkspaceHeader({
   isMacFullscreen?: boolean;
   isWindowsDesktop?: boolean;
   reserveWindowControls?: boolean;
+  /**
+   * 紧凑窗控预留（会话窗口等无左侧浮层按钮组的宿主）：mac 只让开红绿灯宽度，
+   * Win/Linux 内联窗控在右侧、左侧不预留。缺省 false 沿用主窗口隐藏侧栏时的
+   * 大预留（红绿灯 + 侧栏切换/Logo/新建等浮层按钮组宽度）。
+   */
+  compactWindowControlsInset?: boolean;
   isWebRemoteControl?: boolean;
   windowsWindowControlsRightPaddingPx?: number;
   isDesktop?: boolean;
@@ -132,7 +139,12 @@ export function WorkspaceHeader({
 
   let headerWindowControlsPaddingClass: string | false = false;
   if (shouldOffsetHeaderForWindowControls) {
-    if (isMacDesktop) {
+    if (compactWindowControlsInset) {
+      // 会话窗口等无左侧浮层按钮组的宿主（2026-10-15）：mac 只需让开红绿灯
+      // （~78px），Win/Linux 内联窗控渲染在右侧、左侧无需预留——沿用主窗口的
+      // pl-58/pl-38 会把标题推到 232px 处，视觉上"偏中间"。
+      headerWindowControlsPaddingClass = isMacDesktop ? "pl-24" : false;
+    } else if (isMacDesktop) {
       if (hasUpdateReady) {
         headerWindowControlsPaddingClass = isMacFullscreen ? "pl-48" : "pl-66";
       } else {

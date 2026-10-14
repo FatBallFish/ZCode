@@ -77,7 +77,9 @@
 
 - SessionWindowRoot 顶部挂载 WorkspaceHeader（variant=task）：左=会话标题/更多菜单，
   右=在 XXX 打开/分享/帮助/终端切换；Header 内层 `[app-region:drag]` 兼作窗口拖动区
-  （按钮区 no-drag）；`isSidebarVisible=false` 预留窗控内边距。
+  （按钮区 no-drag）；`isSidebarVisible=false` + `compactWindowControlsInset`（mac 只
+  让开红绿灯 ~96px；沿用主窗口隐藏侧栏的 pl-58=232px 大预留会把标题顶到视觉中央，
+  Win/Linux 内联窗控在右侧、左侧不预留）。
 - 终端面板真实可用：聊天区 + AnimatedTerminalPanel 必须挂在竖向 ResizablePanelGroup
   下（panelIds=[session-chat, terminal]）——单挂 ResizablePanel 会抛
   "Group Context not found"。
