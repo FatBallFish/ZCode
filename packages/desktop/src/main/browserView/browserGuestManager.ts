@@ -195,6 +195,8 @@ interface ManagedTab {
   cachedFaviconUrl: string | null;
   openedAt: number;
   restoredFromStore?: boolean;
+  /** 窗口间迁移（会话窗口关闭迁回）尚未被目标窗口确认；restore 通知需带 migrated 壳信息。 */
+  pendingMigrationHandoff?: boolean;
 }
 
 interface PendingWaiter {
@@ -719,6 +721,7 @@ export class BrowserGuestManager {
     tab.hasAttachedGuest = true;
     tab.attachFailure = undefined;
     tab.rebindRequested = false;
+    tab.pendingMigrationHandoff = false;
     if (cdpAttached) this.scheduleGuestCdpIdleRelease(tab);
     // 恢复期新 guest 的初始 URL 是 about:blank。若在 pageState/restoreUrl 消费前
     // 覆盖 logical cache，损坏快照会错误降级到空白页，三类事实全缺失的 orphan 也无法识别。
@@ -3090,6 +3093,33 @@ export class BrowserGuestManager {
     this.naturalViewportByWindow.delete(windowId);
   }
 
+  /**
+   * 会话窗口关闭时把其活动浏览器 tab 迁回目标窗口（specs/desktop/session-drag-out-window.md
+   * 浏览器无缝衔接）：owner retarget 到目标窗口 + 拆除旧 guest（cachedUrl 保留在 tab 上）
+   * + residency 置 suspended，再走既有 restore 流程——onRestoreTabRequested 按 retarget
+   * 后的 owner 路由到目标窗口 renderer，载荷带 migrated 壳信息让目标窗口创建 side-pane
+   * tab 并挂载 webview；attach 通过后 restoreGuestState 以 cachedUrl 导航回原页面。
+   * 反方向（创建会话窗口）不迁移主窗口 tab，避免打断正在进行的 agent 浏览器调度。
+   */
+  migrateWindowTabs(fromWindowId: number, toWindowId: number): number {
+    if (fromWindowId === toWindowId) return 0;
+    let migrated = 0;
+    for (const tab of [...this.tabs.values()]) {
+      if (tab.owner.windowId !== fromWindowId || tab.lifecycle === "closed") continue;
+      this.detachAndCloseGuest(tab);
+      tab.owner = { ...tab.owner, windowId: toWindowId };
+      tab.pendingMigrationHandoff = true;
+      this.registerTabResidency(tab, false, "suspended");
+      migrated += 1;
+      this.log?.(
+        `[browser-use] migrateWindowTabs tabId=${tab.tabId} fromWindowId=${fromWindowId} toWindowId=${toWindowId} url=${tab.cachedUrl}`,
+      );
+      // 恢复飞行：markRestoring → 通知目标窗口 → 等待其挂载 attach → 导航回 cachedUrl。
+      void this.restoreSuspendedGuest(tab, new AbortController().signal).catch(() => undefined);
+    }
+    return migrated;
+  }
+
   private async removeTabRecovery(tab: ManagedTab): Promise<void> {
     await this.residencyOptions.recoveryStore?.remove(tab.tabId);
   }
@@ -3733,6 +3763,10 @@ export class BrowserGuestManager {
         browserGeneration: tab.owner.browserGeneration,
         generation: transition.generation,
         residency: "restoring",
+        // 窗口间迁移：目标窗口没有该 tab 的壳，携带创建所需信息（attach 成功后清除标记）。
+        ...(tab.pendingMigrationHandoff
+          ? { migrated: true, title: tab.cachedTitle || null }
+          : {}),
       };
       if (this.residencyOptions.onRestoreTabRequested) {
         this.residencyOptions.onRestoreTabRequested(payload);

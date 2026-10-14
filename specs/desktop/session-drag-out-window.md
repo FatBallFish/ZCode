@@ -95,8 +95,61 @@
 - **DB 启动 relay 多窗口化**：databaseStartupRelay 按 Host 聚合（latest/控制路由/
   转发窗口集合），`attachDatabaseStartupRelayWindow` 把会话窗口加入源 Host 的状态
   转发并回放最新状态（否则会话窗口卡在启动准备，实测超时）。
-- **面板动作转发**：面板宿主（文件预览/内置浏览器/代码审查/辅助对话/工作流详情等）
-  统一在主 App。会话窗口的 17 个面板回调经 `sessionWindowPanelBridge` →
-  `SessionWindowPanelRequest`（main 校验广播）→ `MainWindowPanelRequest` → 主窗口
-  WorkspaceShellLayout 分发表（按 workspacePath 匹配）执行。终端面板在会话窗口内
-  本地承载（竖向 PanelGroup，orientation="vertical"）。
+- ~~面板动作转发~~（2026-10-15 面板本地化后废止，见下方「面板本地化」：侧面板改在
+  会话窗口本地渲染，仅 automations 主视图仍经 `sessionWindowPanelBridge` 转发）。
+  终端面板始终在会话窗口内本地承载（竖向 PanelGroup，orientation="vertical"）。
+
+## 关闭语义：会话窗口点关闭即真实销毁（2026-10-15）
+
+- macOS「关红点=隐藏」与 Win/Linux close-to-tray/before-close 拦截都只属于主窗口
+  语义。会话窗口（`windowKind=session`）两个分支都不挂：点关闭（或 Cmd+W）直接销毁，
+  Host 侧按 attachment port 关闭自行回收。
+- 根因（实测 2026-10-14 dev 日志）：关闭后被 `hide()` 的会话窗口仍存活于窗口列表，
+  `app.show()`（任务通知/OAuth 深链/宠物唤起/dock 路径共用）、`revealExistingWindow`
+  等任何遍历窗口的唤起路径都会把它重新 show 出来——用户看到「已关闭的会话窗口又
+  出现了」；且每个隐藏窗口保留完整 renderer 与 Host attachment，还会在后台周期性
+  reload/重附着（同一 webContents id 多次 dom-ready attach）。
+- 验收：关闭会话窗口 → 最小化主窗 → 点 Dock/通知/宠物唤起 → 只有主窗口回来；
+  `BrowserWindow.getAllWindows()` 不再有该会话窗口。
+
+## 面板本地化（2026-10-15）
+
+- **会话窗口本地渲染侧面板**：SessionWindowRoot 调用与主窗口 App 同款
+  `useAppPanels`（窗口内独立 sidePaneState 实例）+ `AnimatedSidePanePanel`，水平
+  ResizablePanelGroup `[session-conversation-column, browser]` 包住会话列（竖向
+  聊天+终端）与侧面板——与主窗口 workspace-body-layout 同构。文件预览（code
+  viewer）/文件链接/代码审查（Git）/辅助对话/后台任务/子会话/工作流详情/白板等
+  全部本地打开；主窗口会话切走不再影响会话窗口的面板上下文（此前转发到主窗口，
+  面板落在主窗口当前活跃会话上，属串扰）。
+- **审查/辅助对话/终端窗口间独立**：面板状态是窗口内 React 实例 + taskSidePaneMemory
+  按 workspace 持久化，两窗口各持各的打开集；终端已在会话窗口本地承载。
+- **挂载策略**：侧面板首次出现（打开或存在 tab）前不挂 ResizablePanel；之后常驻
+  （浏览器 guest 的 webview 需要常驻 DOM，隐藏仅收起面板），与主窗口
+  「Browser Guest Host 与视图路由解耦」同一不变量。
+- **仍转发主窗口的动作**：仅 automations 主视图（会话窗口不承载该视图）；
+  `sessionWindowPanelBridge` 与主窗口分发表保留但只登记 `onOpenAutomationsMain`。
+- 验收：在会话窗口打开文件预览/审查/辅助对话 → 面板出现在会话窗口右侧；主窗口
+  同时切到其他会话，互不影响；主窗口的侧面板不受会话窗口操作影响。
+
+## 浏览器无缝衔接（2026-10-15）
+
+- **模型**：tab 的物理 guest 是 `<webview>`（一个 webContents 只能属于一个窗口的
+  DOM），跨窗口无法共享实时视图；采用「按窗口持有 + 关闭方向自动迁回」：
+  - 创建会话窗口：不迁移主窗口 tab——正在进行的 agent 浏览器调度（CDP 在 main 侧
+    按 owner 路由）完全不受影响；会话窗口浏览器面板从自己的新 tab 开始。
+  - 会话窗口关闭：`browserGuestManager.migrateWindowTabs(fromWindowId, toWindowId)`
+    把该窗口的活动 tab owner retarget 到源主窗口 + 拆除旧 guest（cachedUrl 保留）+
+    residency 置 suspended，再走既有 restore 流程：`onRestoreTabRequested` 按
+    retarget 后的 owner 路由到主窗口，载荷带 `migrated` + 缓存 `title`；主窗口
+    renderer 的 restore 事件处理在 tab 缺失时按载荷创建 side-pane tab（当前视图）
+    或写入目标 workspace 的持久化面板记忆（切回后以 suspended 壳出现），挂载
+    webview → attachGuest（restoring + generation 校验）→ `restoreGuestState` 以
+    cachedUrl 导航回原页面。
+- **页面状态边界**：迁移恢复 URL/标题（新 guest 重新加载），表单等页面内 JS 状态
+  不保留——与既有 LRU 淘汰恢复语义一致，诚实降级。
+- **降级**：源主窗口已销毁（整个 App 只剩会话窗口）→ 不迁移，随常规清窗销毁；
+  主窗口切到其他 workspace → tab 壳写入原 workspace 记忆，agent 对该 tab 的浏览器
+  命令在用户点开恢复前不可用（与 suspended tab 在非活跃 workspace 的既有语义一致）。
+- 验收：会话窗口打开内置浏览器 tab 并导航 → 关闭会话窗口 → 主窗口侧面板自动出现
+  该 tab 并回到原 URL；agent 正在主窗口浏览器上操作时创建/关闭会话窗口，主窗口
+  guest 与 CDP 调度不受扰动。

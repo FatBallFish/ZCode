@@ -44,6 +44,7 @@ import {
   BROWSER_USE_OPERATION_INDICATOR_DURATION_MS,
   openCodeViewerSidePane,
   openCodeViewerSidePanes,
+  openBrowserUseSidePane,
   activateGitSidePane,
   getActiveSidePaneTab,
   getVisibleSidePaneTabs,
@@ -715,7 +716,63 @@ export function useAppPanels(options: {
   useEffect(() => {
     if (!isDesktop || !platform?.onBrowserViewRestore) return;
     return platform.onBrowserViewRestore((payload) => {
-      commitSidePaneState((current) => applyBrowserTabResidencyEvent(current, payload));
+      commitSidePaneState((current) => {
+        const hasTab = Boolean(
+          current?.tabs.some(
+            (tab) =>
+              (tab.type === "browser-use" && tab.tabId === payload.tabId) ||
+              (tab.type === "browser" && tab.id === payload.tabId),
+          ),
+        );
+        // 会话窗口关闭迁回（specs/desktop/session-drag-out-window.md 浏览器无缝衔接）：
+        // 本窗口此前没有该 tab 的壳，按迁移载荷创建 side-pane tab 后再套用 residency 事件。
+        if (!hasTab && payload.migrated && payload.workspaceKey) {
+          if (payload.workspaceKey !== activeSidePaneMemoryKeyRef.current) {
+            // 目标 workspace 不是当前视图：写入该 workspace 的持久化面板记忆，
+            // 切回时以 suspended 壳出现，点击后 ensureResident 恢复（与关闭路由同款）。
+            const stored = readTaskSidePaneMemoryState(payload.workspaceKey);
+            if (
+              !stored.sidePaneState?.tabs.some(
+                (tab) =>
+                  (tab.type === "browser-use" && tab.tabId === payload.tabId) ||
+                  (tab.type === "browser" && tab.id === payload.tabId),
+              )
+            ) {
+              const created = openBrowserUseSidePane(stored.sidePaneState ?? null, {
+                workspaceKey: payload.workspaceKey,
+                sessionId: payload.sessionId,
+                tabId: payload.tabId,
+                ...(payload.browserId ? { browserId: payload.browserId } : {}),
+                ...(payload.browserGeneration !== undefined
+                  ? { browserGeneration: payload.browserGeneration }
+                  : {}),
+                ...(payload.remoteSessionId
+                  ? { remoteSessionId: payload.remoteSessionId }
+                  : {}),
+                ...(payload.title ? { title: payload.title } : {}),
+              });
+              saveTaskSidePaneMemoryState(payload.workspaceKey, {
+                sidePaneState: applyBrowserTabResidencyEvent(created, payload),
+                isSidePaneCollapsed: false,
+              });
+            }
+            return current;
+          }
+          const created = openBrowserUseSidePane(current, {
+            workspaceKey: payload.workspaceKey,
+            sessionId: payload.sessionId,
+            tabId: payload.tabId,
+            ...(payload.browserId ? { browserId: payload.browserId } : {}),
+            ...(payload.browserGeneration !== undefined
+              ? { browserGeneration: payload.browserGeneration }
+              : {}),
+            ...(payload.remoteSessionId ? { remoteSessionId: payload.remoteSessionId } : {}),
+            ...(payload.title ? { title: payload.title } : {}),
+          });
+          return applyBrowserTabResidencyEvent(created, payload);
+        }
+        return applyBrowserTabResidencyEvent(current, payload);
+      });
     });
   }, [commitSidePaneState, isDesktop, platform]);
 

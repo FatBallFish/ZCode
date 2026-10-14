@@ -1,10 +1,11 @@
 /**
- * 会话窗口 ↔ 主窗口的侧面板动作桥（specs/desktop/session-drag-out-window.md）。
+ * 会话窗口 → 主窗口的窗口级视图动作桥（specs/desktop/session-drag-out-window.md）。
  *
- * 会话窗口不承载侧面板装配（文件预览/内置浏览器/代码审查/辅助对话等的面板状态机、
- * 浏览器 Guest 宿主、截图面统一挂载在主 App）。会话窗口内触发这些动作时转发到
- * 主窗口对应 workspace 的 shell 执行（platform.forwardPanelRequestToMainWindow →
- * main 广播 → 主窗口 onMainWindowPanelRequest → WorkspaceShellLayout 注册的分发表）。
+ * 2026-10-15 面板本地化后，会话窗口的侧面板（文件预览/内置浏览器/代码审查/辅助对话/
+ * 后台任务/工作流详情/终端等）已在会话窗口本地渲染，不再经本桥转发。仅剩
+ * automations 主视图这类「主窗口专属页面」仍转发主窗口打开（会话窗口不承载该视图）。
+ * platform.forwardPanelRequestToMainWindow → main 广播 → 主窗口
+ * onMainWindowPanelRequest → WorkspaceShellLayout 注册的分发表。
  */
 import type { IPlatformService } from "@zcode/shared";
 import { logger } from "@/logger.js";

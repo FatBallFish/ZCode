@@ -107,7 +107,7 @@ export function createWindow(options: {
     });
   }
 
-  if (process.platform === "darwin") {
+  if (process.platform === "darwin" && options.bootstrap?.windowKind !== "session") {
     win.on("close", (event) => {
       if (
         handleDarwinWindowCloseRequest({
@@ -120,13 +120,18 @@ export function createWindow(options: {
         event.preventDefault();
       }
     });
-  } else if (options.handleBeforeClose) {
+  } else if (options.handleBeforeClose && options.bootstrap?.windowKind !== "session") {
     win.on("close", (event) => {
       if (options.handleBeforeClose?.(win, label)) {
         event.preventDefault();
       }
     });
   }
+  // 2026-10-15 幽灵窗口修复：会话窗口（windowKind=session）不走「关红点=隐藏」的
+  // macOS 主窗语义，也不挂 before-close 拦截，点关闭即真实销毁。隐藏的会话窗口会被
+  // app.show()（通知/OAuth/宠物唤起）、工作区聚焦等任何遍历窗口的路径重新 show 出来
+  // （实测：关闭→最小化→激活 App 后已关窗口复活）；且每个隐藏窗口都保留完整 renderer
+  // 与 Host attachment。销毁后 Host 侧按 attachment port 关闭自行回收，无残留。
 
   const wcId = win.webContents.id;
   const browserWindowId = win.id;

@@ -1080,15 +1080,17 @@ ipcMain.handle(PlatformChannels.SessionWindowPanelRequest, (event, payload: unkn
 /**
  * 轻量会话窗口（specs/desktop/session-drag-out-window.md）：复用 createWindowInstance
  * 的 host/端口/窗口生命周期管线，但以 windowKind=session 让 renderer 走
- * SessionWindowRoot（仅会话页，跳过完整 App 引导与启动 Loading 壳）。
+ * SessionWindowRoot（会话页 + 本地侧面板 + 终端，跳过完整 App 引导与启动 Loading 壳）。
  */
+/** 会话窗口 id → 源主窗口 webContents id；关闭时据此把浏览器 tab 迁回源窗口。 */
+const sessionWindowSourceWebContentsIds = new Map<number, number>();
 function createSessionWindowInstance(params: {
   workspacePath: string;
   workspaceIdentity?: string;
   sessionId: string;
   sourceWindowWebContentsId: number;
 }) {
-  createWindowInstance({
+  const created = createWindowInstance({
     windowKind: "session",
     restoreSession: false,
     // 附着到源（主）窗口的 Host：同运行时/同会话状态（见 desktopWindowLifecycle
@@ -1098,6 +1100,10 @@ function createSessionWindowInstance(params: {
     ...(params.workspaceIdentity ? { initialWorkspaceIdentity: params.workspaceIdentity } : {}),
     initialTaskId: params.sessionId,
   });
+  if (created) {
+    sessionWindowSourceWebContentsIds.set(created.id, params.sourceWindowWebContentsId);
+    created.once("closed", () => sessionWindowSourceWebContentsIds.delete(created.id));
+  }
 }
 const rendererActionTraceBroker = createRendererActionTraceBroker({
   exporter: createRendererActionTraceExporter({
@@ -3080,6 +3086,29 @@ app.on("browser-window-created", (_, win) => {
   const windowWebContentsId = win.webContents.id;
   win.on("closed", () => {
     browserScreenshotSurfaceCoordinator.handleWindowDestroyed(win.id);
+    // 会话窗口关闭：先把它拥有的浏览器 tab 迁回源主窗口（无缝接管，见
+    // specs/desktop/session-drag-out-window.md），迁移不掉的才随常规清窗销毁。
+    const sessionSourceWebContentsId = sessionWindowSourceWebContentsIds.get(win.id);
+    if (sessionSourceWebContentsId !== undefined) {
+      sessionWindowSourceWebContentsIds.delete(win.id);
+      const sourceWebContents = webContents.fromId(sessionSourceWebContentsId);
+      const sourceWindow = sourceWebContents
+        ? BrowserWindow.fromWebContents(sourceWebContents)
+        : null;
+      if (sourceWindow && !sourceWindow.isDestroyed()) {
+        const migrated = browserGuestManager.migrateWindowTabs(win.id, sourceWindow.id);
+        if (migrated > 0) {
+          logger.info(
+            "[session-window] browser tabs migrated to source window on close",
+            {
+              count: migrated,
+              fromWindowId: win.id,
+              toWindowId: sourceWindow.id,
+            },
+          );
+        }
+      }
+    }
     browserGuestManager.closeWindow(win.id);
     windowWorkspaceMap.delete(win.id);
     windowTaskRealtimeHostIdMap.delete(win.id);

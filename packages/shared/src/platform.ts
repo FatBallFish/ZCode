@@ -117,6 +117,13 @@ export interface BrowserViewResidencyTransitionPayload {
     BrowserTabResidencyState,
     "live-visible" | "live-background" | "suspended" | "restoring"
   >;
+  /**
+   * 窗口间迁移（会话窗口关闭把浏览器 tab 迁回源主窗口，specs/desktop/
+   * session-drag-out-window.md）：目标窗口此前没有该 tab 的壳，renderer 需按载荷
+   * 创建 side-pane tab（title 为迁移时的缓存标题）。
+   */
+  migrated?: boolean;
+  title?: string | null;
 }
 
 export interface BrowserViewCloseTabRequest {

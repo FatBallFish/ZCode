@@ -95,6 +95,7 @@ export class ZCodeStorageStartupGate {
 
   private fail(code: DatabaseStartupErrorCode): void {
     // 首帧之前失败也必须形成快照；未知数据库身份不能伪装成某个已解析路径。
+    let transitioned = false;
     if (this.current?.phase !== "failed") {
       this.current = this.current
         ? { ...this.current, phase: "failed", errorCode: code, sequence: this.current.sequence + 1 }
@@ -108,9 +109,16 @@ export class ZCodeStorageStartupGate {
             elapsedMs: 0,
             errorCode: code,
           };
-      this.changed.fire(this.current);
+      transitioned = true;
     }
-    this.terminalError = new Error(`SQLite startup failed: ${code}`);
-    this.reject?.(this.terminalError);
+    // 2026-10-15 顺序修复：必须先定终态并 settle pending，再 fire changed。
+    // 守门器终态失败会让 manager 在 changed 回调里同步回收进程并 dispose 本
+    // client，嵌套 dispose 的 transport_closed 会抢先 reject pending、掩盖真实
+    // 失败码（如唤醒场景的 startup_status_timeout）。首错即终态，不再改写。
+    if (!this.terminalError) {
+      this.terminalError = new Error(`SQLite startup failed: ${code}`);
+      this.reject?.(this.terminalError);
+    }
+    if (transitioned) this.changed.fire(this.current);
   }
 }

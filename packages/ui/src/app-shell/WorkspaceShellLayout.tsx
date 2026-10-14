@@ -1734,25 +1734,10 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   // 动作转发到本窗口（面板宿主统一在主 App）按 workspace 匹配后经此分发表执行。
   const sessionPanelHandlersRef = useRef<Record<string, (...args: unknown[]) => unknown>>({});
   sessionPanelHandlersRef.current = {
-    // IPC 结构化克隆后的载荷类型由会话窗口的调用方保证（同一个 ui 包内的回调签名），
-    // 这里统一按具体处理器形参收窄。
-    onRefreshGit: () => handleRefreshGit(),
-    onOpenGitReview: (sourceId) => handleOpenGitReview(sourceId as never),
-    onOpenBrowserUrl: (url) => handleOpenBrowserUrl(url as string),
+    // 2026-10-15 面板本地化：会话窗口的侧面板动作已本地执行，仅 automations 主视图
+    // 这类主窗口专属页面仍经 sessionWindowPanelBridge 转发（IPC 结构化克隆后的载荷
+    // 类型由会话窗口的调用方保证）。
     onOpenAutomationsMain: (target) => handleOpenAutomations(target as never),
-    onOpenCodeViewer: (source) => handleOpenCodeViewer(source as never),
-    onOpenFileLink: (target) => void handleOpenMarkdownFileLink(target as never),
-    onOpenBackgroundBash: (request) => handleOpenBackgroundBash(request as never),
-    onOpenSubagentSession: (request) => handleOpenSubagentSession(request as never),
-    onOpenSubagentDirectory: (request) => handleOpenSubagentDirectory(request as never),
-    onSyncSubagentSessionTabs: (request) => handleSyncSubagentSessionTabs(request as never),
-    onOpenSelectionSideChat: (request) => handleOpenSelectionSideChat(request as never),
-    onOpenPlanDetail: (request) => handleOpenPlanDetail(request as never),
-    onOpenWorkflowRun: (request) => handleOpenWorkflowRun(request as never),
-    onOpenWorkflowArtifact: (request) => handleOpenWorkflowArtifact(request as never),
-    onOpenWorkflowRunDirectory: (request) => handleOpenWorkflowRunDirectory(request as never),
-    onOpenWorkflowActorSession: (request) => handleOpenWorkflowActorSession(request as never),
-    onOpenWorkflowWorkspace: (request) => handleOpenWorkflowWorkspace(request as never),
   };
   useEffect(
     () =>

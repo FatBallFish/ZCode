@@ -18,6 +18,8 @@ export type ZCodeProtocolClientMethod = ZCodeProtocolMethod | V4Method;
 interface ZCodeProtocolClientOptions {
   requireStorageStartup?: boolean;
   requestTimeoutMs?: number;
+  /** 覆盖存储 startup 守门器的首帧超时（生产缺省 30s）；仅供测试注入。 */
+  storageStartupFirstStatusTimeoutMs?: number;
 }
 
 export interface ZCodeProtocolRequestTimeoutEvent {
@@ -116,7 +118,10 @@ export class ZCodeProtocolClient implements IDisposable {
     private readonly transport: ZCodeProtocolTransport,
     options?: ZCodeProtocolClientOptions,
   ) {
-    this.storageStartup = new ZCodeStorageStartupGate(options?.requireStorageStartup ?? false);
+    this.storageStartup = new ZCodeStorageStartupGate(
+      options?.requireStorageStartup ?? false,
+      options?.storageStartupFirstStatusTimeoutMs,
+    );
     this.requestTimeoutMs = options?.requestTimeoutMs ?? DEFAULT_ZCODE_PROTOCOL_REQUEST_TIMEOUT_MS;
     this.disposables.push(
       transport.onMessage((message) => this.handleMessage(message)),

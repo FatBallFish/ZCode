@@ -79,6 +79,11 @@ export interface ZCodeAgentProcessManagerOptions {
    */
   idleTimeoutMs?: number;
   /**
+   * 存储 startup 守门器的首帧超时（生产缺省 30s）。仅测试注入缩短等待用；
+   * 生产装配不覆写。
+   */
+  storageStartupFirstStatusTimeoutMs?: number;
+  /**
    * 仅当默认进程 cwd 等于目标 workspace 且该目录不可用时使用。
    * 业务 workspacePath/workspaceKey 不随 cwd 兜底改变。
    */
@@ -134,6 +139,8 @@ type AgentProcessCleanupReason =
   | "manager-dispose-retry"
   | "protocol-close"
   | "request-timeout"
+  | "storage-startup-failed"
+  | "storage-startup-failed-retry"
   | "workspace-dispose"
   | "workspace-dispose-retry";
 
@@ -578,6 +585,7 @@ export class ZCodeAgentProcessManager {
   private readonly spawnFallbackCwd: string | undefined;
   private readonly lane: string | undefined;
   private readonly idleTimeoutMs: number | undefined;
+  private readonly storageStartupFirstStatusTimeoutMs: number | undefined;
   private readonly runtimeRestartedEmitter = new Emitter<ZCodeAgentRuntimeRestartedEvent>();
   private readonly runtimeLifecycleEmitter = new Emitter<ZCodeAgentRuntimeLifecycleEvent>();
   private disposeAllInFlight: Promise<void> | undefined;
@@ -599,6 +607,7 @@ export class ZCodeAgentProcessManager {
     this.lane = options?.lane?.trim() || undefined;
     this.idleTimeoutMs =
       options?.idleTimeoutMs && options.idleTimeoutMs > 0 ? options.idleTimeoutMs : undefined;
+    this.storageStartupFirstStatusTimeoutMs = options?.storageStartupFirstStatusTimeoutMs;
   }
 
   private reportProcessLifecycle(
@@ -1094,6 +1103,9 @@ export class ZCodeAgentProcessManager {
     const client = new ZCodeProtocolClient(transport, {
       requireStorageStartup: effectiveCommand.supportsStorageStartup,
       requestTimeoutMs: this.requestTimeoutMs,
+      ...(this.storageStartupFirstStatusTimeoutMs !== undefined
+        ? { storageStartupFirstStatusTimeoutMs: this.storageStartupFirstStatusTimeoutMs }
+        : {}),
     });
     if (child.pid) {
       const unregisterNetworkCapture = localRuntimeNetworkCapture.register(client, child.pid);
@@ -1138,6 +1150,28 @@ export class ZCodeAgentProcessManager {
         client.pendingOperationRequestCount === 0
       ) {
         this.scheduleIdleReclaim(workspaceKey, managed);
+      }
+      // 2026-10-15 唤醒修复：spawn 后系统睡眠会让 30s 首帧定时器在睡眠中流逝，唤醒瞬间
+      // 守门器进入 startup_status_timeout 终态；此时 CLI 进程往往仍存活（帧被终态拒收），
+      // getClient 会永远复用这个坏 client，且 isWaiting=true 让空闲回收跳过，无法自愈。
+      // 守门器终态失败（transport_closed 除外——那是 onClose 清理路径的职责）必须与
+      // request-timeout 同语义：淘汰进程，让下一次 getClient 重新拉起干净 runtime。
+      const snapshot = client.storageStartup.snapshot;
+      if (snapshot?.phase === "failed" && snapshot.errorCode !== "transport_closed") {
+        this.processesByWorkspaceKey.delete(workspaceKey);
+        this.reportRuntimeUnavailable(managed);
+        warnLog("ZCode agent storage startup failed; recycling managed process", {
+          workspaceKey,
+          pid: child.pid,
+          runtimeIdentity: runtimeIdentity.identity,
+          errorCode: snapshot.errorCode,
+        });
+        void this.cleanupManagedProcessWithRetry(
+          managed,
+          "storage-startup-failed",
+          "storage-startup-failed-retry",
+          "storage startup failed",
+        ).catch(() => undefined);
       }
       this.storageStartupEmitter.fire({
         workspaceKey,

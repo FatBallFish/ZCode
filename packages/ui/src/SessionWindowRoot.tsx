@@ -2,17 +2,25 @@
  * 独立会话窗口根组件（specs/desktop/session-drag-out-window.md）。
  *
  * 会话拖出侧栏/右键「在新窗口打开会话」创建的轻量窗口：WorkspaceHeader（会话名/更多
- * 菜单/在 XXX 打开/分享/帮助/终端切换，兼作窗口拖动区）+ 会话页（V4WorkspaceChatArea
- * 单 pane）+ 可展开终端面板；无项目侧栏/页签/命令面板。复用 Root 的核心 Provider 栈，
- * 数据装配复用 App 同款 hooks（useWorkspaceActiveTaskState / useGitRepository 等）。
+ * 菜单/在 XXX 打开/分享/帮助/终端与侧面板切换，兼作窗口拖动区）+ 会话页（聊天区 +
+ * 终端 + 侧面板的水平分栏）。复用 Root 的核心 Provider 栈，数据装配复用 App 同款
+ * hooks（useWorkspaceActiveTaskState / useGitRepository / useAppPanels）。
+ *
+ * 2026-10-15 面板本地化：侧面板（文件预览/内置浏览器/代码审查/辅助对话/后台任务/
+ * 工作流详情等）改为在会话窗口本地渲染——与主窗口共用同一 Host 的数据，但面板状态
+ * （sidePaneState）是窗口内独立实例，互不串扰；主窗口会话切走不再影响本窗口的面板
+ * 上下文。内置浏览器 guest 也在本窗口挂载（webviewTag 已开，attachGuest 以本窗口为
+ * owner）。仅 automations 主视图这类主窗口专属页面继续经 sessionWindowPanelBridge 转发。
  */
-import { useCallback, useMemo, useRef, useState } from "react";
+/* eslint-disable max-lines -- 会话窗口是 App 装配的「单会话切片」：面板状态机/Git/记忆桥/
+   截图面的 wiring 与布局在同文件收口，避免跨文件传递 30+ 个零散 prop。 */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LucideProvider } from "lucide-react";
 import type { RefObject } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import type { IServiceAccessor } from "@zcode/services";
-import type { IPlatformService } from "@zcode/shared";
-import { getPathLeaf } from "@/lib/path.js";
+import type { GitChangeSourceId, IPlatformService } from "@zcode/shared";
+import { getPathLeaf, toFileUrl } from "@/lib/path.js";
 import { TooltipProvider } from "@/components/ui/tooltip.js";
 import { PlatformProvider } from "@/hooks/usePlatform.js";
 import { ServiceProvider } from "@/hooks/useServices.js";
@@ -33,13 +41,27 @@ import { useWorkspaceProviderConfigFile } from "@/hooks/useWorkspaceProviderConf
 import { useGitRepository } from "@/hooks/useGitRepository.js";
 import { getGitDirtyFileCount } from "@/git-branch-switcher/display.js";
 import { AnimatedTerminalPanel } from "@/app-shell/AnimatedTerminalPanel.js";
+import { AnimatedSidePanePanel } from "@/app-shell/AnimatedSidePanePanel.js";
+import { SIDE_PANE_DEFAULT_EXPANDED_SIZE } from "@/app-shell/sidePaneLayout.js";
+import { useAnimatedResizablePanel } from "@/app-shell/useAnimatedResizablePanel.js";
+import { useTaskSidePaneMemoryBridge } from "@/app-shell/useTaskSidePaneMemoryBridge.js";
+import { useAppPanels } from "@/hooks/useAppPanels.js";
+import { getActiveSidePaneTab } from "@/lib/workspaceSidePane.js";
+import {
+  findScreenshotSurfaceTabForRender,
+  useBrowserScreenshotSurfaceRequest,
+} from "@/browser-use/useBrowserScreenshotSurfaceRequest.js";
+import { shouldOpenAssistantHtmlInBrowser } from "@/lib/assistantPreviewCards.js";
+import type { MessageFileLinkTarget } from "@/components/ai-elements/message.js";
 import { createSessionPanelForwarder } from "@/v4/sessionWindowPanelBridge.js";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 
 const DEFAULT_LUCIDE_STROKE_WIDTH = 1.5;
-/** 会话窗口竖向布局的 panel id（聊天区 + 终端，见 ResizablePanelGroup panelIds 注释）。 */
+/** 会话窗口竖向布局的 panel id（聊天区 + 终端）。 */
 const SESSION_WINDOW_BODY_PANEL_IDS = ["session-chat", "terminal"];
+/** 会话窗口水平布局的 panel id（会话列 + 侧面板；AnimatedSidePanePanel 固定 id=browser）。 */
+const SESSION_WINDOW_MAIN_PANEL_IDS = ["session-conversation-column", "browser"];
 
 export function SessionWindowRoot({
   services,
@@ -119,11 +141,14 @@ function SessionWindowBody({
   useTheme();
   const [currentSessionId, setCurrentSessionId] = useState(sessionId);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
-  // 终端首次打开前不挂 ResizablePanel（否则底部预留面板空间导致输入框上移）。
+  // 终端/侧面板首次打开前不挂 ResizablePanel（否则底部/右侧预留面板空间）。
   const [hasOpenedTerminal, setHasOpenedTerminal] = useState(false);
+  const [hasOpenedSidePane, setHasOpenedSidePane] = useState(false);
   const [gitRefreshVersion, setGitRefreshVersion] = useState(0);
+  const [gitSelectedSourceId, setGitSelectedSourceId] = useState<GitChangeSourceId>("unstaged");
   const terminalPanelRef = useRef<PanelImperativeHandle | null>(null);
   const terminalPanelElementRef = useRef<HTMLDivElement | null>(null);
+  // automations 主视图是主窗口专属页面，仍转发主窗口打开。
   const forwardPanel = useMemo(
     () => createSessionPanelForwarder(platform, { workspacePath, workspaceIdentity }),
     [platform, workspaceIdentity, workspacePath],
@@ -158,10 +183,96 @@ function SessionWindowBody({
     null,
     workspaceIdentity,
   );
+
+  // —— 侧面板本地状态机（与主窗口 App 同款 useAppPanels；窗口内独立实例）——
+  const {
+    sidePaneState,
+    recentClosedSidePaneTabs,
+    isSidePaneCollapsed,
+    browserNavigationRequest,
+    handleOpenCodeViewer,
+    handleOpenBrowserUrl,
+    handleToggleBrowser,
+    handleOpenBrowserTab,
+    handleOpenBrowserPermissionSettings,
+    handleToggleGit,
+    handleOpenWhiteboard,
+    handleOpenDeveloperTools,
+    handleOpenTerminalTab,
+    handleOpenSubagentSession,
+    handleOpenBackgroundBash,
+    handleOpenSubagentDirectory,
+    handleSyncSubagentSessionTabs,
+    handleOpenSelectionSideChat,
+    handleOpenPlanDetail,
+    handleOpenWorkflowRun,
+    handleOpenWorkflowRunDirectory,
+    handleOpenWorkflowActorSession,
+    handleOpenWorkflowWorkspace,
+    handleOpenWorkflowArtifact,
+    handleToggleSidePaneCollapse,
+    handleCloseCodeViewer,
+    handleCloseGit,
+    handleActivateSidePaneTab,
+    handleReorderSidePaneTab,
+    handleCloseSidePaneTab,
+    handleCloseOtherSidePaneTabs,
+    handleCloseAllSidePaneTabs,
+    handleReopenClosedSidePaneTab,
+    handleBrowserNavigationRequestHandled,
+    handleBrowserPageMetadataChange,
+  } = useAppPanels({
+    workspaceAbsPath: workspacePath,
+    workspaceIdentity,
+    activeTaskId: currentSessionId,
+    sidePaneOwnerId: currentSessionId,
+    isDesktop: true,
+    isWorkspaceVisible: true,
+    supportsEmbeddedBrowser: true,
+    platform,
+    defaultWhiteboardNamePrefix: intl.formatMessage({
+      id: "whiteboard.defaultName",
+    }),
+  });
+  const activeSidePaneTab = useMemo(
+    () => getActiveSidePaneTab(sidePaneState),
+    [sidePaneState],
+  );
+  const isBrowserOpen = activeSidePaneTab?.type === "browser";
+  const hasGitTab = sidePaneState?.tabs.some((tab) => tab.type === "git") ?? false;
+  const isSidePaneOpen = !isSidePaneCollapsed;
+  // 侧面板一旦出现过（打开或存在 tab）就保持挂载：浏览器 guest 的 webview 需要常驻
+  // DOM（隐藏只是收起面板），卸载会销毁 guest 进程内页面。
+  useEffect(() => {
+    if (isSidePaneOpen || (sidePaneState?.tabs.length ?? 0) > 0) {
+      setHasOpenedSidePane(true);
+    }
+  }, [isSidePaneOpen, sidePaneState]);
+  const {
+    panelRef: sidePanePanelRef,
+    panelElementRef: sidePanePanelElementRef,
+    isVisible: isSidePaneVisible,
+  } = useAnimatedResizablePanel({
+    open: isSidePaneOpen,
+    expandedSize: SIDE_PANE_DEFAULT_EXPANDED_SIZE,
+    rememberExpandedSize: true,
+    resizeOnInitialVisibleMount: false,
+  });
+  const { browserRestoreUrls, handleBrowserUrlChange } = useTaskSidePaneMemoryBridge({
+    activeTaskId: currentSessionId,
+    gitSelectedSourceId,
+    setGitSelectedSourceId,
+    workspaceAbsPath: workspacePath,
+    workspaceIdentity,
+  });
+  const screenshotSurfaceRequest = useBrowserScreenshotSurfaceRequest(
+    sidePaneState?.tabs ?? [],
+  );
+
   const gitState = useGitRepository({
     workspacePath,
     activeTaskId: currentSessionId,
-    includeExtendedData: false,
+    includeExtendedData: hasGitTab,
     refreshToken: gitRefreshVersion,
     workspaceIdentity,
   });
@@ -169,6 +280,10 @@ function SessionWindowBody({
     () => getGitDirtyFileCount(gitState.datasets),
     [gitState.datasets],
   );
+  const activeGitSourceId =
+    gitState.sourceOptions.find((option) => option.id === gitSelectedSourceId)?.id ??
+    gitState.sourceOptions[0]?.id ??
+    "unstaged";
 
   const handleSessionCreated = useCallback((createdSessionId: string) => {
     // 会话内在本窗口 /new 首发创建出新会话：无页签/侧栏可切换，就地跟进新会话。
@@ -179,6 +294,63 @@ function SessionWindowBody({
     // 会话被删除后窗口失去存在意义，跟随关闭。
     window.close();
   }, []);
+
+  const handleRefreshGit = useCallback(() => {
+    setGitRefreshVersion((value) => value + 1);
+  }, []);
+
+  const handleOpenGitReview = useCallback(
+    (sourceId?: GitChangeSourceId) => {
+      if (sourceId) {
+        setGitSelectedSourceId(sourceId);
+      }
+      handleToggleGit();
+    },
+    [handleToggleGit],
+  );
+
+  // 文件链接：本地工作区的文件走本地 code viewer；助手 HTML 产物走内置浏览器。
+  const handleOpenFileLink = useCallback(
+    async (target: MessageFileLinkTarget) => {
+      try {
+        const fileStat = await services.fileService.stat({
+          path: target.path,
+        });
+        if (fileStat.type !== "file") return;
+        if (
+          shouldOpenAssistantHtmlInBrowser({
+            path: target.path,
+            workspaceIdentity: target.workspaceIdentity ?? undefined,
+            workspaceRemoteSessionId: target.workspaceRemoteSessionId ?? undefined,
+          })
+        ) {
+          handleOpenBrowserUrl(toFileUrl(target.path));
+          return;
+        }
+        handleOpenCodeViewer({
+          type: "file",
+          title: getPathLeaf(target.path),
+          path: target.path,
+          workspacePath: target.workspacePath,
+          ...(target.workspaceIdentity ? { workspaceIdentity: target.workspaceIdentity } : {}),
+        });
+      } catch {
+        /* stat 失败（外部路径等）静默忽略。 */
+      }
+    },
+    [handleOpenBrowserUrl, handleOpenCodeViewer, services],
+  );
+
+  const screenshotSurfaceTabId = screenshotSurfaceRequest
+    ? (findScreenshotSurfaceTabForRender(sidePaneState?.tabs ?? [], screenshotSurfaceRequest)
+        ?.id ?? null)
+    : null;
+
+  // Git 面板「查找变更」状态（主窗口在 shell 层持有；会话窗口 v1 本地只读占位，
+  // 查找导航控制器不在会话窗口装配，查找 UI 展示为空查询）。
+  const [fileChangeFindQuery] = useState("");
+  const [fileChangeFindActiveIndex] = useState(0);
+  const [fileChangeFindNavigationRequestId] = useState(0);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
@@ -216,89 +388,142 @@ function SessionWindowBody({
         // 无侧栏：让 Header 为 macOS 红绿灯 / Win&Linux 内联窗控预留左侧内边距。
         isSidebarVisible={false}
         isTerminalOpen={isTerminalOpen}
-        isSidePaneOpen={false}
-        // 侧面板（文件树/Git/浏览器面板）依赖 shell 级面板装配，会话窗口 v1 不承载。
-        hideSidePaneToggle
-        onRefreshGit={() => setGitRefreshVersion((value) => value + 1)}
+        isSidePaneOpen={isSidePaneOpen}
+        onRefreshGit={handleRefreshGit}
         onToggleTerminal={() => {
           setIsTerminalOpen((open) => {
             if (!open) setHasOpenedTerminal(true);
             return !open;
           });
         }}
-        onToggleBrowser={() => {}}
-        onToggleSidePane={() => {}}
+        onToggleBrowser={handleToggleBrowser}
+        onToggleSidePane={handleToggleSidePaneCollapse}
         onReloadSession={() => {}}
         reloadSessionDisabled
         onCreateTask={() => {}}
         onOpenWorkspace={() => {}}
       />
-      <div className="flex min-h-0 flex-1 flex-col">
-        {/* 终端面板：首次打开前不渲染 ResizablePanel（2026-10-14 自测反馈：默认
-            挂载会在底部预留面板空间导致输入框上移）。终端内容仍由 AnimatedTerminalPanel
-            内部的 hasRenderedTerminal 保持首开后不卸载。 */}
-        <ResizablePanelGroup
-          layoutId="session-window-body-layout"
-          panelIds={isTerminalOpen ? SESSION_WINDOW_BODY_PANEL_IDS : ["session-chat"]}
-          orientation="vertical"
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <ResizablePanel id="session-chat" minSize="30%" className="min-h-0">
-            <V4WorkspaceChatArea
-              workspacePath={workspacePath}
-              workspaceIdentity={workspaceIdentity}
-              isDesktop
-              sessionId={currentSessionId}
-              onSessionCreated={handleSessionCreated}
-              onSessionDeleted={handleSessionDeleted}
-              // 侧面板动作转发主窗口执行（面板宿主统一在主 App，见 sessionWindowPanelBridge）。
-              onRefreshGit={() => forwardPanel("onRefreshGit")}
-              onOpenGitReview={(sourceId) => forwardPanel("onOpenGitReview", sourceId)}
-              onOpenBrowserUrl={(url) => forwardPanel("onOpenBrowserUrl", url)}
-              onOpenAutomationsMain={(target) => forwardPanel("onOpenAutomationsMain", target)}
-              onOpenCodeViewer={(source) => forwardPanel("onOpenCodeViewer", source)}
-              onOpenFileLink={(target) => forwardPanel("onOpenFileLink", target)}
-              onOpenBackgroundBash={(request) => forwardPanel("onOpenBackgroundBash", request)}
-              onOpenSubagentSession={(request) => forwardPanel("onOpenSubagentSession", request)}
-              onOpenSubagentDirectory={(request) =>
-                forwardPanel("onOpenSubagentDirectory", request)
-              }
-              onSyncSubagentSessionTabs={(request) =>
-                forwardPanel("onSyncSubagentSessionTabs", request)
-              }
-              onOpenSelectionSideChat={(request) =>
-                forwardPanel("onOpenSelectionSideChat", request)
-              }
-              onOpenPlanDetail={(request) => forwardPanel("onOpenPlanDetail", request)}
-              onOpenWorkflowRun={(request) => forwardPanel("onOpenWorkflowRun", request)}
-              onOpenWorkflowArtifact={(request) => forwardPanel("onOpenWorkflowArtifact", request)}
-              onOpenWorkflowRunDirectory={(request) =>
-                forwardPanel("onOpenWorkflowRunDirectory", request)
-              }
-              onOpenWorkflowActorSession={(request) =>
-                forwardPanel("onOpenWorkflowActorSession", request)
-              }
-              onOpenWorkflowWorkspace={(request) =>
-                forwardPanel("onOpenWorkflowWorkspace", request)
-              }
-            />
-          </ResizablePanel>
-          {hasOpenedTerminal ? (
-            <AnimatedTerminalPanel
-              services={services}
-              workspaceAbsPath={workspacePath}
-              workspaceIdentity={workspaceIdentity}
-              openWorkspaceKeys={[workspacePath]}
-              isVisible={isTerminalOpen}
-              isWindowsDesktop={isWindowsDesktop}
-              panelRef={terminalPanelRef as RefObject<PanelImperativeHandle | null>}
-              panelElementRef={terminalPanelElementRef}
-              onClose={() => setIsTerminalOpen(false)}
-              onOpenBrowserUrl={() => {}}
-            />
-          ) : null}
-        </ResizablePanelGroup>
-      </div>
+      {/* 水平分栏：会话列（聊天+终端）+ 侧面板；与主窗口 workspace-body-layout 同构。 */}
+      <ResizablePanelGroup
+        layoutId="session-window-main-layout"
+        panelIds={hasOpenedSidePane ? SESSION_WINDOW_MAIN_PANEL_IDS : ["session-conversation-column"]}
+        className="flex min-h-0 flex-1"
+      >
+        <ResizablePanel id="session-conversation-column" minSize="30%" className="min-h-0">
+          <ResizablePanelGroup
+            layoutId="session-window-body-layout"
+            panelIds={isTerminalOpen ? SESSION_WINDOW_BODY_PANEL_IDS : ["session-chat"]}
+            orientation="vertical"
+            className="flex h-full min-h-0 flex-col"
+          >
+            <ResizablePanel id="session-chat" minSize="30%" className="min-h-0">
+              <V4WorkspaceChatArea
+                workspacePath={workspacePath}
+                workspaceIdentity={workspaceIdentity}
+                isDesktop
+                sessionId={currentSessionId}
+                onSessionCreated={handleSessionCreated}
+                onSessionDeleted={handleSessionDeleted}
+                // 面板动作全部本地执行（2026-10-15 面板本地化）。
+                onRefreshGit={handleRefreshGit}
+                onOpenGitReview={handleOpenGitReview}
+                onOpenBrowserUrl={handleOpenBrowserUrl}
+                // automations 主视图只在主窗口承载，继续转发。
+                onOpenAutomationsMain={(target) => forwardPanel("onOpenAutomationsMain", target)}
+                onOpenCodeViewer={handleOpenCodeViewer}
+                onOpenFileLink={(target) => void handleOpenFileLink(target)}
+                onOpenBackgroundBash={handleOpenBackgroundBash}
+                onOpenSubagentSession={handleOpenSubagentSession}
+                onOpenSubagentDirectory={handleOpenSubagentDirectory}
+                onSyncSubagentSessionTabs={handleSyncSubagentSessionTabs}
+                onOpenSelectionSideChat={handleOpenSelectionSideChat}
+                onOpenPlanDetail={handleOpenPlanDetail}
+                onOpenWorkflowRun={handleOpenWorkflowRun}
+                onOpenWorkflowArtifact={handleOpenWorkflowArtifact}
+                onOpenWorkflowRunDirectory={handleOpenWorkflowRunDirectory}
+                onOpenWorkflowActorSession={handleOpenWorkflowActorSession}
+                onOpenWorkflowWorkspace={handleOpenWorkflowWorkspace}
+              />
+            </ResizablePanel>
+            {hasOpenedTerminal ? (
+              <AnimatedTerminalPanel
+                services={services}
+                workspaceAbsPath={workspacePath}
+                workspaceIdentity={workspaceIdentity}
+                openWorkspaceKeys={[workspacePath]}
+                isVisible={isTerminalOpen}
+                isWindowsDesktop={isWindowsDesktop}
+                panelRef={terminalPanelRef as RefObject<PanelImperativeHandle | null>}
+                panelElementRef={terminalPanelElementRef}
+                onClose={() => setIsTerminalOpen(false)}
+                onOpenBrowserUrl={handleOpenBrowserUrl}
+              />
+            ) : null}
+          </ResizablePanelGroup>
+        </ResizablePanel>
+        {hasOpenedSidePane ? (
+          <AnimatedSidePanePanel
+            services={services}
+            isDesktop
+            isWindowsDesktop={isWindowsDesktop}
+            frameClassName="rounded-xl border border-border"
+            showWindowControls={!isMacDesktop}
+            isVisible={isSidePaneVisible}
+            onCloseSidePane={handleToggleSidePaneCollapse}
+            sidePaneState={sidePaneState}
+            recentClosedSidePaneTabs={recentClosedSidePaneTabs}
+            isBrowserOpen={isBrowserOpen}
+            supportsEmbeddedBrowser
+            workspaceAbsPath={workspacePath}
+            workspaceIdentity={workspaceIdentity}
+            activeTaskId={currentSessionId}
+            sidePaneOwnerId={currentSessionId}
+            gitState={gitState}
+            activeGitSourceId={activeGitSourceId}
+            panelRef={sidePanePanelRef as RefObject<PanelImperativeHandle | null>}
+            panelElementRef={sidePanePanelElementRef}
+            browserNavigationRequest={browserNavigationRequest}
+            browserRestoreUrls={browserRestoreUrls}
+            screenshotSurfaceRequest={screenshotSurfaceRequest}
+            screenshotSurfaceTabId={screenshotSurfaceTabId}
+            fileChangeFindActiveIndex={fileChangeFindActiveIndex}
+            fileChangeFindNavigationRequestId={fileChangeFindNavigationRequestId}
+            fileChangeFindQuery={fileChangeFindQuery}
+            onFileChangeFindMatchCountChange={() => {}}
+            onCloseCodeViewer={handleCloseCodeViewer}
+            onCloseGit={handleCloseGit}
+            onActivateTab={handleActivateSidePaneTab}
+            onReorderTab={handleReorderSidePaneTab}
+            onCloseTab={handleCloseSidePaneTab}
+            onCloseOtherTabs={handleCloseOtherSidePaneTabs}
+            onCloseAllTabs={handleCloseAllSidePaneTabs}
+            onReopenClosedTab={handleReopenClosedSidePaneTab}
+            onOpenBrowserTab={handleOpenBrowserTab}
+            onOpenBrowserPermissionSettings={handleOpenBrowserPermissionSettings}
+            onOpenWhiteboard={handleOpenWhiteboard}
+            onOpenDeveloperTools={handleOpenDeveloperTools}
+            onOpenTerminalTab={handleOpenTerminalTab}
+            onOpenReviewTab={handleToggleGit}
+            // 会话窗口无选区上下文入口，选区辅助对话由聊天区 onOpenSelectionSideChat 承载。
+            onOpenSelectionSideConversation={() => {}}
+            onRevealGitFileInTree={() => {}}
+            onOpenBrowserUrl={handleOpenBrowserUrl}
+            onOpenCodeViewer={handleOpenCodeViewer}
+            onOpenFileLink={(target) => void handleOpenFileLink(target)}
+            onOpenBackgroundBash={handleOpenBackgroundBash}
+            onOpenSubagentSession={handleOpenSubagentSession}
+            onOpenWorkflowActorSession={handleOpenWorkflowActorSession}
+            onOpenWorkflowWorkspace={handleOpenWorkflowWorkspace}
+            onOpenWorkflowArtifact={handleOpenWorkflowArtifact}
+            onOpenWorkflowRun={handleOpenWorkflowRun}
+            onRefreshGit={handleRefreshGit}
+            onBrowserNavigationRequestHandled={handleBrowserNavigationRequestHandled}
+            onBrowserUrlChange={handleBrowserUrlChange}
+            onBrowserPageMetadataChange={handleBrowserPageMetadataChange}
+            onSelectGitSource={setGitSelectedSourceId}
+          />
+        ) : null}
+      </ResizablePanelGroup>
     </div>
   );
 }

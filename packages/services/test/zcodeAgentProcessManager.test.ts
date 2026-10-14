@@ -1048,6 +1048,68 @@ setInterval(() => {}, 1000);
     }
   });
 
+  it("存储 startup 守门器终态超时后回收存活进程并允许重新拉起", async () => {
+    const workspacePath = mkdtempSync(join(tmpdir(), "zcode-agent-storage-timeout-"));
+    createdDirs.push(workspacePath);
+    let spawnCount = 0;
+    const manager = new ZCodeAgentProcessManager({
+      storageStartupFirstStatusTimeoutMs: 800,
+      commandResolver: () => {
+        spawnCount += 1;
+        if (spawnCount === 1) {
+          // 第一代 CLI：进程存活但不发任何 startup/storageState 帧
+          //（模拟 spawn 后立刻系统睡眠，唤醒后守门器已终态超时）。
+          return {
+            command: process.execPath,
+            args: ["-e", "setInterval(() => {}, 1000);"],
+            cwd: workspacePath,
+            supportsStorageStartup: true,
+          };
+        }
+        return {
+          command: process.execPath,
+          cwd: workspacePath,
+          supportsStorageStartup: true,
+          args: [
+            "-e",
+            `
+            const send = value => process.stdout.write(JSON.stringify(value) + "\\n");
+            const state = (phase, sequence) => send({method:"startup/storageState",params:{schemaVersion:1,attemptId:"b",databaseId:"db",databaseKind:"session",phase,sequence,elapsedMs:0}});
+            state("checking",1);
+            state("ready",2);
+            let buffer = "";
+            process.stdin.on("data", chunk => {
+              buffer += chunk;
+              const end = buffer.indexOf("\\n");
+              if (end < 0) return;
+              const request = JSON.parse(buffer.slice(0,end)); buffer = buffer.slice(end+1);
+              send({id:request.id,result:{}});
+            });
+          `,
+          ],
+        };
+      },
+    });
+    try {
+      const firstClient = await manager.getClient({ workspacePath });
+      // 守门器终态失败：请求快速失败，managed 进程被回收，不隐式重拉。
+      await expect(firstClient.request("workspace/readState", {})).rejects.toThrow(
+        "SQLite startup failed: startup_status_timeout",
+      );
+      expect(manager.listManagedProcesses()).toHaveLength(0);
+      expect(spawnCount).toBe(1);
+      // 下一次 getClient 重新拉起，健康 CLI 的守门器正常 ready。
+      const secondClient = await manager.getClient({ workspacePath });
+      expect(secondClient).not.toBe(firstClient);
+      await secondClient.request("workspace/readState", {});
+      await secondClient.storageStartup.wait();
+      expect(secondClient.storageStartup.snapshot?.phase).toBe("ready");
+      expect(spawnCount).toBe(2);
+    } finally {
+      await manager.disposeAllAndWait();
+    }
+  });
+
   it("主动回收 workspace 时把 agent 退出标为 expected", async () => {
     const workspacePath = mkdtempSync(join(tmpdir(), "zcode-agent-lifecycle-expected-"));
     createdDirs.push(workspacePath);
