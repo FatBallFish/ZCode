@@ -125,7 +125,8 @@
       "wdio-electron-service@9.2.1": "patches/wdio-electron-service@9.2.1.patch",
       "@arms/rum-electron@0.0.3": "patches/@arms__rum-electron@0.0.3.patch",
       "@ai-sdk/openai-compatible@2.0.60": "patches/@ai-sdk__openai-compatible@2.0.60.patch",
-      "@ai-sdk/anthropic@3.0.81": "patches/@ai-sdk__anthropic@3.0.81.patch"
+      "@ai-sdk/anthropic@3.0.81": "patches/@ai-sdk__anthropic@3.0.81.patch",
+      "@material/material-color-utilities@0.4.0": "patches/@material__material-color-utilities@0.4.0.patch"
     }
   },
   "license": "Apache-2.0"

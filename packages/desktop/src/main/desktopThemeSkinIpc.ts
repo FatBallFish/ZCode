@@ -57,4 +57,12 @@ export function registerThemeSkinIpc(options: { service: ThemeSkinService }): vo
     }
     return options.service.stageWallpaperImage(picked.filePaths[0]!);
   });
+
+  ipcMain.handle(
+    PlatformChannels.ThemeSkinReadWallpaperImage,
+    (_event, payload?: { path: string }) => {
+      if (typeof payload?.path !== "string") return { error: "invalid request" };
+      return options.service.readWallpaperDataUrl(payload.path);
+    },
+  );
 }

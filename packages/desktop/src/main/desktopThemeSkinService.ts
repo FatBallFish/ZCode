@@ -32,6 +32,7 @@ import type {
   ThemeSkinWallpaper,
 } from "@zcode/shared";
 import { buildThemeSkinExportJson } from "./desktopThemeSkinExportFile.js";
+import { createThemeSkinStagingMethods, WALLPAPER_EXTENSIONS } from "./desktopThemeSkinStaging.js";
 
 /**
  * 主题皮肤存储服务（specs/ui/theme-skins.md §5）：管理 ~/.mikiko/v2/theme-skins 下的
@@ -42,8 +43,6 @@ import { buildThemeSkinExportJson } from "./desktopThemeSkinExportFile.js";
 
 const THEME_JSON_FILE = "theme.json";
 const WALLPAPER_FILE_BASE = "wallpaper";
-const WALLPAPER_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp"]);
-const STAGING_DIR_NAME = ".staging";
 /** 暂存壁纸超过 7 天未转正则清理（编辑器放弃保存的残留）。 */
 const STAGING_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -69,6 +68,8 @@ export interface ThemeSkinService {
   readExportFile(id: string): Promise<{ json?: string; error?: string }>;
   /** 编辑器选图后先复制进暂存区（保存时转正；返回路径供 themepack:// 预览）。 */
   stageWallpaperImage(sourcePath: string): Promise<{ path?: string; error?: string }>;
+  /** 读取库内（含 staging）壁纸副本为 dataURL（一键配色取色；路径限库内图片）。 */
+  readWallpaperDataUrl(path: string): Promise<{ dataUrl?: string; error?: string }>;
   cleanupStaging(): Promise<void>;
 }
 
@@ -82,8 +83,10 @@ function wallpaperFileName(extension: string): string {
 
 export function createThemeSkinService(deps: ThemeSkinServiceDeps): ThemeSkinService {
   const logWarn = (message: string, data?: unknown) => deps.logger?.warn(message, data);
+  const stagingMethods = createThemeSkinStagingMethods({ rootDir: deps.rootDir });
   const now = deps.now ?? (() => new Date());
-  const stagingDir = () => join(deps.rootDir(), STAGING_DIR_NAME);
+  // saveCustomTheme 校验暂存路径仍在库内；staging 读写逻辑见 desktopThemeSkinStaging。
+  const stagingDir = () => join(deps.rootDir(), ".staging");
 
   const isInsideRoot = (dir: string) => {
     const root = resolve(deps.rootDir());
@@ -380,25 +383,7 @@ export function createThemeSkinService(deps: ThemeSkinServiceDeps): ThemeSkinSer
       }
     },
 
-    async stageWallpaperImage(sourcePath) {
-      try {
-        const extension = sourcePath.split(".").pop()?.toLowerCase() ?? "";
-        if (!WALLPAPER_EXTENSIONS.has(extension)) {
-          return { error: "wallpaper must be png/jpg/webp" };
-        }
-        const fileStat = await stat(sourcePath);
-        if (!fileStat.isFile()) return { error: "wallpaper source is not a file" };
-        if (fileStat.size > THEME_SKIN_WALLPAPER_MAX_BYTES) {
-          return { error: "wallpaper image too large" };
-        }
-        await mkdir(stagingDir(), { recursive: true });
-        const stagedPath = join(stagingDir(), `${randomBytes(8).toString("hex")}.${extension}`);
-        await copyFile(sourcePath, stagedPath);
-        return { path: stagedPath };
-      } catch (error) {
-        return { error: `stage wallpaper failed: ${String(error)}` };
-      }
-    },
+    ...stagingMethods,
 
     async cleanupStaging() {
       const staging = stagingDir();

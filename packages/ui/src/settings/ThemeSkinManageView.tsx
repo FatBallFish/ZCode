@@ -34,6 +34,8 @@ export interface ThemeSkinEditSource {
     | { kind: "builtin" }
     | { kind: "new" }
     | { kind: "custom"; id: string; wasActive: boolean };
+  /** 已保存主题的库内壁纸绝对路径（一键配色按已存图取色用）。 */
+  wallpaperImagePath?: string;
 }
 
 interface ThemeSkinCardData {
@@ -360,6 +362,9 @@ export function ThemeSkinManageView({
                                       id: card.item!.id,
                                       wasActive: active,
                                     },
+                                ...(card.item?.wallpaperImagePath
+                                  ? { wallpaperImagePath: card.item.wallpaperImagePath }
+                                  : {}),
                               })
                             }
                           >

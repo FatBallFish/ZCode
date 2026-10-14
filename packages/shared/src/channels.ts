@@ -521,6 +521,8 @@ export const PlatformChannels = {
   ThemeSkinReadExportFile: "zcode:theme-skin:read-export-file",
   /** 主题皮肤：选择壁纸图片并暂存到 staging（编辑器预览用，保存时转正） */
   ThemeSkinStageWallpaperImage: "zcode:theme-skin:stage-wallpaper-image",
+  /** 主题皮肤：读取库内壁纸副本为 dataURL（一键配色取色用，避免 canvas 跨域污染） */
+  ThemeSkinReadWallpaperImage: "zcode:theme-skin:read-wallpaper-image",
   PetGetActive: "zcode:pet:get-active",
   /** 宠物页 → Main：开始拖拽（main 记录锚点并接管移动；锚点式 60Hz 驱动） */
   PetDragStart: "zcode:pet:drag-start",
@@ -1483,6 +1485,10 @@ export interface PlatformChannelMap {
   [PlatformChannels.ThemeSkinStageWallpaperImage]: {
     request: void;
     response: { path?: string; canceled?: boolean; error?: string };
+  };
+  [PlatformChannels.ThemeSkinReadWallpaperImage]: {
+    request: { path: string };
+    response: { dataUrl?: string; error?: string };
   };
   [PlatformChannels.PetGetActive]: {
     request: void;

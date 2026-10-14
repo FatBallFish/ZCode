@@ -233,6 +233,9 @@ export function createDesktopPlatform(options: {
       window.zcode.themeSkinReadExportFile?.(id) ?? Promise.resolve({ error: "unavailable" }),
     themeSkinStageWallpaperImage: () =>
       window.zcode.themeSkinStageWallpaperImage?.() ?? Promise.resolve({ canceled: true }),
+    themeSkinReadWallpaperDataUrl: (path) =>
+      window.zcode.themeSkinReadWallpaperDataUrl?.(path) ??
+      Promise.resolve({ error: "unavailable" }),
     // 会话拖出侧栏 → 新窗口打开（specs/desktop/session-drag-out-window.md）。
     openSessionInNewWindow: (payload) =>
       window.zcode.openSessionInNewWindow?.(payload) ??

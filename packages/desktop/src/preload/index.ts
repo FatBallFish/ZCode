@@ -976,6 +976,9 @@ contextBridge.exposeInMainWorld("zcode", {
   /** 主题皮肤：选择壁纸图片并暂存到 staging。 */
   themeSkinStageWallpaperImage: () =>
     ipcRenderer.invoke(PlatformChannels.ThemeSkinStageWallpaperImage),
+  /** 主题皮肤：读取库内壁纸副本为 dataURL（一键配色取色）。 */
+  themeSkinReadWallpaperDataUrl: (path: string) =>
+    ipcRenderer.invoke(PlatformChannels.ThemeSkinReadWallpaperImage, { path }),
   /** 把会话在独立新主窗口打开（拖出侧栏释放；本地 workspace 限定）。 */
   openSessionInNewWindow: (payload: {
     workspacePath: string;

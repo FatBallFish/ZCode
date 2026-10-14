@@ -19,6 +19,9 @@ patchedDependencies:
   '@arms/rum-electron@0.0.3':
     hash: 36855354851ea495bc47a03340b0484ff62836b739cad56904b8a69f18e2ae97
     path: patches/@arms__rum-electron@0.0.3.patch
+  '@material/material-color-utilities@0.4.0':
+    hash: b1ce5dea9a31733ac3ddd4b236a80185e050df5f98e48bb7fd93f8ccf3f58378
+    path: patches/@material__material-color-utilities@0.4.0.patch
   vitest@4.1.7:
     hash: 11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0
     path: patches/vitest@4.1.7.patch
@@ -1635,6 +1638,9 @@ importers:
       '@lexical/react':
         specifier: ^0.42.0
         version: 0.42.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(yjs@13.6.30)
+      '@material/material-color-utilities':
+        specifier: 0.4.0
+        version: 0.4.0(patch_hash=b1ce5dea9a31733ac3ddd4b236a80185e050df5f98e48bb7fd93f8ccf3f58378)
       '@modelcontextprotocol/client':
         specifier: 2.0.0
         version: 2.0.0
@@ -3641,6 +3647,9 @@ packages:
   '@malept/flatpak-bundler@0.4.0':
     resolution: {integrity: sha512-9QOtNffcOF/c1seMCDnjckb3R9WHcG34tky+FHpNKKCW0wc/scYLwMtO+ptyGUfMW0/b/n4qRiALlaFHc9Oj7Q==}
     engines: {node: '>= 10.0.0'}
+
+  '@material/material-color-utilities@0.4.0':
+    resolution: {integrity: sha512-dlq6VExJReb8dhjj3a/yTigr3ncNwoFmL5Iy2ENtbDX03EmNeOEdZ+vsaGrj7RTuO+mB7L58II4LCsl4NpM8uw==}
 
   '@mbears/opentui-core-darwin-arm64@0.2.15':
     resolution: {integrity: sha512-eEyVTBqfn3F2tX26p0A1O8UVO9a9f01+ec5hhrXBqOUzB4zoTjtt5K8neMtGW/+pvHVrHQT19aKCRgJ4d3RcQQ==}
@@ -14146,6 +14155,8 @@ snapshots:
       tmp-promise: 3.0.3
     transitivePeerDependencies:
       - supports-color
+
+  '@material/material-color-utilities@0.4.0(patch_hash=b1ce5dea9a31733ac3ddd4b236a80185e050df5f98e48bb7fd93f8ccf3f58378)': {}
 
   '@mbears/opentui-core-darwin-arm64@0.2.15':
     optional: true

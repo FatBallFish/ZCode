@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sparkles, Sun } from "lucide-react";
 import type { ThemeSkinRuntime, ThemeSkinSavePayload, ThemeSkinTokenMap } from "@zcode/shared";
 import {
   DEFAULT_THEME_SKIN_WALLPAPER,
@@ -20,6 +20,7 @@ import {
 } from "@/settings/SettingsHeaderBreadcrumb.js";
 import { SettingsGroupCard, SettingsRow } from "@/settings/SettingsPageParts.js";
 import { ThemeSkinNewSessionPreview } from "@/theme-skins/ThemeSkinPreview.js";
+import { buildAutoColorTokenMaps, resolveWallpaperSourceColor } from "@/theme-skins/autoColor.js";
 import type { ThemeSkinEditSource } from "@/settings/ThemeSkinManageView.js";
 import {
   type ColorKnobs,
@@ -27,6 +28,7 @@ import {
   ColorField,
   applyKnobs,
   readKnobs,
+  ThemeSkinEditorSaveBar,
   ThemeSkinWallpaperSettingsCard,
 } from "@/settings/ThemeSkinEditParts.js";
 
@@ -81,6 +83,7 @@ export function ThemeSkinEditView({
   const [dimLight, setDimLight] = useState(wallpaperCommon.dimPercentLight);
   const [dimDark, setDimDark] = useState(wallpaperCommon.dimPercentDark);
   const [saving, setSaving] = useState(false);
+  const [autoColoring, setAutoColoring] = useState(false);
 
   const knobs = readKnobs(mode === "light" ? light : dark, mode);
   const setKnobValue = useCallback(
@@ -92,6 +95,36 @@ export function ThemeSkinEditView({
     },
     [knobs, mode],
   );
+
+  /**
+   * 一键配色（specs/ui/theme-skins.md §8）：按当前壁纸取色整体替换明暗 token 集。
+   * 取色流程（dataURL 读取 / CSS 采样）收敛在 resolveWallpaperSourceColor。
+   */
+  const handleAutoColor = useCallback(async () => {
+    if (wallpaper.mode === "none" || autoColoring) return;
+    setAutoColoring(true);
+    try {
+      const sourceArgb = await resolveWallpaperSourceColor({
+        wallpaper,
+        ...(source.wallpaperImagePath ? { existingWallpaperPath: source.wallpaperImagePath } : {}),
+        readWallpaperDataUrl: (path) =>
+          platform.themeSkinReadWallpaperDataUrl?.(path) ??
+          Promise.resolve({ error: "unavailable" }),
+      });
+      const maps = buildAutoColorTokenMaps(sourceArgb);
+      setLight(maps.light);
+      setDark(maps.dark);
+      toast(intl.formatMessage({ id: "settings.themeSkin.editor.autoColorDone" }));
+    } catch (error) {
+      toast(
+        error instanceof Error
+          ? error.message
+          : intl.formatMessage({ id: "settings.themeSkin.editor.autoColorFailed" }),
+      );
+    } finally {
+      setAutoColoring(false);
+    }
+  }, [autoColoring, intl, platform, source.wallpaperImagePath, wallpaper]);
 
   const draftRuntime: ThemeSkinRuntime = useMemo(() => {
     const wp =
@@ -250,33 +283,51 @@ export function ThemeSkinEditView({
                     id: "settings.themeSkin.editor.colorsTitle",
                   })}
                 </h3>
-                {/* 单一模式开关同时决定「编辑哪个模式」与「预览哪个模式」。 */}
-                <div className="flex items-center rounded-lg border border-border p-0.5">
-                  {(["light", "dark"] as const).map((candidate) => (
-                    <button
-                      key={candidate}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* 已配置壁纸时提供按壁纸整体自动配色（specs/ui/theme-skins.md §8）。 */}
+                  {wallpaper.mode !== "none" ? (
+                    <Button
                       type="button"
-                      aria-label={intl.formatMessage({
-                        id: `settings.themeSkin.preview.${candidate}`,
-                      })}
-                      className={cn(
-                        "flex h-6 items-center gap-1 rounded-md px-2 text-ui-sm",
-                        mode === candidate
-                          ? "bg-selected text-foreground"
-                          : "text-foreground-subtle hover:bg-hover",
-                      )}
-                      onClick={() => setMode(candidate)}
+                      variant="outline"
+                      disabled={autoColoring}
+                      onClick={() => void handleAutoColor()}
                     >
-                      {candidate === "light" ? (
-                        <Sun className="size-3.5" aria-hidden="true" />
-                      ) : (
-                        <Moon className="size-3.5" aria-hidden="true" />
-                      )}
+                      <Sparkles className="size-4" aria-hidden="true" />
                       {intl.formatMessage({
-                        id: `settings.themeSkin.preview.${candidate}`,
+                        id: autoColoring
+                          ? "settings.themeSkin.editor.autoColorRunning"
+                          : "settings.themeSkin.editor.autoColor",
                       })}
-                    </button>
-                  ))}
+                    </Button>
+                  ) : null}
+                  {/* 单一模式开关同时决定「编辑哪个模式」与「预览哪个模式」。 */}
+                  <div className="flex items-center rounded-lg border border-border p-0.5">
+                    {(["light", "dark"] as const).map((candidate) => (
+                      <button
+                        key={candidate}
+                        type="button"
+                        aria-label={intl.formatMessage({
+                          id: `settings.themeSkin.preview.${candidate}`,
+                        })}
+                        className={cn(
+                          "flex h-6 items-center gap-1 rounded-md px-2 text-ui-sm",
+                          mode === candidate
+                            ? "bg-selected text-foreground"
+                            : "text-foreground-subtle hover:bg-hover",
+                        )}
+                        onClick={() => setMode(candidate)}
+                      >
+                        {candidate === "light" ? (
+                          <Sun className="size-3.5" aria-hidden="true" />
+                        ) : (
+                          <Moon className="size-3.5" aria-hidden="true" />
+                        )}
+                        {intl.formatMessage({
+                          id: `settings.themeSkin.preview.${candidate}`,
+                        })}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               <SettingsGroupCard>
@@ -348,27 +399,12 @@ export function ThemeSkinEditView({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={saving}
-            onClick={() => void handleSave(false)}
-          >
-            {intl.formatMessage({
-              id: isBuiltin
-                ? "settings.themeSkin.editor.saveAsCopy"
-                : "settings.themeSkin.editor.save",
-            })}
-          </Button>
-          <Button type="button" disabled={saving} onClick={() => void handleSave(true)}>
-            {intl.formatMessage({
-              id: isBuiltin
-                ? "settings.themeSkin.editor.saveAsCopyAndUse"
-                : "settings.themeSkin.editor.saveAndUse",
-            })}
-          </Button>
-        </div>
+        <ThemeSkinEditorSaveBar
+          isBuiltin={isBuiltin}
+          saving={saving}
+          onSave={() => void handleSave(false)}
+          onSaveAndUse={() => void handleSave(true)}
+        />
       </div>
     </>
   );

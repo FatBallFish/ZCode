@@ -19,6 +19,7 @@
   - 导入的皮肤视同自定义皮肤，可直接编辑与删除。
 - 编辑（微调）能力（`ThemeSkinEditView`）：
   - 名称；
+  - 「一键配色」：已配置壁纸（图片或内置渐变）时，按壁纸像素自动生成明暗两套完整配色（见 §8）；
   - 每个模式的主题色（accent）、主按钮色（primary，前景色自动按亮度对比生成）、文本色（foreground）；
   - 壁纸：选择本地图 / 清除、取景（cover/contain）、模糊（0-24px）、压暗（浅色/深色模式各自 0-100%，浅色为白纱、深色为黑纱）；
   - 主预览为「新建会话页」的缩略 mock，支持明/暗两模式渲染预览。
@@ -108,7 +109,17 @@ Token allowlist（每模式，~30 个）：`--color-{background,background-win-a
 
 配色纪律（design-taste-frontend）：不用纯黑纯白、饱和度克制、每套单一 accent、明暗两模式文本对比度保持可读。
 
-## 7. 验收场景
+## 8. 一键配色（自动取色）
+
+- 算法：Google Material You 动态取色（`@material/material-color-utilities`，Android 12+ 壁纸主题同款）：
+  1. 壁纸像素（图片经缩放 canvas；CSS 渐变经 canvas 填充取样）→ Celebi 量化 + Score 评分得到 source color；
+  2. source 的 HCT 色相生成三支色调调色板：neutral（chroma 4）、neutralVariant（8）、primary（max(24, min(48, 源饱和度))，低饱和壁纸兜底保证按钮有色）；
+  3. 按色调位映射到 33 token 明暗两套，色调位对齐 mikiko 基础主题的既有取值（如浅色 background=N98、深色 background=N8），保证自动结果观感原生、明暗可读（MD3 色调位自带对比度保证）。
+- 数据面：图片壁纸经 `themeSkinReadWallpaperDataUrl` 通道在 main 侧读库内副本转 dataURL（themepack URL 直接进 canvas 会因跨域污染无法 getImageData）；CSS 渐变纯 renderer 采样。
+- 一键配色**整体替换**当前明暗 token 集（它是完整方案，不是局部微调），替换后仍可继续用旋钮微调；不改动壁纸与压暗参数。
+- 确定性：同壁纸同结果（算法无随机源）。
+
+## 9. 验收场景
 
 1. 外观页显示当前皮肤名 + 缩略预览；进入二级页可切换 6 套内置皮肤，切换立即生效（主窗口 + 会话窗口同步）。
 2. 深浅主题切换（含 system 跟随）后皮肤仍正确应用对应模式 token。
@@ -118,3 +129,4 @@ Token allowlist（每模式，~30 个）：`--color-{background,background-win-a
 6. 恶意/损坏 .mikikotheme（越界 token、非图片 mime、超限体积）被拒绝并提示，不落盘。
 7. 删除正在使用的皮肤 → 回落默认皮肤；localStorage 快照损坏 → 安全回落默认。
 8. `pnpm typecheck` / `pnpm lint` 通过；shared/desktop 服务测试通过。
+9. 一键配色：配置图片壁纸后点击，明暗预览立即呈现与壁纸同色系的完整配色；两模式文本对比度可读；纯色/低饱和壁纸也能产出有色按钮与中性表面。

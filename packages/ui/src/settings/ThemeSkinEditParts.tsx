@@ -302,3 +302,34 @@ export function ThemeSkinWallpaperSettingsCard({
     </section>
   );
 }
+
+/** 编辑器底部保存按钮组（内置皮肤显示「另存为副本」语义）。 */
+export function ThemeSkinEditorSaveBar({
+  isBuiltin,
+  saving,
+  onSave,
+  onSaveAndUse,
+}: {
+  isBuiltin: boolean;
+  saving: boolean;
+  onSave: () => void;
+  onSaveAndUse: () => void;
+}) {
+  const { intl } = useZCodeIntl();
+  return (
+    <div className="flex items-center gap-2">
+      <Button type="button" variant="outline" disabled={saving} onClick={onSave}>
+        {intl.formatMessage({
+          id: isBuiltin ? "settings.themeSkin.editor.saveAsCopy" : "settings.themeSkin.editor.save",
+        })}
+      </Button>
+      <Button type="button" disabled={saving} onClick={onSaveAndUse}>
+        {intl.formatMessage({
+          id: isBuiltin
+            ? "settings.themeSkin.editor.saveAsCopyAndUse"
+            : "settings.themeSkin.editor.saveAndUse",
+        })}
+      </Button>
+    </div>
+  );
+}

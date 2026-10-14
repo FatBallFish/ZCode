@@ -1250,6 +1250,11 @@ export interface IPlatformService {
     canceled?: boolean;
     error?: string;
   }>;
+  /** 主题皮肤：读取库内壁纸副本为 dataURL（一键配色取色，路径限库内图片）。 */
+  themeSkinReadWallpaperDataUrl?(path: string): Promise<{
+    dataUrl?: string;
+    error?: string;
+  }>;
   /** main 请求打开设置页宠物分区（宠物窗口右键菜单）。 */
   onOpenPetSettings?(callback: () => void): () => void;
 

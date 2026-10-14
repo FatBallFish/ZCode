@@ -280,6 +280,24 @@ test("deleteTheme 删除自定义皮肤并拒绝逃逸 id", async () => {
   }
 });
 
+test("readWallpaperDataUrl 只放行库内图片并返回 dataURL（一键配色取色）", async (t) => {
+  const { service, rootDir } = createTestService();
+  t.after(() => rmSync(rootDir, { recursive: true, force: true }));
+
+  const sourceImage = join(rootDir, "..", "autocolor-source.png");
+  writeFileSync(sourceImage, Buffer.from(PNG_BASE64, "base64"));
+  const staged = await service.stageWallpaperImage(sourceImage);
+  assert.ok(staged.path);
+
+  const result = await service.readWallpaperDataUrl(staged.path!);
+  assert.ok(result.dataUrl?.startsWith("data:image/png;base64,"));
+
+  // 库外路径 / 非图片扩展名 / 不存在文件均拒绝。
+  assert.ok(!(await service.readWallpaperDataUrl(sourceImage)).dataUrl);
+  assert.ok(!(await service.readWallpaperDataUrl(join(rootDir, "missing.png"))).dataUrl);
+  assert.ok(!(await service.readWallpaperDataUrl(join(rootDir, "notes.txt"))).dataUrl);
+});
+
 test("readExportFile 组装可再导入的导出 JSON（壁纸内嵌 dataURI）", async (t) => {
   const { service, rootDir } = createTestService();
   t.after(() => rmSync(rootDir, { recursive: true, force: true }));
