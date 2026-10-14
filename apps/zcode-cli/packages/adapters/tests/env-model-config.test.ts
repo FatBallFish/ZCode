@@ -8,7 +8,7 @@ describe("env model config", () => {
   it("ignores legacy model environment variables", () => {
     const config = parseEnvConfig({
       ZCODE_API_KEY: "secret",
-      ZCODE_BASE_URL: "https://api.example.test/anthropic",
+      MIKIKO_BASE_URL: "https://api.example.test/anthropic",
       ZCODE_MODEL: "glm-5.1",
     });
 
@@ -17,7 +17,7 @@ describe("env model config", () => {
 
   it("does not validate legacy model environment variables", () => {
     const config = parseEnvConfig({
-      ZCODE_BASE_URL: "https://api.z.ai/api/anthropic",
+      MIKIKO_BASE_URL: "https://api.z.ai/api/anthropic",
       ZCODE_MODEL: "zai/",
     });
 
@@ -54,7 +54,7 @@ describe("env model config", () => {
 
       const result = createConfig({
         env: {
-          ZCODE_BASE_URL: "https://api.env.example/anthropic",
+          MIKIKO_BASE_URL: "https://api.env.example/anthropic",
           ZCODE_MODEL: "env-model",
         },
         userConfigPath: path,

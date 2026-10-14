@@ -7,7 +7,7 @@
 // 说明文件是纯 txt：早期版本用 .command 可双击脚本，但从未签名 DMG 卷上执行会被
 // Gatekeeper 与卷路径问题卡死；改为引导用户把应用拖入 Applications 后在终端手动执行 xattr。
 // 注入会改变 DMG 字节内容，同目录的 .dmg.blockmap 随之失效；自动更新已被
-// ZCODE_UPDATES_ENABLED 屏蔽，blockmap 无消费方，注入后直接删除并在有消费方恢复时重估。
+// MIKIKO_UPDATES_ENABLED 屏蔽，blockmap 无消费方，注入后直接删除并在有消费方恢复时重估。
 
 import { execFileSync } from "node:child_process";
 import {

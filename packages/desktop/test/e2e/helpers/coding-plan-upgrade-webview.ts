@@ -331,7 +331,7 @@ function readCodingPlanUpgradeMockBaseUrlCandidates(): string[] {
     process.env.BIGMODEL_TEST_API_BASE_URL,
     process.env.BIGMODEL_API_BASE_URL,
     process.env.ZAI_BUSINESS_BASE_URL,
-    process.env.ZCODE_ENDPOINT_ORIGIN,
+    process.env.MIKIKO_ENDPOINT_ORIGIN,
   ].flatMap((item) => {
     const value = item?.trim();
     return value ? [value] : [];

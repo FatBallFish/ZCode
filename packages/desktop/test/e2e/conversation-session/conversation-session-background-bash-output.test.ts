@@ -101,7 +101,7 @@ async function alive(name: string) {
 }
 
 async function readAgentLogs() {
-  const logDir = process.env.ZCODE_LOG_DIR!;
+  const logDir = process.env.MIKIKO_LOG_DIR!;
   const files = (await readdir(logDir)).filter((file) => file.endsWith(".jsonl"));
   return (await Promise.all(files.map((file) => readFile(join(logDir, file), "utf8")))).join("\n");
 }

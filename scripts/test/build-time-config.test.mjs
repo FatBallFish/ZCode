@@ -26,8 +26,8 @@ test("没有私有默认配置也没有环境变量时三项能力都关闭", as
 
 test("私有默认配置启用三项能力", async () => {
   const defaultsPath = await writeDefaults("defaults.json", {
-    ZCODE_ARMS_RUM_ENDPOINT: " https://rum.example.com/x ",
-    ZCODE_TELEMETRY_REPORT_ENDPOINT: "https://report.example.com/event",
+    MIKIKO_ARMS_RUM_ENDPOINT: " https://rum.example.com/x ",
+    MIKIKO_TELEMETRY_REPORT_ENDPOINT: "https://report.example.com/event",
     ZCODE_AUTO_UPDATE: "1",
   });
   assert.deepEqual(await resolveBuildTimeConfig({}, { defaultsPath }), {
@@ -39,14 +39,14 @@ test("私有默认配置启用三项能力", async () => {
 
 test("环境变量优先于私有默认配置，显式空字符串关闭单项能力", async () => {
   const defaultsPath = await writeDefaults("override.json", {
-    ZCODE_ARMS_RUM_ENDPOINT: "https://rum.example.com/x",
-    ZCODE_TELEMETRY_REPORT_ENDPOINT: "https://report.example.com/event",
+    MIKIKO_ARMS_RUM_ENDPOINT: "https://rum.example.com/x",
+    MIKIKO_TELEMETRY_REPORT_ENDPOINT: "https://report.example.com/event",
     ZCODE_AUTO_UPDATE: "true",
   });
   const config = await resolveBuildTimeConfig(
     {
-      ZCODE_ARMS_RUM_ENDPOINT: "",
-      ZCODE_TELEMETRY_REPORT_ENDPOINT: "https://other.example.com/event",
+      MIKIKO_ARMS_RUM_ENDPOINT: "",
+      MIKIKO_TELEMETRY_REPORT_ENDPOINT: "https://other.example.com/event",
       ZCODE_AUTO_UPDATE: "0",
     },
     { defaultsPath },

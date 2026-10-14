@@ -12,7 +12,7 @@ test("image clipboard reader uses the ZCode storage root for native temp files",
     platform: "darwin",
     processEnv: {
       ...process.env,
-      ZCODE_STORAGE_DIR: storageRoot,
+      MIKIKO_STORAGE_DIR: storageRoot,
     },
     runCommand: async (_file, args) => {
       const scriptLine = args.find((arg) => arg.includes("clipboard.png")) ?? "";

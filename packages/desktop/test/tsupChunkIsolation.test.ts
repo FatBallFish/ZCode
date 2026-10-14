@@ -140,7 +140,7 @@ describe("desktop tsup chunk isolation", () => {
       OTEL_EXPORTER_OTLP_ENDPOINT: "https://arms.example.com/otlp",
       OTEL_EXPORTER_OTLP_HEADERS: "x-arms-license-key=write-only",
       OTEL_SERVICE_NAME: "zcode-cli-agent",
-      ZCODE_TELEMETRY_RUNTIME_DISTRIBUTION: "packaged",
+      MIKIKO_TELEMETRY_RUNTIME_DISTRIBUTION: "packaged",
     });
   });
 

@@ -83,7 +83,7 @@ test("resolves the development ZCode Built-in Config and shared Personal Config"
   assert.equal(logoutPrepared[ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV], activeFilePath);
   // 临时目录本身可能经过软链接（macOS 的 /tmp、/var），随包配置报告的是真实路径。
   assert.equal(
-    prepared.ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE,
+    prepared.MIKIKO_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE,
     await realpath(zcodeBuiltinFilePath),
   );
   await assert.rejects(access(join(dirname(activeFilePath!), "zcode-builtin-refresh.json")));
@@ -129,7 +129,7 @@ test("materializes the SEA config in the fixed environment resource path, separa
   );
   assert.notEqual(resource, zcodeBuiltinFilePath);
   assert.deepEqual(JSON.parse(await readFile(resource, "utf8")), JSON.parse(zcodeBuiltinContent));
-  assert.equal(prepared.ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE, resource);
+  assert.equal(prepared.MIKIKO_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE, resource);
   await assert.rejects(access(join(dirname(zcodeBuiltinFilePath), "zcode-builtin-refresh.json")));
 });
 

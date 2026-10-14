@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { chmod, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { getRuntimeToolRuntime, type RuntimeToolId } from "@zcode/shared/runtime-tool-runtime";
@@ -46,7 +46,9 @@ export interface EnsureSeaRuntimeToolsOptions {
 
 const assetPrefix = "zcode-runtime-tools/";
 const manifestAssetKey = `${assetPrefix}manifest.json`;
-const markerFileName = ".zcode-runtime-tool.json";
+// 2026-10-15 品牌化：缓存标记改名；读取旧缓存目录时兼容旧标记，避免重复解压。
+const markerFileName = ".mikiko-runtime-tool.json";
+const legacyMarkerFileName = ".zcode-runtime-tool.json";
 const runtimeToolIds = new Set<RuntimeToolId>(["bfs", "ripgrep", "ugrep"]);
 
 export async function ensureSeaRuntimeTools(
@@ -65,7 +67,7 @@ export async function ensureSeaRuntimeTools(
   }
 
   const env = options.env ?? process.env;
-  const configuredStorageRoot = options.storageRoot ?? env.ZCODE_STORAGE_DIR?.trim();
+  const configuredStorageRoot = options.storageRoot ?? env.MIKIKO_STORAGE_DIR?.trim();
   const storageRoot = configuredStorageRoot || join(homedir(), ".mikiko");
   const runtimeEnv: CliEnv = {};
 
@@ -210,15 +212,25 @@ function validateManifest(manifest: SeaRuntimeToolManifest): void {
   }
 }
 
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function isCacheCurrent(
   cacheDirectory: string,
   expected: RuntimeToolMarker,
   platform: NodeJS.Platform,
 ): Promise<boolean> {
   try {
-    const marker = JSON.parse(
-      await readFile(join(cacheDirectory, markerFileName), "utf8"),
-    ) as RuntimeToolMarker;
+    const markerFilePath = (await fileExists(join(cacheDirectory, markerFileName)))
+      ? join(cacheDirectory, markerFileName)
+      : join(cacheDirectory, legacyMarkerFileName);
+    const marker = JSON.parse(await readFile(markerFilePath, "utf8")) as RuntimeToolMarker;
     if (
       marker.version !== expected.version ||
       marker.id !== expected.id ||

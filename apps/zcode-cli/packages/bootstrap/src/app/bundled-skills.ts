@@ -53,7 +53,9 @@ const BUNDLED_SKILL_PACK_ROOT_CANDIDATES = [
 
 export const SEA_BUNDLED_SKILL_ASSET_PREFIX = "zcode-bundled-skills/";
 const SEA_BUNDLED_SKILL_MANIFEST_ASSET_KEY = `${SEA_BUNDLED_SKILL_ASSET_PREFIX}manifest.json`;
-const SEED_MARKER_FILE = ".zcode-bundled-skills-seed.json";
+// 2026-10-15 品牌化：种子标记改名；读取时兼容旧名，避免升级后重新解压整套技能。
+const SEED_MARKER_FILE = ".mikiko-bundled-skills-seed.json";
+const LEGACY_SEED_MARKER_FILE = ".zcode-bundled-skills-seed.json";
 
 /**
  * 排在所有插件根之后（adapters 的插件根从 FIRST_PLUGIN_PRIORITY 起步进）：同名技能按发现顺序取先者，
@@ -167,7 +169,7 @@ function materializeSeaBundledSkillPack(
 
 function isSeedComplete(targetRoot: string, expectedHash: string): boolean {
   try {
-    const marker = JSON.parse(readFileSync(join(targetRoot, SEED_MARKER_FILE), "utf8")) as {
+    const marker = JSON.parse(readFileSync(join(targetRoot, existsSync(join(targetRoot, SEED_MARKER_FILE)) ? SEED_MARKER_FILE : LEGACY_SEED_MARKER_FILE), "utf8")) as {
       hash?: unknown;
     };
     if (marker.hash !== expectedHash) return false;
@@ -189,7 +191,7 @@ function findUsableSeededPack(packsRoot: string): string | undefined {
     .map((entry) => join(packsRoot, entry.name))
     .find((packRoot) => {
       try {
-        const marker = JSON.parse(readFileSync(join(packRoot, SEED_MARKER_FILE), "utf8")) as {
+        const marker = JSON.parse(readFileSync(join(packRoot, existsSync(join(packRoot, SEED_MARKER_FILE)) ? SEED_MARKER_FILE : LEGACY_SEED_MARKER_FILE), "utf8")) as {
           hash?: unknown;
         };
         return typeof marker.hash === "string" && isSeedComplete(packRoot, marker.hash);

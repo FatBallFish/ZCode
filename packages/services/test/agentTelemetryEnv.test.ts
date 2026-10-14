@@ -25,11 +25,11 @@ describe("buildAgentTelemetrySpawnEnv", () => {
     });
     expect(result).toMatchObject({
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://arms.example.com/v1/traces",
-      ZCODE_TELEMETRY_DEVICE_MID: "device-1",
-      ZCODE_TELEMETRY_IDENTITY_STATE: "authenticated",
-      ZCODE_TELEMETRY_RUNTIME_SURFACE: "desktop_local_host",
+      MIKIKO_TELEMETRY_DEVICE_MID: "device-1",
+      MIKIKO_TELEMETRY_IDENTITY_STATE: "authenticated",
+      MIKIKO_TELEMETRY_RUNTIME_SURFACE: "desktop_local_host",
     });
-    expect(result.ZCODE_TELEMETRY_USER_SUBJECT_ID).toMatch(/^[0-9a-f]{64}$/u);
-    expect(result.ZCODE_TELEMETRY_USER_ID).toBeUndefined();
+    expect(result.MIKIKO_TELEMETRY_USER_SUBJECT_ID).toMatch(/^[0-9a-f]{64}$/u);
+    expect(result.MIKIKO_TELEMETRY_USER_ID).toBeUndefined();
   });
 });

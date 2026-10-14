@@ -1,4 +1,4 @@
-# ZCode page API
+# Mikiko page API
 
 The host installs the bridge before your fragment's scripts run. Do not load another bridge or MCP client.
 
@@ -76,7 +76,7 @@ The host requires an active, visible card and consumes a native user gesture. Wh
 
 ## Local design controls
 
-The source contract is [tweak.md](../tweak.md). The example below uses the same API with the ZCode bridge.
+The source contract is [tweak.md](../tweak.md). The example below uses the same API with the Mikiko bridge.
 
 Render the initial mockup first. Use a separate Tweak group for each editable component and give its root a descriptive `aria-label`. The optional helper binds objects and supplies host controls; it does not render a Tweak.js panel.
 

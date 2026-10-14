@@ -49,7 +49,7 @@ describe("resolvePluginRuntimeFeatures", () => {
     expect(enabledServers.node_repl).toMatchObject({
       command: process.execPath,
       cwd: "/workspace",
-      env: { ELECTRON_RUN_AS_NODE: "1", ZCODE_PLUGIN_ROOT: "/tmp/plugin" },
+      env: { ELECTRON_RUN_AS_NODE: "1", MIKIKO_PLUGIN_ROOT: "/tmp/plugin" },
       timeoutMs: 600_000,
       isolation: "workspace",
       protocolVersion: "2026-07-28",
@@ -90,7 +90,7 @@ describe("resolvePluginRuntimeFeatures", () => {
     });
     // browser-use 不在时不注入它的 root，宿主据此知道浏览器那半边不可用。
     expect(
-      servers.node_repl?.type === "stdio" ? servers.node_repl.env?.ZCODE_PLUGIN_ROOT : undefined,
+      servers.node_repl?.type === "stdio" ? servers.node_repl.env?.MIKIKO_PLUGIN_ROOT : undefined,
     ).toBeUndefined();
   });
 
@@ -133,7 +133,7 @@ describe("resolvePluginRuntimeFeatures", () => {
       type: "stdio",
     });
     expect(
-      servers.node_repl?.type === "stdio" ? servers.node_repl.env?.ZCODE_PLUGIN_ROOT : undefined,
+      servers.node_repl?.type === "stdio" ? servers.node_repl.env?.MIKIKO_PLUGIN_ROOT : undefined,
     ).toBeUndefined();
   });
 

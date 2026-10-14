@@ -42,7 +42,7 @@ const TEST_DESKTOP_OAUTH_LOGIN_REDIRECT_URI = buildDesktopOAuthLoginRedirectUri(
 // 过滤掉这些可能污染测试的环境变量
 const OAUTH_ENV_KEYS_TO_OMIT = new Set([
   "ZCODE_ENV",
-  "ZCODE_ENDPOINT_ORIGIN",
+  "MIKIKO_ENDPOINT_ORIGIN",
   "ZAI_TEST_OAUTH_ORIGIN",
   "ZAI_PRODUCTION_OAUTH_ORIGIN",
   "ZAI_OAUTH_ORIGIN",
@@ -57,7 +57,7 @@ const OAUTH_ENV_KEYS_TO_OMIT = new Set([
   "ZAI_BUSINESS_BASE_URL",
   "ZCODE_TEST_BASE_URL",
   "ZCODE_PRODUCTION_BASE_URL",
-  "ZCODE_BASE_URL",
+  "MIKIKO_BASE_URL",
 ]);
 const cleanProcessEnv = Object.fromEntries(
   Object.entries(process.env).filter(([key]) => !OAUTH_ENV_KEYS_TO_OMIT.has(key)),
@@ -1246,14 +1246,14 @@ describe("oauthService", () => {
     expect(await credentialServiceStub.load("oauth:active_provider")).toBe(ZAI_PROVIDER_ID);
   });
 
-  it("uses ZCODE_BASE_URL for zai backend token exchange", async () => {
+  it("uses MIKIKO_BASE_URL for zai backend token exchange", async () => {
     const fetchMock = vi.fn<typeof fetch>();
     const service = createBigModelService({
       apiClient: createMockApiClient(fetchMock),
       env: {
         ...process.env,
         BIGMODEL_OAUTH_APP_SECRET: "unit-test-secret",
-        ZCODE_BASE_URL: "https://zcode.z.ai",
+        MIKIKO_BASE_URL: "https://zcode.z.ai",
       },
     });
     const { state } = await service.startOAuth(ZAI_PROVIDER_ID);
@@ -1978,14 +1978,14 @@ describe("oauthService", () => {
     });
   });
 
-  it("uses ZCODE_BASE_URL for bigmodel backend token exchange", async () => {
+  it("uses MIKIKO_BASE_URL for bigmodel backend token exchange", async () => {
     const fetchMock = vi.fn<typeof fetch>();
     const service = createBigModelService({
       apiClient: createMockApiClient(fetchMock),
       env: {
         ...process.env,
         BIGMODEL_OAUTH_APP_SECRET: "unit-test-secret",
-        ZCODE_BASE_URL: "https://zcode.z.ai",
+        MIKIKO_BASE_URL: "https://zcode.z.ai",
       },
     });
     const { state } = await service.startOAuth(BIGMODEL_PROVIDER_ID);

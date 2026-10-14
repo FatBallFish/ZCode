@@ -61,7 +61,7 @@ describe("NodeHttpClientAdapter", () => {
     expect(init?.body).toEqual(Buffer.from(body));
   });
 
-  it("routes requests through explicit ZCODE_HTTP_PROXY env", async () => {
+  it("routes requests through explicit MIKIKO_HTTP_PROXY env", async () => {
     const proxyRequests: string[] = [];
     const upstream = http.createServer((request, response) => {
       response.writeHead(200, { "content-type": "application/json" });
@@ -101,7 +101,7 @@ describe("NodeHttpClientAdapter", () => {
       const proxyBaseUrl = await listenServer(proxy);
       const adapter = createNodeHttpClientAdapter({
         env: {
-          ZCODE_HTTP_PROXY: proxyBaseUrl,
+          MIKIKO_HTTP_PROXY: proxyBaseUrl,
         },
       });
 
@@ -116,7 +116,7 @@ describe("NodeHttpClientAdapter", () => {
       expect(response.egress).toMatchObject({
         proxied: true,
         proxyHost: new URL(proxyBaseUrl).host,
-        proxySource: "env:ZCODE_HTTP_PROXY",
+        proxySource: "env:MIKIKO_HTTP_PROXY",
       });
       expect(proxyRequests).toEqual([`${upstreamBaseUrl}/v1/search?q=test`]);
     } finally {
@@ -142,7 +142,7 @@ describe("NodeHttpClientAdapter", () => {
       const proxyBaseUrl = await listenServer(proxy);
       const adapter = createNodeHttpClientAdapter({
         env: {
-          ZCODE_HTTP_PROXY: proxyBaseUrl,
+          MIKIKO_HTTP_PROXY: proxyBaseUrl,
         },
         noProxy: "127.0.0.1",
       });
@@ -166,7 +166,7 @@ describe("NodeHttpClientAdapter", () => {
     }
   });
 
-  it("bypasses explicit proxy when ZCODE_NO_PROXY matches the target host", async () => {
+  it("bypasses explicit proxy when MIKIKO_NO_PROXY matches the target host", async () => {
     const proxyRequests: string[] = [];
     const upstream = http.createServer((_request, response) => {
       response.writeHead(200, { "content-type": "application/json" });
@@ -183,8 +183,8 @@ describe("NodeHttpClientAdapter", () => {
       const proxyBaseUrl = await listenServer(proxy);
       const adapter = createNodeHttpClientAdapter({
         env: {
-          ZCODE_HTTP_PROXY: proxyBaseUrl,
-          ZCODE_NO_PROXY: "127.0.0.1",
+          MIKIKO_HTTP_PROXY: proxyBaseUrl,
+          MIKIKO_NO_PROXY: "127.0.0.1",
         },
       });
 
@@ -207,13 +207,13 @@ describe("NodeHttpClientAdapter", () => {
     }
   });
 
-  it("uses explicit ZCODE_AGENT_CA_CERT for custom CA resolution", () => {
+  it("uses explicit MIKIKO_AGENT_CA_CERT for custom CA resolution", () => {
     expect(
       resolveTlsCaCertFile({
         env: {
           NODE_EXTRA_CA_CERTS: "/tmp/ambient-node-extra.pem",
           SSL_CERT_FILE: "/tmp/ambient-ssl-cert-file.pem",
-          ZCODE_AGENT_CA_CERT: "/tmp/zcode-agent-ca.pem",
+          MIKIKO_AGENT_CA_CERT: "/tmp/zcode-agent-ca.pem",
         },
       }),
     ).toBe("/tmp/zcode-agent-ca.pem");
@@ -224,7 +224,7 @@ describe("NodeHttpClientAdapter", () => {
       resolveTlsCaCertFile({
         caCertFile: "/tmp/configured-ca.pem",
         env: {
-          ZCODE_AGENT_CA_CERT: "/tmp/env-ca.pem",
+          MIKIKO_AGENT_CA_CERT: "/tmp/env-ca.pem",
         },
       }),
     ).toBe("/tmp/configured-ca.pem");
@@ -284,7 +284,7 @@ describe("NodeHttpClientAdapter", () => {
       expect(
         loadTlsCaCertificates({
           env: {
-            ZCODE_AGENT_CA_CERT: certPath,
+            MIKIKO_AGENT_CA_CERT: certPath,
           },
         })?.toString("utf8"),
       ).toBe(pem);

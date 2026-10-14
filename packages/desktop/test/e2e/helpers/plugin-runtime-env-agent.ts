@@ -42,7 +42,7 @@ export async function createPluginRuntimeEnvFixture(
       "secret-verifier": {
         type: "stdio",
         command: "node",
-        args: ["${ZCODE_PLUGIN_ROOT}/server.mjs"],
+        args: ["${MIKIKO_PLUGIN_ROOT}/server.mjs"],
         env: {
           [PLUGIN_RUNTIME_ENV_VARIABLE]: `\${${PLUGIN_RUNTIME_ENV_VARIABLE}}`,
         },

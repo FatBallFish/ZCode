@@ -780,7 +780,7 @@ describe("createMcpAdapter", () => {
     const adapter = createMcpAdapter({
       env: {
         PATH: dirname(process.execPath),
-        ZCODE_AGENT_CA_CERT: "/tmp/root-ca.pem",
+        MIKIKO_AGENT_CA_CERT: "/tmp/root-ca.pem",
       },
       network: {
         httpProxy: "127.0.0.1:8888",
@@ -846,7 +846,7 @@ describe("createMcpAdapter", () => {
   it("passes proxy-aware fetch into HTTP and SSE MCP transports", async () => {
     const adapter = createMcpAdapter({
       env: {
-        ZCODE_HTTP_PROXY: "http://127.0.0.1:8888",
+        MIKIKO_HTTP_PROXY: "http://127.0.0.1:8888",
       },
       network: {},
     });

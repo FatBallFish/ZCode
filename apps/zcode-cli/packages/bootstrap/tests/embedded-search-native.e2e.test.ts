@@ -19,9 +19,9 @@ import {
 import { builtInTools, type ToolExecutionContext } from "@zcode/core";
 import { resolveDefaultEmbeddedSearchBackend } from "../src/app/embedded-search-backend.js";
 
-const bfsPath = process.env.ZCODE_BFS_BINARY;
-const rgPath = process.env.ZCODE_RG_BINARY;
-const ugrepPath = process.env.ZCODE_UGREP_BINARY;
+const bfsPath = process.env.MIKIKO_BFS_BINARY;
+const rgPath = process.env.MIKIKO_RG_BINARY;
+const ugrepPath = process.env.MIKIKO_UGREP_BINARY;
 const windowsShellResolution =
   process.platform === "win32"
     ? resolveEffectiveBashShellSelection({ env: process.env, platform: "win32" })
@@ -81,13 +81,13 @@ describe.skipIf(!nativeE2eEnabled)("native embedded search E2E", () => {
 
     backend = resolveDefaultEmbeddedSearchBackend({
       env: {
-        ...(bfsPath ? { ZCODE_BFS_BINARY: bfsPath } : {}),
-        ZCODE_RG_BINARY: rgPath!,
-        ZCODE_UGREP_BINARY: ugrepPath!,
+        ...(bfsPath ? { MIKIKO_BFS_BINARY: bfsPath } : {}),
+        MIKIKO_RG_BINARY: rgPath!,
+        MIKIKO_UGREP_BINARY: ugrepPath!,
       },
     });
     const shellPath = nativeShellPathEntries();
-    // Bugfix：Unix bundled 用例必须隔离系统 rg，否则 /usr/bin/rg 会绕过 ZCODE_RG_BINARY。
+    // Bugfix：Unix bundled 用例必须隔离系统 rg，否则 /usr/bin/rg 会绕过 MIKIKO_RG_BINARY。
     const bundledShellPath = process.platform === "win32" ? shellPath : [];
     adapter = createAdapter([isolatedBin, ...bundledShellPath].join(delimiter), "bundled", home);
     systemRgAdapter = createAdapter([systemBin, ...shellPath].join(delimiter), "system-rg", home);

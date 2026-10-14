@@ -251,11 +251,11 @@ async function runProtocolAgent(
     else input.end();
     await runZCodeProtocolAgent({
       env: {
-        ZCODE_LOG_DIR: join(root, "log"),
-        ZCODE_SESSION_DB_PATH: join(root, "session.sqlite"),
-        ZCODE_STORAGE_DIR: root,
+        MIKIKO_LOG_DIR: join(root, "log"),
+        MIKIKO_SESSION_DB_PATH: join(root, "session.sqlite"),
+        MIKIKO_STORAGE_DIR: root,
         ...providerEnv,
-        ...(runtimeSurface ? { ZCODE_TELEMETRY_RUNTIME_SURFACE: runtimeSurface } : {}),
+        ...(runtimeSurface ? { MIKIKO_TELEMETRY_RUNTIME_SURFACE: runtimeSurface } : {}),
       },
       input,
       output: new Writable({

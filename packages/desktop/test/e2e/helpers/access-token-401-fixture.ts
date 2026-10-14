@@ -59,9 +59,9 @@ export async function prepareAccessToken401Fixture(options: {
     BIGMODEL_API_BASE_URL: baseUrl,
     BIGMODEL_OAUTH_USERINFO_URL: `${baseUrl}/api/biz/customer/getCustomerInfo`,
     ZAI_BUSINESS_BASE_URL: baseUrl,
-    ZCODE_BASE_URL: baseUrl,
+    MIKIKO_BASE_URL: baseUrl,
     ZCODE_TEST_BASE_URL: baseUrl,
-    ZCODE_ENDPOINT_ORIGIN: baseUrl,
+    MIKIKO_ENDPOINT_ORIGIN: baseUrl,
   };
   const previous = Object.fromEntries(Object.keys(envPatch).map((key) => [key, process.env[key]]));
   Object.assign(process.env, envPatch);

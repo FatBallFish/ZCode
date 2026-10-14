@@ -18,10 +18,10 @@ export async function prepareZCodeTelemetryEnv(
     ...env,
   }, {
     ...options,
-    productVersion: options.productVersion ?? env.ZCODE_APP_VERSION,
+    productVersion: options.productVersion ?? env.MIKIKO_APP_VERSION,
   });
-  const deviceMid = prepared.ZCODE_TELEMETRY_DEVICE_MID;
-  return deviceMid ? { ...env, ZCODE_TELEMETRY_DEVICE_MID: deviceMid } : env;
+  const deviceMid = prepared.MIKIKO_TELEMETRY_DEVICE_MID;
+  return deviceMid ? { ...env, MIKIKO_TELEMETRY_DEVICE_MID: deviceMid } : env;
 }
 
 /**

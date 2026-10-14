@@ -92,7 +92,7 @@ export function createPluginEnvOverlay(
       ZCODE_PLUGIN_DATA: plugin.dataPath,
       ZCODE_PLUGIN_ID: plugin.id,
       ZCODE_PLUGIN_NAME: plugin.name,
-      ZCODE_PLUGIN_ROOT: plugin.rootPath,
+      MIKIKO_PLUGIN_ROOT: plugin.rootPath,
     },
   };
 }
@@ -114,10 +114,10 @@ export function expandPluginVariables(
     replacements.CLAUDE_PLUGIN_DATA = plugin.dataPath;
     replacements.CLAUDE_PLUGIN_ROOT = plugin.rootPath;
     replacements.ZCODE_PLUGIN_DATA = plugin.dataPath;
-    replacements.ZCODE_PLUGIN_ROOT = plugin.rootPath;
+    replacements.MIKIKO_PLUGIN_ROOT = plugin.rootPath;
   }
   return value.replace(
-    /\$\{(CLAUDE_CODE_SESSION_ID|CLAUDE_PLUGIN_DATA|CLAUDE_PLUGIN_ROOT|CLAUDE_PROJECT_DIR|CLAUDE_SESSION_ID|CLAUDE_SKILL_DIR|ZCODE_PLUGIN_DATA|ZCODE_PLUGIN_ROOT|ZCODE_PROJECT_DIR|ZCODE_SESSION_ID|ZCODE_SKILL_DIR)\}/gu,
+    /\$\{(CLAUDE_CODE_SESSION_ID|CLAUDE_PLUGIN_DATA|CLAUDE_PLUGIN_ROOT|CLAUDE_PROJECT_DIR|CLAUDE_SESSION_ID|CLAUDE_SKILL_DIR|ZCODE_PLUGIN_DATA|MIKIKO_PLUGIN_ROOT|ZCODE_PROJECT_DIR|ZCODE_SESSION_ID|ZCODE_SKILL_DIR)\}/gu,
     (_match, key: string) => {
       if (key === "CLAUDE_SKILL_DIR" || key === "ZCODE_SKILL_DIR") {
         // hook 运行时没有“当前 skill”语义，不能把该变量交给 shell 展开为空字符串。

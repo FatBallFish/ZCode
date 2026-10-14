@@ -49,7 +49,7 @@ describe("App 初始化旧 Subagent 身份", () => {
       resolveRuntimeConfig.mockClear();
       creation = Promise.resolve(
         createRegistryBackedTestApp({
-          env: { ZCODE_STORAGE_DIR: join(root, "storage") },
+          env: { MIKIKO_STORAGE_DIR: join(root, "storage") },
           skipUserConfig: true,
           sessionStore: store,
           runtimeConfig: { workingDirectory: root, mcp: { enabled: false } },

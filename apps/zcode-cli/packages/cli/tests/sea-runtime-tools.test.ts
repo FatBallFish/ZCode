@@ -90,7 +90,7 @@ test("reuses unchanged tools when another tool changes", async () => {
       sea: firstFixture.sea,
       storageRoot,
     });
-    const firstBfsStat = await stat(assertPath(first.ZCODE_BFS_BINARY));
+    const firstBfsStat = await stat(assertPath(first.MIKIKO_BFS_BINARY));
 
     const second = await ensureSeaRuntimeTools({
       arch: "arm64",
@@ -98,11 +98,11 @@ test("reuses unchanged tools when another tool changes", async () => {
       sea: secondFixture.sea,
       storageRoot,
     });
-    const secondBfsStat = await stat(assertPath(second.ZCODE_BFS_BINARY));
+    const secondBfsStat = await stat(assertPath(second.MIKIKO_BFS_BINARY));
 
-    assert.equal(second.ZCODE_BFS_BINARY, first.ZCODE_BFS_BINARY);
+    assert.equal(second.MIKIKO_BFS_BINARY, first.MIKIKO_BFS_BINARY);
     assert.equal(secondBfsStat.ino, firstBfsStat.ino);
-    assert.notEqual(second.ZCODE_UGREP_BINARY, first.ZCODE_UGREP_BINARY);
+    assert.notEqual(second.MIKIKO_UGREP_BINARY, first.MIKIKO_UGREP_BINARY);
   } finally {
     await rm(storageRoot, { force: true, recursive: true });
   }
@@ -123,24 +123,24 @@ test("repairs caches with invalid size, hash, marker, or executable mode", async
 
   try {
     const first = await ensureSeaRuntimeTools(options);
-    await chmod(assertPath(first.ZCODE_BFS_BINARY), 0o644);
-    await writeFile(assertPath(first.ZCODE_RG_BINARY), "short");
+    await chmod(assertPath(first.MIKIKO_BFS_BINARY), 0o644);
+    await writeFile(assertPath(first.MIKIKO_RG_BINARY), "short");
     await writeFile(
-      join(assertPath(first.ZCODE_UGREP_BINARY), "..", ".zcode-runtime-tool.json"),
+      join(assertPath(first.MIKIKO_UGREP_BINARY), "..", ".zcode-runtime-tool.json"),
       "{}",
     );
 
     const repaired = await ensureSeaRuntimeTools(options);
 
-    assert.notEqual((await stat(assertPath(repaired.ZCODE_BFS_BINARY))).mode & 0o111, 0);
+    assert.notEqual((await stat(assertPath(repaired.MIKIKO_BFS_BINARY))).mode & 0o111, 0);
     for (const tool of fixture.tools) {
       assert.deepEqual(await readFile(assertPath(repaired[envVarFor(tool.id)])), tool.bytes);
     }
 
-    await writeFile(assertPath(repaired.ZCODE_RG_BINARY), "corrupt");
+    await writeFile(assertPath(repaired.MIKIKO_RG_BINARY), "corrupt");
     const hashRepaired = await ensureSeaRuntimeTools(options);
     assert.deepEqual(
-      await readFile(assertPath(hashRepaired.ZCODE_RG_BINARY)),
+      await readFile(assertPath(hashRepaired.MIKIKO_RG_BINARY)),
       Buffer.from("ripgrep"),
     );
   } finally {
@@ -188,15 +188,15 @@ test("preserves explicit runtime tool overrides", async () => {
   try {
     const runtimeEnv = await ensureSeaRuntimeTools({
       arch: "arm64",
-      env: { ZCODE_BFS_BINARY: "/custom/bfs" },
+      env: { MIKIKO_BFS_BINARY: "/custom/bfs" },
       platform: "darwin",
       sea: fixture.sea,
       storageRoot,
     });
 
-    assert.equal(runtimeEnv.ZCODE_BFS_BINARY, undefined);
-    assert.ok(runtimeEnv.ZCODE_RG_BINARY);
-    assert.ok(runtimeEnv.ZCODE_UGREP_BINARY);
+    assert.equal(runtimeEnv.MIKIKO_BFS_BINARY, undefined);
+    assert.ok(runtimeEnv.MIKIKO_RG_BINARY);
+    assert.ok(runtimeEnv.MIKIKO_UGREP_BINARY);
   } finally {
     await rm(storageRoot, { force: true, recursive: true });
   }
@@ -230,10 +230,10 @@ test("extracts Windows SEA tools using the win target and executable name", asyn
       storageRoot,
     });
 
-    assert.match(assertPath(runtimeEnv.ZCODE_RG_BINARY), /runtime_tools[/\\]win-x64[/\\]ripgrep/u);
-    assert.equal(assertPath(runtimeEnv.ZCODE_RG_BINARY).endsWith("rg.exe"), true);
-    assert.match(assertPath(runtimeEnv.ZCODE_UGREP_BINARY), /runtime_tools[/\\]win-x64[/\\]ugrep/u);
-    assert.equal(assertPath(runtimeEnv.ZCODE_UGREP_BINARY).endsWith("ugrep.exe"), true);
+    assert.match(assertPath(runtimeEnv.MIKIKO_RG_BINARY), /runtime_tools[/\\]win-x64[/\\]ripgrep/u);
+    assert.equal(assertPath(runtimeEnv.MIKIKO_RG_BINARY).endsWith("rg.exe"), true);
+    assert.match(assertPath(runtimeEnv.MIKIKO_UGREP_BINARY), /runtime_tools[/\\]win-x64[/\\]ugrep/u);
+    assert.equal(assertPath(runtimeEnv.MIKIKO_UGREP_BINARY).endsWith("ugrep.exe"), true);
   } finally {
     await rm(storageRoot, { force: true, recursive: true });
   }
@@ -329,11 +329,11 @@ function createSeaFixture(input: { target: string; tools: ToolFixture[] }): {
 function envVarFor(toolId: ToolFixture["id"]): string {
   switch (toolId) {
     case "bfs":
-      return "ZCODE_BFS_BINARY";
+      return "MIKIKO_BFS_BINARY";
     case "ripgrep":
-      return "ZCODE_RG_BINARY";
+      return "MIKIKO_RG_BINARY";
     case "ugrep":
-      return "ZCODE_UGREP_BINARY";
+      return "MIKIKO_UGREP_BINARY";
   }
 }
 

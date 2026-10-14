@@ -46,7 +46,7 @@ function getZCodeCliLogDir() {
  * helperExitLogPathFor）。同目录下还有 `.tokens` broker 凭据，收集时必须按文件名白名单。
  */
 function getCuaHelperRunDir() {
-  // 与 services/node.ts 的 computer-use 根（ZCODE_HOME ?? ~/.mikiko/computer-use）同根；
+  // 与 services/node.ts 的 computer-use 根（MIKIKO_HOME ?? ~/.mikiko/computer-use）同根；
   // 历史上这里是 ~/.zcode，导致 Helper 诊断实际落在 .mikiko 时导出收不到文件。
   return join(homedir(), ".mikiko", "computer-use", "run");
 }

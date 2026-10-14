@@ -81,7 +81,7 @@ function createFixture(
   );
   if (!provider.ok || !model.ok) throw new Error("invalid header fixture");
   const executionConfig = createRuntimeAiSdkModelExecutionConfig(
-    options.env ?? { ZCODE_APP_VERSION: CLIENT_VERSION, ZCODE_ENV: "production" },
+    options.env ?? { MIKIKO_APP_VERSION: CLIENT_VERSION, ZCODE_ENV: "production" },
     { sourceTitle: options.sourceTitle ?? "electron", appVersion: options.appVersion },
   );
   const adapter = createModelAdapter({ executionConfig, env: {} });
@@ -241,13 +241,13 @@ describe("模型请求默认 Header：Bootstrap → Adapter → 真实 SDK", () 
   it.each([
     { env: {}, sourceTitle: "cli" as const, appVersion: "1.2.3", expected: "1.2.3" },
     {
-      env: { ZCODE_APP_VERSION: "3.12.0" },
+      env: { MIKIKO_APP_VERSION: "3.12.0" },
       sourceTitle: "electron" as const,
       appVersion: "0.13.3",
       expected: "3.12.0",
     },
     {
-      env: { ZCODE_APP_VERSION: "bad\r\nheader" },
+      env: { MIKIKO_APP_VERSION: "bad\r\nheader" },
       sourceTitle: "cli" as const,
       appVersion: "1.2.3",
       expected: undefined,

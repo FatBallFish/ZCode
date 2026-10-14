@@ -131,7 +131,7 @@ export class ConversationShareMockApiClient implements ApiClient {
     // Mock 生成的链接必须指向当前可运行的 share 页面；示例域名会让本地发布结果变成不可访问的假链接。
     this.shareBaseUrl = (
       options.shareBaseUrl ??
-      process.env.ZCODE_CONVERSATION_SHARE_WEB_URL ??
+      process.env.MIKIKO_CONVERSATION_SHARE_WEB_URL ??
       "http://127.0.0.1:5173/cn/share"
     ).replace(/\/+$/u, "");
     this.scenario = options.scenario ?? {};

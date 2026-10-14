@@ -67,7 +67,7 @@ export async function startProcessProviderRegistryRuntime(
           zcodeBuiltinRemote: {
             controlFilePath: join(
               dirname(paths.zcodeBuiltinFilePath),
-              "zcode-builtin-refresh.json",
+              "mikiko-builtin-refresh.json",
             ),
             resolveEndpointKey: () => resolveRuntimeZCodeEndpointOrigin(env),
             // 模型预置规则改走 Mikiko 自建端点（spec specs/mikiko-cloud/

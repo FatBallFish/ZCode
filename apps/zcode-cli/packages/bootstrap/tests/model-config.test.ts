@@ -39,7 +39,7 @@ describe("createRuntimeAiSdkModelExecutionConfig", () => {
       },
     };
     const config = createRuntimeAiSdkModelExecutionConfig(
-      { ZCODE_APP_VERSION: "3.9.0", ZCODE_ENV: "test" },
+      { MIKIKO_APP_VERSION: "3.9.0", ZCODE_ENV: "test" },
       {
         endpointRoutingPort,
         network: {
@@ -78,7 +78,7 @@ describe("buildCliZCodeSourceHeaders", () => {
   it("生成运行时来源 Header，不根据模型或 Provider 推断", () => {
     expect(
       buildCliZCodeSourceHeaders(
-        { ZCODE_APP_VERSION: "3.9.0", ZCODE_ENV: "production" },
+        { MIKIKO_APP_VERSION: "3.9.0", ZCODE_ENV: "production" },
         { sourceTitle: "cli" },
       ),
     ).toMatchObject({

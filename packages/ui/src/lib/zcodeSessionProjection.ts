@@ -1052,7 +1052,7 @@ export function zcodeSessionEventToZCodeStreamEvents(params: {
           taskId,
           traceId,
           ...(eventInputId ? { inputId: eventInputId } : {}),
-          error: stringValue(errorPayload.message) ?? "ZCode session failed",
+          error: stringValue(errorPayload.message) ?? "Mikiko session failed",
           code: stringValue(errorPayload.code) ?? stringValue(errorPayload.type),
           detail: stringValue(errorPayload.detail),
           ...(attribution.success ? { attribution: attribution.data } : {}),

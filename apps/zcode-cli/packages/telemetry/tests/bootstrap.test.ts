@@ -85,7 +85,7 @@ describe("Telemetry V4 bootstrap", () => {
     const home = await mkdtemp(join(tmpdir(), "zcode-telemetry-"));
     const env = {
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://127.0.0.1:1/v1/traces",
-      ZCODE_HOME: home,
+      MIKIKO_HOME: home,
     };
     const [first, second] = await Promise.all([
       prepareModelTelemetryEnv(env, {
@@ -98,11 +98,11 @@ describe("Telemetry V4 bootstrap", () => {
       }),
     ]);
 
-    expect(first.ZCODE_TELEMETRY_DEVICE_MID).toMatch(/^[0-9a-f-]{36}$/u);
-    expect(second.ZCODE_TELEMETRY_DEVICE_MID).toBe(first.ZCODE_TELEMETRY_DEVICE_MID);
+    expect(first.MIKIKO_TELEMETRY_DEVICE_MID).toMatch(/^[0-9a-f-]{36}$/u);
+    expect(second.MIKIKO_TELEMETRY_DEVICE_MID).toBe(first.MIKIKO_TELEMETRY_DEVICE_MID);
     const state = JSON.parse(await readFile(join(home, "v2", "telemetry-state.json"), "utf8")) as {
       deviceMid: string;
     };
-    expect(state.deviceMid).toBe(first.ZCODE_TELEMETRY_DEVICE_MID);
+    expect(state.deviceMid).toBe(first.MIKIKO_TELEMETRY_DEVICE_MID);
   });
 });

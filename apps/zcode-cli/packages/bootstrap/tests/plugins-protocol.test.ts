@@ -59,10 +59,10 @@ afterAll(async () => {
 describe("plugins protocol contracts", () => {
   it("serializes marketplace mutations behind the workspace plugin storage lock", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-protocol-marketplace-lock-"));
-    const previousStorageDir = process.env.ZCODE_STORAGE_DIR;
-    process.env.ZCODE_STORAGE_DIR = join(root, "storage");
+    const previousStorageDir = process.env.MIKIKO_STORAGE_DIR;
+    process.env.MIKIKO_STORAGE_DIR = join(root, "storage");
     const pluginStorageRoot = getPluginStorageRoot(
-      getCliStorageRoot(process.env.ZCODE_STORAGE_DIR),
+      getCliStorageRoot(process.env.MIKIKO_STORAGE_DIR),
     );
     let releaseLock = (): void => {};
     let markLockEntered = (): void => {};
@@ -101,8 +101,8 @@ describe("plugins protocol contracts", () => {
     } finally {
       releaseLock();
       await blocker;
-      if (previousStorageDir === undefined) delete process.env.ZCODE_STORAGE_DIR;
-      else process.env.ZCODE_STORAGE_DIR = previousStorageDir;
+      if (previousStorageDir === undefined) delete process.env.MIKIKO_STORAGE_DIR;
+      else process.env.MIKIKO_STORAGE_DIR = previousStorageDir;
       await rm(root, { force: true, recursive: true });
     }
   });
@@ -337,8 +337,8 @@ describe("plugins protocol contracts", () => {
 
   it("projects the host node_repl association for the official browser-use plugin", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-browser-host-mcp-protocol-"));
-    const previousStorageDir = process.env.ZCODE_STORAGE_DIR;
-    process.env.ZCODE_STORAGE_DIR = join(root, "cli");
+    const previousStorageDir = process.env.MIKIKO_STORAGE_DIR;
+    process.env.MIKIKO_STORAGE_DIR = join(root, "cli");
 
     try {
       const result = await listPlugins({} as ZCodeProtocolAgentServerContext, {
@@ -349,8 +349,8 @@ describe("plugins protocol contracts", () => {
           ?.hostMcpServerNames,
       ).toEqual(["node_repl"]);
     } finally {
-      if (previousStorageDir === undefined) delete process.env.ZCODE_STORAGE_DIR;
-      else process.env.ZCODE_STORAGE_DIR = previousStorageDir;
+      if (previousStorageDir === undefined) delete process.env.MIKIKO_STORAGE_DIR;
+      else process.env.MIKIKO_STORAGE_DIR = previousStorageDir;
       await rm(root, { force: true, recursive: true });
     }
   });
@@ -470,19 +470,19 @@ async function writeKnownMarketplaces(
 }
 
 // updatePlugin 走真实 bootstrap 路径：它从 workspace 的 config 推导 pluginStorageRoot，
-// 因此用 ZCODE_STORAGE_DIR 把存储根锚定到临时目录（storage.dir 以 "cli" 结尾时
+// 因此用 MIKIKO_STORAGE_DIR 把存储根锚定到临时目录（storage.dir 以 "cli" 结尾时
 // getCliStorageRoot 原样返回，故 pluginStorageRoot = <storageDir>/plugins）。
 describe("updatePlugin handler diagnostics", () => {
   const noopContext = {} as unknown as ZCodeProtocolAgentServerContext;
   let previousStorageDir: string | undefined;
 
   beforeEach(() => {
-    previousStorageDir = process.env.ZCODE_STORAGE_DIR;
+    previousStorageDir = process.env.MIKIKO_STORAGE_DIR;
   });
 
   afterEach(() => {
-    if (previousStorageDir === undefined) delete process.env.ZCODE_STORAGE_DIR;
-    else process.env.ZCODE_STORAGE_DIR = previousStorageDir;
+    if (previousStorageDir === undefined) delete process.env.MIKIKO_STORAGE_DIR;
+    else process.env.MIKIKO_STORAGE_DIR = previousStorageDir;
   });
 
   it("update returns diagnostics when a target fails to reinstall", async () => {
@@ -491,7 +491,7 @@ describe("updatePlugin handler diagnostics", () => {
     const pluginStorageRoot = getPluginStorageRoot(getCliStorageRoot(storageDir));
     const marketplaceRoot = join(root, "marketplace");
     const pluginRoot = join(marketplaceRoot, "plugins", "demo");
-    process.env.ZCODE_STORAGE_DIR = storageDir;
+    process.env.MIKIKO_STORAGE_DIR = storageDir;
 
     try {
       // Arrange: a directory marketplace declaring demo@1.0.0, installed into the
@@ -550,7 +550,7 @@ describe("updatePlugin handler diagnostics", () => {
   });
 });
 
-// restoreBuiltinPlugin / overview 走真实 bootstrap 路径：storageRoot 由 ZCODE_STORAGE_DIR
+// restoreBuiltinPlugin / overview 走真实 bootstrap 路径：storageRoot 由 MIKIKO_STORAGE_DIR
 // 锚定（storage.dir 以 "cli" 结尾时 getCliStorageRoot 原样返回，pluginStorageRoot =
 // <storageDir>/plugins）；suppressedBuiltins 必须写到 handler 实际解析的 user config，即
 // ~/.zcode/cli/config.json（文件头部已把 homedir 重定向到 FAKE_HOME，故落在隔离目录）。
@@ -561,19 +561,19 @@ describe("restoreBuiltinPlugin handler", () => {
   let previousStorageDir: string | undefined;
 
   beforeEach(() => {
-    previousStorageDir = process.env.ZCODE_STORAGE_DIR;
+    previousStorageDir = process.env.MIKIKO_STORAGE_DIR;
   });
 
   afterEach(async () => {
-    if (previousStorageDir === undefined) delete process.env.ZCODE_STORAGE_DIR;
-    else process.env.ZCODE_STORAGE_DIR = previousStorageDir;
+    if (previousStorageDir === undefined) delete process.env.MIKIKO_STORAGE_DIR;
+    else process.env.MIKIKO_STORAGE_DIR = previousStorageDir;
     await rm(userConfigPath, { force: true });
   });
 
   it("restoreBuiltinPlugin clears suppression via protocol handler", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-bootstrap-restore-handler-"));
     const storageDir = join(root, "cli");
-    process.env.ZCODE_STORAGE_DIR = storageDir;
+    process.env.MIKIKO_STORAGE_DIR = storageDir;
 
     try {
       // Arrange: user config (the path the handler actually reads/writes) suppresses
@@ -611,7 +611,7 @@ describe("restoreBuiltinPlugin handler", () => {
   it("restores a suppressed bundled plugin through the locked install handler without deadlocking", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-bootstrap-install-handler-"));
     const storageDir = join(root, "cli");
-    process.env.ZCODE_STORAGE_DIR = storageDir;
+    process.env.MIKIKO_STORAGE_DIR = storageDir;
 
     try {
       await writeTestFile(

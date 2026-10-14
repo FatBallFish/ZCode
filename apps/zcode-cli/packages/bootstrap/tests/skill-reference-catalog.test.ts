@@ -117,7 +117,7 @@ describe("skills/referenceCatalog protocol", () => {
           deps: {
             env: {
               HOME: root,
-              ZCODE_STORAGE_DIR: join(root, "cli"),
+              MIKIKO_STORAGE_DIR: join(root, "cli"),
             },
           },
           sessions: new Map(),

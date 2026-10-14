@@ -286,7 +286,7 @@ export function spawnHostProcess(
     env: {
       ...buildHostProcessEnv(dependencies.hostProcessLocalEnv),
       ...buildHostE2ECoverageEnv(),
-      ZCODE_PROCESS_LABEL: label,
+      MIKIKO_PROCESS_LABEL: label,
       ...(dependencies.externalCdpConfiguration
         ? buildExternalCdpEnvPatch(dependencies.externalCdpConfiguration())
         : {}),

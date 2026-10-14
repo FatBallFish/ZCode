@@ -7,11 +7,11 @@ description: Build, run, inspect, and lightly automate iOS simulator apps with t
 
 Use this skill when the user wants you to create, modify, build, run, debug, screenshot, or inspect an iOS app in the macOS iOS Simulator.
 
-## ZCode Tool Names
+## Mikiko Tool Names
 
-This skill assumes the MCP server is configured in zcode as `ios_simulator`. In zcode, MCP tools are exposed to the model as `mcp__ios_simulator__<tool>`.
+This skill assumes the MCP server is configured in mikiko as `ios_simulator`. In mikiko, MCP tools are exposed to the model as `mcp__ios_simulator__<tool>`.
 
-If the server is configured with a different name, use the corresponding visible `mcp__<server>__...` tool names from the active zcode tool list.
+If the server is configured with a different name, use the corresponding visible `mcp__<server>__...` tool names from the active mikiko tool list.
 
 ## Default Workflow
 

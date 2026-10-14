@@ -504,7 +504,7 @@ export async function openCuaPermissionOnboarding(
   if (platform !== "darwin") {
     return {
       success: false,
-      error: "ZCode Computer Use permissions are only available on macOS.",
+      error: "Mikiko Computer Use permissions are only available on macOS.",
     };
   }
   const env = options.env ?? process.env;
@@ -598,7 +598,7 @@ export async function prepareCuaHelperPermissionDrag(
   if (platform !== "darwin") {
     return {
       success: false,
-      error: "ZCode Computer Use permissions are only available on macOS.",
+      error: "Mikiko Computer Use permissions are only available on macOS.",
     };
   }
   const env = options.env ?? process.env;

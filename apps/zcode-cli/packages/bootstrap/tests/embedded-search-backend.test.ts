@@ -6,9 +6,9 @@ describe("resolveDefaultEmbeddedSearchBackend", () => {
     expect(
       resolveDefaultEmbeddedSearchBackend({
         env: {
-          ZCODE_BFS_BINARY: "/opt/zcode/tools/bfs/bfs",
-          ZCODE_RG_BINARY: "/opt/zcode/tools/ripgrep/rg",
-          ZCODE_UGREP_BINARY: "/opt/zcode/tools/ugrep/ugrep",
+          MIKIKO_BFS_BINARY: "/opt/zcode/tools/bfs/bfs",
+          MIKIKO_RG_BINARY: "/opt/zcode/tools/ripgrep/rg",
+          MIKIKO_UGREP_BINARY: "/opt/zcode/tools/ugrep/ugrep",
         },
       }),
     ).toEqual({

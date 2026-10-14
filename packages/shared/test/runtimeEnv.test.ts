@@ -154,7 +154,7 @@ describe("runtimeEnv", () => {
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://arms.example.com/v1/metrics",
       OTEL_EXPORTER_OTLP_METRICS_HEADERS: "Authorization=metric-secret",
       PATH: "/usr/bin:/bin",
-      ZCODE_TELEMETRY_USER_SUBJECT_ID: "opaque-user",
+      MIKIKO_TELEMETRY_USER_SUBJECT_ID: "opaque-user",
     };
     expect(sanitizeZCodeRuntimeEnv(sourceEnv)).toEqual({ PATH: "/usr/bin:/bin" });
     expect(getCapturedZCodeAgentTelemetryEnv()).toMatchObject({
@@ -162,12 +162,12 @@ describe("runtimeEnv", () => {
       OTEL_EXPORTER_OTLP_TRACES_HEADERS: "Authorization=secret",
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://arms.example.com/v1/metrics",
       OTEL_EXPORTER_OTLP_METRICS_HEADERS: "Authorization=metric-secret",
-      ZCODE_TELEMETRY_USER_SUBJECT_ID: "opaque-user",
+      MIKIKO_TELEMETRY_USER_SUBJECT_ID: "opaque-user",
     });
     const toolEnv = readZCodeToolEnvPassthroughEnv(buildZCodeToolEnvPassthroughEnv(sourceEnv));
     expect(toolEnv).not.toHaveProperty("OTEL_EXPORTER_OTLP_TRACES_HEADERS");
     expect(toolEnv).not.toHaveProperty("OTEL_EXPORTER_OTLP_METRICS_HEADERS");
-    expect(toolEnv).not.toHaveProperty("ZCODE_TELEMETRY_USER_SUBJECT_ID");
+    expect(toolEnv).not.toHaveProperty("MIKIKO_TELEMETRY_USER_SUBJECT_ID");
   });
 
   it("extracts only the allowlisted Agent telemetry env", () => {
@@ -176,13 +176,13 @@ describe("runtimeEnv", () => {
         OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: " https://arms.example.com/v1/traces ",
         OTEL_UNKNOWN_SECRET: "must-not-pass",
         PATH: "/bin",
-        ZCODE_MODEL_TELEMETRY_ENABLED: "1",
-        ZCODE_TELEMETRY_RUNTIME_DISTRIBUTION: " packaged ",
+        MIKIKO_MODEL_TELEMETRY_ENABLED: "1",
+        MIKIKO_TELEMETRY_RUNTIME_DISTRIBUTION: " packaged ",
       }),
     ).toEqual({
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://arms.example.com/v1/traces",
-      ZCODE_MODEL_TELEMETRY_ENABLED: "1",
-      ZCODE_TELEMETRY_RUNTIME_DISTRIBUTION: "packaged",
+      MIKIKO_MODEL_TELEMETRY_ENABLED: "1",
+      MIKIKO_TELEMETRY_RUNTIME_DISTRIBUTION: "packaged",
     });
   });
 });

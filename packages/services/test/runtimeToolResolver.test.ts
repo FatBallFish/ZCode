@@ -59,8 +59,8 @@ describe("runtimeToolResolver", () => {
       PATH: userBinDir,
     });
 
-    expect(realpathSync(envPatch.ZCODE_BFS_BINARY!)).toBe(realpathSync(bfsPath));
-    expect(realpathSync(envPatch.ZCODE_UGREP_BINARY!)).toBe(realpathSync(ugrepPath));
+    expect(realpathSync(envPatch.MIKIKO_BFS_BINARY!)).toBe(realpathSync(bfsPath));
+    expect(realpathSync(envPatch.MIKIKO_UGREP_BINARY!)).toBe(realpathSync(ugrepPath));
     const pathEntries = envPatch.PATH?.split(delimiter) ?? [];
     expect(realpathSync(pathEntries.at(-2)!)).toBe(realpathSync(dirname(bfsPath)));
     expect(realpathSync(pathEntries.at(-1)!)).toBe(realpathSync(dirname(ugrepPath)));
@@ -99,7 +99,7 @@ describe("runtimeToolResolver", () => {
       PATH: userBinDir,
     });
 
-    expect(realpathSync(envPatch.ZCODE_RG_BINARY!)).toBe(realpathSync(binaryPath));
+    expect(realpathSync(envPatch.MIKIKO_RG_BINARY!)).toBe(realpathSync(binaryPath));
     expect(realpathSync(envPatch.PATH?.split(delimiter).at(-1) ?? "")).toBe(
       realpathSync(dirname(binaryPath)),
     );
@@ -117,7 +117,7 @@ describe("runtimeToolResolver", () => {
     expect(
       findRuntimeToolBinary("bfs", {
         PATH: "",
-        ZCODE_BFS_BINARY: binaryPath,
+        MIKIKO_BFS_BINARY: binaryPath,
       }),
     ).toBe(binaryPath);
   });

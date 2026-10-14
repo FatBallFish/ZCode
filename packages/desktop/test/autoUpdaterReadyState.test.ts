@@ -241,7 +241,7 @@ describe("autoUpdater ready state sync", () => {
       configurable: true,
     });
     delete process.env["TEST_UPDATER_ARCH"];
-    delete process.env["ZCODE_UPDATE_FEED_URL"];
+    delete process.env["MIKIKO_UPDATE_FEED_URL"];
     delete process.env["ZCODE_AUTO_UPDATE_DEV"];
     delete process.env["ZCODE_AUTO_UPDATE_DEV_VERSION"];
     readFileMock.mockReset();

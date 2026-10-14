@@ -19,7 +19,7 @@ describe("createServiceLogger", () => {
     }
   });
 
-  it("未声明 ZCODE_RUNTIME_ENV 时默认不输出 debug 日志", () => {
+  it("未声明 MIKIKO_RUNTIME_ENV 时默认不输出 debug 日志", () => {
     delete process.env[ZCODE_RUNTIME_ENV_KEY];
     delete process.env.NODE_ENV;
     const sink = createSink();
@@ -43,7 +43,7 @@ describe("createServiceLogger", () => {
     expect(sink.debug).not.toHaveBeenCalled();
   });
 
-  it("显式 ZCODE_RUNTIME_ENV=development 时输出 debug 日志", () => {
+  it("显式 MIKIKO_RUNTIME_ENV=development 时输出 debug 日志", () => {
     process.env[ZCODE_RUNTIME_ENV_KEY] = "development";
     const sink = createSink();
     const logger = createServiceLogger("test", { sink });

@@ -23,7 +23,7 @@ import {
 
 const TEST_ENV = {
   ZCODE_CREDENTIAL_SECRET: "bootstrap-test-secret",
-  ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: fileURLToPath(
+  MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE: fileURLToPath(
     new URL("../../../../../config/provider/zcode-builtin.json", import.meta.url),
   ),
 };
@@ -364,7 +364,7 @@ describe("ZCode CLI login", () => {
         credentialStore,
         env: {
           ...TEST_ENV,
-          ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: zcodeBuiltinProviderConfigPath,
+          MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE: zcodeBuiltinProviderConfigPath,
         },
         personalProviderConfigPath,
         providerId: "bigmodel",
@@ -380,7 +380,7 @@ describe("ZCode CLI login", () => {
           credentialStore,
           env: {
             ...TEST_ENV,
-            ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: zcodeBuiltinProviderConfigPath,
+            MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE: zcodeBuiltinProviderConfigPath,
           },
         }),
       ).resolves.toBe(true);

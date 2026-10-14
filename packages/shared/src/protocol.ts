@@ -415,7 +415,7 @@ export interface AppSettings {
     workspaceIdentity?: string;
     initialTaskId?: string;
   };
-  /** 设置页里的临时 endpoint override；正式/测试默认 base url 由 ZCODE_BASE_URL env 管理。 */
+  /** 设置页里的临时 endpoint override；正式/测试默认 base url 由 MIKIKO_BASE_URL env 管理。 */
   zcodeEndpointOrigin?: string;
   /**
    * 外部浏览器（external CDP）实例配置，instances JSON（与 CLI --browser-instances 同 schema）。

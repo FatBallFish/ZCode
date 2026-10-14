@@ -235,7 +235,7 @@ async function readTrace(): Promise<Array<{ phase: string }>> {
 
 async function readStaleResponse(id: string): Promise<Record<string, unknown> | undefined> {
   const logDir =
-    process.env.ZCODE_LOG_DIR?.trim() || join(getE2EAppDataPaths().storageRoot, "cli", "log");
+    process.env.MIKIKO_LOG_DIR?.trim() || join(getE2EAppDataPaths().storageRoot, "cli", "log");
   for (const name of await readdir(logDir)) {
     if (!name.endsWith(".jsonl")) continue;
     const lines = (await readFile(join(logDir, name), "utf8")).split("\n");

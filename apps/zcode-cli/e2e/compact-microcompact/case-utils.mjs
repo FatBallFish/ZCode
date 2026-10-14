@@ -118,7 +118,7 @@ export async function createApp(input) {
   return input.modules.createZCodeApp({
     env: {
       ...process.env,
-      ZCODE_STORAGE_DIR: input.storageDir,
+      MIKIKO_STORAGE_DIR: input.storageDir,
     },
     runtimeConfig: input.runtimeConfig,
     // 重构后旧字符串解析入口已删除；新 session 使用完整选择，冷恢复仍由持久选择接管。

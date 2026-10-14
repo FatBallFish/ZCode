@@ -46,27 +46,27 @@ export const ZCODE_PRODUCT_FLAVOR = normalizeZCodeProductFlavor(
  * 这是暂时屏蔽而非移除——更新服务就绪后改回 true 即恢复原有接线，
  * 各入口的读取点见 specs/update/update-check.md，不得单独删除。
  */
-export const ZCODE_UPDATES_ENABLED = true;
+export const MIKIKO_UPDATES_ENABLED = true;
 
-export const ZCODE_APP_VERSION_ENV = "ZCODE_APP_VERSION" as const;
-export const ZCODE_BUILD_COMMIT_ID_ENV = "ZCODE_BUILD_COMMIT_ID" as const;
+export const ZCODE_APP_VERSION_ENV = "MIKIKO_APP_VERSION" as const;
+export const ZCODE_BUILD_COMMIT_ID_ENV = "MIKIKO_BUILD_COMMIT_ID" as const;
 
 // ── 运行时环境变量（不经过编译打包，启动时从 process.env 读取） ──
-// 启用调试模式，值为 inspect-brk 的端口号，如 ZCODE_DEBUG=9230
+// 启用调试模式，值为 inspect-brk 的端口号，如 MIKIKO_DEBUG=9230
 export const RUNTIME_ZCODE_DEBUG =
-  typeof process !== "undefined" ? process.env.ZCODE_DEBUG : undefined;
+  typeof process !== "undefined" ? process.env.MIKIKO_DEBUG : undefined;
 
 // 遥测暂时关闭（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）：硬关总开关，
 // 含 onboarding 遥测在内的全部上报不再装配与出网。恢复时改回 true 即可（端点检查逻辑保留）。
-export const ZCODE_TELEMETRY_ENABLED: boolean = false;
+export const MIKIKO_TELEMETRY_ENABLED: boolean = false;
 
 /** 数仓事件上报端点：由运行时环境变量提供，未配置即停用，构建产物不内嵌。 */
-export const ZCODE_TELEMETRY_REPORT_ENDPOINT =
-  typeof process !== "undefined" ? (process.env.ZCODE_TELEMETRY_REPORT_ENDPOINT ?? "") : "";
+export const MIKIKO_TELEMETRY_REPORT_ENDPOINT =
+  typeof process !== "undefined" ? (process.env.MIKIKO_TELEMETRY_REPORT_ENDPOINT ?? "") : "";
 
 /** ARMS RUM 接入端点：由运行时环境变量提供，未配置即停用，构建产物不内嵌。 */
-export const ZCODE_ARMS_RUM_ENDPOINT =
-  typeof process !== "undefined" ? (process.env.ZCODE_ARMS_RUM_ENDPOINT ?? "") : "";
+export const MIKIKO_ARMS_RUM_ENDPOINT =
+  typeof process !== "undefined" ? (process.env.MIKIKO_ARMS_RUM_ENDPOINT ?? "") : "";
 
 /** 桌面自动更新是否启用（上游构建期宏，desktop index.ts 引用；开源构建默认关闭）。 */
 export const ZCODE_AUTO_UPDATE_ENABLED: boolean =

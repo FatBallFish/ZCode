@@ -64,10 +64,10 @@ function verifyBashEmbeddedSearch(plan) {
       cwd: repoRoot,
       env: {
         ...process.env,
-        ...(plan.bfsPath ? { ZCODE_BFS_BINARY: plan.bfsPath } : {}),
+        ...(plan.bfsPath ? { MIKIKO_BFS_BINARY: plan.bfsPath } : {}),
         ZCODE_REQUIRE_NATIVE_SEARCH_E2E: "1",
-        ZCODE_RG_BINARY: plan.rgPath,
-        ZCODE_UGREP_BINARY: plan.ugrepPath,
+        MIKIKO_RG_BINARY: plan.rgPath,
+        MIKIKO_UGREP_BINARY: plan.ugrepPath,
       },
     },
   );
@@ -82,9 +82,9 @@ function verifyBashEmbeddedSearch(plan) {
 async function resolveNativeSearchPlan(outputDir) {
   const targetPlatform = process.env.ZCODE_TARGET_OS?.trim() || process.platform;
   const targetArch = process.env.ZCODE_TARGET_ARCH?.trim() || process.arch;
-  const bfsPath = process.env.ZCODE_BFS_BINARY?.trim();
-  const rgPath = process.env.ZCODE_RG_BINARY?.trim();
-  const ugrepPath = process.env.ZCODE_UGREP_BINARY?.trim();
+  const bfsPath = process.env.MIKIKO_BFS_BINARY?.trim();
+  const rgPath = process.env.MIKIKO_RG_BINARY?.trim();
+  const ugrepPath = process.env.MIKIKO_UGREP_BINARY?.trim();
   const normalizedPlatform = normalizeNativeSearchPlatform(targetPlatform);
   const requiresBfs = normalizedPlatform !== "win32";
   if (!requiresBfs) {
@@ -101,8 +101,8 @@ async function resolveNativeSearchPlan(outputDir) {
       Boolean(bfsPath || rgPath || ugrepPath),
       false,
       requiresBfs
-        ? "ZCODE_BFS_BINARY, ZCODE_RG_BINARY, and ZCODE_UGREP_BINARY must be provided together"
-        : "ZCODE_RG_BINARY and ZCODE_UGREP_BINARY must be provided together",
+        ? "MIKIKO_BFS_BINARY, MIKIKO_RG_BINARY, and MIKIKO_UGREP_BINARY must be provided together"
+        : "MIKIKO_RG_BINARY and MIKIKO_UGREP_BINARY must be provided together",
     );
     buildNativeSearchTools({
       platform: targetPlatform,

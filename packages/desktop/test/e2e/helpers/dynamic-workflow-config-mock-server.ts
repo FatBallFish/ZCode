@@ -8,7 +8,7 @@ import { ZCODE_DYNAMIC_WORKFLOW_MODE_ENV, type DynamicWorkflowMode } from "@zcod
  * 的 case-local 配置网关。Host 从 `/api/v1/client/configs` 读 `data.configs.dynamicWorkflow.mode`，
  * 这里按 spec 文件名挑一个档位并改写共享 fixture 的这一个键，其余键原样下发。
  *
- * 只 mock 服务端 key，不使用 ZCODE_DYNAMIC_WORKFLOW_MODE 本地覆盖：DWG-08 要验证的正是
+ * 只 mock 服务端 key，不使用 MIKIKO_DYNAMIC_WORKFLOW_MODE 本地覆盖：DWG-08 要验证的正是
  * 「服务端说了算」这条链路，覆盖会把它短路掉。
  */
 const DISABLED_SPEC_FRAGMENT = "conversation-session-dynamic-workflow-gray-disabled";
@@ -56,10 +56,10 @@ export function applyDynamicWorkflowConfigMockEnv(
   environment: Record<string, string | undefined>,
   baseUrl: string,
 ): void {
-  environment.ZCODE_BASE_URL = baseUrl;
+  environment.MIKIKO_BASE_URL = baseUrl;
   environment.ZCODE_TEST_BASE_URL = baseUrl;
-  environment.ZCODE_ENDPOINT_ORIGIN = baseUrl;
-  // 未打包 dev 档位下 Main 会把开发者 shell 里的合法 ZCODE_DYNAMIC_WORKFLOW_MODE 透传给 Host
+  environment.MIKIKO_ENDPOINT_ORIGIN = baseUrl;
+  // 未打包 dev 档位下 Main 会把开发者 shell 里的合法 MIKIKO_DYNAMIC_WORKFLOW_MODE 透传给 Host
   // （docs/dynamic-workflow/launch.md「The local override」），那会盖掉本用例的服务端判定。
   // worker 进程一轮只跑一个 spec 文件，这里直接删掉即可，不需要回填。
   delete environment[ZCODE_DYNAMIC_WORKFLOW_MODE_ENV];
@@ -69,7 +69,7 @@ export function clearDynamicWorkflowConfigMockEnv(
   environment: Record<string, string | undefined>,
   baseUrl: string,
 ): void {
-  for (const key of ["ZCODE_BASE_URL", "ZCODE_TEST_BASE_URL", "ZCODE_ENDPOINT_ORIGIN"] as const) {
+  for (const key of ["MIKIKO_BASE_URL", "ZCODE_TEST_BASE_URL", "MIKIKO_ENDPOINT_ORIGIN"] as const) {
     if (environment[key] === baseUrl) {
       delete environment[key];
     }

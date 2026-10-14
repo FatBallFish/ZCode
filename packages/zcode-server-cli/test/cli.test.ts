@@ -193,7 +193,7 @@ describe("Server CLI routing", () => {
     await new Promise<void>((resolve) => catalogServer.listen(0, "127.0.0.1", resolve));
     const address = catalogServer.address();
     if (!address || typeof address === "string") throw new Error("catalog server is not listening");
-    vi.stubEnv("ZCODE_SERVER_RELEASE_MANIFEST_URL", `http://127.0.0.1:${address.port}/catalog.json`);
+    vi.stubEnv("MIKIKO_SERVER_RELEASE_MANIFEST_URL", `http://127.0.0.1:${address.port}/catalog.json`);
     const errors: string[] = [];
     try {
       const exit = await runServerCli(["update", "--server-root", layout.serverRoot], {
@@ -248,7 +248,7 @@ describe("Server CLI routing", () => {
     await new Promise<void>((resolve) => catalogServer.listen(0, "127.0.0.1", resolve));
     const address = catalogServer.address();
     if (!address || typeof address === "string") throw new Error("catalog server is not listening");
-    vi.stubEnv("ZCODE_SERVER_RELEASE_MANIFEST_URL", `http://127.0.0.1:${address.port}/catalog.json`);
+    vi.stubEnv("MIKIKO_SERVER_RELEASE_MANIFEST_URL", `http://127.0.0.1:${address.port}/catalog.json`);
     const errors: string[] = [];
     try {
       const exit = await runServerCli(["update", "--server-root", layout.serverRoot], {
@@ -299,7 +299,7 @@ describe("Server CLI routing", () => {
     await new Promise<void>((resolve) => catalogServer.listen(0, "127.0.0.1", resolve));
     const address = catalogServer.address();
     if (!address || typeof address === "string") throw new Error("catalog server is not listening");
-    vi.stubEnv("ZCODE_SERVER_RELEASE_MANIFEST_URL", `http://127.0.0.1:${address.port}/catalog.json`);
+    vi.stubEnv("MIKIKO_SERVER_RELEASE_MANIFEST_URL", `http://127.0.0.1:${address.port}/catalog.json`);
     const errors: string[] = [];
     try {
       const exit = await runServerCli(["update", "--server-root", layout.serverRoot], {
@@ -357,7 +357,7 @@ describe("Server CLI routing", () => {
     await new Promise<void>((resolve) => catalogServer.listen(0, "127.0.0.1", resolve));
     const address = catalogServer.address();
     if (!address || typeof address === "string") throw new Error("catalog server is not listening");
-    vi.stubEnv("ZCODE_SERVER_RELEASE_MANIFEST_URL", `http://127.0.0.1:${address.port}/catalog.json`);
+    vi.stubEnv("MIKIKO_SERVER_RELEASE_MANIFEST_URL", `http://127.0.0.1:${address.port}/catalog.json`);
     const commands: string[] = [];
     const control = await createControlServer(layout.controlEndpoint, async (request) => {
       commands.push(request.command);
@@ -397,7 +397,7 @@ describe("Server CLI routing", () => {
     const root = await mkdtemp(join(process.platform === "win32" ? tmpdir() : "/tmp", "zcode-r2-cli-no-source-"));
     const layout = resolveServerLayout(join(root, ".mikiko", "server"));
     const errors: string[] = [];
-    vi.stubEnv("ZCODE_SERVER_RELEASE_MANIFEST_URL", "");
+    vi.stubEnv("MIKIKO_SERVER_RELEASE_MANIFEST_URL", "");
     const control = await createControlServer(layout.controlEndpoint, async (request) => {
       if (request.command === "prepare-update") return { status: "ready", runningTaskCount: 0 };
       throw new Error(`Unexpected control command: ${request.command}`);
@@ -429,7 +429,7 @@ describe("Server CLI routing", () => {
       return { applied: true, version: "3.1.0" };
     });
     const output: string[] = [];
-    vi.stubEnv("ZCODE_SERVER_RELEASE_MANIFEST_URL", "");
+    vi.stubEnv("MIKIKO_SERVER_RELEASE_MANIFEST_URL", "");
     try {
       const exit = await runServerCli(["update", "--server-root", layout.serverRoot, "--json"], {
         stdout: { write: (value) => output.push(value) },

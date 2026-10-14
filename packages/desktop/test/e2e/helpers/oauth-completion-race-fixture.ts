@@ -81,9 +81,9 @@ export async function prepareOAuthCompletionRaceFixture(
   const envPatch = {
     ZCODE_E2E_OAUTH_RACE_URL: baseUrl,
     ZCODE_CREDENTIAL_SECRET: "oauth-completion-race-fixture",
-    ZCODE_BASE_URL: baseUrl,
+    MIKIKO_BASE_URL: baseUrl,
     ZCODE_TEST_BASE_URL: baseUrl,
-    ZCODE_ENDPOINT_ORIGIN: baseUrl,
+    MIKIKO_ENDPOINT_ORIGIN: baseUrl,
     BIGMODEL_API_BASE_URL: baseUrl,
     BIGMODEL_OAUTH_USERINFO_URL: `${baseUrl}/api/biz/customer/getCustomerInfo`,
   };

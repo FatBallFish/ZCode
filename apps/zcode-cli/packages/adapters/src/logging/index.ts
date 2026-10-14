@@ -170,11 +170,11 @@ export class NodeFileLogger implements Logger {
 export function createNodeLoggerFactory(options: NodeLoggerFactoryOptions = {}): NodeLoggerFactory {
   let currentLevel = options.minLevel ?? getDefaultMinLevel(options.env);
   let retentionCleanupScheduled = false;
-  const logDir = options.logDir ?? options.env?.ZCODE_LOG_DIR ?? getDefaultLogDir();
+  const logDir = options.logDir ?? options.env?.MIKIKO_LOG_DIR ?? getDefaultLogDir();
   const consoleStream =
     typeof options.console === "object"
       ? options.console.stream
-      : options.console === true || options.env?.ZCODE_LOG_CONSOLE === "1"
+      : options.console === true || options.env?.MIKIKO_LOG_CONSOLE === "1"
         ? process.stderr
         : undefined;
   const redactor = options.redactor ?? new DefaultLogRedactor();

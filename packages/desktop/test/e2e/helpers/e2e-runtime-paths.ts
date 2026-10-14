@@ -16,7 +16,7 @@ export function resolveE2EHomeDir({
   const configuredHome =
     env.ZCODE_E2E_HOME_DIR?.trim() ||
     env.MIKIKO_DATA_BASE_DIR?.trim() ||
-    env.ZCODE_DESKTOP_HOME_DIR?.trim();
+    env.MIKIKO_DESKTOP_HOME_DIR?.trim();
   return resolve(cwd, configuredHome || ".e2e-home");
 }
 

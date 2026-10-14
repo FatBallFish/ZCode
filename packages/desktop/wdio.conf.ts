@@ -219,7 +219,7 @@ const E2E_DEFAULT_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE = resolve(
   "config/provider/zcode-builtin.json",
 );
 const INITIAL_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE =
-  process.env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE?.trim();
+  process.env.MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE?.trim();
 const E2E_OFFPEAK_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE = resolve(
   REPO_ROOT,
   ".cache/desktop-e2e-provider-config/official-offpeak-mock.json",
@@ -504,8 +504,8 @@ const requestedE2ESpecs = readRequestedE2ESpecs();
 const requestedE2EExcludeSpecs = readRequestedE2EExcludeSpecs();
 const configuredModelRetryMaxRetries = process.env.ZCODE_MODEL_RETRY_MAX_RETRIES;
 const configuredE2EWorkerNetworkEnv = {
-  httpProxy: process.env.ZCODE_HTTP_PROXY,
-  noProxy: process.env.ZCODE_NO_PROXY,
+  httpProxy: process.env.MIKIKO_HTTP_PROXY,
+  noProxy: process.env.MIKIKO_NO_PROXY,
 };
 const upstreamProviderSpecRequested = process.argv
   .concat(requestedE2ESpecs)
@@ -614,14 +614,14 @@ process.env.USERPROFILE = E2E_HOME_DIR;
 process.env.ZCODE_E2E_HOME_DIR = E2E_HOME_DIR;
 process.env.ZCODE_E2E_RUN_ID = E2E_RUN_ID;
 process.env.MIKIKO_DATA_BASE_DIR = E2E_HOME_DIR;
-process.env.ZCODE_DESKTOP_APPLICATION_NAME = "ZCode E2E";
-process.env.ZCODE_DESKTOP_HOME_DIR = E2E_HOME_DIR;
+process.env.MIKIKO_DESKTOP_APPLICATION_NAME = "ZCode E2E";
+process.env.MIKIKO_DESKTOP_HOME_DIR = E2E_HOME_DIR;
 process.env.ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA = "1";
 // Bugfix: renderer E2E store bridge 只能由 WDIO 进程显式打开，避免 ZCODE_ENV=test 的产品测试环境暴露全局可变 store。
 process.env.VITE_ZCODE_E2E_STORE_BRIDGE = "1";
 // Bugfix: e2e session 由 Chromedriver 管理调试端口；禁用主进程开发态固定的 9229，
 // 避免和本机已打开的 ZCode Dev 冲突后出现空白窗口并卡在 session 创建阶段。
-process.env.ZCODE_DISABLE_FIXED_REMOTE_DEBUGGING_PORT = "1";
+process.env.MIKIKO_DISABLE_FIXED_REMOTE_DEBUGGING_PORT = "1";
 
 let upstreamCaptureProxy: E2ENetworkCaptureProxy | null = null;
 let upstreamReplayServer: UpstreamReplayServer | null = null;
@@ -1054,8 +1054,8 @@ function createPnpmChildEnv() {
 function prepareZCodeAgentServer() {
   if (E2E_PACKAGED_APP_BINARY_PATH) {
     // 真正的 Preview 包必须使用随包 Agent，禁止测试 runner 注入源码入口掩盖漏打包。
-    delete process.env.ZCODE_AGENT_SERVER_COMMAND;
-    delete process.env.ZCODE_AGENT_SERVER_ARGS_JSON;
+    delete process.env.MIKIKO_AGENT_SERVER_COMMAND;
+    delete process.env.MIKIKO_AGENT_SERVER_ARGS_JSON;
     return;
   }
   if (process.env.ZCODE_E2E_SKIP_AGENT_BUILD === "1") {
@@ -1088,8 +1088,8 @@ function prepareZCodeAgentServer() {
 function configureZCodeAgentServerEnv() {
   // 自定义命令没有 storagePreparationEntry / supportsStorageStartup 声明，会被启动准备拒绝。
   // 构建后由正式 resolver 找到仓库 bundle（打包 E2E 则使用随包 bundle），保留完整启动契约。
-  delete process.env.ZCODE_AGENT_SERVER_COMMAND;
-  delete process.env.ZCODE_AGENT_SERVER_ARGS_JSON;
+  delete process.env.MIKIKO_AGENT_SERVER_COMMAND;
+  delete process.env.MIKIKO_AGENT_SERVER_ARGS_JSON;
 }
 
 function assertUpstreamCaptureConfig() {
@@ -2081,7 +2081,7 @@ async function stopCodingPlanTeamMock() {
     codingPlanDataPlaneProxy = null;
   }
   // Bugfix：不能无条件删除共享 env。beforeSession 里 budget/catalog mock 先于本函数
-  // 注入的 ZCODE_BASE_URL 等会被误删，导致那些 spec 的 Electron 打真实域名。
+  // 注入的 MIKIKO_BASE_URL 等会被误删，导致那些 spec 的 Electron 打真实域名。
   // 只清除“当前值仍指向本 mock”的键：既撤掉 runnerEnv 播种到非 team worker 的污染，
   // 又不碰其他 mock 家族刚写入的值。
   const ownedBaseUrl =
@@ -2258,7 +2258,7 @@ async function startUpstreamCaptureProxy() {
   upstreamCaptureProxy = await startE2ENetworkCaptureProxy({
     artifactPath: UPSTREAM_CAPTURE_ARTIFACT_PATH,
     // Bugfix: beforeSession 会在启动 capture proxy 后重置 .e2e-home；
-    // CA 若放在 .e2e-home 下会被删掉，agent 随后读取 ZCODE_AGENT_CA_CERT 就会 ENOENT。
+    // CA 若放在 .e2e-home 下会被删掉，agent 随后读取 MIKIKO_AGENT_CA_CERT 就会 ENOENT。
     caDir: E2E_NETWORK_CAPTURE_CA_DIR,
     recordResponseChunkTimeline: true,
     responseChunkTimelineLimitBytes: UPSTREAM_CAPTURE_RESPONSE_CHUNK_TIMELINE_BYTES,
@@ -2391,16 +2391,16 @@ async function startOffPeakE2EMock(specs: string[] = []): Promise<void> {
     await materializeOffPeakMockZCodeBuiltinProviderConfig(
       Number(process.env.ZCODE_OFFPEAK_MOCK_PORT),
     );
-    process.env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE = E2E_OFFPEAK_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE;
+    process.env.MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE = E2E_OFFPEAK_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE;
   } else {
     delete process.env.ZCODE_OFFPEAK_MOCK;
     delete process.env.ZCODE_OFFPEAK_MOCK_AVAILABILITY_BLOCK_MS;
     delete process.env.ZCODE_OFFPEAK_MOCK_PORT;
     delete process.env.ZCODE_OFFPEAK_MOCK_SCENARIO;
     if (INITIAL_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE) {
-      process.env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE = INITIAL_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE;
+      process.env.MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE = INITIAL_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE;
     } else {
-      delete process.env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE;
+      delete process.env.MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE;
     }
   }
 }
@@ -2479,9 +2479,9 @@ async function startModelContextBudgetConfigE2EMock(specs: string[] = []) {
     await stopModelContextBudgetConfigE2EMock();
     modelContextBudgetConfigMockServer = await startModelContextBudgetConfigMockServer(scenario);
   }
-  process.env.ZCODE_BASE_URL = modelContextBudgetConfigMockServer.baseUrl;
+  process.env.MIKIKO_BASE_URL = modelContextBudgetConfigMockServer.baseUrl;
   process.env.ZCODE_TEST_BASE_URL = modelContextBudgetConfigMockServer.baseUrl;
-  process.env.ZCODE_ENDPOINT_ORIGIN = modelContextBudgetConfigMockServer.baseUrl;
+  process.env.MIKIKO_ENDPOINT_ORIGIN = modelContextBudgetConfigMockServer.baseUrl;
 }
 
 async function stopModelContextBudgetConfigE2EMock() {
@@ -2490,9 +2490,9 @@ async function stopModelContextBudgetConfigE2EMock() {
   }
   await modelContextBudgetConfigMockServer.stop();
   modelContextBudgetConfigMockServer = null;
-  delete process.env.ZCODE_BASE_URL;
+  delete process.env.MIKIKO_BASE_URL;
   delete process.env.ZCODE_TEST_BASE_URL;
-  delete process.env.ZCODE_ENDPOINT_ORIGIN;
+  delete process.env.MIKIKO_ENDPOINT_ORIGIN;
 }
 
 async function startDynamicWorkflowConfigE2EMock(specs: string[] = []) {
@@ -3424,7 +3424,7 @@ async function seedE2EGitReviewEntryWorkspace(specs: string[] = []) {
 }
 
 async function runGitReviewEntryCommand(cwd: string, args: string[]) {
-  await execFileAsync(process.env.ZCODE_GIT_BINARY?.trim() || "git", args, {
+  await execFileAsync(process.env.MIKIKO_GIT_BINARY?.trim() || "git", args, {
     cwd,
     encoding: "utf8",
     windowsHide: true,
@@ -4461,19 +4461,19 @@ export const config: WebdriverIO.Config = {
       ? {
           // 真实公网 smoke 必须证明 Agent 没有偷偷回退开发机 Git；不存在的绝对路径会让
           // 任意 Git 调用稳定得到 ENOENT，同时不影响 WDIO runner 自身的进程清理命令。
-          ZCODE_GIT_BINARY: resolve(E2E_HOME_DIR, "missing-bin", "git"),
+          MIKIKO_GIT_BINARY: resolve(E2E_HOME_DIR, "missing-bin", "git"),
         }
       : {}),
     VITE_ZCODE_E2E_STORE_BRIDGE: "1",
-    ZCODE_AGENT_SERVER_ARGS_JSON: "",
-    ZCODE_AGENT_SERVER_COMMAND: "",
+    MIKIKO_AGENT_SERVER_ARGS_JSON: "",
+    MIKIKO_AGENT_SERVER_COMMAND: "",
     MIKIKO_DATA_BASE_DIR: E2E_HOME_DIR,
-    ZCODE_BUILTIN_PROVIDER_CONFIG_FILE:
+    MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE:
       INITIAL_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE ?? E2E_DEFAULT_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE,
-    ZCODE_DESKTOP_APPLICATION_NAME: "ZCode E2E",
-    ZCODE_DESKTOP_HOME_DIR: E2E_HOME_DIR,
+    MIKIKO_DESKTOP_APPLICATION_NAME: "ZCode E2E",
+    MIKIKO_DESKTOP_HOME_DIR: E2E_HOME_DIR,
     ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA: "1",
-    ZCODE_DISABLE_FIXED_REMOTE_DEBUGGING_PORT: "1",
+    MIKIKO_DISABLE_FIXED_REMOTE_DEBUGGING_PORT: "1",
     ZCODE_E2E_HOME_DIR: E2E_HOME_DIR,
     ZCODE_E2E_ARTIFACT_DIR: e2eReporter.artifactDir,
     ZCODE_E2E_DEFER_APP_DATA_CLEANUP: "1",

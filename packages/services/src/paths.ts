@@ -1,5 +1,5 @@
 /* path 规则集中维护：旧 task 快照与 provider 配置路径仍在这里收口。 */
-import { lstatSync } from "node:fs";
+import { copyFileSync, existsSync, lstatSync, mkdirSync } from "node:fs";
 import { cp } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { basename, join, win32 } from "node:path";
@@ -233,14 +233,36 @@ export function getLegacyDeletedTaskSessionSnapshotPath(
 }
 
 /**
- * GLM（唯一 agent provider）的配置目录：~/.zcode/cli。
+ * GLM（唯一 agent provider）的配置目录：~/.mikiko/cli（2026-10-15 品牌化，自 ~/.zcode/cli 统一）。
  * Bugfix：GLM 配置改为直接读写新版 zcode-cli 的全局配置目录，不做 workspace 隔离，
  * 避免同机不同工作区配置漂移。
  */
 export function getProviderWorkspaceConfigDir(): string {
-  return ZCODE_AGENT_RUNTIME.nativeConfigDir
+  const dir = ZCODE_AGENT_RUNTIME.nativeConfigDir
     ? join(getDataBaseDir(), ZCODE_AGENT_RUNTIME.nativeConfigDir)
-    : join(getDataBaseDir(), ".zcode", "cli");
+    : join(getDataBaseDir(), ".mikiko", "cli");
+  migrateLegacyZCodeProviderConfig(dir);
+  return dir;
+}
+
+/**
+ * 一次性迁移 ~/.zcode/cli/config.json → ~/.mikiko/cli/config.json（2026-10-15 品牌化）。
+ * config.json 含 provider 凭据，不迁移会导致升级后账号丢失；只在目标缺失且旧文件存在时
+ * 复制，幂等且失败静默（读取方按缺失处理，不会阻断启动）。
+ */
+let providerConfigMigrationChecked = false;
+function migrateLegacyZCodeProviderConfig(newConfigDir: string): void {
+  if (providerConfigMigrationChecked) return;
+  providerConfigMigrationChecked = true;
+  try {
+    const legacyConfig = join(getDataBaseDir(), ".zcode", "cli", "config.json");
+    const newConfig = join(newConfigDir, "config.json");
+    if (!existsSync(legacyConfig) || existsSync(newConfig)) return;
+    mkdirSync(newConfigDir, { recursive: true });
+    copyFileSync(legacyConfig, newConfig);
+  } catch {
+    /* 迁移失败按新目录缺失处理，用户重新配置即可。 */
+  }
 }
 
 /**

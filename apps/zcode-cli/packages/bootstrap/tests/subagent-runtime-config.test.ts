@@ -129,8 +129,8 @@ describe("subagent initialization source", () => {
         creating = createRegistryBackedTestApp({
           loggerFactory: createNodeLoggerFactory({ logDir }),
           env: {
-            ZCODE_STORAGE_DIR: storage,
-            ZCODE_SESSION_DB_PATH: join(storage, "cli", "db", "db.sqlite"),
+            MIKIKO_STORAGE_DIR: storage,
+            MIKIKO_SESSION_DB_PATH: join(storage, "cli", "db", "db.sqlite"),
           },
           userConfigPath: configPath,
           runtimeConfig: {
@@ -236,7 +236,7 @@ describe("subagent initialization source", () => {
     let app: Awaited<ReturnType<typeof createRegistryBackedTestApp>> | undefined;
     try {
       app = await createRegistryBackedTestApp({
-        env: { ZCODE_STORAGE_DIR: root, ZCODE_SESSION_DB_PATH: join(root, "db.sqlite") },
+        env: { MIKIKO_STORAGE_DIR: root, MIKIKO_SESSION_DB_PATH: join(root, "db.sqlite") },
         skipUserConfig: true,
         runtimeConfig: {
           workingDirectory: root,
@@ -289,7 +289,7 @@ describe("subagent initialization source", () => {
     try {
       await expect(
         createRegistryBackedTestApp({
-          env: { ZCODE_STORAGE_DIR: root, ZCODE_SESSION_DB_PATH: join(root, "db.sqlite") },
+          env: { MIKIKO_STORAGE_DIR: root, MIKIKO_SESSION_DB_PATH: join(root, "db.sqlite") },
           skipUserConfig: true,
           runtimeConfig: { workingDirectory: root, mcp: { enabled: false, servers: {} } },
           readSubagentRuntimeConfig: async () => {

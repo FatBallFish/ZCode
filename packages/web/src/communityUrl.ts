@@ -22,8 +22,8 @@ export async function resolveWebHelpConfig(options: ResolveWebCommunityUrlOption
   const env = import.meta.env;
   const endpoint =
     options.endpointOrigin ??
-    (env?.VITE_ZCODE_BASE_URL?.trim() ||
-      env?.VITE_ZCODE_ENDPOINT_ORIGIN?.trim() ||
+    (env?.VITE_MIKIKO_BASE_URL?.trim() ||
+      env?.VITE_MIKIKO_ENDPOINT_ORIGIN?.trim() ||
       DEFAULT_ZCODE_ENDPOINT_ORIGIN);
   // 服务端拒绝 platform=web；浏览器省略可选平台参数，避免伪装桌面系统。
   const url = buildHelpAppConfigUrl(endpoint, ZCODE_VERSION);

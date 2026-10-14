@@ -20,8 +20,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStdioServices, resolveRemoteAgentNetworkFromEnv } from "../src/stdioServices.js";
 
 const originalHome = process.env.HOME;
-const originalCommand = process.env.ZCODE_AGENT_SERVER_COMMAND;
-const originalArgsJson = process.env.ZCODE_AGENT_SERVER_ARGS_JSON;
+const originalCommand = process.env.MIKIKO_AGENT_SERVER_COMMAND;
+const originalArgsJson = process.env.MIKIKO_AGENT_SERVER_ARGS_JSON;
 const originalDesktopContextPromptEnabled = process.env[ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV];
 
 function restoreEnv(name: string, value: string | undefined): void {
@@ -38,8 +38,8 @@ describe("stdio Desktop presentation surface", () => {
   afterEach(async () => {
     setDataBaseDir(null);
     restoreEnv("HOME", originalHome);
-    restoreEnv("ZCODE_AGENT_SERVER_COMMAND", originalCommand);
-    restoreEnv("ZCODE_AGENT_SERVER_ARGS_JSON", originalArgsJson);
+    restoreEnv("MIKIKO_AGENT_SERVER_COMMAND", originalCommand);
+    restoreEnv("MIKIKO_AGENT_SERVER_ARGS_JSON", originalArgsJson);
     restoreEnv(ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV, originalDesktopContextPromptEnabled);
     vi.restoreAllMocks();
     await Promise.all(
@@ -71,12 +71,12 @@ describe("stdio Desktop presentation surface", () => {
     tempHomes.push(home);
     process.env.HOME = home;
     setDataBaseDir(home);
-    // Bugfix: 开发机可能导出 ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED=0（如本机 ZCode 安装的 shell 集成），
+    // Bugfix: 开发机可能导出 MIKIKO_DESKTOP_CONTEXT_PROMPT_ENABLED=0（如本机 ZCode 安装的 shell 集成），
     // 会把 desktop-attached-remote 推导出的 presentationSurface 灭成 undefined，
     // 让「surface 贯穿装配」断言变成环境敏感；显式置 1 恢复用例封闭性。
     process.env[ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV] = "1";
-    process.env.ZCODE_AGENT_SERVER_COMMAND = process.execPath;
-    process.env.ZCODE_AGENT_SERVER_ARGS_JSON = JSON.stringify([
+    process.env.MIKIKO_AGENT_SERVER_COMMAND = process.execPath;
+    process.env.MIKIKO_AGENT_SERVER_ARGS_JSON = JSON.stringify([
       "zcode.cjs",
       "app-server",
       "--stdio",

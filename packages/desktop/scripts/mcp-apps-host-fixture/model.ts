@@ -133,8 +133,8 @@ export async function startModel(root: string, cli: string) {
     aborted,
     release: (key: string) => releases.get(key)?.(),
     env: {
-      ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtin,
-      ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: personal,
+      MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE: builtin,
+      MIKIKO_PERSONAL_PROVIDER_CONFIG_FILE: personal,
     },
     selection: {
       providerId: "fixture-local",

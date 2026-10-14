@@ -32,7 +32,7 @@ describe("resolveProcessProviderEndpointRoutingPort", () => {
   it("isolates ports when the endpoint origin changes", () => {
     const create = (origin: string) =>
       resolveProcessProviderEndpointRoutingPort({
-        env: { ZCODE_ENV: "production", ZCODE_BASE_URL: origin },
+        env: { ZCODE_ENV: "production", MIKIKO_BASE_URL: origin },
         logger,
         network: {},
       });

@@ -25,14 +25,14 @@ export function resolvePlatformBinaryName(binaryName: string, platform: string):
 
 export const ZCODE_AGENT_RUNTIME: ZCodeAgentRuntimeDescriptor = {
   binaryKind: "native-binary",
-  binaryEnvVar: "GLM_BINARY_PATH",
+  binaryEnvVar: "MIKIKO_AGENT_BINARY_PATH",
   bundledResourceDir: "glm",
   version: "0.13.3",
   spawnArgs: ["app-server", "--stdio"],
   nativeConfigDir: ".zcode/cli",
   nativeConfigFileName: "config.json",
   missingBinaryMessage:
-    "[ZCode Agent] glm binary 未找到，请设置 ZCODE_AGENT_WORKDIR、GLM_BINARY_PATH 或先准备 GLM 运行时资源",
+    "[Mikiko Agent] glm binary 未找到，请设置 MIKIKO_AGENT_WORKDIR、MIKIKO_AGENT_BINARY_PATH 或先准备 GLM 运行时资源",
   resolveEntrySegments: (platform) => [resolvePlatformBinaryName("zcode-agent", platform)],
   nodeBundleEntryFile: "zcode.cjs",
   resolveNodeBundleSegments() {

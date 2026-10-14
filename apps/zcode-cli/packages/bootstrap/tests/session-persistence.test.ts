@@ -459,7 +459,7 @@ describe("session persistence", () => {
       app = await createZCodeApp({
         env: {
           HOME: tempRoot,
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         modelExecutor: {
           async generateText(request: { messages: Array<{ content: unknown; role: string }> }) {
@@ -688,7 +688,7 @@ describe("session persistence", () => {
     try {
       const app = await createZCodeApp({
         env: {
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         modelExecutor: {
           async generateText() {
@@ -771,7 +771,7 @@ describe("session persistence", () => {
     try {
       const app = await createZCodeApp({
         env: {
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         eventStore,
         modelExecutor: {
@@ -829,7 +829,7 @@ describe("session persistence", () => {
     try {
       const app = await createZCodeApp({
         env: {
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         eventStore,
         modelExecutor: {
@@ -961,7 +961,7 @@ describe("session persistence", () => {
         env: {
           PATH: shellDir,
           SHELL: join(shellDir, "fish"),
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         modelExecutor: {
           async generateText() {
@@ -1014,7 +1014,7 @@ describe("session persistence", () => {
     try {
       const app = await createZCodeApp({
         env: {
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         eventStore,
         modelExecutor: {
@@ -1095,7 +1095,7 @@ describe("session persistence", () => {
     try {
       const app = await createZCodeApp({
         env: {
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         modelExecutor: {
           async generateText() {
@@ -1176,7 +1176,7 @@ describe("session persistence", () => {
           options: { reasoningLevel: "high" },
         },
         env: {
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         modelExecutor: {
           setModelIoFullRetentionEnabled() {},
@@ -1268,7 +1268,7 @@ describe("session persistence", () => {
         env: {
           PATH: shellDir,
           SHELL: join(shellDir, "fish"),
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         modelExecutor: {
           setModelIoFullRetentionEnabled() {},
@@ -1357,7 +1357,7 @@ describe("session persistence", () => {
       await workflowStore.writeSnapshot(snapshot);
       const app = await createZCodeApp({
         env: {
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         modelExecutor: {
           setModelIoFullRetentionEnabled() {},
@@ -1401,7 +1401,7 @@ describe("session persistence", () => {
       const latest = await resolveLatestSession({
         directory: tempRoot,
         env: {
-          ZCODE_SESSION_DB_PATH: dbPath,
+          MIKIKO_SESSION_DB_PATH: dbPath,
         },
       });
 
@@ -1432,7 +1432,7 @@ describe("session persistence", () => {
       await expect(
         createZCodeApp({
           env: {
-            ZCODE_SESSION_DB_PATH: dbPath,
+            MIKIKO_SESSION_DB_PATH: dbPath,
           },
           runtimeConfig: {
             workingDirectory: tempRoot,
@@ -1468,7 +1468,7 @@ describe("session persistence", () => {
         runZCodeProtocolAgent({
           env: {
             ...providerEnv,
-            ZCODE_SESSION_DB_PATH: dbPath,
+            MIKIKO_SESSION_DB_PATH: dbPath,
           },
           input: createNeverEndingReadable(),
           output,
@@ -1491,9 +1491,9 @@ describe("session persistence", () => {
       await runZCodeProtocolAgent({
         env: {
           ...providerEnv,
-          ZCODE_LOG_DIR: join(tempRoot, "log"),
-          ZCODE_SESSION_DB_PATH: dbPath,
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_LOG_DIR: join(tempRoot, "log"),
+          MIKIKO_SESSION_DB_PATH: dbPath,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         input,
         output,
@@ -1527,9 +1527,9 @@ describe("session persistence", () => {
       await runZCodeProtocolAgent({
         env: {
           ...providerEnv,
-          ZCODE_LOG_DIR: logDir,
-          ZCODE_SESSION_DB_PATH: dbPath,
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_LOG_DIR: logDir,
+          MIKIKO_SESSION_DB_PATH: dbPath,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         input: createClosableReadable(),
         output,
@@ -1569,7 +1569,7 @@ describe("session persistence", () => {
 
       const app = await createZCodeApp({
         env: {
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         modelExecutor: {
           async generateText(request: { messages: Array<{ role: string; content: string }> }) {
@@ -1658,7 +1658,7 @@ describe("session persistence", () => {
     try {
       const app = await createZCodeApp({
         env: {
-          ZCODE_STORAGE_DIR: tempRoot,
+          MIKIKO_STORAGE_DIR: tempRoot,
         },
         eventStore,
         executionPort,
@@ -2301,7 +2301,7 @@ describe("session persistence", () => {
 
     try {
       const firstApp = await createZCodeApp({
-        env: { ZCODE_STORAGE_DIR: tempRoot },
+        env: { MIKIKO_STORAGE_DIR: tempRoot },
         modelExecutor: createWriteModelExecutor(firstFile, "hello") as never,
         runtimeConfig: {
           mode: "yolo",
@@ -2316,7 +2316,7 @@ describe("session persistence", () => {
       expect(await readFile(firstFile, "utf8")).toBe("hello");
 
       const resumedApp = await createZCodeApp({
-        env: { ZCODE_STORAGE_DIR: tempRoot },
+        env: { MIKIKO_STORAGE_DIR: tempRoot },
         modelExecutor: createWriteModelExecutor(secondFile, "world") as never,
         resume: true,
         runtimeConfig: {

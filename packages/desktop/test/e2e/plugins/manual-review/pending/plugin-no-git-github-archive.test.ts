@@ -30,7 +30,7 @@ describe("PLM-LC-011 Desktop real Claude plugin HTTP install without Git", () =>
     // 等 RPC 结果，测试门限必须覆盖生产 HTTP 客户端的 180 秒单请求上限。
     await browser.setTimeout({ script: REAL_HTTP_INSTALL_TIMEOUT_MS });
 
-    const gitBinary = await browser.electron.execute(() => process.env.ZCODE_GIT_BINARY ?? "");
+    const gitBinary = await browser.electron.execute(() => process.env.MIKIKO_GIT_BINARY ?? "");
     expect(gitBinary).toContain("missing-bin");
     expect(existsSync(gitBinary)).toBe(false);
 

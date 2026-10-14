@@ -3,7 +3,7 @@ import {
   createUuid,
   ZCODE_VERSION,
   ZCODE_ENV,
-  ZCODE_TELEMETRY_REPORT_ENDPOINT,
+  MIKIKO_TELEMETRY_REPORT_ENDPOINT,
   buildZCodeSourceHeadersFromContext,
   rewriteZCodeEndpointUrl,
   sanitizeTelemetryEventDetail,
@@ -18,7 +18,7 @@ import { dirname, join } from "node:path";
 import { createServiceLogger } from "#src/logger/serviceLogger.js";
 import { getAppConfigDir } from "../paths.js";
 
-const REPORT_ENDPOINT = ZCODE_TELEMETRY_REPORT_ENDPOINT;
+const REPORT_ENDPOINT = MIKIKO_TELEMETRY_REPORT_ENDPOINT;
 
 function sessionCreateEventId(userId: string, sessionId: string): string {
   const bytes = createHash("sha256")

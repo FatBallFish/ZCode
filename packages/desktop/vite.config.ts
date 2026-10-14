@@ -168,8 +168,8 @@ export default defineConfig(({ mode }) => {
   const zcodeEndpointOrigin = resolveZCodeEndpointOrigin({
     env: zcodeEnv,
     envBaseOrigin:
-      env.ZCODE_BASE_URL ??
-      env.ZCODE_ENDPOINT_ORIGIN ??
+      env.MIKIKO_BASE_URL ??
+      env.MIKIKO_ENDPOINT_ORIGIN ??
       (zcodeEnv === "production" ? env.ZCODE_PRODUCTION_BASE_URL : env.ZCODE_TEST_BASE_URL),
   });
   const codingPlanWebviewOrigin =
@@ -208,9 +208,9 @@ export default defineConfig(({ mode }) => {
       __ZCODE_PRODUCT_FLAVOR__: JSON.stringify(zcodeProductFlavor),
       ...buildTimeConfigDefines,
       __ZCODE_LOCAL_DEVELOPMENT_RUNTIME__: JSON.stringify(mode !== "production"),
-      "import.meta.env.VITE_ZCODE_BASE_URL": JSON.stringify(zcodeEndpointOrigin),
-      // 兼容旧 renderer 读取名；新代码统一读 VITE_ZCODE_BASE_URL。
-      "import.meta.env.VITE_ZCODE_ENDPOINT_ORIGIN": JSON.stringify(zcodeEndpointOrigin),
+      "import.meta.env.VITE_MIKIKO_BASE_URL": JSON.stringify(zcodeEndpointOrigin),
+      // 兼容旧 renderer 读取名；新代码统一读 VITE_MIKIKO_BASE_URL。
+      "import.meta.env.VITE_MIKIKO_ENDPOINT_ORIGIN": JSON.stringify(zcodeEndpointOrigin),
       "import.meta.env.VITE_CODING_PLAN_WEBVIEW_ORIGIN": JSON.stringify(codingPlanWebviewOrigin),
       "import.meta.env.VITE_REWARDS_WEBVIEW_ORIGIN": JSON.stringify(env.VITE_REWARDS_WEBVIEW_ORIGIN ?? process.env.VITE_REWARDS_WEBVIEW_ORIGIN ?? ""),
       // Bugfix: E2E store bridge 只能由 WDIO 专用变量打开，避免把 ZCODE_ENV=test 产品环境误当成测试运行态。

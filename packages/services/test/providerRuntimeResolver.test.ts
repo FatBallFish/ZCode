@@ -19,15 +19,15 @@ function restoreEnv(name: string, value: string | undefined): void {
 
 describe("providerRuntimeResolver glm workdir discovery", () => {
   const originalCwd = process.cwd();
-  const originalZCodeAgentWorkdir = process.env.ZCODE_AGENT_WORKDIR;
-  const originalGlmBinaryPath = process.env.GLM_BINARY_PATH;
+  const originalZCodeAgentWorkdir = process.env.MIKIKO_AGENT_WORKDIR;
+  const originalGlmBinaryPath = process.env.MIKIKO_AGENT_BINARY_PATH;
   const originalHome = process.env.HOME;
   const createdDirs: string[] = [];
 
   afterEach(() => {
     process.chdir(originalCwd);
-    restoreEnv("ZCODE_AGENT_WORKDIR", originalZCodeAgentWorkdir);
-    restoreEnv("GLM_BINARY_PATH", originalGlmBinaryPath);
+    restoreEnv("MIKIKO_AGENT_WORKDIR", originalZCodeAgentWorkdir);
+    restoreEnv("MIKIKO_AGENT_BINARY_PATH", originalGlmBinaryPath);
     restoreEnv("HOME", originalHome);
 
     for (const dir of createdDirs.splice(0).reverse()) {
@@ -36,7 +36,7 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
   });
 
   it("会在当前仓库旁边自动发现 zcode-cli 作为 glm 工作目录", () => {
-    delete process.env.ZCODE_AGENT_WORKDIR;
+    delete process.env.MIKIKO_AGENT_WORKDIR;
 
     const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-glm-workdir-"));
     createdDirs.push(sandboxRoot);
@@ -55,7 +55,7 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
   });
 
   it("desktop dev cwd 在 packages/desktop 时仍会发现仓库相邻的 zcode-cli", () => {
-    delete process.env.ZCODE_AGENT_WORKDIR;
+    delete process.env.MIKIKO_AGENT_WORKDIR;
 
     const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-glm-desktop-cwd-"));
     createdDirs.push(sandboxRoot);
@@ -76,7 +76,7 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
   });
 
   it("zcode-cli 源码入口会作为 glm dev binary 被发现", () => {
-    delete process.env.ZCODE_AGENT_WORKDIR;
+    delete process.env.MIKIKO_AGENT_WORKDIR;
 
     const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-glm-src-cli-"));
     createdDirs.push(sandboxRoot);
@@ -93,8 +93,8 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
   });
 
   it("无源码仓库时会回退到准备好的 zcode-agent 二进制", () => {
-    delete process.env.ZCODE_AGENT_WORKDIR;
-    delete process.env.GLM_BINARY_PATH;
+    delete process.env.MIKIKO_AGENT_WORKDIR;
+    delete process.env.MIKIKO_AGENT_BINARY_PATH;
 
     const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-glm-binary-"));
     createdDirs.push(sandboxRoot);
@@ -117,14 +117,14 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
     expect(realpathSync(findBinary("glm")!)).toBe(realpathSync(binaryPath));
   });
 
-  it("ZCODE_AGENT_WORKDIR 可显式指定 zcode-cli 源码入口", () => {
+  it("MIKIKO_AGENT_WORKDIR 可显式指定 zcode-cli 源码入口", () => {
     const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-agent-workdir-priority-"));
     createdDirs.push(sandboxRoot);
 
     const workdir = join(sandboxRoot, "zcode-cli");
     mkdirSync(join(workdir, "packages", "cli", "src"), { recursive: true });
     writeFileSync(join(workdir, "packages", "cli", "src", "main.ts"), "console.log('new');\n");
-    process.env.ZCODE_AGENT_WORKDIR = workdir;
+    process.env.MIKIKO_AGENT_WORKDIR = workdir;
 
     expect(realpathSync(findBinary("glm")!)).toBe(
       realpathSync(join(workdir, "packages", "cli", "src", "main.ts")),

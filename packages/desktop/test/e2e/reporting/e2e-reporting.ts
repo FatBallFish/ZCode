@@ -332,7 +332,7 @@ export function createE2EReporter(options: E2EReporterOptions) {
       // 修复原因：并行 WDIO worker 若共享同一个按日日志文件，失败 case 只能按时间猜测
       // 来源且会串入其他 worker。测试态将 desktop 与 agent 日志落到 worker 专属目录。
       process.env.ZCODE_E2E_RUNTIME_LOG_DIR = resolve(runtimeLogDir, "desktop");
-      process.env.ZCODE_LOG_DIR = resolve(runtimeLogDir, "agent");
+      process.env.MIKIKO_LOG_DIR = resolve(runtimeLogDir, "agent");
       appendJsonLine(resolve(artifactDir, "workers.ndjson"), {
         capturedAt: new Date().toISOString(),
         cid,

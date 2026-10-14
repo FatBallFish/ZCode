@@ -12,7 +12,9 @@ const gunzipAsync = promisify(gunzip);
 const TAR_BLOCK_SIZE = 512;
 const TAR_END_BLOCK_BYTES = TAR_BLOCK_SIZE * 2;
 
-export const PLUGIN_SYNC_METADATA_ARCHIVE_PATH = ".zcode-plugin-sync.json";
+// 2026-10-15 品牌化：同步包内元数据文件名改名；旧版生成的同步包仍用旧名，读取双兼容。
+export const PLUGIN_SYNC_METADATA_ARCHIVE_PATH = ".mikiko-plugin-sync.json";
+export const LEGACY_PLUGIN_SYNC_METADATA_ARCHIVE_PATH = ".zcode-plugin-sync.json";
 
 export type PluginSyncArchiveEntry =
   | {

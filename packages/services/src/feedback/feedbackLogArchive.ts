@@ -169,7 +169,7 @@ export async function createFeedbackDiagnosticArchive(options: {
   const isToday = (mtimeMs: number) => mtimeMs >= dayStart && mtimeMs < dayEnd;
   await mkdir(options.outputRootDir, { recursive: true });
   const outputDir = await mkdtemp(join(options.outputRootDir, "archive-"));
-  const path = join(outputDir, "zcode-diagnostic-logs.zip");
+  const path = join(outputDir, "mikiko-diagnostic-logs.zip");
   const entries: Array<{ name: string; data: Buffer }> = [];
   const skippedLogFilesByReason: Record<string, number> = {};
   const skipLogFile = (reason: string) => {

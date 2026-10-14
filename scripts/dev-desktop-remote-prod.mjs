@@ -32,7 +32,7 @@ export function buildDesktopRemoteProdEnv(
   homeDir = homedir(),
 ) {
   const cacheDir =
-    baseEnv.ZCODE_REMOTE_ASSET_CACHE_DIR?.trim() ||
+    baseEnv.MIKIKO_REMOTE_ASSET_CACHE_DIR?.trim() ||
     resolveProductionRemoteAssetCacheDir(baseEnv, platform, homeDir);
 
   return {
@@ -41,7 +41,7 @@ export function buildDesktopRemoteProdEnv(
     // 因此需要同时强制 production 和 CDN 开关，避免默认 test 环境落到测试资源 CDN。
     ZCODE_ENV: "production",
     ZCODE_DEV_REMOTE_ASSET_USE_CDN: "1",
-    ZCODE_REMOTE_ASSET_CACHE_DIR: cacheDir,
+    MIKIKO_REMOTE_ASSET_CACHE_DIR: cacheDir,
   };
 }
 

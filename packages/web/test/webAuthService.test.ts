@@ -35,7 +35,7 @@ class MemoryStorage implements Storage {
 
 function createProductionWebZaiOAuthConfig() {
   return createWebZaiOAuthConfig({
-    VITE_ZCODE_BASE_URL: "https://zcode.z.ai",
+    VITE_MIKIKO_BASE_URL: "https://zcode.z.ai",
     VITE_ZAI_OAUTH_CLIENT_ID: "client_P8X5CMWmlaRO9gyO-KSqtg",
     VITE_ZAI_OAUTH_ORIGIN: "https://chat.z.ai",
   });
@@ -80,7 +80,7 @@ describe("WebAuthService", () => {
 
   it("uses VITE_ZAI_OAUTH_ORIGIN and VITE_ZAI_OAUTH_CLIENT_ID to build test environment authorize URL", async () => {
     const testConfig = createWebZaiOAuthConfig({
-      VITE_ZCODE_BASE_URL: "https://zcode.z.ai",
+      VITE_MIKIKO_BASE_URL: "https://zcode.z.ai",
       VITE_ZAI_OAUTH_CLIENT_ID: "client_P8X5CMWmlaRO9gyO-KSqtg",
       VITE_ZAI_OAUTH_ORIGIN: "https://chat.z.ai/",
     });

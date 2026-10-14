@@ -9,10 +9,10 @@
   "mcpServers": {
     "ios-simulator": {
       "command": "node",
-      "args": ["${ZCODE_PLUGIN_ROOT}/dist/mcp/server.js"],
+      "args": ["${MIKIKO_PLUGIN_ROOT}/dist/mcp/server.js"],
       "cwd": "${ZCODE_PROJECT_DIR}",
       "env": {
-        "IOS_SIM_PACKAGE_ROOT": "${ZCODE_PLUGIN_ROOT}",
+        "IOS_SIM_PACKAGE_ROOT": "${MIKIKO_PLUGIN_ROOT}",
         "IOS_SIM_PLUGIN_DATA": "${ZCODE_PLUGIN_DATA}",
         "IOS_SIM_DEFAULT_DEVICE": "${user_config.default_device}",
         "IOS_SIM_UI_BACKEND": "${user_config.ui_backend}"

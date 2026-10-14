@@ -143,8 +143,8 @@ describe("plugins/referenceCatalog protocol", () => {
 
   it("serves the live workspace catalog when no sessionId is provided (draft picker)", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-plugin-reference-workspace-"));
-    const previousStorageDir = process.env.ZCODE_STORAGE_DIR;
-    process.env.ZCODE_STORAGE_DIR = join(root, "cli");
+    const previousStorageDir = process.env.MIKIKO_STORAGE_DIR;
+    process.env.MIKIKO_STORAGE_DIR = join(root, "cli");
     try {
       const result = await getPluginReferenceCatalog({} as ZCodeProtocolAgentServerContext, {
         workspace: { workspacePath: root, workspaceKey: root },
@@ -178,8 +178,8 @@ describe("plugins/referenceCatalog protocol", () => {
         result.plugins.map((x) => x.pluginId),
       );
       expect(() => zcodePluginsReferenceCatalogResultSchema.parse(enriched)).not.toThrow();
-      expect(zcodeGuide?.displayName).toBe("ZCode Guide");
-      expect(zcodeGuide?.displayNameI18n?.["zh-CN"]).toBe("ZCode 使用指南");
+      expect(zcodeGuide?.displayName).toBe("Mikiko Guide");
+      expect(zcodeGuide?.displayNameI18n?.["zh-CN"]).toBe("Mikiko 使用指南");
       expect(zcodeGuide?.description).toEqual(expect.any(String));
       expect(zcodeGuide?.descriptionI18n?.["zh-CN"]).toEqual(expect.any(String));
       expect(
@@ -187,8 +187,8 @@ describe("plugins/referenceCatalog protocol", () => {
       ).toEqual(zcodeGuide?.descriptionI18n);
       expect(JSON.stringify(result)).not.toContain("rootPath");
     } finally {
-      if (previousStorageDir === undefined) delete process.env.ZCODE_STORAGE_DIR;
-      else process.env.ZCODE_STORAGE_DIR = previousStorageDir;
+      if (previousStorageDir === undefined) delete process.env.MIKIKO_STORAGE_DIR;
+      else process.env.MIKIKO_STORAGE_DIR = previousStorageDir;
       await rm(root, { force: true, recursive: true });
     }
   });

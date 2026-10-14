@@ -63,7 +63,7 @@ export function spawnCronScheduler(deps: CronSchedulerDeps): CronSchedulerHandle
     execArgv: ["--no-warnings"],
     env: {
       ...buildHostProcessEnv(deps.hostProcessLocalEnv),
-      ZCODE_PROCESS_LABEL: "scheduler",
+      MIKIKO_PROCESS_LABEL: "scheduler",
     },
   });
 

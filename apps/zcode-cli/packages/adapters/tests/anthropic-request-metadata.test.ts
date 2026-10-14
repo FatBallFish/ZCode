@@ -37,7 +37,7 @@ describe("ensureCliDeviceMid", () => {
 
     const deviceMid = await ensureCliDeviceMid({
       createId: () => "should-not-be-created",
-      env: { ZCODE_DATA_BASE_DIR: root },
+      env: { MIKIKO_DATA_BASE_DIR: root },
     });
 
     expect(deviceMid).toBe("7f1431f0-53e8-41c1-9cf9-22d11aa51d6a");
@@ -59,9 +59,9 @@ describe("ensureCliDeviceMid", () => {
     };
 
     const values = await Promise.all([
-      ensureCliDeviceMid({ createId, env: { ZCODE_DATA_BASE_DIR: root } }),
-      ensureCliDeviceMid({ createId, env: { ZCODE_DATA_BASE_DIR: root } }),
-      ensureCliDeviceMid({ createId, env: { ZCODE_DATA_BASE_DIR: root } }),
+      ensureCliDeviceMid({ createId, env: { MIKIKO_DATA_BASE_DIR: root } }),
+      ensureCliDeviceMid({ createId, env: { MIKIKO_DATA_BASE_DIR: root } }),
+      ensureCliDeviceMid({ createId, env: { MIKIKO_DATA_BASE_DIR: root } }),
     ]);
 
     expect(values).toEqual([
@@ -80,7 +80,7 @@ describe("ensureCliDeviceMid", () => {
     const root = await createTemporaryRoot();
 
     const deviceMid = await ensureCliDeviceMid({
-      env: { ZCODE_DATA_BASE_DIR: root },
+      env: { MIKIKO_DATA_BASE_DIR: root },
     });
 
     expect(deviceMid).toMatch(
@@ -100,11 +100,11 @@ describe("ensureCliDeviceMid", () => {
 
     const first = await ensureCliDeviceMid({
       createId,
-      env: { ZCODE_DATA_BASE_DIR: blockedBaseDir },
+      env: { MIKIKO_DATA_BASE_DIR: blockedBaseDir },
     });
     const second = await ensureCliDeviceMid({
       createId,
-      env: { ZCODE_DATA_BASE_DIR: blockedBaseDir },
+      env: { MIKIKO_DATA_BASE_DIR: blockedBaseDir },
     });
 
     expect(first).toBe("fallback-1");
@@ -146,7 +146,7 @@ describe("Anthropic request metadata", () => {
 
     await expect(
       resolveAnthropicRequestMetadataUserId({
-        env: { ZCODE_DATA_BASE_DIR: root },
+        env: { MIKIKO_DATA_BASE_DIR: root },
         providerKind: "openai-compatible",
         sessionId: "sess_openai",
       }),
@@ -214,7 +214,7 @@ describe("Anthropic request metadata", () => {
       },
     };
     const adapter = new AiSdkModelAdapter({
-      env: { ZCODE_DATA_BASE_DIR: root },
+      env: { MIKIKO_DATA_BASE_DIR: root },
       registry: anthropicRegistry(),
       runtime,
     });

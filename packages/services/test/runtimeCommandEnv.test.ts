@@ -71,9 +71,9 @@ describe("runtimeCommandEnv", () => {
     const systemBin = join(root, "system-bin");
     const binarySuffix = process.platform === "win32" ? ".exe" : "";
     const runtimeBinaries = {
-      ZCODE_BFS_BINARY: join(root, "runtime", "bfs", `bfs${binarySuffix}`),
-      ZCODE_RG_BINARY: join(root, "runtime", "ripgrep", `rg${binarySuffix}`),
-      ZCODE_UGREP_BINARY: join(root, "runtime", "ugrep", `ugrep${binarySuffix}`),
+      MIKIKO_BFS_BINARY: join(root, "runtime", "bfs", `bfs${binarySuffix}`),
+      MIKIKO_RG_BINARY: join(root, "runtime", "ripgrep", `rg${binarySuffix}`),
+      MIKIKO_UGREP_BINARY: join(root, "runtime", "ugrep", `ugrep${binarySuffix}`),
     } as const;
 
     try {

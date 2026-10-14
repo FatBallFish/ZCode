@@ -15,7 +15,7 @@ describe("resolveZCodeBuiltinProviderConfigFilePath", () => {
           isPackaged: true,
           resourcesPath: "/Applications/ZCode.app/Contents/Resources",
           appPath: "/Applications/ZCode.app/Contents/Resources/app.asar",
-          // 隔离宿主环境变量：ZCode 开发运行时会注入 ZCODE_BUILTIN_PROVIDER_CONFIG_FILE，
+          // 隔离宿主环境变量：ZCode 开发运行时会注入 MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE，
           // 不显式清空会让本机跑单测时短路进 explicitPath 分支（CI 无此变量所以一直是绿的）。
           env: {},
         }),

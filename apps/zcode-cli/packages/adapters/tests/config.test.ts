@@ -317,13 +317,13 @@ describe("config adapters", () => {
 
   it("parses the supported ZCODE environment surface", () => {
     const config = parseEnvConfig({
-      ZCODE_STORAGE_DIR: "/tmp/zcode",
-      ZCODE_HTTP_PROXY: "http://127.0.0.1:7890",
-      ZCODE_NO_PROXY: "localhost,127.0.0.1",
-      ZCODE_AGENT_CA_CERT: "/tmp/zcode-ca.pem",
+      MIKIKO_STORAGE_DIR: "/tmp/zcode",
+      MIKIKO_HTTP_PROXY: "http://127.0.0.1:7890",
+      MIKIKO_NO_PROXY: "localhost,127.0.0.1",
+      MIKIKO_AGENT_CA_CERT: "/tmp/zcode-ca.pem",
       ZCODE_HTTP_TIMEOUT: "1234",
-      ZCODE_LOCALE: "zh-CN",
-      ZCODE_LOG_FORMAT: "json",
+      MIKIKO_LOCALE: "zh-CN",
+      MIKIKO_LOG_FORMAT: "json",
     });
 
     expect(config.model).toBeUndefined();
@@ -393,7 +393,7 @@ describe("config adapters", () => {
   it("parses session database path environment overrides", () => {
     expect(
       parseEnvConfig({
-        ZCODE_SESSION_DB_PATH: "/tmp/zcode/db/db.sqlite",
+        MIKIKO_SESSION_DB_PATH: "/tmp/zcode/db/db.sqlite",
       }).storage?.sessionDbPath,
     ).toBe("/tmp/zcode/db/db.sqlite");
     expect(
@@ -431,7 +431,7 @@ describe("config adapters", () => {
 
   it("ignores undeclared ZCODE environment switches", () => {
     const config = parseEnvConfig({
-      ZCODE_LOG_LEVEL: "debug",
+      MIKIKO_LOG_LEVEL: "debug",
       ZCODE_UNDECLARED_FLAG: "1",
     });
 
@@ -1179,7 +1179,7 @@ describe("config adapters", () => {
 
       const result = loadFileConfig(path);
       const merged = createConfig({
-        env: { ZCODE_LOG_DIR: logDir },
+        env: { MIKIKO_LOG_DIR: logDir },
         userConfigPath: path,
       });
 
@@ -1239,7 +1239,7 @@ describe("config adapters", () => {
       );
 
       const result = createConfig({
-        env: { ZCODE_LOG_DIR: logDir },
+        env: { MIKIKO_LOG_DIR: logDir },
         skipUserConfig: true,
         workingDirectory: root,
       });

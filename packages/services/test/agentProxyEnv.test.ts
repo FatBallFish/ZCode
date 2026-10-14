@@ -21,12 +21,12 @@ describe("buildAgentProxyEnv", () => {
     expect(buildAgentProxyEnv("   ")).toEqual({});
   });
 
-  it("sets the standard uppercase proxy keys plus ZCODE_HTTP_PROXY", () => {
+  it("sets the standard uppercase proxy keys plus MIKIKO_HTTP_PROXY", () => {
     expect(buildAgentProxyEnv("http://127.0.0.1:7890")).toEqual({
       HTTP_PROXY: "http://127.0.0.1:7890",
       HTTPS_PROXY: "http://127.0.0.1:7890",
       ALL_PROXY: "http://127.0.0.1:7890",
-      ZCODE_HTTP_PROXY: "http://127.0.0.1:7890",
+      MIKIKO_HTTP_PROXY: "http://127.0.0.1:7890",
     });
   });
 
@@ -45,10 +45,10 @@ describe("buildAgentCaCertEnv", () => {
     expect(buildAgentCaCertEnv("  ")).toEqual({});
   });
 
-  it("sets NODE_EXTRA_CA_CERTS and ZCODE_AGENT_CA_CERT to the cert path", () => {
+  it("sets NODE_EXTRA_CA_CERTS and MIKIKO_AGENT_CA_CERT to the cert path", () => {
     expect(buildAgentCaCertEnv("/tmp/zcode-network-ca.pem")).toEqual({
       NODE_EXTRA_CA_CERTS: "/tmp/zcode-network-ca.pem",
-      ZCODE_AGENT_CA_CERT: "/tmp/zcode-network-ca.pem",
+      MIKIKO_AGENT_CA_CERT: "/tmp/zcode-network-ca.pem",
     });
   });
 });
@@ -59,11 +59,11 @@ describe("buildAgentNoProxyEnv", () => {
     expect(buildAgentNoProxyEnv("  ")).toEqual({});
   });
 
-  it("sets standard no-proxy keys plus ZCODE_NO_PROXY", () => {
+  it("sets standard no-proxy keys plus MIKIKO_NO_PROXY", () => {
     expect(buildAgentNoProxyEnv(" localhost, 127.0.0.1 ,.example.com ")).toEqual({
       NO_PROXY: "localhost,127.0.0.1,.example.com",
       no_proxy: "localhost,127.0.0.1,.example.com",
-      ZCODE_NO_PROXY: "localhost,127.0.0.1,.example.com",
+      MIKIKO_NO_PROXY: "localhost,127.0.0.1,.example.com",
     });
   });
 });
@@ -80,12 +80,12 @@ describe("buildAgentRuntimeEnv", () => {
       HTTP_PROXY: "http://127.0.0.1:7890",
       HTTPS_PROXY: "http://127.0.0.1:7890",
       ALL_PROXY: "http://127.0.0.1:7890",
-      ZCODE_HTTP_PROXY: "http://127.0.0.1:7890",
+      MIKIKO_HTTP_PROXY: "http://127.0.0.1:7890",
       NO_PROXY: "localhost,127.0.0.1",
       no_proxy: "localhost,127.0.0.1",
-      ZCODE_NO_PROXY: "localhost,127.0.0.1",
+      MIKIKO_NO_PROXY: "localhost,127.0.0.1",
       NODE_EXTRA_CA_CERTS: "/tmp/root-ca.pem",
-      ZCODE_AGENT_CA_CERT: "/tmp/root-ca.pem",
+      MIKIKO_AGENT_CA_CERT: "/tmp/root-ca.pem",
     });
   });
 
@@ -94,7 +94,7 @@ describe("buildAgentRuntimeEnv", () => {
       HTTP_PROXY: "http://127.0.0.1:7890",
       HTTPS_PROXY: "http://127.0.0.1:7890",
       ALL_PROXY: "http://127.0.0.1:7890",
-      ZCODE_HTTP_PROXY: "http://127.0.0.1:7890",
+      MIKIKO_HTTP_PROXY: "http://127.0.0.1:7890",
     });
   });
 
@@ -103,7 +103,7 @@ describe("buildAgentRuntimeEnv", () => {
       buildAgentRuntimeEnv({ httpProxy: undefined, caCertPath: " /tmp/root-ca.pem " }),
     ).toEqual({
       NODE_EXTRA_CA_CERTS: "/tmp/root-ca.pem",
-      ZCODE_AGENT_CA_CERT: "/tmp/root-ca.pem",
+      MIKIKO_AGENT_CA_CERT: "/tmp/root-ca.pem",
     });
   });
 });
@@ -126,10 +126,10 @@ describe("buildAgentEndpointOriginEnv", () => {
   });
 
   it("outranks the inherited endpoint keys it must override", () => {
-    // MIKIKO_BASE_URL 必须压过继承来的 ZCODE_ENDPOINT_ORIGIN / ZCODE_TEST_BASE_URL，
+    // MIKIKO_BASE_URL 必须压过继承来的 MIKIKO_ENDPOINT_ORIGIN / ZCODE_TEST_BASE_URL，
     // 否则注入了也不生效。
     const hostEnv = {
-      ZCODE_ENDPOINT_ORIGIN: "https://inherited-endpoint.example",
+      MIKIKO_ENDPOINT_ORIGIN: "https://inherited-endpoint.example",
       ZCODE_ENV: "test",
       ZCODE_TEST_BASE_URL: "https://inherited-test.example",
     };
@@ -145,7 +145,7 @@ describe("buildAgentEndpointOriginEnv", () => {
 describe("buildAgentWorkspaceIdentityEnv", () => {
   it("injects only a trimmed remote workspace identity", () => {
     expect(buildAgentWorkspaceIdentityEnv(" remote:ssh:host:/repo ")).toEqual({
-      ZCODE_WORKSPACE_IDENTITY: "remote:ssh:host:/repo",
+      MIKIKO_WORKSPACE_IDENTITY: "remote:ssh:host:/repo",
     });
     expect(buildAgentWorkspaceIdentityEnv("   ")).toEqual({});
     expect(buildAgentWorkspaceIdentityEnv(undefined)).toEqual({});

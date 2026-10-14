@@ -154,7 +154,7 @@ describe("NodePluginAdapter", () => {
           pluginCount: 0,
         },
       ]);
-      vi.stubEnv("ZCODE_HTTP_PROXY", "");
+      vi.stubEnv("MIKIKO_HTTP_PROXY", "");
       vi.stubEnv(
         ZCODE_TOOL_ENV_PASSTHROUGH_ENV_KEY,
         JSON.stringify({ HTTP_PROXY: await listenServer(proxy) }),
@@ -2405,7 +2405,7 @@ describe("NodePluginAdapter", () => {
           pluginCount: 0,
         },
       ]);
-      vi.stubEnv("ZCODE_GIT_BINARY", join(dir, "missing-git"));
+      vi.stubEnv("MIKIKO_GIT_BINARY", join(dir, "missing-git"));
 
       expect(await updateMarketplace({ marketplace: "credential-market", storageRoot })).toEqual(
         [],
@@ -3777,7 +3777,7 @@ describe("NodePluginAdapter", () => {
           local: {
             command: "node",
             env: {
-              TOKEN: "${ZCODE_PLUGIN_TOKEN}",
+              TOKEN: "${MIKIKO_PLUGIN_TOKEN}",
             },
           },
         },

@@ -249,7 +249,7 @@ describe("protocol slash command surface", () => {
         CLAUDE_PLUGIN_ROOT: pluginRoot,
         CLAUDE_PROJECT_DIR: workspace,
         CLAUDE_SESSION_ID: sessionId,
-        ZCODE_PLUGIN_ROOT: pluginRoot,
+        MIKIKO_PLUGIN_ROOT: pluginRoot,
         ZCODE_PROJECT_DIR: workspace,
         ZCODE_SESSION_ID: sessionId,
       });

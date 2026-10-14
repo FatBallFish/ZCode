@@ -33,7 +33,9 @@ import {
 const OFFICIAL_PLUGIN_MARKETPLACE = ZCODE_OFFICIAL_PLUGIN_MARKETPLACE;
 const SEA_PLUGIN_ASSET_PREFIX = "zcode-official-plugins/";
 const SEA_PLUGIN_MANIFEST_ASSET_KEY = `${SEA_PLUGIN_ASSET_PREFIX}manifest.json`;
-const SEED_MARKER_FILE = ".zcode-plugin-seed.json";
+// 2026-10-15 品牌化：种子标记改名；读取时兼容旧名，避免升级后整包重新种子覆盖用户改动。
+const SEED_MARKER_FILE = ".mikiko-plugin-seed.json";
+const LEGACY_SEED_MARKER_FILE = ".zcode-plugin-seed.json";
 const SEED_LOCK_TOTAL_BUDGET_MS = 15_000;
 
 const includedTopLevelPaths = new Set([
@@ -450,7 +452,9 @@ function readSeedPluginDescription(
 }
 
 function isSeedCurrent(targetRoot: string, plugin: OfficialPluginSeedPluginSource): boolean {
-  const markerPath = join(targetRoot, SEED_MARKER_FILE);
+  const markerPath = existsSync(join(targetRoot, SEED_MARKER_FILE))
+    ? join(targetRoot, SEED_MARKER_FILE)
+    : join(targetRoot, LEGACY_SEED_MARKER_FILE);
   if (!existsSync(markerPath)) return false;
   try {
     const marker = JSON.parse(readFileSync(markerPath, "utf8")) as ReturnType<typeof seedMarker>;

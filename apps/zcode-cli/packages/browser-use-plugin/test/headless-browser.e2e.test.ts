@@ -68,7 +68,7 @@ realBrowserTest(
     });
     await broker.ready;
 
-    setEnv("ZCODE_PLUGIN_ROOT", pluginRoot);
+    setEnv("MIKIKO_PLUGIN_ROOT", pluginRoot);
     setEnv(NODE_REPL_BROWSER_BROKER_SOCKET_ENV, broker.socketPath);
     setEnv(NODE_REPL_BROWSER_BROKER_TOKEN_ENV, broker.token);
     setEnv("DISPLAY", undefined);
@@ -89,7 +89,7 @@ realBrowserTest(
           "if (globalThis.agent?.browsers == null) {",
           "  const { join } = await import('node:path');",
           "  const { pathToFileURL } = await import('node:url');",
-          "  const root = process.env.ZCODE_PLUGIN_ROOT;",
+          "  const root = process.env.MIKIKO_PLUGIN_ROOT;",
           "  if (!root) throw new Error('missing browser plugin root');",
           "  const clientUrl = pathToFileURL(join(root, 'scripts', 'browser-client.mjs')).href;",
           "  const { setupBrowserRuntime } = await import(clientUrl);",
@@ -110,7 +110,7 @@ realBrowserTest(
         code: [
           "const { join } = await import('node:path');",
           "const { pathToFileURL } = await import('node:url');",
-          "const root = process.env.ZCODE_PLUGIN_ROOT;",
+          "const root = process.env.MIKIKO_PLUGIN_ROOT;",
           "if (!root) throw new Error('missing browser plugin root');",
           "const clientUrl = pathToFileURL(join(root, 'scripts', 'browser-client.mjs')).href;",
           "const { setupBrowserRuntime } = await import(clientUrl);",

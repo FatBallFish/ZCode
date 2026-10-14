@@ -100,8 +100,8 @@ describe("resolveDefaultZCodeAgentCommand", () => {
   ] as const;
 
   const originalCwd = process.cwd();
-  const originalCommand = process.env.ZCODE_AGENT_SERVER_COMMAND;
-  const originalArgsJson = process.env.ZCODE_AGENT_SERVER_ARGS_JSON;
+  const originalCommand = process.env.MIKIKO_AGENT_SERVER_COMMAND;
+  const originalArgsJson = process.env.MIKIKO_AGENT_SERVER_ARGS_JSON;
   const originalCwdEnv = process.env.ZCODE_AGENT_SERVER_CWD;
   const originalBinaryEnv = process.env[ZCODE_AGENT_RUNTIME.binaryEnvVar];
   const originalNodeEnv = process.env.NODE_ENV;
@@ -129,8 +129,8 @@ describe("resolveDefaultZCodeAgentCommand", () => {
 
   afterEach(async () => {
     process.chdir(originalCwd);
-    restoreEnv("ZCODE_AGENT_SERVER_COMMAND", originalCommand);
-    restoreEnv("ZCODE_AGENT_SERVER_ARGS_JSON", originalArgsJson);
+    restoreEnv("MIKIKO_AGENT_SERVER_COMMAND", originalCommand);
+    restoreEnv("MIKIKO_AGENT_SERVER_ARGS_JSON", originalArgsJson);
     restoreEnv("ZCODE_AGENT_SERVER_CWD", originalCwdEnv);
     restoreEnv(ZCODE_AGENT_RUNTIME.binaryEnvVar, originalBinaryEnv);
     restoreEnv("NODE_ENV", originalNodeEnv);
@@ -154,8 +154,8 @@ describe("resolveDefaultZCodeAgentCommand", () => {
   });
 
   it("内置 dist zcode-agent 通过 Electron Node 模式启动", () => {
-    delete process.env.ZCODE_AGENT_SERVER_COMMAND;
-    delete process.env.ZCODE_AGENT_SERVER_ARGS_JSON;
+    delete process.env.MIKIKO_AGENT_SERVER_COMMAND;
+    delete process.env.MIKIKO_AGENT_SERVER_ARGS_JSON;
     delete process.env.ZCODE_AGENT_SERVER_CWD;
 
     const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-agent-default-command-"));
@@ -202,7 +202,7 @@ describe("resolveDefaultZCodeAgentCommand", () => {
   ])(
     "字节码开关只替换 Electron 的 stdio 入口，保留存储 Worker JS 入口：electron=%s enabled=%s",
     (electron, enabled) => {
-      delete process.env.ZCODE_AGENT_SERVER_COMMAND;
+      delete process.env.MIKIKO_AGENT_SERVER_COMMAND;
       process.env.ZCODE_DESKTOP_AGENT_BYTECODE = enabled ? "1" : "0";
       Object.defineProperty(process.versions, "electron", {
         configurable: true,
@@ -231,7 +231,7 @@ describe("resolveDefaultZCodeAgentCommand", () => {
   );
 
   it("字节码入口缺失时拒绝静默回退 JS", () => {
-    delete process.env.ZCODE_AGENT_SERVER_COMMAND;
+    delete process.env.MIKIKO_AGENT_SERVER_COMMAND;
     process.env.ZCODE_DESKTOP_AGENT_BYTECODE = "1";
     Object.defineProperty(process.versions, "electron", { configurable: true, value: "41.0.3" });
     const root = mkdtempSync(join(tmpdir(), "zcode-bytecode-missing-"));
@@ -246,8 +246,8 @@ describe("resolveDefaultZCodeAgentCommand", () => {
   });
 
   it("Desktop surface 会显式传给默认 app-server 命令", () => {
-    delete process.env.ZCODE_AGENT_SERVER_COMMAND;
-    delete process.env.ZCODE_AGENT_SERVER_ARGS_JSON;
+    delete process.env.MIKIKO_AGENT_SERVER_COMMAND;
+    delete process.env.MIKIKO_AGENT_SERVER_ARGS_JSON;
     delete process.env.ZCODE_AGENT_SERVER_CWD;
 
     const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-agent-desktop-surface-"));
@@ -288,8 +288,8 @@ describe("resolveDefaultZCodeAgentCommand", () => {
   it.each(desktopSurfaceArgsCases)(
     "Desktop surface 归一化 $name 时不吞掉无关参数",
     ({ input, expected }) => {
-      process.env.ZCODE_AGENT_SERVER_COMMAND = "zcode-agent";
-      process.env.ZCODE_AGENT_SERVER_ARGS_JSON = JSON.stringify(input);
+      process.env.MIKIKO_AGENT_SERVER_COMMAND = "zcode-agent";
+      process.env.MIKIKO_AGENT_SERVER_ARGS_JSON = JSON.stringify(input);
 
       const command = resolveDefaultZCodeAgentCommand({
         presentationSurface: "desktop",
@@ -305,14 +305,14 @@ describe("resolveDefaultZCodeAgentCommand", () => {
   );
 
   it("monorepo 不可达时回退到已部署原生 binary", () => {
-    delete process.env.ZCODE_AGENT_SERVER_COMMAND;
-    delete process.env.ZCODE_AGENT_SERVER_ARGS_JSON;
+    delete process.env.MIKIKO_AGENT_SERVER_COMMAND;
+    delete process.env.MIKIKO_AGENT_SERVER_ARGS_JSON;
     delete process.env.ZCODE_AGENT_SERVER_CWD;
 
     // Bugfix: SSH 远端把 zcode-server.cjs 部署到 ~/.mikiko/server/，cwd 不在仓库内、
-    // ZCODE_AGENT_SERVER_COMMAND 也没设；旧 resolver 只识别 env 和 monorepo 源码树，
+    // MIKIKO_AGENT_SERVER_COMMAND 也没设；旧 resolver 只识别 env 和 monorepo 源码树，
     // 即使 zcode-agent 已部署到 ~/.mikiko/server/agents/glm/，resolver 也找不到。
-    // 这里用 GLM_BINARY_PATH（=runtime.binaryEnvVar）模拟该部署场景，
+    // 这里用 MIKIKO_AGENT_BINARY_PATH（=runtime.binaryEnvVar）模拟该部署场景，
     // 验证 resolver 复用 findZCodeAgentRuntimeBinary 命中已部署 binary。
     const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-agent-deployed-binary-"));
     createdDirs.push(sandboxRoot);
@@ -488,13 +488,13 @@ describe("resolveDefaultZCodeAgentCommand", () => {
         command: process.execPath,
         args: [
           "-e",
-          `require("node:fs").writeFileSync(${JSON.stringify(markerPath)}, JSON.stringify({ official: process.env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE, personal: process.env.ZCODE_PERSONAL_PROVIDER_CONFIG_FILE })); setInterval(() => {}, 1000);`,
+          `require("node:fs").writeFileSync(${JSON.stringify(markerPath)}, JSON.stringify({ official: process.env.MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE, personal: process.env.MIKIKO_PERSONAL_PROVIDER_CONFIG_FILE })); setInterval(() => {}, 1000);`,
         ],
         cwd: workspacePath,
       }),
       resolveSpawnEnv: () => ({
-        ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: zcodeBuiltinFilePath,
-        ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalFilePath,
+        MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE: zcodeBuiltinFilePath,
+        MIKIKO_PERSONAL_PROVIDER_CONFIG_FILE: personalFilePath,
       }),
     });
 
@@ -776,7 +776,7 @@ setInterval(() => {}, 1000);
     }
   });
 
-  it("未声明 ZCODE_RUNTIME_ENV 时默认以 production 启动 agent 子进程且不传 NODE_ENV", async () => {
+  it("未声明 MIKIKO_RUNTIME_ENV 时默认以 production 启动 agent 子进程且不传 NODE_ENV", async () => {
     const workspacePath = mkdtempSync(join(tmpdir(), "zcode-agent-node-env-default-"));
     createdDirs.push(workspacePath);
     const nodeEnvPath = join(workspacePath, "node-env.txt");
@@ -790,7 +790,7 @@ setInterval(() => {}, 1000);
           `
 require("node:fs").writeFileSync(${JSON.stringify(nodeEnvPath)}, JSON.stringify({
   nodeEnv: process.env.NODE_ENV || "<empty>",
-  runtimeEnv: process.env.ZCODE_RUNTIME_ENV || "<empty>",
+  runtimeEnv: process.env.MIKIKO_RUNTIME_ENV || "<empty>",
 }));
 setInterval(() => {}, 1000);
 `,
@@ -815,7 +815,7 @@ setInterval(() => {}, 1000);
     }
   });
 
-  it("显式 ZCODE_RUNTIME_ENV=development 时保留 agent 子进程开发态", async () => {
+  it("显式 MIKIKO_RUNTIME_ENV=development 时保留 agent 子进程开发态", async () => {
     const workspacePath = mkdtempSync(join(tmpdir(), "zcode-agent-node-env-dev-"));
     createdDirs.push(workspacePath);
     const nodeEnvPath = join(workspacePath, "node-env.txt");
@@ -829,7 +829,7 @@ setInterval(() => {}, 1000);
           `
 require("node:fs").writeFileSync(${JSON.stringify(nodeEnvPath)}, JSON.stringify({
   nodeEnv: process.env.NODE_ENV || "<empty>",
-  runtimeEnv: process.env.ZCODE_RUNTIME_ENV || "<empty>",
+  runtimeEnv: process.env.MIKIKO_RUNTIME_ENV || "<empty>",
 }));
 setInterval(() => {}, 1000);
 `,
@@ -1552,8 +1552,8 @@ setInterval(() => {}, 1000);
       writeFileSync(tapScript, "#!/usr/bin/env node\n");
       process.chdir(sandboxRoot);
       process.env[ZCODE_RUNTIME_ENV_KEY] = "development";
-      process.env.ZCODE_AGENT_SERVER_COMMAND = "zcode-agent";
-      process.env.ZCODE_AGENT_SERVER_ARGS_JSON = JSON.stringify(input);
+      process.env.MIKIKO_AGENT_SERVER_COMMAND = "zcode-agent";
+      process.env.MIKIKO_AGENT_SERVER_ARGS_JSON = JSON.stringify(input);
       setDataBaseDir(sandboxRoot);
       setZCodeStdioTapDevEnabled(true);
 

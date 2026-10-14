@@ -14,7 +14,7 @@ import { MAX_SKILL_SCAN_DEPTH } from "@zcode/shared";
 import type { ISkillsService } from "../src/skills/skills.js";
 
 const originalHome = process.env.HOME;
-const originalProcessLabel = process.env.ZCODE_PROCESS_LABEL;
+const originalProcessLabel = process.env.MIKIKO_PROCESS_LABEL;
 const tempHomes: string[] = [];
 
 function makeTempHome(): string {
@@ -151,7 +151,7 @@ function writeCliConfig(home: string, config: Record<string, unknown>): void {
 
 afterEach(() => {
   process.env.HOME = originalHome;
-  process.env.ZCODE_PROCESS_LABEL = originalProcessLabel;
+  process.env.MIKIKO_PROCESS_LABEL = originalProcessLabel;
   vi.doUnmock("node:fs/promises");
   vi.resetModules();
   while (tempHomes.length > 0) {

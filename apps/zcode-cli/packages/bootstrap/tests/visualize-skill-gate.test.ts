@@ -29,7 +29,7 @@ describe("visualize protocol-only skill discovery", () => {
 
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), "zcode-visualize-gate-"));
-    env = { ZCODE_STORAGE_DIR: join(root, "storage") };
+    env = { MIKIKO_STORAGE_DIR: join(root, "storage") };
   });
 
   afterEach(async () => {

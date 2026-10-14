@@ -71,12 +71,12 @@ describe("process provider registry runtime", () => {
       return new Response(JSON.stringify(builtin));
     });
     const credentialStore = createSharedZCodeCredentialStore({
-      env: { ZCODE_DATA_BASE_DIR: root },
+      env: { MIKIKO_DATA_BASE_DIR: root },
     });
     const env = {
       [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: active,
       [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: join(root, "personal.json"),
-      ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE: bundled,
+      MIKIKO_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE: bundled,
     };
     const runtime = await startProcessProviderRegistryRuntime(env, {
       standalone: {
@@ -122,7 +122,7 @@ describe("process provider registry runtime", () => {
     const filePath = join(root, "builtin.json");
     await writeFile(filePath, JSON.stringify(builtin));
     const credentialStore = createSharedZCodeCredentialStore({
-      env: { ZCODE_DATA_BASE_DIR: root },
+      env: { MIKIKO_DATA_BASE_DIR: root },
     });
     const runtime = await startProcessProviderRegistryRuntime(
       {

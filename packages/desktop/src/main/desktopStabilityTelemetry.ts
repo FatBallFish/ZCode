@@ -714,10 +714,11 @@ function mapChildProcessGoneToProcessRoleWithName(
   type: string,
   processName?: string,
 ): StabilityProcessRole {
-  if (processName?.startsWith("zcode-host")) {
+  // 2026-10-15 品牌化：进程名前缀已改 mikiko-；旧 zcode- 前缀仅在同版本混跑窗口期兼容。
+  if (processName?.startsWith("mikiko-host") || processName?.startsWith("zcode-host")) {
     return "host";
   }
-  if (processName?.startsWith("zcode-agent")) {
+  if (processName?.startsWith("mikiko-agent") || processName?.startsWith("zcode-agent")) {
     return "agent";
   }
   switch (type) {

@@ -70,7 +70,7 @@ describe("desktopOAuthDeepLink workspace open routing", () => {
     const enCopy = resolveExternalWorkspaceOpenDialogCopy("en-US");
 
     expect(zhCopy.buttons).toEqual(["打开文件夹", "取消"]);
-    expect(zhCopy.title).toBe("打开外部 ZCode 链接？");
+    expect(zhCopy.title).toBe("打开外部 Mikiko 链接？");
     expect(zhCopy.detail("/tmp/project")).toContain("只打开你信任来源的文件夹");
     expect(enCopy.buttons).toEqual(["Open folder", "Cancel"]);
   });
@@ -172,7 +172,7 @@ describe("desktopOAuthDeepLink workspace open routing", () => {
       targetWindow,
       expect.objectContaining({
         buttons: ["打开文件夹", "取消"],
-        title: "打开外部 ZCode 链接？",
+        title: "打开外部 Mikiko 链接？",
       }),
     );
     expect(targetWindow.webContents.send).toHaveBeenCalledWith(

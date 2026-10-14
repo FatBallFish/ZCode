@@ -11,6 +11,7 @@ import {
   rename,
   rm,
   writeFile,
+  access,
 } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
@@ -24,6 +25,7 @@ import type { IPluginSyncService } from "./pluginSync.js";
 import {
   createPluginSyncArchive,
   extractPluginSyncArchive,
+  LEGACY_PLUGIN_SYNC_METADATA_ARCHIVE_PATH,
   PLUGIN_SYNC_METADATA_ARCHIVE_PATH,
   type PluginSyncArchiveMetadata,
 } from "./pluginSyncArchive.js";
@@ -360,7 +362,7 @@ async function importMarketplaceSourceArchiveInternal(
   archive: Uint8Array,
   maxArchiveBytes: number,
 ) {
-  const tempRoot = join(tmpdir(), `zcode-plugin-marketplace-source-${randomUUID()}`);
+  const tempRoot = join(tmpdir(), `mikiko-plugin-marketplace-source-${randomUUID()}`);
   try {
     await extractPluginSyncArchive(archive, tempRoot, {
       maxExtractedBytes: maxArchiveBytes,
@@ -437,7 +439,7 @@ async function importPluginsArchive(
   archive: Uint8Array,
   maxArchiveBytes: number,
 ): Promise<PluginSyncImportResult> {
-  const tempRoot = join(tmpdir(), `zcode-plugin-sync-${randomUUID()}`);
+  const tempRoot = join(tmpdir(), `mikiko-plugin-sync-${randomUUID()}`);
   try {
     await extractPluginSyncArchive(archive, tempRoot, {
       maxExtractedBytes: maxArchiveBytes,
@@ -535,8 +537,25 @@ async function importPluginsArchive(
   }
 }
 
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function readArchiveMetadata(tempRoot: string): Promise<PluginSyncArchiveMetadata> {
-  const raw = await readFile(join(tempRoot, PLUGIN_SYNC_METADATA_ARCHIVE_PATH), "utf-8");
+  const raw = await readFile(
+      join(
+        tempRoot,
+        (await fileExists(join(tempRoot, PLUGIN_SYNC_METADATA_ARCHIVE_PATH)))
+          ? PLUGIN_SYNC_METADATA_ARCHIVE_PATH
+          : LEGACY_PLUGIN_SYNC_METADATA_ARCHIVE_PATH,
+      ),
+      "utf-8",
+    );
   const parsed = JSON.parse(raw) as unknown;
   if (!isRecord(parsed) || !Array.isArray(parsed.plugins)) {
     throw new Error("invalid plugin sync archive metadata");
@@ -565,7 +584,15 @@ async function readMarketplaceSourceArchiveMetadata(tempRoot: string): Promise<{
   directoryName: string;
   marketplaceId: string;
 }> {
-  const raw = await readFile(join(tempRoot, PLUGIN_SYNC_METADATA_ARCHIVE_PATH), "utf-8");
+  const raw = await readFile(
+      join(
+        tempRoot,
+        (await fileExists(join(tempRoot, PLUGIN_SYNC_METADATA_ARCHIVE_PATH)))
+          ? PLUGIN_SYNC_METADATA_ARCHIVE_PATH
+          : LEGACY_PLUGIN_SYNC_METADATA_ARCHIVE_PATH,
+      ),
+      "utf-8",
+    );
   const parsed = JSON.parse(raw) as unknown;
   if (!isRecord(parsed) || !Array.isArray(parsed.marketplaceSources)) {
     throw new Error("invalid plugin marketplace source archive metadata");

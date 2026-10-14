@@ -5,8 +5,8 @@ const outputPath = process.env.ZCODE_TEST_WIRING_OUTPUT;
 if (!outputPath) throw new Error("ZCODE_TEST_WIRING_OUTPUT is required");
 
 await appendFile(outputPath, `${JSON.stringify({
-  agentArgs: JSON.parse(process.env.ZCODE_AGENT_SERVER_ARGS_JSON ?? "[]"),
-  agentCommand: process.env.ZCODE_AGENT_SERVER_COMMAND ?? null,
+  agentArgs: JSON.parse(process.env.MIKIKO_AGENT_SERVER_ARGS_JSON ?? "[]"),
+  agentCommand: process.env.MIKIKO_AGENT_SERVER_COMMAND ?? null,
   dataBaseDir: process.env.MIKIKO_DATA_BASE_DIR ?? null,
   generation,
   runtimeRoot: process.env.ZCODE_SERVER_RUNTIME_ROOT ?? null,

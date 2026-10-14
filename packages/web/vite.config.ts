@@ -87,9 +87,9 @@ export default defineConfig(({ mode }) => {
       ),
       __ZCODE_COMMIT__: JSON.stringify(env.ZCODE_COMMIT || "unknown"),
       __ZCODE_ENV__: JSON.stringify(zcodeEnv),
-      "import.meta.env.VITE_ZCODE_BASE_URL": JSON.stringify(zcodeEndpointOrigin),
-      // 兼容旧 Web runtime 读取名；新代码统一读 VITE_ZCODE_BASE_URL。
-      "import.meta.env.VITE_ZCODE_ENDPOINT_ORIGIN": JSON.stringify(zcodeEndpointOrigin),
+      "import.meta.env.VITE_MIKIKO_BASE_URL": JSON.stringify(zcodeEndpointOrigin),
+      // 兼容旧 Web runtime 读取名；新代码统一读 VITE_MIKIKO_BASE_URL。
+      "import.meta.env.VITE_MIKIKO_ENDPOINT_ORIGIN": JSON.stringify(zcodeEndpointOrigin),
       // 明确注入 OAuth 公开配置，避免 Web 端在不同 mode 下隐式依赖源码 fallback。
       "import.meta.env.VITE_ZAI_OAUTH_CLIENT_ID": JSON.stringify(zaiOAuthClientId),
       "import.meta.env.VITE_ZAI_OAUTH_ORIGIN": JSON.stringify(zaiOAuthOrigin),

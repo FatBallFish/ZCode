@@ -9,7 +9,7 @@ import {
 } from "@zcode/shared";
 import type { ModelProviderSourceTitle } from "./model-config.js";
 
-const ZCODE_DATA_BASE_DIR_ENV_KEY = "ZCODE_DATA_BASE_DIR";
+const ZCODE_DATA_BASE_DIR_ENV_KEY = "MIKIKO_DATA_BASE_DIR";
 const cachedDeviceMidByStateFile = new Map<string, string>();
 
 interface CreateProviderEndpointRoutingSourceHeadersOptions {
@@ -47,7 +47,7 @@ function resolveClientTimezone(): string {
 
 function resolveTelemetryStateFile(env: NodeJS.ProcessEnv): string {
   const dataBaseDir = env[ZCODE_DATA_BASE_DIR_ENV_KEY]?.trim() || homedir();
-  return join(dataBaseDir, ".zcode", "v2", "telemetry-state.json");
+  return join(dataBaseDir, ".mikiko", "v2", "telemetry-state.json");
 }
 
 async function readExistingDeviceMid(

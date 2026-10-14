@@ -34,7 +34,7 @@ describe("desktop renderer Vite dependency aliases", () => {
 
   (isWindows ? it.skip : it)("injects the selected ZCode endpoint origin into renderer env", async () => {
     vi.stubEnv("ZCODE_ENV", "test");
-    vi.stubEnv("ZCODE_BASE_URL", "");
+    vi.stubEnv("MIKIKO_BASE_URL", "");
     const desktopRoot = resolve(import.meta.dirname, "..");
     const configFile = resolve(desktopRoot, "vite.config.ts");
     const result = await loadConfigFromFile(
@@ -50,8 +50,8 @@ describe("desktop renderer Vite dependency aliases", () => {
     );
 
     expect(result?.config.define).toMatchObject({
-      "import.meta.env.VITE_ZCODE_BASE_URL": JSON.stringify("https://zcode.z.ai"),
-      "import.meta.env.VITE_ZCODE_ENDPOINT_ORIGIN": JSON.stringify(
+      "import.meta.env.VITE_MIKIKO_BASE_URL": JSON.stringify("https://zcode.z.ai"),
+      "import.meta.env.VITE_MIKIKO_ENDPOINT_ORIGIN": JSON.stringify(
         "https://zcode.z.ai",
       ),
       __ZCODE_LOCAL_DEVELOPMENT_RUNTIME__: JSON.stringify(false),

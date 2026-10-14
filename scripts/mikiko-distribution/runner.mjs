@@ -180,8 +180,8 @@ async function serve(options) {
     env: {
       ...process.env,
       PORT: String(port),
-      ZCODE_AGENT_SERVER_ARGS_JSON: JSON.stringify([agentEntry, "app-server", "--stdio"]),
-      ZCODE_AGENT_SERVER_COMMAND: process.execPath,
+      MIKIKO_AGENT_SERVER_ARGS_JSON: JSON.stringify([agentEntry, "app-server", "--stdio"]),
+      MIKIKO_AGENT_SERVER_COMMAND: process.execPath,
       ZCODE_SERVER_HOST: options.host,
       ZCODE_SERVER_WORKSPACE: options.workspace,
       ZCODE_WEB_STATIC_ROOT: webRoot,

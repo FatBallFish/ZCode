@@ -1016,7 +1016,7 @@ async function collectSkillMarkdownPaths(
 
 function resolveCapabilities(options?: SkillsServiceOptions): SkillsCapability {
   const isDesktopRuntime =
-    options?.isDesktopRuntime ?? Boolean(process.env.ZCODE_PROCESS_LABEL);
+    options?.isDesktopRuntime ?? Boolean(process.env.MIKIKO_PROCESS_LABEL);
   if (isDesktopRuntime) {
     return { userScopeAvailable: true };
   }

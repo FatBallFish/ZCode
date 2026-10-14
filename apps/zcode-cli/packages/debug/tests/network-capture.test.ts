@@ -64,8 +64,8 @@ describe("network capture", () => {
       const proxyPort = service.getStatus().port;
       expect(proxyPort).toBeGreaterThan(0);
       expect(service.getStatus().env).toEqual({
-        ZCODE_HTTP_PROXY: `http://127.0.0.1:${proxyPort}`,
-        ZCODE_AGENT_CA_CERT: join(root, "ca", "certs", "ca.pem"),
+        MIKIKO_HTTP_PROXY: `http://127.0.0.1:${proxyPort}`,
+        MIKIKO_AGENT_CA_CERT: join(root, "ca", "certs", "ca.pem"),
       });
       await requestThroughProxy(proxyPort ?? 0, upstreamPort);
 

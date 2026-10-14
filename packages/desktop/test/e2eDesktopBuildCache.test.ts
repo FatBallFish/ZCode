@@ -123,7 +123,7 @@ describe("desktop E2E build cache", () => {
     );
     writeFileSync(resolve(ROOT, "packages/desktop/src/main.ts"), "export const desktop = 1;\n");
     writeFileSync(resolve(ROOT, "packages/server/src/index.ts"), "export const server = 1;\n");
-    writeFileSync(resolve(ROOT, ".env"), "ZCODE_BASE_URL=https://one.example\n");
+    writeFileSync(resolve(ROOT, ".env"), "MIKIKO_BASE_URL=https://one.example\n");
     writeFileSync(resolve(ROOT, ".env.production"), "CDN_DOMAIN=one.example\n");
 
     const inputPaths = resolveE2EDesktopBuildInputPaths({ repoRoot: ROOT });
@@ -137,10 +137,10 @@ describe("desktop E2E build cache", () => {
     expect(fingerprint()).not.toBe(base);
 
     writeFileSync(resolve(ROOT, "packages/server/src/index.ts"), "export const server = 1;\n");
-    writeFileSync(resolve(ROOT, ".env"), "ZCODE_BASE_URL=https://two.example\n");
+    writeFileSync(resolve(ROOT, ".env"), "MIKIKO_BASE_URL=https://two.example\n");
     expect(fingerprint()).not.toBe(base);
 
-    writeFileSync(resolve(ROOT, ".env"), "ZCODE_BASE_URL=https://one.example\n");
+    writeFileSync(resolve(ROOT, ".env"), "MIKIKO_BASE_URL=https://one.example\n");
     writeFileSync(resolve(ROOT, ".env.production"), "CDN_DOMAIN=two.example\n");
     expect(fingerprint()).not.toBe(base);
   });

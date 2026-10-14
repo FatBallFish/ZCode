@@ -87,8 +87,8 @@ export function createRemoteControlProductionService(
     typeof fileConfig.deviceName === "string" && fileConfig.deviceName.trim().length > 0
       ? fileConfig.deviceName.trim()
       : undefined;
-  const relayWsUrl = env.ZCODE_REMOTE_CONTROL_RELAY_WS_URL?.trim() || fileWsUrl;
-  const relayHttpUrl = env.ZCODE_REMOTE_CONTROL_RELAY_HTTP_URL?.trim() || fileHttpUrl;
+  const relayWsUrl = env.MIKIKO_REMOTE_CONTROL_RELAY_WS_URL?.trim() || fileWsUrl;
+  const relayHttpUrl = env.MIKIKO_REMOTE_CONTROL_RELAY_HTTP_URL?.trim() || fileHttpUrl;
   // 双端点必须成对配置，缺一视为功能关闭（spec §12 场景 11：disabled 状态零出网）。
   if (!relayWsUrl || !relayHttpUrl) {
     return null;
@@ -98,7 +98,7 @@ export function createRemoteControlProductionService(
     join(app.getPath("userData"), "remote-control-device.json"),
     options.safeStorageImpl ?? (safeStorage as unknown as SafeStorageLike),
   );
-  const deviceName = env.ZCODE_REMOTE_CONTROL_DEVICE_NAME?.trim() || fileDeviceName || hostname();
+  const deviceName = env.MIKIKO_REMOTE_CONTROL_DEVICE_NAME?.trim() || fileDeviceName || hostname();
 
   let lastFocusedWebContentsId: number | null = null;
   app.on("browser-window-focus", (_event, win) => {

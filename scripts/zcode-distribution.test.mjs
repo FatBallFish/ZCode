@@ -35,7 +35,7 @@ import { writeFile } from 'node:fs/promises';
 await writeFile(process.env.FIXTURE_WEB_RESULT, JSON.stringify({
   cwd: process.cwd(), port: process.env.PORT, host: process.env.ZCODE_SERVER_HOST,
   workspace: process.env.ZCODE_SERVER_WORKSPACE, staticRoot: process.env.ZCODE_WEB_STATIC_ROOT,
-  command: process.env.ZCODE_AGENT_SERVER_COMMAND, args: JSON.parse(process.env.ZCODE_AGENT_SERVER_ARGS_JSON),
+  command: process.env.MIKIKO_AGENT_SERVER_COMMAND, args: JSON.parse(process.env.MIKIKO_AGENT_SERVER_ARGS_JSON),
   token: process.env.ZCODE_SERVER_AUTH_TOKEN,
 }));
 process.on('SIGTERM', () => process.exit(0));

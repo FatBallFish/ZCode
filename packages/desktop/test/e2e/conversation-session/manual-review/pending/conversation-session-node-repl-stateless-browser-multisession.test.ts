@@ -287,7 +287,7 @@ async function readMcpLogContexts(): Promise<McpLogContext[]> {
 }
 
 async function resolveMcpLogDirs(): Promise<string[]> {
-  const explicit = process.env.ZCODE_LOG_DIR?.trim();
+  const explicit = process.env.MIKIKO_LOG_DIR?.trim();
   if (explicit) return [explicit];
   const artifactDir = process.env.ZCODE_E2E_ARTIFACT_DIR?.trim();
   if (artifactDir) {

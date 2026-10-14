@@ -9,13 +9,13 @@ import {
 // agent 是子进程，继承宿主 process.env；这里在 spawn 时把代理与证书注入进去，所以「下次启动 agent」生效。
 //
 // 代理：设置大写标准三件套保证设置页优先于继承来的同名 shell 变量（model registry 按 HTTPS_PROXY →
-// HTTP_PROXY → … 先匹配大写）；额外设 ZCODE_HTTP_PROXY 让 Bash 工具子进程经 subprocess-env 拿到最高优先级。
+// HTTP_PROXY → … 先匹配大写）；额外设 MIKIKO_HTTP_PROXY 让 Bash 工具子进程经 subprocess-env 拿到最高优先级。
 //
-// No Proxy：只接受设置页显式填写的绕过规则。额外设 ZCODE_NO_PROXY 让 provider/http adapter
+// No Proxy：只接受设置页显式填写的绕过规则。额外设 MIKIKO_NO_PROXY 让 provider/http adapter
 // 能在不读取用户 shell NO_PROXY 的前提下复用同一套规则。
 //
 // 自定义证书：只接受设置页显式填写的 PEM 路径。注入 NODE_EXTRA_CA_CERTS 让 agent（含模型 provider 请求）
-// 在 Node 启动时信任它，同时用 ZCODE_AGENT_CA_CERT 给 adapter 和工具子进程补齐跨运行时 CA 变量。
+// 在 Node 启动时信任它，同时用 MIKIKO_AGENT_CA_CERT 给 adapter 和工具子进程补齐跨运行时 CA 变量。
 
 const PROXY_ENV_KEYS = [
   "HTTP_PROXY",
@@ -43,7 +43,7 @@ export function buildAgentCaCertEnv(caCertPath: string | undefined): Record<stri
     return {};
   }
   return {
-    // NODE_EXTRA_CA_CERTS 必须在 Node 进程启动前存在；ZCODE_AGENT_CA_CERT 则给运行时配置、
+    // NODE_EXTRA_CA_CERTS 必须在 Node 进程启动前存在；MIKIKO_AGENT_CA_CERT 则给运行时配置、
     // provider fetch 和工具子进程使用，避免清洗标准 CA 环境后丢失 app 显式注入的证书路径。
     NODE_EXTRA_CA_CERTS: trimmed,
     [ZCODE_AGENT_CA_CERT_ENV_KEY]: trimmed,

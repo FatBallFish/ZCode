@@ -36,7 +36,7 @@ describe("zcodeEndpoint", () => {
     expect(resolveZCodeEndpointOrigin({ env: "production" })).toBe(DEFAULT_ZCODE_ENDPOINT_ORIGIN);
   });
 
-  it("uses ZCODE_BASE_URL style env base as the default endpoint", () => {
+  it("uses MIKIKO_BASE_URL style env base as the default endpoint", () => {
     expect(
       resolveZCodeEndpointOrigin({
         env: "test",
@@ -144,7 +144,7 @@ describe("zcodeEndpoint", () => {
     expect(
       buildRuntimeZCodeEndpointUrls({
         ZCODE_ENV: "test",
-        ZCODE_BASE_URL: "https://zcode.z.ai/ignored/path",
+        MIKIKO_BASE_URL: "https://zcode.z.ai/ignored/path",
       }).zcodePlanAnthropicBaseUrl,
     ).toBe("https://zcode.z.ai/api/v1/zcode-plan/anthropic");
   });
@@ -277,7 +277,7 @@ describe("zcodeEndpoint", () => {
   it("ignores blank runtime endpoint overrides", () => {
     const env = {
       ZCODE_ENV: "test",
-      ZCODE_BASE_URL: " ",
+      MIKIKO_BASE_URL: " ",
       MIKIKO_BASE_URL: "\t",
       ZAI_OAUTH_ORIGIN: "",
       ZAI_TEST_OAUTH_ORIGIN: " ",

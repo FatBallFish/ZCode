@@ -14,7 +14,7 @@ import type { AppSettings } from "@zcode/shared";
 import type { ISettingService } from "../src/setting/setting.js";
 
 const originalHome = process.env.HOME;
-const originalDesktopHome = process.env.ZCODE_DESKTOP_HOME_DIR;
+const originalDesktopHome = process.env.MIKIKO_DESKTOP_HOME_DIR;
 const originalZCodeEnv = process.env.ZCODE_ENV;
 const originalFsFaults = process.env.ZCODE_E2E_FS_FAULTS;
 const originalFsFaultsAllow = process.env.ZCODE_E2E_FS_FAULTS_ALLOW;
@@ -46,7 +46,7 @@ afterEach(() => {
   vi.doUnmock("node:fs/promises");
   vi.restoreAllMocks();
   restoreEnvValue("HOME", originalHome);
-  restoreEnvValue("ZCODE_DESKTOP_HOME_DIR", originalDesktopHome);
+  restoreEnvValue("MIKIKO_DESKTOP_HOME_DIR", originalDesktopHome);
   restoreEnvValue("ZCODE_ENV", originalZCodeEnv);
   restoreEnvValue("ZCODE_E2E_FS_FAULTS", originalFsFaults);
   restoreEnvValue("ZCODE_E2E_FS_FAULTS_ALLOW", originalFsFaultsAllow);
@@ -64,7 +64,7 @@ describe("settingService", () => {
   it("显式桌面 home 覆盖只写隔离实例设置，不污染普通 home", async () => {
     const ordinaryHome = makeTempHome();
     const desktopHome = makeTempHome();
-    process.env.ZCODE_DESKTOP_HOME_DIR = desktopHome;
+    process.env.MIKIKO_DESKTOP_HOME_DIR = desktopHome;
     process.env.ZCODE_ENV = "production";
     const service = await createSettingServiceInHome(ordinaryHome);
     await service.update({ providerFamilyDomain: "bigmodel" });

@@ -261,9 +261,9 @@ function formatZCodeAgentLogDate(now: Date): string {
 }
 
 function resolveZCodeAgentCurrentLogFilePath(now = new Date()): string {
-  const configuredLogDir = process.env.ZCODE_LOG_DIR?.trim();
+  const configuredLogDir = process.env.MIKIKO_LOG_DIR?.trim();
   const logDir = configuredLogDir || join(homedir(), ".mikiko", "cli", "log");
-  return join(logDir, `zcode-${formatZCodeAgentLogDate(now)}.jsonl`);
+  return join(logDir, `mikiko-${formatZCodeAgentLogDate(now)}.jsonl`);
 }
 
 export function createZCodeTaskServiceAdapter(
@@ -4693,7 +4693,7 @@ function mapSessionEvent(
         taskId: params.taskId,
         traceId,
         ...(eventInputId ? { inputId: eventInputId } : {}),
-        error: stringValue(errorPayload.message) ?? "ZCode session failed",
+        error: stringValue(errorPayload.message) ?? "Mikiko session failed",
         // type 是外层错误分类，code 才是 provider/subagent 要展示的真实错误码。
         code: stringValue(errorPayload.code) ?? stringValue(errorPayload.type),
         detail: stringValue(errorPayload.detail),

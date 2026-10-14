@@ -32,7 +32,7 @@ vi.mock("@zcode/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@zcode/shared")>();
   return {
     ...actual,
-    ZCODE_ARMS_RUM_ENDPOINT: "https://example.test/endpoint",
+    MIKIKO_ARMS_RUM_ENDPOINT: "https://example.test/endpoint",
     ZCODE_ENV: "test",
     ZCODE_VERSION: "0.0.0-test",
     mapZCodeEnvToArmsRumEnv: vi.fn(() => "local"),

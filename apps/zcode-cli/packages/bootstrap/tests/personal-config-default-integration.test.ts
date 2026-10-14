@@ -25,8 +25,8 @@ describe("Todo104 CLI 同文件默认选择", () => {
     const personalPath = join(directory, "injected-personal.json");
     const env = {
       ZCODE_CREDENTIAL_SECRET: "todo104-fixture-only",
-      ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalPath,
-      ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: fileURLToPath(
+      MIKIKO_PERSONAL_PROVIDER_CONFIG_FILE: personalPath,
+      MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE: fileURLToPath(
         new URL("../../../../../config/provider/zcode-builtin.json", import.meta.url),
       ),
     };
@@ -93,10 +93,10 @@ describe("Todo104 CLI 同文件默认选择", () => {
     const oldInput = JSON.stringify({ model: "fixture/model-a" });
     await writeFile(legacyPath, oldInput);
     const env = {
-      ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: fileURLToPath(
+      MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE: fileURLToPath(
         new URL("../../../../../config/provider/zcode-builtin.json", import.meta.url),
       ),
-      ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalPath,
+      MIKIKO_PERSONAL_PROVIDER_CONFIG_FILE: personalPath,
     };
     // 不读取测试机账号凭据，只有迁移和正式文件读写参与本用例。
     const credentialStore = { loadMany: async () => ({}) } as unknown as SharedZCodeCredentialStore;

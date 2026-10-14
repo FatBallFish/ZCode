@@ -185,7 +185,7 @@ export const runPrompt = async (
     const sessionId = await resolveResumeSession(resumeRequest, workingDirectory, env, deps);
     const bootstrapModule = deps.createZCodeApp ? undefined : await loadBootstrapModule();
     const createApp = deps.createZCodeApp ?? bootstrapModule?.createZCodeApp;
-    if (!createApp) throw new Error("ZCode app factory is unavailable.");
+    if (!createApp) throw new Error("Mikiko app factory is unavailable.");
     const streamsEvents = wantsEventStream(options);
     let mapSessionEvent: NonNullable<RunDependencies["mapSessionEvent"]> | undefined;
     if (streamsEvents) {
@@ -208,7 +208,7 @@ export const runPrompt = async (
     const appEnv = prepareTelemetry
       ? await prepareTelemetry(env, {
           cliVersion: version,
-          productVersion: env.ZCODE_APP_VERSION,
+          productVersion: env.MIKIKO_APP_VERSION,
         })
       : env;
     const startProviderRegistryRuntime =

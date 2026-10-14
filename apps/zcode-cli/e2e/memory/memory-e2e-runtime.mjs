@@ -300,7 +300,7 @@ function createApp(input) {
   const env = {
     ...process.env,
     ZCODE_ENV: "test",
-    ZCODE_STORAGE_DIR: input.storageRoot,
+    MIKIKO_STORAGE_DIR: input.storageRoot,
   };
   const target = {
     apiKey: "memory-e2e-key",

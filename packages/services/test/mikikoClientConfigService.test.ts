@@ -4,7 +4,7 @@ import type { ApiClient } from "@zcode/shared";
 import { createMikikoClientConfigService } from "../src/model-provider/mikikoClientConfigService.js";
 
 const URL_ENV_KEY = "MIKIKO_CLIENT_CONFIG_URL";
-const MODE_ENV_KEY = "ZCODE_DYNAMIC_WORKFLOW_MODE";
+const MODE_ENV_KEY = "MIKIKO_DYNAMIC_WORKFLOW_MODE";
 
 function createMockApiClient(handler: (url: URL) => Response): ApiClient & { requests: string[] } {
   const requests: string[] = [];

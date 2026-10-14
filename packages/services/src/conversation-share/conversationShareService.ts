@@ -714,7 +714,7 @@ export class ConversationShareService implements IConversationShareService {
       options.conversationWorkspaceRoot ?? getConversationWorkspaceDir();
     // 分享落地页改走 Mikiko 自建站（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.3，
     // 彻底移除官方分享）：优先级 显式 option > MIKIKO_SHARE_WEB_URL > 自建默认
-    // agent.mikiko.ai/cn/share。旧 ZCODE_CONVERSATION_SHARE_WEB_URL 不再读取。
+    // agent.mikiko.ai/cn/share。旧 MIKIKO_CONVERSATION_SHARE_WEB_URL 不再读取。
     // 统一走 resolver（review S5）：直读 env 会让 "disabled/off" 字面量进链接生成
     // `disabled/<code>`。disabled 语义下分享 API 侧已整体降级，这里回落自建默认即可。
     this.shareWebUrl = (

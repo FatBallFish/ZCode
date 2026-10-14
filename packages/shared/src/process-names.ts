@@ -1,4 +1,5 @@
-const ZCODE_PROCESS_PREFIX = "zcode";
+// 2026-10-15 品牌化：进程名前缀 zcode→mikiko（ps/活动监视器可见）。常量名保持代码符号不变。
+const ZCODE_PROCESS_PREFIX = "mikiko";
 const MAX_PROCESS_NAME_SEGMENT_LENGTH = 24;
 
 function sanitizeProcessNameSegment(value: string | null | undefined): string | null {
@@ -49,7 +50,7 @@ export function formatZCodeHostProcessName(label?: string): string {
 
 export function formatZCodeRendererProcessName(windowTitle?: string): string {
   const normalizedTitle = windowTitle?.trim();
-  if (!normalizedTitle || normalizedTitle === "ZCode") {
+  if (!normalizedTitle || normalizedTitle === "Mikiko" || normalizedTitle === "ZCode") {
     return joinZCodeProcessName("renderer", "main");
   }
 
@@ -57,13 +58,15 @@ export function formatZCodeRendererProcessName(windowTitle?: string): string {
     return joinZCodeProcessName("renderer", "resource-manager");
   }
 
-  const remoteWindowPrefix = "ZCode - ";
-  if (normalizedTitle.startsWith(remoteWindowPrefix)) {
-    return joinZCodeProcessName(
-      "renderer",
-      "remote",
-      normalizedTitle.slice(remoteWindowPrefix.length),
-    );
+  const remoteWindowPrefixes = ["Mikiko - ", "ZCode - "];
+  for (const remoteWindowPrefix of remoteWindowPrefixes) {
+    if (normalizedTitle.startsWith(remoteWindowPrefix)) {
+      return joinZCodeProcessName(
+        "renderer",
+        "remote",
+        normalizedTitle.slice(remoteWindowPrefix.length),
+      );
+    }
   }
 
   return joinZCodeProcessName("renderer", normalizedTitle);

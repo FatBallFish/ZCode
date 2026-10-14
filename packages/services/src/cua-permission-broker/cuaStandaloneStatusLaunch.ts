@@ -26,7 +26,7 @@ export function resolveStandaloneStatusLaunchCandidates(
   // dev 是独立子根 `dev/` 且 app 名换成 DEV_HELPER_APP_NAME；preview 是独立子根 `preview/`
   // 但沿用稳定 app 名（分根是因为 build id 不同，共享根会互相覆盖安装）。
   // dev 的两种名字都保留：一键 dev bundle 也可能装成稳定名，漏掉会导致设置页拉起静默失败。
-  const home = env.ZCODE_HOME?.trim() || join(homedir(), ".mikiko");
+  const home = env.MIKIKO_HOME?.trim() || join(homedir(), ".mikiko");
   const baseRoot = join(home, "computer-use");
   candidates.push(
     join(baseRoot, "dev", DEV_HELPER_APP_NAME),

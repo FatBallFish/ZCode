@@ -1016,7 +1016,7 @@ async function writeLifecyclePlugin(pluginRoot: string, version: string): Promis
       lifecycle: {
         type: "stdio",
         command: "node",
-        args: ["${ZCODE_PLUGIN_ROOT}/server.mjs", version],
+        args: ["${MIKIKO_PLUGIN_ROOT}/server.mjs", version],
       },
     },
     userConfig: {

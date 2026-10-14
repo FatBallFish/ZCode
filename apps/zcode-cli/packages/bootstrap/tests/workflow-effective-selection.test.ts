@@ -29,7 +29,7 @@ describe("Workflow 内显式 Subagent 的有效选择", () => {
       const executed: string[] = [];
       let requestedChild = false;
       const app = await createRegistryBackedTestApp({
-        env: { ZCODE_HOME: root },
+        env: { MIKIKO_HOME: root },
         skipUserConfig: true,
         sessionStore: store,
         providerRegistry: createTestProviderRegistry([parent, effective]),

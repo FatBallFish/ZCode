@@ -53,7 +53,7 @@ describe("dev desktop remote production-like script", () => {
       {
         ZCODE_ENV: "test",
         ZCODE_DEV_REMOTE_ASSET_USE_CDN: "0",
-        ZCODE_REMOTE_ASSET_CACHE_DIR: "/tmp/custom-cache",
+        MIKIKO_REMOTE_ASSET_CACHE_DIR: "/tmp/custom-cache",
       },
       "darwin",
       "/Users/alice",
@@ -61,7 +61,7 @@ describe("dev desktop remote production-like script", () => {
 
     expect(env.ZCODE_ENV).toBe("production");
     expect(env.ZCODE_DEV_REMOTE_ASSET_USE_CDN).toBe("1");
-    expect(env.ZCODE_REMOTE_ASSET_CACHE_DIR).toBe("/tmp/custom-cache");
+    expect(env.MIKIKO_REMOTE_ASSET_CACHE_DIR).toBe("/tmp/custom-cache");
   });
 
   it("Windows 下应使用 pnpm.cmd 启动", () => {

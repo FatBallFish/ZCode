@@ -5,7 +5,7 @@ import { ZCODE_AGENT_RUNTIME, sanitizeZCodeRuntimeEnvInPlace } from "@zcode/shar
 import { getDataBaseDir, getProviderWorkspaceConfigDir } from "../paths.js";
 import { buildRuntimeProcessEnvPatch } from "./runtimeCommandEnv.js";
 
-const ZCODE_AGENT_WORKDIR_ENV = "ZCODE_AGENT_WORKDIR";
+const ZCODE_AGENT_WORKDIR_ENV = "MIKIKO_AGENT_WORKDIR";
 
 /** 返回 provider + workspace 在应用内的专属配置目录路径 */
 export function resolveProviderConfigDir(
@@ -143,7 +143,7 @@ export function findZCodeAgentRuntimeBinary(): string | null {
  * 查找 agent 的 JS bundle（resources/glm/zcode.cjs）。
  * 桌面打包态用 app 内置的 Electron Node runtime 直接执行这个 bundle，不再随包内置独立 Node 二进制。
  * 候选目录与 findZCodeAgentRuntimeBinary 完全平行，只是入口换成平台无关的 nodeBundleEntryFile。
- * 不查 GLM_BINARY_PATH——那个 env 指向原生二进制，语义不同。
+ * 不查 MIKIKO_AGENT_BINARY_PATH——那个 env 指向原生二进制，语义不同。
  */
 export function findZCodeAgentRuntimeNodeBundle(): string | null {
   const runtime = ZCODE_AGENT_RUNTIME;
@@ -172,7 +172,7 @@ export function findBinary(provider: string): string | null {
   if (provider !== "glm") {
     return null;
   }
-  // GLM 开发态：ZCODE_AGENT_WORKDIR 或相邻目录发现，返回源码入口路径作为 "binary"
+  // GLM 开发态：MIKIKO_AGENT_WORKDIR 或相邻目录发现，返回源码入口路径作为 "binary"
   const devEntry = findGlmDevEntry();
   if (devEntry) {
     return devEntry.agentPath;
@@ -182,7 +182,7 @@ export function findBinary(provider: string): string | null {
 
 /**
  * GLM 开发态源码入口发现。
- * 优先读取 ZCODE_AGENT_WORKDIR。
+ * 优先读取 MIKIKO_AGENT_WORKDIR。
  * 未设置时在 cwd 相邻目录查找 zcode-cli / glm。
  */
 interface GlmDevEntry {

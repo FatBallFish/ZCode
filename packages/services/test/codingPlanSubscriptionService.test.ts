@@ -95,8 +95,8 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
 
   it("读取手动领取 preview 并归一化 plans", async () => {
     vi.stubEnv("MIKIKO_ENDPOINT_ORIGIN", "https://preview.example.com");
-    // Bugfix: 开发机 ambient ZCODE_BASE_URL 优先级高于 ZCODE_ENDPOINT_ORIGIN，置空避免 preview 域被生产域覆盖
-    vi.stubEnv("ZCODE_BASE_URL", "");
+    // Bugfix: 开发机 ambient MIKIKO_BASE_URL 优先级高于 MIKIKO_ENDPOINT_ORIGIN，置空避免 preview 域被生产域覆盖
+    vi.stubEnv("MIKIKO_BASE_URL", "");
     const apiClient: ApiClient = {
       request: vi.fn(async () =>
         createJsonResponse({

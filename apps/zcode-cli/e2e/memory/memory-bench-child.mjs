@@ -58,8 +58,8 @@ try {
       env: {
         ...process.env,
         ZCODE_ENV: "test",
-        ZCODE_STORAGE_DIR: settings.storageRoot,
-        ZCODE_MODEL_TELEMETRY_ENABLED: "false",
+        MIKIKO_STORAGE_DIR: settings.storageRoot,
+        MIKIKO_MODEL_TELEMETRY_ENABLED: "false",
       },
       skipUserConfig: true,
       loadDotenv: () => ({ keys: [], loaded: false }),

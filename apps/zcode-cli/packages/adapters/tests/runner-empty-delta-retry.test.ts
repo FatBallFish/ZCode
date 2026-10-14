@@ -126,7 +126,7 @@ function harness(options: {
     },
   };
   const adapter = new AiSdkModelAdapter({
-    env: { ZCODE_RUNTIME_ENV: "test" },
+    env: { MIKIKO_RUNTIME_ENV: "test" },
     runtime,
     retry: { maxAttempts: MAX_ATTEMPTS, baseDelayMs: 0, maxDelayMs: 0, jitter: false },
     streamIdleTimeoutMs: STREAM_IDLE_TIMEOUT_MS,

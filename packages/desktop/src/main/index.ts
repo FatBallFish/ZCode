@@ -81,7 +81,7 @@ import {
   PlatformChannels,
   ZCODE_ENV,
   ZCODE_PRODUCT_FLAVOR,
-  ZCODE_UPDATES_ENABLED,
+  MIKIKO_UPDATES_ENABLED,
   DEFAULT_ZCODE_ENDPOINT_ORIGIN,
   DEFAULT_LOCALE,
   TEST_ZCODE_ENDPOINT_ORIGIN,
@@ -94,8 +94,8 @@ import {
   shouldEnableE2ETestBridge,
   type TelemetryEventPayload,
   type UpdateStatePayload,
-  ZCODE_ARMS_RUM_ENDPOINT,
-  ZCODE_TELEMETRY_ENABLED,
+  MIKIKO_ARMS_RUM_ENDPOINT,
+  MIKIKO_TELEMETRY_ENABLED,
 } from "@zcode/shared";
 import { logger, webRemoteControlRelayLogger } from "./logger.js";
 import { markMainLaunchAppReady } from "./desktopLaunchMarks.js";
@@ -312,7 +312,7 @@ const localMediaPreviewPathRegistry = createLocalMediaPreviewPathRegistry();
 // e2e 由 Chromedriver 管理远程调试端口；如果这里继续固定到 9229，
 // 会和开发态已打开的 ZCode Dev 抢端口，导致 WebDriver session 创建前白屏超时。
 // 仅本地开发运行默认开启远程调试端口，并允许 e2e 通过环境变量交给 Chromedriver 接管。
-if (!app.isPackaged && process.env.ZCODE_DISABLE_FIXED_REMOTE_DEBUGGING_PORT !== "1") {
+if (!app.isPackaged && process.env.MIKIKO_DISABLE_FIXED_REMOTE_DEBUGGING_PORT !== "1") {
   app.commandLine.appendSwitch("remote-debugging-port", "9229");
 }
 
@@ -1122,8 +1122,8 @@ const defaultZCodeEndpointUrls = buildZCodeEndpointUrls(DEFAULT_ZCODE_ENDPOINT_O
   appVersion: webRemoteControlAppVersion,
 });
 const webRemoteControlRelayWsEnvOverride =
-  process.env["ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL"]?.trim();
-const webRemoteControlUrlEnvOverride = process.env["ZCODE_WEB_REMOTE_CONTROL_URL"]?.trim();
+  process.env["MIKIKO_WEB_REMOTE_CONTROL_RELAY_WS_URL"]?.trim();
+const webRemoteControlUrlEnvOverride = process.env["MIKIKO_WEB_REMOTE_CONTROL_URL"]?.trim();
 
 function extractOpenWorkspacePathFromDeepLinkUrl(url: string): string | null {
   try {
@@ -2732,10 +2732,10 @@ app.whenReady().then(async () => {
   // 启动自动更新检查（后台执行，不阻塞主界面）
   // Preview 身份无论连接哪个后端都不自动更新：stable feed 上只分发正式 ZCode 安装包，
   // 不向 Preview 渠道提供更新。
-  // 更新走 Mikiko 自建更新服务，由 ZCODE_UPDATES_ENABLED 控制启用；上游构建期宏
+  // 更新走 Mikiko 自建更新服务，由 MIKIKO_UPDATES_ENABLED 控制启用；上游构建期宏
   // ZCODE_AUTO_UPDATE_ENABLED 在开源构建默认关闭，不参与本构建的更新开关决策。
   void initAutoUpdater({
-    enabled: ZCODE_PRODUCT_FLAVOR === "production" && ZCODE_UPDATES_ENABLED,
+    enabled: ZCODE_PRODUCT_FLAVOR === "production" && MIKIKO_UPDATES_ENABLED,
     onBeforeQuitAndInstall: async () => {
       notifyStabilityLifecycle("update_install");
       await prepareAppQuit("auto-update quitAndInstall", "update-install");
@@ -3017,7 +3017,7 @@ app.whenReady().then(async () => {
     isZCodeBusy: () => getRunningAgentSessionCount() > 0,
     logger,
     rootPath: getZCodeDataRootDir(),
-    stateFile: join(app.getPath("userData"), "zcode-data-size-telemetry.json"),
+    stateFile: join(app.getPath("userData"), "mikiko-data-size-telemetry.json"),
   });
   registerDesktopNetworkTelemetry(logger);
 
@@ -3027,12 +3027,12 @@ app.whenReady().then(async () => {
   // 分支不 bump 版本），会被 release minimalVersion 误判为"需强制升级"而启动秒退。force-update
   // 是面向打包发布客户端的安全门，对未打包 dev 运行时无意义。打包版 app.isPackaged === true，
   // gate 照常生效，对真实用户零影响。
-  // 另：更新系统尚未搭建，ZCODE_UPDATES_ENABLED 临时屏蔽强更配置请求；恢复时改回 true 即可。
+  // 另：更新系统尚未搭建，MIKIKO_UPDATES_ENABLED 临时屏蔽强更配置请求；恢复时改回 true 即可。
   const skipForceUpdateForLocalDevRuntime = !app.isPackaged;
   const forceUpdateGuardResult =
     ZCODE_PRODUCT_FLAVOR === "production" &&
     !skipForceUpdateForLocalDevRuntime &&
-    ZCODE_UPDATES_ENABLED
+    MIKIKO_UPDATES_ENABLED
       ? await maybeBlockStartupForForceUpdate({
           locale: currentApplicationLocale,
           logger,
@@ -3043,7 +3043,7 @@ app.whenReady().then(async () => {
           },
         })
       : { blocked: false };
-  if (!ZCODE_UPDATES_ENABLED) {
+  if (!MIKIKO_UPDATES_ENABLED) {
     logger.info("[force-update] 更新系统未启用，跳过远端强制升级检查");
   } else if (ZCODE_PRODUCT_FLAVOR !== "production") {
     logger.info("[force-update] Preview 跳过远端强制升级检查");

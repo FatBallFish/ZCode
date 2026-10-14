@@ -103,7 +103,7 @@ describe("project MCP config", () => {
           mcpServers: {
             "ios-simulator": {
               command: "node",
-              args: ["${ZCODE_PLUGIN_ROOT}/server.js"],
+              args: ["${MIKIKO_PLUGIN_ROOT}/server.js"],
             },
           },
         }),

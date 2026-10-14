@@ -161,7 +161,7 @@ describe("browser capability manifest", () => {
   it("browser skill resolves its client from the host-provided plugin root", () => {
     const skill = readFileSync(skillPath, "utf8");
 
-    expect(skill).toContain("process.env.ZCODE_PLUGIN_ROOT");
+    expect(skill).toContain("process.env.MIKIKO_PLUGIN_ROOT");
     expect(skill).toContain("process.env.CLAUDE_PLUGIN_ROOT");
     expect(skill).toContain('await import("node:path")');
     expect(skill).toContain('await import("node:url")');
@@ -178,7 +178,7 @@ describe("browser capability manifest", () => {
     if (!bootstrapSource) return;
 
     const pluginRoot = await mkdtemp(join(tmpdir(), "zcode-browser-skill-"));
-    const previousPluginRoot = process.env.ZCODE_PLUGIN_ROOT;
+    const previousPluginRoot = process.env.MIKIKO_PLUGIN_ROOT;
     let session: NodeReplSession | undefined;
     try {
       await mkdir(join(pluginRoot, "scripts"), { recursive: true });
@@ -191,7 +191,7 @@ describe("browser capability manifest", () => {
         ].join("\n"),
         "utf8",
       );
-      process.env.ZCODE_PLUGIN_ROOT = pluginRoot;
+      process.env.MIKIKO_PLUGIN_ROOT = pluginRoot;
       session = new NodeReplSession({ restrictProcess: true });
 
       // 修复原因：生产 Skill 的 base directory 位于 skills/control-browser，必须证明模板只信任宿主根目录。
@@ -203,9 +203,9 @@ describe("browser capability manifest", () => {
     } finally {
       session?.dispose();
       if (previousPluginRoot === undefined) {
-        delete process.env.ZCODE_PLUGIN_ROOT;
+        delete process.env.MIKIKO_PLUGIN_ROOT;
       } else {
-        process.env.ZCODE_PLUGIN_ROOT = previousPluginRoot;
+        process.env.MIKIKO_PLUGIN_ROOT = previousPluginRoot;
       }
       await rm(pluginRoot, { force: true, recursive: true });
     }

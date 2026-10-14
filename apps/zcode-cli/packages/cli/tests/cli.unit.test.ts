@@ -188,7 +188,7 @@ test("prepares a sanitized CLI runtime env with ZCode-owned runtime keys", () =>
     NODE_ENV: "development",
     HTTP_PROXY: "http://ambient-proxy:8080",
     NODE_EXTRA_CA_CERTS: "/tmp/ambient-ca.pem",
-    ZCODE_HTTP_PROXY: "http://zcode-proxy:8080",
+    MIKIKO_HTTP_PROXY: "http://zcode-proxy:8080",
     no_proxy: ".example.test",
     npm_config_proxy: "http://npm-proxy:8080",
   };
@@ -196,8 +196,8 @@ test("prepares a sanitized CLI runtime env with ZCode-owned runtime keys", () =>
   const env = prepareCliRuntimeEnv(sourceEnv, ["/usr/bin/node", "/workspace/bin/zcode.js"]);
   const toolEnv = readZCodeToolEnvPassthroughEnv(env);
 
-  assert.equal(env.ZCODE_RUNTIME_ENV, "production");
-  assert.equal(env.ZCODE_HTTP_PROXY, "http://zcode-proxy:8080");
+  assert.equal(env.MIKIKO_RUNTIME_ENV, "production");
+  assert.equal(env.MIKIKO_HTTP_PROXY, "http://zcode-proxy:8080");
   assert.ok(env[ZCODE_TOOL_ENV_PASSTHROUGH_ENV_KEY]);
   assert.deepEqual(toolEnv, {
     HTTP_PROXY: "http://ambient-proxy:8080",
@@ -216,24 +216,24 @@ test("prepares a sanitized CLI runtime env with ZCode-owned runtime keys", () =>
 test("prepares beta CLI runtime env with beta storage root", () => {
   const env = prepareCliRuntimeEnv(
     {
-      ZCODE_BETA: "1",
+      MIKIKO_BETA: "1",
     },
     ["/usr/bin/node", "/workspace/bin/zcode.js"],
   );
 
-  assert.equal(env.ZCODE_STORAGE_DIR, join(homedir(), ".zcode-beta"));
+  assert.equal(env.MIKIKO_STORAGE_DIR, join(homedir(), ".zcode-beta"));
 });
 
 test("preserves explicit storage root when beta mode is enabled", () => {
   const env = prepareCliRuntimeEnv(
     {
-      ZCODE_BETA: "1",
-      ZCODE_STORAGE_DIR: "/tmp/custom-zcode-home",
+      MIKIKO_BETA: "1",
+      MIKIKO_STORAGE_DIR: "/tmp/custom-zcode-home",
     },
     ["/usr/bin/node", "/workspace/bin/zcode.js"],
   );
 
-  assert.equal(env.ZCODE_STORAGE_DIR, "/tmp/custom-zcode-home");
+  assert.equal(env.MIKIKO_STORAGE_DIR, "/tmp/custom-zcode-home");
 });
 
 test("opens the TUI by default", async () => {
@@ -288,7 +288,7 @@ test("passes developer mode, version, and workspace git branch into the TUI", as
     ...createPromptDeps(),
     cwd: () => workspaceDirectory,
     env: {
-      ZCODE_RUNTIME_ENV: "development",
+      MIKIKO_RUNTIME_ENV: "development",
     },
     resolveWorkspaceGitBranch: async (options) => {
       assert.equal(options.workspaceDirectory, workspaceDirectory);
@@ -4714,7 +4714,7 @@ test("loads nearest dotenv without overriding shell env", async () => {
     await mkdir(nested, { recursive: true });
     await writeFile(
       join(tempRoot, ".env"),
-      ["ZCODE_API_KEY=from-file", "ZCODE_BASE_URL=https://example.test"].join("\n"),
+      ["ZCODE_API_KEY=from-file", "MIKIKO_BASE_URL=https://example.test"].join("\n"),
     );
 
     const env: NodeJS.ProcessEnv = {
@@ -4724,9 +4724,9 @@ test("loads nearest dotenv without overriding shell env", async () => {
 
     assert.equal(findDotenv(nested), join(tempRoot, ".env"));
     assert.equal(result.loaded, true);
-    assert.deepEqual(result.keys.sort(), ["ZCODE_API_KEY", "ZCODE_BASE_URL"].sort());
+    assert.deepEqual(result.keys.sort(), ["ZCODE_API_KEY", "MIKIKO_BASE_URL"].sort());
     assert.equal(env.ZCODE_API_KEY, "from-shell");
-    assert.equal(env.ZCODE_BASE_URL, "https://example.test");
+    assert.equal(env.MIKIKO_BASE_URL, "https://example.test");
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

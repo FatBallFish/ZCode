@@ -1332,13 +1332,15 @@ export function isWorkspacePluginConfigPath(
   path: string,
   platform: NodeJS.Platform = process.platform,
 ): boolean {
+  // 2026-10-15 品牌化修复：workspace 插件配置实际写 .mikiko/config.json，但识别仍只认
+  // .zcode/config.json——新配置会被判为非工作区配置（同步/清理漏认）。统一认 .mikiko。
   if (platform === "win32") {
     return (
       win32.basename(path).toLowerCase() === "config.json" &&
-      win32.basename(win32.dirname(path)).toLowerCase() === ".zcode"
+      win32.basename(win32.dirname(path)).toLowerCase() === ".mikiko"
     );
   }
-  return basename(path) === "config.json" && basename(dirname(path)) === ".zcode";
+  return basename(path) === "config.json" && basename(dirname(path)) === ".mikiko";
 }
 
 export function resolveMarketplaceRefreshTargetIds(input: {

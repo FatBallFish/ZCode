@@ -87,8 +87,8 @@ describe("ConversationShareMockApiClient", () => {
     vi.unstubAllEnvs();
   });
 
-  it("uses ZCODE_CONVERSATION_SHARE_WEB_URL for generated mock links", async () => {
-    vi.stubEnv("ZCODE_CONVERSATION_SHARE_WEB_URL", "http://127.0.0.1:5173/cn/share");
+  it("uses MIKIKO_CONVERSATION_SHARE_WEB_URL for generated mock links", async () => {
+    vi.stubEnv("MIKIKO_CONVERSATION_SHARE_WEB_URL", "http://127.0.0.1:5173/cn/share");
     const apiClient = new ConversationShareMockApiClient({ now: () => 10_000 });
     const { share } = await publish(apiClient, "public_readonly");
 

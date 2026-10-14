@@ -23,7 +23,7 @@ afterEach(async () => {
 describe("HttpClientPort through a proxy", () => {
   it("returns a nonstandard status such as 999 as an ordinary response", async () => {
     const proxy = await answeringProxy(999);
-    const adapter = createNodeHttpClientAdapter({ env: { ZCODE_HTTP_PROXY: proxy } });
+    const adapter = createNodeHttpClientAdapter({ env: { MIKIKO_HTTP_PROXY: proxy } });
 
     const response = await adapter.request({ url: "http://profiles.example/in/someone" });
 
@@ -33,7 +33,7 @@ describe("HttpClientPort through a proxy", () => {
 
   it.each([204, 304])("returns %i with an empty body", async (status) => {
     const proxy = await answeringProxy(status);
-    const adapter = createNodeHttpClientAdapter({ env: { ZCODE_HTTP_PROXY: proxy } });
+    const adapter = createNodeHttpClientAdapter({ env: { MIKIKO_HTTP_PROXY: proxy } });
 
     const response = await adapter.request({ url: "http://profiles.example/in/someone" });
 

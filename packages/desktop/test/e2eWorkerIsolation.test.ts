@@ -76,8 +76,8 @@ describe("desktop e2e worker isolation", () => {
 
   it("routes BG25 and I55 through replay proxy while keeping BG26 direct", () => {
     const env: Record<string, string | undefined> = {
-      ZCODE_HTTP_PROXY: "http://configured-proxy:8080",
-      ZCODE_NO_PROXY: "localhost",
+      MIKIKO_HTTP_PROXY: "http://configured-proxy:8080",
+      MIKIKO_NO_PROXY: "localhost",
     };
 
     applyE2EWorkerReplayProxyEnv(
@@ -89,8 +89,8 @@ describe("desktop e2e worker isolation", () => {
         noProxy: "localhost",
       },
     );
-    expect(env.ZCODE_HTTP_PROXY).toBe("http://configured-proxy:8080");
-    expect(env.ZCODE_NO_PROXY).toBe("localhost");
+    expect(env.MIKIKO_HTTP_PROXY).toBe("http://configured-proxy:8080");
+    expect(env.MIKIKO_NO_PROXY).toBe("localhost");
 
     applyE2EWorkerReplayProxyEnv(
       env,
@@ -103,8 +103,8 @@ describe("desktop e2e worker isolation", () => {
         noProxy: "localhost",
       },
     );
-    expect(env.ZCODE_HTTP_PROXY).toBe("http://127.0.0.1:43126");
-    expect(env.ZCODE_NO_PROXY).toBe("");
+    expect(env.MIKIKO_HTTP_PROXY).toBe("http://127.0.0.1:43126");
+    expect(env.MIKIKO_NO_PROXY).toBe("");
 
     applyE2EWorkerReplayProxyEnv(
       env,
@@ -115,8 +115,8 @@ describe("desktop e2e worker isolation", () => {
         noProxy: "localhost",
       },
     );
-    expect(env.ZCODE_HTTP_PROXY).toBe("http://127.0.0.1:43125");
-    expect(env.ZCODE_NO_PROXY).toBe("");
+    expect(env.MIKIKO_HTTP_PROXY).toBe("http://127.0.0.1:43125");
+    expect(env.MIKIKO_NO_PROXY).toBe("");
 
     applyE2EWorkerReplayProxyEnv(
       env,
@@ -127,8 +127,8 @@ describe("desktop e2e worker isolation", () => {
         noProxy: "localhost",
       },
     );
-    expect(env.ZCODE_HTTP_PROXY).toBe("http://configured-proxy:8080");
-    expect(env.ZCODE_NO_PROXY).toBe("localhost");
+    expect(env.MIKIKO_HTTP_PROXY).toBe("http://configured-proxy:8080");
+    expect(env.MIKIKO_NO_PROXY).toBe("localhost");
 
     applyE2EWorkerReplayProxyEnv(
       env,
@@ -136,8 +136,8 @@ describe("desktop e2e worker isolation", () => {
       "http://127.0.0.1:43124",
       { httpProxy: undefined, noProxy: undefined },
     );
-    expect(env.ZCODE_HTTP_PROXY).toBeUndefined();
-    expect(env.ZCODE_NO_PROXY).toBeUndefined();
+    expect(env.MIKIKO_HTTP_PROXY).toBeUndefined();
+    expect(env.MIKIKO_NO_PROXY).toBeUndefined();
   });
 
   it("shortens stream idle recovery only for BG25 and I55 replay workers", () => {

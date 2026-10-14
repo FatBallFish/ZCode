@@ -9,7 +9,7 @@
   "mcpServers": {
     "android-emulator": {
       "command": "node",
-      "args": ["${ZCODE_PLUGIN_ROOT}/dist/mcp/server.js"],
+      "args": ["${MIKIKO_PLUGIN_ROOT}/dist/mcp/server.js"],
       "cwd": "${ZCODE_PROJECT_DIR}",
       "env": {
         "ANDROID_PLUGIN_DATA": "${ZCODE_PLUGIN_DATA}",

@@ -13,7 +13,7 @@ if (!process.argv[2])
 const cli = resolve(process.argv[2]);
 const root = await mkdtemp(join(tmpdir(), "zcode-dev-workflow-"));
 const execute = promisify(execFile);
-const env = { ...process.env, ZCODE_STORAGE_DIR: join(root, "storage") };
+const env = { ...process.env, MIKIKO_STORAGE_DIR: join(root, "storage") };
 async function command(...args) {
   const { stdout } = await execute(process.execPath, [cli, "plugins", ...args, "--json"], {
     cwd: root,

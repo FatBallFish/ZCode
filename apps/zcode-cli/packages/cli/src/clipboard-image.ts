@@ -30,7 +30,7 @@ type NodeClipboardImageReaderOptions = {
 };
 
 function resolveDefaultClipboardDirectory(processEnv: NodeJS.ProcessEnv = process.env): string {
-  const storageRoot = processEnv.ZCODE_STORAGE_DIR?.trim() || join(homedir(), ".mikiko");
+  const storageRoot = processEnv.MIKIKO_STORAGE_DIR?.trim() || join(homedir(), ".mikiko");
   return join(storageRoot, "clipboard");
 }
 

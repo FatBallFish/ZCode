@@ -8,7 +8,7 @@ The goal is to make the environment ready with deterministic shell commands, the
 
 The plugin manifest exposes the Android SDK path, default AVD, JDK major version,
 Android API level, build-tools version, and system image variant/ABI as user
-config. ZCode/OpenCLI passes those values to the MCP server as `ANDROID_PLUGIN_*`
+config. Mikiko/OpenCLI passes those values to the MCP server as `ANDROID_PLUGIN_*`
 environment variables, and `android_preflight` reports the effective defaults.
 
 Use those configured values instead of inventing versions. The documented fallback defaults are:

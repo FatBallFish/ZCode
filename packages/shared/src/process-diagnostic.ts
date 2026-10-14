@@ -6,7 +6,7 @@ export const ZCODE_PROCESS_DIAGNOSTIC_NAME_MAX_CHARS = 128;
 export const ZCODE_PROCESS_DIAGNOSTIC_MESSAGE_MAX_CHARS = 4_000;
 export const ZCODE_PROCESS_DIAGNOSTIC_STACK_MAX_CHARS = 16_000;
 export const ZCODE_PROCESS_DIAGNOSTIC_MAX_LINE_CHARS = 128 * 1024;
-export const ZCODE_AGENT_LIFECYCLE_LOG_MARKER = "[zcode-agent-lifecycle-reported]";
+export const ZCODE_AGENT_LIFECYCLE_LOG_MARKER = "[mikiko-agent-lifecycle-reported]";
 
 const processErrorKindSchema = z.enum(["uncaughtException", "unhandledRejection"]);
 export const zcodeProcessDiagnosticSchema = z

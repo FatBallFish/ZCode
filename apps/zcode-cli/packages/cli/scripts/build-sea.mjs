@@ -238,11 +238,11 @@ const smokeTestHostTarget = async (target, binaryPath) => {
     try {
       const env = {
         ...process.env,
-        ZCODE_STORAGE_DIR: storageRoot,
+        MIKIKO_STORAGE_DIR: storageRoot,
       };
-      delete env.ZCODE_BFS_BINARY;
-      delete env.ZCODE_RG_BINARY;
-      delete env.ZCODE_UGREP_BINARY;
+      delete env.MIKIKO_BFS_BINARY;
+      delete env.MIKIKO_RG_BINARY;
+      delete env.MIKIKO_UGREP_BINARY;
       run(binaryPath, ["--version"], {
         env,
       });

@@ -134,7 +134,7 @@ describe("Node logging adapter", () => {
 
     try {
       const logger = createNodeLoggerFactory({
-        env: { ZCODE_RUNTIME_ENV: "development" },
+        env: { MIKIKO_RUNTIME_ENV: "development" },
         logDir,
       }).createLogger("test");
 
@@ -169,12 +169,12 @@ describe("Node logging adapter", () => {
     }
   });
 
-  it("ignores ZCODE_LOG_LEVEL so development mode keeps debug logging", async () => {
+  it("ignores MIKIKO_LOG_LEVEL so development mode keeps debug logging", async () => {
     const logDir = await mkdtemp(join(tmpdir(), "zcode-log-dev-env-ignored-"));
 
     try {
       const logger = createNodeLoggerFactory({
-        env: { ZCODE_RUNTIME_ENV: "development", ZCODE_LOG_LEVEL: "info" },
+        env: { MIKIKO_RUNTIME_ENV: "development", MIKIKO_LOG_LEVEL: "info" },
         logDir,
       }).createLogger("test");
 

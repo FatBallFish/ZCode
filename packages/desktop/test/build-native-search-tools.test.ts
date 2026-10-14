@@ -300,7 +300,7 @@ describe("native search build", () => {
     ).toBe("https://example.test/ripgrep");
     expect(
       resolveNativeSearchRipgrepDownloadBaseUrl({
-        ZCODE_DEPS_BASE_URL: "https://deps.example.test/zcode/deps/",
+        MIKIKO_DEPS_BASE_URL: "https://deps.example.test/zcode/deps/",
       }),
     ).toBe("https://deps.example.test/zcode/deps/native-search-tools/ripgrep-v14.1.1-1");
   });

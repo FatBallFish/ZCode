@@ -2530,8 +2530,8 @@ describe("NodeExecutionAdapter", () => {
         network: {},
         platform: "linux",
         processEnv: {
-          ZCODE_AGENT_CA_CERT: "/tmp/zcode-ca.pem",
-          ZCODE_HTTP_PROXY: "127.0.0.1:8888",
+          MIKIKO_AGENT_CA_CERT: "/tmp/zcode-ca.pem",
+          MIKIKO_HTTP_PROXY: "127.0.0.1:8888",
           [ZCODE_NO_PROXY_ENV_KEY]: "localhost,127.0.0.1",
         },
       },
@@ -4630,7 +4630,7 @@ describe("NodeExecutionAdapter", () => {
     const adapter = new NodeExecutionAdapter({
       processEnv: {
         ...process.env,
-        ZCODE_STORAGE_DIR: storageRoot,
+        MIKIKO_STORAGE_DIR: storageRoot,
       },
     });
 

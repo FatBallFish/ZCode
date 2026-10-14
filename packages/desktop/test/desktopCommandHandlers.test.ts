@@ -367,7 +367,7 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     expect(promptWindow?.loadURL).toHaveBeenCalledWith(expect.stringContaining("data:text/html"));
 
     promptWindow?.emitTitle(
-      "zcode-endpoint-submit:" + encodeURIComponent("http://localhost:3030/path"),
+      "mikiko-endpoint-submit:" + encodeURIComponent("http://localhost:3030/path"),
     );
     await commandPromise;
 

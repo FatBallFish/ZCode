@@ -344,7 +344,7 @@ async function renderConversationSharePage(): Promise<void> {
   }
 
   const endpointOrigin =
-    import.meta.env.VITE_ZCODE_BASE_URL?.trim().replace(/\/+$/u, "") || window.location.origin;
+    import.meta.env.VITE_MIKIKO_BASE_URL?.trim().replace(/\/+$/u, "") || window.location.origin;
   const mockMode =
     import.meta.env.DEV && import.meta.env.VITE_CONVERSATION_SHARE_PREVIEW_MOCK === "true";
   // Share 加载失败不能只有通用 network 文案：需要区分 mock、endpoint 配置或跨域 fetch。
@@ -1339,11 +1339,11 @@ export function createHomeOnlyWebRemoteControlServices(): RootServices {
 
 function resolveExternalRelayWsUrl(): string {
   const endpointOrigin =
-    import.meta.env.VITE_ZCODE_BASE_URL?.trim() ||
-    import.meta.env.VITE_ZCODE_ENDPOINT_ORIGIN?.trim();
+    import.meta.env.VITE_MIKIKO_BASE_URL?.trim() ||
+    import.meta.env.VITE_MIKIKO_ENDPOINT_ORIGIN?.trim();
   return resolveWebRemoteControlRelayWsUrl({
     endpointOrigin,
-    overrideUrl: import.meta.env.VITE_ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL,
+    overrideUrl: import.meta.env.VITE_MIKIKO_WEB_REMOTE_CONTROL_RELAY_WS_URL,
   });
 }
 
@@ -2440,7 +2440,7 @@ async function bootstrapWebApp() {
     const ticketWs = params.get("ws")?.trim() ?? "";
     const relayWsBase =
       (/^wss?:\/\//.test(ticketWs) ? ticketWs : "") ||
-      import.meta.env.VITE_ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL?.trim() ||
+      import.meta.env.VITE_MIKIKO_WEB_REMOTE_CONTROL_RELAY_WS_URL?.trim() ||
       `${resolveDefaultWsOrigin()}`;
     document.title = "Mikiko - Remote";
     root.render(<RemoteControlApp relayWsBase={relayWsBase} platform={createWebPlatform()} />);

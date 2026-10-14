@@ -173,7 +173,7 @@ export async function restoreStopToolResultsFixture(): Promise<void> {
 
 export async function readStopToolLogs(sessionId: string): Promise<StopToolLogRecord[]> {
   const logDir =
-    process.env.ZCODE_LOG_DIR?.trim() ||
+    process.env.MIKIKO_LOG_DIR?.trim() ||
     join(resolveE2EStorageRoot(resolveE2EHomeDir()), "cli", "log");
   const names = await readdir(logDir);
   const contents = await Promise.all(

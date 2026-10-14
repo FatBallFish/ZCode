@@ -32,8 +32,8 @@ const PROXY_NO_PROXY = [
 ].join(",");
 const REMOTE_ASSET_ENV_KEYS = [
   "ZCODE_DEV_REMOTE_ASSET_USE_CDN",
-  "ZCODE_REMOTE_ASSET_CDN_BASE_URL",
-  "ZCODE_REMOTE_ASSET_CACHE_DIR",
+  "MIKIKO_REMOTE_ASSET_CDN_BASE_URL",
+  "MIKIKO_REMOTE_ASSET_CACHE_DIR",
 ] as const;
 
 describe(`${CASE_MARKER}: SSH 本地下载遵循应用代理`, () => {
@@ -73,8 +73,8 @@ describe(`${CASE_MARKER}: SSH 本地下载遵循应用代理`, () => {
     cacheDir = await mkdtemp(join(tmpdir(), "zcode-e2e-remote-assets-proxy-"));
 
     process.env.ZCODE_DEV_REMOTE_ASSET_USE_CDN = "1";
-    process.env.ZCODE_REMOTE_ASSET_CDN_BASE_URL = `http://${FAKE_CDN_HOST}`;
-    process.env.ZCODE_REMOTE_ASSET_CACHE_DIR = cacheDir;
+    process.env.MIKIKO_REMOTE_ASSET_CDN_BASE_URL = `http://${FAKE_CDN_HOST}`;
+    process.env.MIKIKO_REMOTE_ASSET_CACHE_DIR = cacheDir;
     await seedSettings({
       httpProxy: proxy.proxyUrl,
       httpProxyNoProxy: PROXY_NO_PROXY,

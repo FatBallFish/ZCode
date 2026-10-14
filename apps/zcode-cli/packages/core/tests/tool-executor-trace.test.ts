@@ -1397,7 +1397,7 @@ describe("ToolExecutor trace propagation", () => {
       CLAUDE_SESSION_ID: sessionId,
       ZCODE_PLUGIN_DATA: "/tmp/plugin-data",
       ZCODE_PLUGIN_ID: "superpowers@zcode-plugins-official",
-      ZCODE_PLUGIN_ROOT: "/tmp/superpowers",
+      MIKIKO_PLUGIN_ROOT: "/tmp/superpowers",
       ZCODE_PROJECT_DIR: "/workspace",
       ZCODE_SESSION_ID: sessionId,
     });

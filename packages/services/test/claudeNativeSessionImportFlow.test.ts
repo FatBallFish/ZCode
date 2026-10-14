@@ -14,7 +14,7 @@ function makeTempDir(prefix: string): string {
 
 afterEach(async () => {
   process.env.HOME = originalHome;
-  delete process.env.ZCODE_DATA_BASE_DIR;
+  delete process.env.MIKIKO_DATA_BASE_DIR;
   vi.doUnmock("node:os");
   // Windows:等待一下让文件句柄释放
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -34,7 +34,7 @@ describe("Claude native import flow", () => {
   it("将 Claude jsonl 归一为 ZCodeSessionFile 并写入 legacy snapshot", async () => {
     const home = makeTempDir("zcode-claude-import-flow-");
     process.env.HOME = home;
-    process.env.ZCODE_DATA_BASE_DIR = home;
+    process.env.MIKIKO_DATA_BASE_DIR = home;
 
     vi.resetModules();
     vi.doMock("node:os", async () => {
@@ -151,7 +151,7 @@ describe("Claude native import flow", () => {
     it("导入为真实 ZCode session，保留续聊和切模型能力", async () => {
       const home = makeTempDir("zcode-claude-import-live-");
       process.env.HOME = home;
-      process.env.ZCODE_DATA_BASE_DIR = home;
+      process.env.MIKIKO_DATA_BASE_DIR = home;
 
       vi.resetModules();
       vi.doMock("node:os", async () => {
@@ -289,7 +289,7 @@ items: [expect.objectContaining({ taskId: "sess_imported_live" })],
   it("保留 Claude 原生日志里的 API Error assistant 消息", async () => {
     const home = makeTempDir("zcode-claude-import-api-error-");
     process.env.HOME = home;
-    process.env.ZCODE_DATA_BASE_DIR = home;
+    process.env.MIKIKO_DATA_BASE_DIR = home;
 
     vi.resetModules();
     vi.doMock("node:os", async () => {

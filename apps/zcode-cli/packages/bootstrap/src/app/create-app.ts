@@ -389,7 +389,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       (messageEnabled
         ? createNodeSessionMailboxAdapter({
             rootDir: resolvePath(
-              (options.env ?? process.env).ZCODE_MAILBOX_ROOT ?? "~/.mikiko/mailbox",
+              (options.env ?? process.env).MIKIKO_MAILBOX_ROOT ?? "~/.mikiko/mailbox",
             ),
           })
         : undefined);

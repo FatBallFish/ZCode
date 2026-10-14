@@ -210,7 +210,7 @@ function resolveMcpServerConfig(
       {
         CLAUDE_PROJECT_DIR: context.workingDirectory,
         ZCODE_PLUGIN_DATA: context.dataPath,
-        ZCODE_PLUGIN_ROOT: context.loaded.rootPath,
+        MIKIKO_PLUGIN_ROOT: context.loaded.rootPath,
         ZCODE_PROJECT_DIR: context.workingDirectory,
         CLAUDE_PLUGIN_DATA: context.dataPath,
         CLAUDE_PLUGIN_ROOT: context.loaded.rootPath,
@@ -389,7 +389,7 @@ function resolveTemplate(
   return value.replace(TEMPLATE_PATTERN, (match, name: string) => {
     switch (name) {
       case "CLAUDE_PLUGIN_ROOT":
-      case "ZCODE_PLUGIN_ROOT":
+      case "MIKIKO_PLUGIN_ROOT":
         return context.loaded.rootPath;
       case "CLAUDE_PLUGIN_DATA":
       case "ZCODE_PLUGIN_DATA":
@@ -400,11 +400,13 @@ function resolveTemplate(
       case "CLAUDE_CODE_SESSION_ID":
       case "CLAUDE_SESSION_ID":
       case "ZCODE_SESSION_ID":
+      case "MIKIKO_SESSION_ID":
         throw new PluginVariableError(
           `Plugin variable requires a runtime session context: ${name}`,
         );
       case "CLAUDE_SKILL_DIR":
       case "ZCODE_SKILL_DIR":
+      case "MIKIKO_SKILL_DIR":
         throw new PluginVariableError(`Plugin variable requires a skill context: ${name}`);
       default:
         break;

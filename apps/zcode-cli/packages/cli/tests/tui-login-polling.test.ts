@@ -71,13 +71,13 @@ async function fixture(t: TestContext, providerId: "zai" | "bigmodel" = "bigmode
   await personal.update((current) => current);
   personal.dispose();
   const env = {
-    ZCODE_DATA_BASE_DIR: dir,
+    MIKIKO_DATA_BASE_DIR: dir,
     ZCODE_CREDENTIAL_SECRET: "test-encryption-key",
-    ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: resolve(
+    MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE: resolve(
       import.meta.dirname,
       "../../../../../config/provider/zcode-builtin.json",
     ),
-    ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalFile,
+    MIKIKO_PERSONAL_PROVIDER_CONFIG_FILE: personalFile,
   };
   const store = createSharedZCodeCredentialStore({ env });
   let now = 1_000_000;
