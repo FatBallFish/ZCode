@@ -119,6 +119,8 @@ function SessionWindowBody({
   useTheme();
   const [currentSessionId, setCurrentSessionId] = useState(sessionId);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  // 终端首次打开前不挂 ResizablePanel（否则底部预留面板空间导致输入框上移）。
+  const [hasOpenedTerminal, setHasOpenedTerminal] = useState(false);
   const [gitRefreshVersion, setGitRefreshVersion] = useState(0);
   const terminalPanelRef = useRef<PanelImperativeHandle | null>(null);
   const terminalPanelElementRef = useRef<HTMLDivElement | null>(null);
@@ -218,7 +220,12 @@ function SessionWindowBody({
         // 侧面板（文件树/Git/浏览器面板）依赖 shell 级面板装配，会话窗口 v1 不承载。
         hideSidePaneToggle
         onRefreshGit={() => setGitRefreshVersion((value) => value + 1)}
-        onToggleTerminal={() => setIsTerminalOpen((open) => !open)}
+        onToggleTerminal={() => {
+          setIsTerminalOpen((open) => {
+            if (!open) setHasOpenedTerminal(true);
+            return !open;
+          });
+        }}
         onToggleBrowser={() => {}}
         onToggleSidePane={() => {}}
         onReloadSession={() => {}}
@@ -227,12 +234,12 @@ function SessionWindowBody({
         onOpenWorkspace={() => {}}
       />
       <div className="flex min-h-0 flex-1 flex-col">
-        {/* 终端面板内是 ResizablePanel/Handle，必须挂在竖向 PanelGroup 里
-            （shell 中由外层 workspace-body-layout Group 承担；单挂会抛
-            "Group Context not found"，实测会话窗口崩溃进错误边界）。 */}
+        {/* 终端面板：首次打开前不渲染 ResizablePanel（2026-10-14 自测反馈：默认
+            挂载会在底部预留面板空间导致输入框上移）。终端内容仍由 AnimatedTerminalPanel
+            内部的 hasRenderedTerminal 保持首开后不卸载。 */}
         <ResizablePanelGroup
           layoutId="session-window-body-layout"
-          panelIds={SESSION_WINDOW_BODY_PANEL_IDS}
+          panelIds={isTerminalOpen ? SESSION_WINDOW_BODY_PANEL_IDS : ["session-chat"]}
           orientation="vertical"
           className="flex min-h-0 flex-1 flex-col"
         >
@@ -276,18 +283,20 @@ function SessionWindowBody({
               }
             />
           </ResizablePanel>
-          <AnimatedTerminalPanel
-            services={services}
-            workspaceAbsPath={workspacePath}
-            workspaceIdentity={workspaceIdentity}
-            openWorkspaceKeys={[workspacePath]}
-            isVisible={isTerminalOpen}
-            isWindowsDesktop={isWindowsDesktop}
-            panelRef={terminalPanelRef as RefObject<PanelImperativeHandle | null>}
-            panelElementRef={terminalPanelElementRef}
-            onClose={() => setIsTerminalOpen(false)}
-            onOpenBrowserUrl={() => {}}
-          />
+          {hasOpenedTerminal ? (
+            <AnimatedTerminalPanel
+              services={services}
+              workspaceAbsPath={workspacePath}
+              workspaceIdentity={workspaceIdentity}
+              openWorkspaceKeys={[workspacePath]}
+              isVisible={isTerminalOpen}
+              isWindowsDesktop={isWindowsDesktop}
+              panelRef={terminalPanelRef as RefObject<PanelImperativeHandle | null>}
+              panelElementRef={terminalPanelElementRef}
+              onClose={() => setIsTerminalOpen(false)}
+              onOpenBrowserUrl={() => {}}
+            />
+          ) : null}
         </ResizablePanelGroup>
       </div>
     </div>

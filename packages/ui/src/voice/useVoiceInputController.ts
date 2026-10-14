@@ -7,7 +7,6 @@
  * 转录回填（window 事件 → 聚焦 composer）。
  */
 import { useEffect, useRef } from "react";
-import { completeNewModelSelection } from "@zcode/provider";
 import { DEFAULT_VOICE_MODEL_ID, type VoiceSessionStartResult } from "@zcode/shared";
 import { usePlatform } from "@/hooks/usePlatform.jsx";
 import { useServices } from "@/hooks/useServices.js";
@@ -298,17 +297,17 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
     // "Reasoning level is required"）。调用前懒补默认档位（最高档），视图不可用则按原样
     // 发出让 RPC 错误路径兜底（降级回填原文 + warn）。
     let selectionWithLevel = selection;
-    if (!selection.reasoningLevel) {
+    {
+      // 2026-10-14 二轮修复：语音整理是短文案润色任务，统一使用最低思考档——
+      // 无论是存量保存了最高档还是新保存的，这里都覆写（用户反馈 GLM-5.3 在
+      // 高思考档下既慢又容易耗尽输出预算导致返回原文）。
       const view = await currentServices.modelSelectionService.getView().catch(() => null);
-      const completed = view
-        ? completeNewModelSelection(view, {
-            providerId: selection.providerId,
-            modelId: selection.modelId,
-          })
-        : undefined;
-      const reasoningLevel = completed?.options?.reasoningLevel;
-      if (reasoningLevel) {
-        selectionWithLevel = { ...selection, reasoningLevel };
+      const model = view?.providers
+        ?.find((p) => p.providerId === selection.providerId)
+        ?.models?.find((m) => m.modelId === selection.modelId);
+      const lowestLevel = model?.config?.optionSpecs?.reasoningLevel?.values?.[0];
+      if (lowestLevel) {
+        selectionWithLevel = { ...selection, reasoningLevel: lowestLevel };
       }
     }
     const systemPrompt = currentIntl.formatMessage({
@@ -337,11 +336,9 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
           { role: "user", content: userPrompt },
         ],
         querySource: "voice-cleanup",
-        // 2026-10-14 修复：此前 maxOutputTokens=2048，思考型模型（GLM-5.3 等）在高
-        // 思考档下会把输出预算耗在 reasoning tokens 上，text 返回空串 → 静默回填
-        // 原文（无日志，用户表现为「整理没效果」）。升到 8192 给 reasoning 留出
-        // 余量；语音整理是短文本任务，8192 已远超实际需要。
-        maxOutputTokens: 8192,
+        // 2026-10-14 二轮：maxOutputTokens 8192→16384，配合最低思考档。思考型
+        // 模型在高思考档下 8192 仍可能被 reasoning 耗尽；16384 + 最低档双保险。
+        maxOutputTokens: 16384,
         requestTimeoutMs: CLEANUP_TIMEOUT_MS,
       });
       const text = result.text.trim();

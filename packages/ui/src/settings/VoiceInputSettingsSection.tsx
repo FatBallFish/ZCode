@@ -128,17 +128,17 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
     (value: string) => {
       const decoded = decodeCustomModelValue(value);
       if (!decoded?.modelName) return;
-      // 主动选模型补默认档位（最高档）；不要求档位的模型 complete 返回 undefined。
-      const completed = modelSelectionView
-        ? completeNewModelSelection(modelSelectionView, parseModelPickerValue(value))
-        : undefined;
+      // 2026-10-14：语音整理选模型时补最低档（文案润色不需要深度思考），
+      // 此前补最高档导致 GLM-5.3 在高思考档下既慢又容易耗尽输出预算。
+      const model = modelSelectionView?.providers
+        ?.find((p) => p.providerId === decoded.providerId)
+        ?.models?.find((m) => m.modelId === decoded.modelName);
+      const lowestLevel = model?.config?.optionSpecs?.reasoningLevel?.values?.[0];
       void update({
         voiceCleanupSelection: {
           providerId: decoded.providerId,
           modelId: decoded.modelName,
-          ...(completed?.options?.reasoningLevel
-            ? { reasoningLevel: completed.options.reasoningLevel }
-            : {}),
+          ...(lowestLevel ? { reasoningLevel: lowestLevel } : {}),
         },
       } satisfies Partial<AppSettings>);
     },
