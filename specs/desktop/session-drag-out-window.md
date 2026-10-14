@@ -126,10 +126,19 @@
 - **挂载策略**：侧面板首次出现（打开或存在 tab）前不挂 ResizablePanel；之后常驻
   （浏览器 guest 的 webview 需要常驻 DOM，隐藏仅收起面板），与主窗口
   「Browser Guest Host 与视图路由解耦」同一不变量。
+- **布局与主窗口对齐（2026-10-15 二轮修复）**：终端/侧面板与会话区必须是「并列
+  组件」而非「嵌入会话区」——外层复用主窗口 #content 的桌面外衬（`p-1 pt-0` +
+  顶部 1px 拖动垫），会话区包 `data-workspace-conversation-frame` 圆角边框 section
+  （终端可见时 `rounded-b + border-b`，侧面板可见时整框），终端面板常驻但由
+  `useAnimatedResizablePanel({open: isTerminalOpen})` 驱动 `panel.collapse/resize`
+  （只传 isVisible 不下命令会导致「开终端顶起输入框、关闭不回落」）。终端面板常驻
+  且折叠为 0px，不再需要 hasOpenedTerminal 首开门槛。
 - **仍转发主窗口的动作**：仅 automations 主视图（会话窗口不承载该视图）；
   `sessionWindowPanelBridge` 与主窗口分发表保留但只登记 `onOpenAutomationsMain`。
 - 验收：在会话窗口打开文件预览/审查/辅助对话 → 面板出现在会话窗口右侧；主窗口
   同时切到其他会话，互不影响；主窗口的侧面板不受会话窗口操作影响。
+- 验收（布局）：开/关底部终端与右侧面板，均与主窗口同观感（边框分隔、组件并列、
+  输入框随终端开合正常回落）。
 
 ## 浏览器无缝衔接（2026-10-15）
 

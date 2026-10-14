@@ -14,7 +14,7 @@
  */
 /* eslint-disable max-lines -- 会话窗口是 App 装配的「单会话切片」：面板状态机/Git/记忆桥/
    截图面的 wiring 与布局在同文件收口，避免跨文件传递 30+ 个零散 prop。 */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { LucideProvider } from "lucide-react";
 import type { RefObject } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
@@ -44,6 +44,8 @@ import { AnimatedTerminalPanel } from "@/app-shell/AnimatedTerminalPanel.js";
 import { AnimatedSidePanePanel } from "@/app-shell/AnimatedSidePanePanel.js";
 import { SIDE_PANE_DEFAULT_EXPANDED_SIZE } from "@/app-shell/sidePaneLayout.js";
 import { useAnimatedResizablePanel } from "@/app-shell/useAnimatedResizablePanel.js";
+import { resolveWorkspaceShellWindowChromeClass } from "@/app-shell/workspaceShellWindowChrome.js";
+import { cn } from "@/components/lib/utils.js";
 import { useTaskSidePaneMemoryBridge } from "@/app-shell/useTaskSidePaneMemoryBridge.js";
 import { useAppPanels } from "@/hooks/useAppPanels.js";
 import { getActiveSidePaneTab } from "@/lib/workspaceSidePane.js";
@@ -141,13 +143,12 @@ function SessionWindowBody({
   useTheme();
   const [currentSessionId, setCurrentSessionId] = useState(sessionId);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
-  // 终端/侧面板首次打开前不挂 ResizablePanel（否则底部/右侧预留面板空间）。
-  const [hasOpenedTerminal, setHasOpenedTerminal] = useState(false);
+  // 侧面板首次出现（打开或存在 tab）前不挂 ResizablePanel；之后常驻（浏览器 guest 的
+  // webview 需要常驻 DOM）。终端面板常驻但折叠为 0px（AnimatedTerminalPanel 内部
+  // hasRenderedTerminal 负责首开后才创建会话）。
   const [hasOpenedSidePane, setHasOpenedSidePane] = useState(false);
   const [gitRefreshVersion, setGitRefreshVersion] = useState(0);
   const [gitSelectedSourceId, setGitSelectedSourceId] = useState<GitChangeSourceId>("unstaged");
-  const terminalPanelRef = useRef<PanelImperativeHandle | null>(null);
-  const terminalPanelElementRef = useRef<HTMLDivElement | null>(null);
   // automations 主视图是主窗口专属页面，仍转发主窗口打开。
   const forwardPanel = useMemo(
     () => createSessionPanelForwarder(platform, { workspacePath, workspaceIdentity }),
@@ -257,6 +258,17 @@ function SessionWindowBody({
     expandedSize: SIDE_PANE_DEFAULT_EXPANDED_SIZE,
     rememberExpandedSize: true,
     resizeOnInitialVisibleMount: false,
+  });
+  // 终端折叠/展开必须由 owner 侧 hook 驱动 panel.collapse/resize（与主窗口 shell 同款）：
+  // 只传 isVisible 不下命令时面板永不折叠，表现为「开终端顶起输入框、关掉也不回落」。
+  const {
+    panelRef: terminalPanelRef,
+    panelElementRef: terminalPanelElementRef,
+    isVisible: isTerminalVisible,
+  } = useAnimatedResizablePanel({
+    open: isTerminalOpen,
+    expandedSize: "30%",
+    rememberExpandedSize: true,
   });
   const { browserRestoreUrls, handleBrowserUrlChange } = useTaskSidePaneMemoryBridge({
     activeTaskId: currentSessionId,
@@ -390,12 +402,7 @@ function SessionWindowBody({
         isTerminalOpen={isTerminalOpen}
         isSidePaneOpen={isSidePaneOpen}
         onRefreshGit={handleRefreshGit}
-        onToggleTerminal={() => {
-          setIsTerminalOpen((open) => {
-            if (!open) setHasOpenedTerminal(true);
-            return !open;
-          });
-        }}
+        onToggleTerminal={() => setIsTerminalOpen((open) => !open)}
         onToggleBrowser={handleToggleBrowser}
         onToggleSidePane={handleToggleSidePaneCollapse}
         onReloadSession={() => {}}
@@ -403,21 +410,47 @@ function SessionWindowBody({
         onCreateTask={() => {}}
         onOpenWorkspace={() => {}}
       />
-      {/* 水平分栏：会话列（聊天+终端）+ 侧面板；与主窗口 workspace-body-layout 同构。 */}
-      <ResizablePanelGroup
-        layoutId="session-window-main-layout"
-        panelIds={hasOpenedSidePane ? SESSION_WINDOW_MAIN_PANEL_IDS : ["session-conversation-column"]}
-        className="flex min-h-0 flex-1"
-      >
-        <ResizablePanel id="session-conversation-column" minSize="30%" className="min-h-0">
-          <ResizablePanelGroup
-            layoutId="session-window-body-layout"
-            panelIds={isTerminalOpen ? SESSION_WINDOW_BODY_PANEL_IDS : ["session-chat"]}
-            orientation="vertical"
-            className="flex h-full min-h-0 flex-col"
-          >
-            <ResizablePanel id="session-chat" minSize="30%" className="min-h-0">
-              <V4WorkspaceChatArea
+      {/* 与主窗口 #content 同款桌面外衬（4px 间距 + 顶部拖动垫），让面板与窗口边缘
+          以及彼此之间呈现并列关系而非嵌入。 */}
+      <div className="flex min-h-0 flex-1 flex-col p-1 pt-0">
+        <div className="h-1 w-full [app-region:drag]" />
+        {/* 水平分栏：会话列（聊天+终端）+ 侧面板；与主窗口 workspace-body-layout 同构。 */}
+        <ResizablePanelGroup
+          layoutId="session-window-main-layout"
+          panelIds={
+            hasOpenedSidePane ? SESSION_WINDOW_MAIN_PANEL_IDS : ["session-conversation-column"]
+          }
+          className="flex min-h-0 flex-1"
+        >
+          <ResizablePanel id="session-conversation-column" minSize="30%" className="min-h-0">
+            <ResizablePanelGroup
+              layoutId="session-window-body-layout"
+              panelIds={SESSION_WINDOW_BODY_PANEL_IDS}
+              orientation="vertical"
+              className="flex h-full min-h-0 flex-col"
+            >
+              <ResizablePanel id="session-chat" minSize="30%" className="min-h-0">
+                {/* 会话区自带圆角边框（与主窗口 conversation section 同款）：侧面板/终端
+                    可见时各自成框，形成并列组件的视觉边界。 */}
+                <section
+                  data-workspace-conversation-frame="true"
+                  className={cn(
+                    "relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background",
+                    isSidePaneVisible
+                      ? "rounded-[var(--workspace-panel-radius)] border border-border"
+                      : resolveWorkspaceShellWindowChromeClass({
+                          isMacDesktop,
+                          isWindowsDesktop,
+                          isLinuxDesktop: !isMacDesktop && !isWindowsDesktop,
+                          macOSMajorVersion: null,
+                          isWindowsMaximized: false,
+                          supportsNativeRoundedCorners: null,
+                        }),
+                    isTerminalVisible &&
+                      "rounded-b-[var(--workspace-panel-radius)] border-b",
+                  )}
+                >
+                  <V4WorkspaceChatArea
                 workspacePath={workspacePath}
                 workspaceIdentity={workspaceIdentity}
                 isDesktop
@@ -443,24 +476,36 @@ function SessionWindowBody({
                 onOpenWorkflowRunDirectory={handleOpenWorkflowRunDirectory}
                 onOpenWorkflowActorSession={handleOpenWorkflowActorSession}
                 onOpenWorkflowWorkspace={handleOpenWorkflowWorkspace}
-              />
-            </ResizablePanel>
-            {hasOpenedTerminal ? (
+                  />
+                </section>
+              </ResizablePanel>
               <AnimatedTerminalPanel
                 services={services}
                 workspaceAbsPath={workspacePath}
                 workspaceIdentity={workspaceIdentity}
                 openWorkspaceKeys={[workspacePath]}
-                isVisible={isTerminalOpen}
+                isVisible={isTerminalVisible}
                 isWindowsDesktop={isWindowsDesktop}
+                frameClassName={cn(
+                  isSidePaneVisible
+                    ? "rounded-[var(--workspace-panel-radius)] border border-border"
+                    : resolveWorkspaceShellWindowChromeClass({
+                        isMacDesktop,
+                        isWindowsDesktop,
+                        isLinuxDesktop: !isMacDesktop && !isWindowsDesktop,
+                        macOSMajorVersion: null,
+                        isWindowsMaximized: false,
+                        supportsNativeRoundedCorners: null,
+                      }),
+                  "rounded-t-[var(--workspace-panel-radius)] border-t",
+                )}
                 panelRef={terminalPanelRef as RefObject<PanelImperativeHandle | null>}
                 panelElementRef={terminalPanelElementRef}
                 onClose={() => setIsTerminalOpen(false)}
                 onOpenBrowserUrl={handleOpenBrowserUrl}
               />
-            ) : null}
-          </ResizablePanelGroup>
-        </ResizablePanel>
+            </ResizablePanelGroup>
+          </ResizablePanel>
         {hasOpenedSidePane ? (
           <AnimatedSidePanePanel
             services={services}
@@ -523,7 +568,8 @@ function SessionWindowBody({
             onSelectGitSource={setGitSelectedSourceId}
           />
         ) : null}
-      </ResizablePanelGroup>
+        </ResizablePanelGroup>
+      </div>
     </div>
   );
 }
