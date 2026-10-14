@@ -54,6 +54,11 @@ import {
   useBrowserScreenshotSurfaceRequest,
 } from "@/browser-use/useBrowserScreenshotSurfaceRequest.js";
 import { shouldOpenAssistantHtmlInBrowser } from "@/lib/assistantPreviewCards.js";
+import {
+  buildSelectionSideChatKey,
+  requestSelectionSideChatOpen,
+} from "@/lib/selectionSideChatRuntime.js";
+import { logger } from "@/logger.js";
 import type { MessageFileLinkTarget } from "@/components/ai-elements/message.js";
 import { createSessionPanelForwarder } from "@/v4/sessionWindowPanelBridge.js";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.js";
@@ -353,6 +358,22 @@ function SessionWindowBody({
     [handleOpenBrowserUrl, handleOpenCodeViewer, services],
   );
 
+  // 侧面板「辅助对话」入口：与主窗口 launcher 同款——经 selectionSideChatRuntime 命令
+  // 总线请求，由当前挂载的会话面板（SessionPane 已注册 opener）创建/激活辅助对话 tab。
+  const workspaceKeyForSideChat = workspaceIdentity?.trim() || workspacePath;
+  const handleOpenSelectionSideConversationLauncher = useCallback(() => {
+    if (!currentSessionId) return;
+    const requested = requestSelectionSideChatOpen(
+      buildSelectionSideChatKey(workspaceKeyForSideChat, currentSessionId),
+    );
+    if (!requested) {
+      logger.warn("[SessionWindow] 辅助对话入口没有可用的主会话控制器", {
+        parentSessionId: currentSessionId,
+        workspaceKey: workspaceKeyForSideChat,
+      });
+    }
+  }, [currentSessionId, workspaceKeyForSideChat]);
+
   const screenshotSurfaceTabId = screenshotSurfaceRequest
     ? (findScreenshotSurfaceTabForRender(sidePaneState?.tabs ?? [], screenshotSurfaceRequest)
         ?.id ?? null)
@@ -549,8 +570,7 @@ function SessionWindowBody({
             onOpenDeveloperTools={handleOpenDeveloperTools}
             onOpenTerminalTab={handleOpenTerminalTab}
             onOpenReviewTab={handleToggleGit}
-            // 会话窗口无选区上下文入口，选区辅助对话由聊天区 onOpenSelectionSideChat 承载。
-            onOpenSelectionSideConversation={() => {}}
+            onOpenSelectionSideConversation={handleOpenSelectionSideConversationLauncher}
             onRevealGitFileInTree={() => {}}
             onOpenBrowserUrl={handleOpenBrowserUrl}
             onOpenCodeViewer={handleOpenCodeViewer}

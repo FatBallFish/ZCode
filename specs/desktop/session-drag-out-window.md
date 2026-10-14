@@ -135,6 +135,10 @@
   且折叠为 0px，不再需要 hasOpenedTerminal 首开门槛。
 - **仍转发主窗口的动作**：仅 automations 主视图（会话窗口不承载该视图）；
   `sessionWindowPanelBridge` 与主窗口分发表保留但只登记 `onOpenAutomationsMain`。
+- **辅助对话固定入口**：侧面板 launcher/空态的「辅助对话」按钮与主窗口同款走
+  `selectionSideChatRuntime` 命令总线（`requestSelectionSideChatOpen`），由本窗口
+  挂载的 SessionPane（已注册 opener，经共享 Host 派发 createSelectionSideSession）
+  创建/激活副屏 tab——不得在壳层直接传 no-op。
 - 验收：在会话窗口打开文件预览/审查/辅助对话 → 面板出现在会话窗口右侧；主窗口
   同时切到其他会话，互不影响；主窗口的侧面板不受会话窗口操作影响。
 - 验收（布局）：开/关底部终端与右侧面板，均与主窗口同观感（边框分隔、组件并列、
