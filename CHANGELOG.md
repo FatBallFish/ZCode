@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.1.2](https://github.com/FatBallFish/ZCode/compare/v1.1.1...v1.1.2) (2026-10-15)
+
+本次主打**应用换肤**与更完整的**会话独立窗口**，并修复一批使用问题（详细说明见 [更新日志口径](specs/release/changelog-audience.md)）。
+
+### 新增功能
+
+- **ui:** 应用主题皮肤——内置 6 套明暗双模式皮肤 + 自定义主题（壁纸/颜色/模糊压暗）+ 一键按壁纸配色 + 主题导出分享与导入 ([94bb2cb7](https://github.com/FatBallFish/ZCode/commit/94bb2cb7)、[9da9515b](https://github.com/FatBallFish/ZCode/commit/9da9515b))
+- **desktop:** 会话独立窗口功能完整化——文件预览/内置浏览器/终端/辅助对话等面板均在独立窗口内可用，关闭时浏览器标签自动迁回主窗口 ([c2502896](https://github.com/FatBallFish/ZCode/commit/c2502896)、[97c7f3b6](https://github.com/FatBallFish/ZCode/commit/97c7f3b6)、[7cac8c64](https://github.com/FatBallFish/ZCode/commit/7cac8c64))
+
+### 问题修复
+
+- 电脑睡眠唤醒后打开会话报「SQLite startup failed」且无法恢复——现自动恢复 ([7cac8c64](https://github.com/FatBallFish/ZCode/commit/7cac8c64))
+- 已关闭的会话独立窗口在最小化/唤醒后重新出现 ([7cac8c64](https://github.com/FatBallFish/ZCode/commit/7cac8c64))
+- 浅色模式用户启动时闪一下深色界面 ([94bb2cb7](https://github.com/FatBallFish/ZCode/commit/94bb2cb7))
+- 会话独立窗口标题未靠左、辅助对话按钮无反应、终端开关联动输入框位置 ([32423b47](https://github.com/FatBallFish/ZCode/commit/32423b47)、[3a642930](https://github.com/FatBallFish/ZCode/commit/3a642930)、[b94f423c](https://github.com/FatBallFish/ZCode/commit/b94f423c))
+- 一批自测细节：宠物大小滑块、语音整理标点动画、日志导出脱敏、模型切换与会话列表高亮等 ([1cbd5c13](https://github.com/FatBallFish/ZCode/commit/1cbd5c13)、[1f780a42](https://github.com/FatBallFish/ZCode/commit/1f780a42)、[fbbf425c](https://github.com/FatBallFish/ZCode/commit/fbbf425c))
+
+
 ## [1.1.1](https://github-personal/FatBallFish/ZCode/compare/v1.1.0...v1.1.1) (2026-10-12)
 
 ### Bug Fixes
