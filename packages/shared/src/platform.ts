@@ -1226,6 +1226,30 @@ export interface IPlatformService {
     imported: string[];
     skipped: { petId: string; reason: string }[];
   }>;
+  /** 主题皮肤：列出磁盘上的自定义/导入皮肤（specs/ui/theme-skins.md）。 */
+  themeSkinListInstalled?(): Promise<import("./themeSkins/index.js").ThemeSkinListItem[]>;
+  /** 主题皮肤：文件对话框选择 .mikikotheme 并校验安装；取消时 error 为 "canceled"。 */
+  themeSkinImportFromFile?(): Promise<
+    | { ok: true; item: import("./themeSkins/index.js").ThemeSkinListItem }
+    | { ok: false; error: string }
+  >;
+  /** 主题皮肤：新建/原地保存自定义皮肤（内置皮肤由 UI 先转副本）。 */
+  themeSkinSaveCustom?(
+    payload: import("./themeSkins/index.js").ThemeSkinSavePayload,
+  ): Promise<
+    | { ok: true; item: import("./themeSkins/index.js").ThemeSkinListItem }
+    | { ok: false; error: string }
+  >;
+  /** 主题皮肤：删除自定义皮肤（内置皮肤不落盘，天然不可删）。 */
+  themeSkinDelete?(id: string): Promise<{ ok: boolean; error?: string }>;
+  /** 主题皮肤：读取磁盘皮肤并组装 .mikikotheme 导出 JSON（内置皮肤由 UI 从常量组装）。 */
+  themeSkinReadExportFile?(id: string): Promise<{ json?: string; error?: string }>;
+  /** 主题皮肤：选择壁纸图片并暂存（编辑器预览用，保存时转正）。 */
+  themeSkinStageWallpaperImage?(): Promise<{
+    path?: string;
+    canceled?: boolean;
+    error?: string;
+  }>;
   /** main 请求打开设置页宠物分区（宠物窗口右键菜单）。 */
   onOpenPetSettings?(callback: () => void): () => void;
 

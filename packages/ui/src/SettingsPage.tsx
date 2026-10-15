@@ -115,7 +115,7 @@ import {
   GeneralSectionHeader,
   resolveSettingsSectionForPlatform,
 } from "./settingsPageHelpers.js";
-import { AppearanceSectionContent } from "./settingsCodePreview.js";
+import { AppearanceSettingsSection } from "./settings/AppearanceSettingsSection.js";
 import type { SettingsSectionId } from "@/lib/settingsNavigation.js";
 import { requestPluginStoreOpen } from "@/lib/pluginStoreNavigation.js";
 import {
@@ -1938,7 +1938,7 @@ export function SettingsPage({
                             }
                           />
                         ) : activeSection === "appearance" ? (
-                          <AppearanceSectionContent
+                          <AppearanceSettingsSection
                             codePreviewSettings={codePreviewSettings}
                             setCodePreviewSettings={handleCodePreviewSettingsChange}
                             theme={theme}

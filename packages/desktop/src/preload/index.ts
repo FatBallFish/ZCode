@@ -961,6 +961,21 @@ contextBridge.exposeInMainWorld("zcode", {
     ipcRenderer.invoke(PlatformChannels.PetGetInstalledPreview, { petId }),
   /** 桌面宠物：只读导入 ~/.codex/pets 下的合法包。 */
   petImportFromCodex: () => ipcRenderer.invoke(PlatformChannels.PetImportFromCodex),
+  /** 主题皮肤：列出磁盘上的自定义/导入皮肤。 */
+  themeSkinListInstalled: () => ipcRenderer.invoke(PlatformChannels.ThemeSkinListInstalled),
+  /** 主题皮肤：文件对话框选择 .mikikotheme 并校验安装。 */
+  themeSkinImportFromFile: () => ipcRenderer.invoke(PlatformChannels.ThemeSkinImportFromFile),
+  /** 主题皮肤：新建/原地保存自定义皮肤。 */
+  themeSkinSaveCustom: (payload: unknown) =>
+    ipcRenderer.invoke(PlatformChannels.ThemeSkinSaveCustom, payload),
+  /** 主题皮肤：删除自定义皮肤。 */
+  themeSkinDelete: (id: string) => ipcRenderer.invoke(PlatformChannels.ThemeSkinDelete, { id }),
+  /** 主题皮肤：读取磁盘皮肤组装 .mikikotheme 导出 JSON。 */
+  themeSkinReadExportFile: (id: string) =>
+    ipcRenderer.invoke(PlatformChannels.ThemeSkinReadExportFile, { id }),
+  /** 主题皮肤：选择壁纸图片并暂存到 staging。 */
+  themeSkinStageWallpaperImage: () =>
+    ipcRenderer.invoke(PlatformChannels.ThemeSkinStageWallpaperImage),
   /** 把会话在独立新主窗口打开（拖出侧栏释放；本地 workspace 限定）。 */
   openSessionInNewWindow: (payload: {
     workspacePath: string;

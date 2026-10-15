@@ -295,18 +295,30 @@ import {
 import {
   createDesktopPetManager,
   installPetPackProtocol,
-  registerPetPackScheme,
+  PET_PACK_PRIVILEGED_SCHEME,
   type DesktopPetManager,
 } from "./desktopPetWindow.js";
 import { createPetBubbleWindow } from "./desktopPetBubble.js";
 import { readWebpSize, mergePetSessionSummaries, type PetSessionSummary } from "@zcode/shared";
 import { createPetMarketService } from "./desktopPetMarketService.js";
 import { registerPetMarketIpc } from "./desktopPetIpc.js";
+import { createThemeSkinService, type ThemeSkinService } from "./desktopThemeSkinService.js";
+import { registerThemeSkinIpc } from "./desktopThemeSkinIpc.js";
+import {
+  installThemeSkinProtocol,
+  THEME_SKIN_PRIVILEGED_SCHEME,
+} from "./desktopThemeSkinProtocol.js";
 import { createVoiceService, type DesktopVoiceService } from "./voice/desktopVoiceService.js";
 import { registerVoiceIpc, spawnVoiceEngineWorker } from "./voice/desktopVoiceIpc.js";
 
-registerLocalMediaPreviewScheme(protocol, [PLUGIN_SANDBOX_PRIVILEGED_SCHEME]);
-registerPetPackScheme(protocol);
+// registerSchemesAsPrivileged 只能有效地调用一次（后一次覆盖前一次），
+// 全部特权 scheme 必须并入这同一次调用（2026-10-15 修复：宠物此前单独调用，
+// 会把 zcode-media/zcode-sandbox/themepack 的特权位整体顶掉）。
+registerLocalMediaPreviewScheme(protocol, [
+  PLUGIN_SANDBOX_PRIVILEGED_SCHEME,
+  THEME_SKIN_PRIVILEGED_SCHEME,
+  PET_PACK_PRIVILEGED_SCHEME,
+]);
 const localMediaPreviewPathRegistry = createLocalMediaPreviewPathRegistry();
 
 // e2e 由 Chromedriver 管理远程调试端口；如果这里继续固定到 9229，
@@ -1046,7 +1058,12 @@ ipcMain.handle(PlatformChannels.OpenSessionWindow, (event, payload: unknown) => 
 // 广播到所有主应用窗口（不含发起方），由各窗口 shell 按 workspacePath 匹配消费。
 ipcMain.handle(PlatformChannels.SessionWindowPanelRequest, (event, payload: unknown) => {
   const request = payload as
-    | { workspacePath?: unknown; workspaceIdentity?: unknown; kind?: unknown; args?: unknown }
+    | {
+        workspacePath?: unknown;
+        workspaceIdentity?: unknown;
+        kind?: unknown;
+        args?: unknown;
+      }
     | undefined;
   if (
     !request ||
@@ -2569,6 +2586,29 @@ app.whenReady().then(async () => {
   });
   registerPetMarketIpc({ market: petMarket });
 
+  // 主题皮肤（specs/ui/theme-skins.md）：壁纸经 themepack:// 协议加载，
+  // 协议层只放行 theme-skins 根目录（含 .staging 暂存）内的图片。
+  const themeSkinRootDir = () => join(getAppConfigDir(), "theme-skins");
+  installThemeSkinProtocol(session.defaultSession.protocol, {
+    isPathAllowed: (path) => {
+      const resolved = resolve(path);
+      const extension = resolved.slice(resolved.lastIndexOf(".") + 1).toLowerCase();
+      return (
+        (extension === "png" ||
+          extension === "jpg" ||
+          extension === "jpeg" ||
+          extension === "webp") &&
+        resolved.startsWith(`${themeSkinRootDir()}${sep}`)
+      );
+    },
+  });
+  const themeSkinService: ThemeSkinService = createThemeSkinService({
+    rootDir: themeSkinRootDir,
+    logger,
+  });
+  registerThemeSkinIpc({ service: themeSkinService });
+  void themeSkinService.cleanupStaging();
+
   // 语音输入（specs/desktop/voice-input.md）：VoiceService 懒加载引擎 worker，
   // App 启动零语音开销；模型文件在 getAppConfigDir()/voice-models 下按需下载。
   voiceService = createVoiceService({
@@ -3098,14 +3138,11 @@ app.on("browser-window-created", (_, win) => {
       if (sourceWindow && !sourceWindow.isDestroyed()) {
         const migrated = browserGuestManager.migrateWindowTabs(win.id, sourceWindow.id);
         if (migrated > 0) {
-          logger.info(
-            "[session-window] browser tabs migrated to source window on close",
-            {
-              count: migrated,
-              fromWindowId: win.id,
-              toWindowId: sourceWindow.id,
-            },
-          );
+          logger.info("[session-window] browser tabs migrated to source window on close", {
+            count: migrated,
+            fromWindowId: win.id,
+            toWindowId: sourceWindow.id,
+          });
         }
       }
     }

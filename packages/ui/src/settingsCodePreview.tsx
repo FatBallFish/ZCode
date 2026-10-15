@@ -1,7 +1,9 @@
 import type { Theme } from "@/useTheme.js";
 import { useState } from "react";
+import { Palette } from "lucide-react";
 import { resolveTheme } from "@/useTheme.js";
 import { Card, CardContent } from "@/components/ui/card.js";
+import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
 import { Switch } from "@/components/ui/switch.js";
 import {
@@ -85,6 +87,9 @@ export function AppearanceSectionContent({
   setTheme,
   uiFontSizePx,
   setUiFontSizePx,
+  themeSkinName,
+  themeSkinAvailable = false,
+  onOpenThemeSkins,
 }: {
   codePreviewSettings: CodePreviewSettings;
   setCodePreviewSettings: (settings: Partial<CodePreviewSettings>) => void;
@@ -92,6 +97,11 @@ export function AppearanceSectionContent({
   setTheme: (theme: Theme) => void;
   uiFontSizePx: number;
   setUiFontSizePx: (fontSizePx: number) => void;
+  /** 当前主题皮肤名称（外观页只展示当前信息，切换在二级页）。 */
+  themeSkinName?: string;
+  /** 桌面端才提供皮肤管理（与宠物一致；Web/远控不展示）。 */
+  themeSkinAvailable?: boolean;
+  onOpenThemeSkins?: () => void;
 }) {
   const { intl } = useZCodeIntl();
   const activePreviewMode = resolveTheme(theme);
@@ -152,6 +162,37 @@ export function AppearanceSectionContent({
                 />
               }
             />
+            {themeSkinAvailable && onOpenThemeSkins ? (
+              <SettingsRow
+                label={intl.formatMessage({
+                  id: "settings.themeSkin.rowLabel",
+                })}
+                description={intl.formatMessage({
+                  id: "settings.themeSkin.rowDescription",
+                })}
+                detail={
+                  <div className="flex items-center gap-2">
+                    {/* 色板打点直接使用语义 token class：皮肤生效时 App 本身已被主题化。 */}
+                    <span className="flex items-center gap-1" aria-hidden="true">
+                      <span className="size-3 rounded-full border border-border bg-background" />
+                      <span className="size-3 rounded-full border border-border bg-sidebar" />
+                      <span className="size-3 rounded-full border border-border bg-card" />
+                      <span className="size-3 rounded-full border border-border bg-accent" />
+                      <span className="size-3 rounded-full border border-border bg-primary" />
+                    </span>
+                    <span className="min-w-0 truncate text-ui-sm text-foreground-subtle">
+                      {themeSkinName}
+                    </span>
+                  </div>
+                }
+                control={
+                  <Button type="button" variant="outline" onClick={onOpenThemeSkins}>
+                    <Palette className="size-4" aria-hidden="true" />
+                    {intl.formatMessage({ id: "settings.themeSkin.manage" })}
+                  </Button>
+                }
+              />
+            ) : null}
           </CardContent>
         </Card>
       </div>

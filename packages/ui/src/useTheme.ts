@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { applyThemeSkinDom, readThemeSkinSnapshotFromStorage } from "@/lib/themeSkinDom.js";
 
 export type Theme = "light" | "dark" | "mikiko-light" | "mikiko-dark" | "system";
 export type ResolvedTheme = "light" | "dark";
@@ -96,6 +97,8 @@ export function useTheme() {
   // 初始化 + system 模式下监听系统偏好变化
   useEffect(() => {
     applyTheme(theme);
+    // hook 宿主（会话独立窗口等）无 store 广播：模式切换时从 localStorage 快照重放皮肤。
+    applyThemeSkinDom(readThemeSkinSnapshotFromStorage(), resolveTheme(theme));
 
     if (theme !== "system") return;
 

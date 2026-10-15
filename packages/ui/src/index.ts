@@ -32,6 +32,13 @@ export type {
 export { SSHDialog, RemoteConnectionDialog } from "./SSHDialog.js";
 export { useTheme } from "./useTheme.js";
 export type { Theme } from "./useTheme.js";
+export {
+  applyThemeSkinDom,
+  reapplyThemeSkinFromSnapshot,
+  readThemeSkinSnapshotFromStorage,
+  subscribeToThemeSkinStorage,
+  THEME_SKIN_STORAGE_KEY,
+} from "./lib/themeSkinDom.js";
 export { useTestActions } from "./test-actions.js";
 export type { TestActions } from "./test-actions.js";
 export { StoreProvider, useZCodeStore } from "./store/StoreProvider.js";

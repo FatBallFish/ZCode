@@ -1,5 +1,6 @@
 import { memo, type ReactNode } from "react";
 import { cn } from "@/components/lib/utils.js";
+import { AppWallpaperLayer } from "@/theme-skins/AppWallpaperLayer.js";
 
 export const DesktopWindowFrame = memo(function DesktopWindowFrameComponent({
   title: _title,
@@ -44,7 +45,11 @@ export const DesktopWindowFrame = memo(function DesktopWindowFrameComponent({
       )}
       data-desktop-window-frame="true"
     >
-      <div className="relative flex-1 min-h-0 w-full">{children}</div>
+      <div className="relative flex-1 min-h-0 w-full">
+        {/* 主题皮肤壁纸层垫底（z-0），内容包一层定位容器（z-[1]）保证绘制在壁纸之上。 */}
+        <AppWallpaperLayer />
+        <div className="relative z-[1] h-full w-full">{children}</div>
+      </div>
     </div>
   );
 });

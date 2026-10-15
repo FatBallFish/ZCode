@@ -34,15 +34,16 @@ import type { PetMarketService } from "./desktopPetMarketService.js";
 
 export const PET_PACK_SCHEME = "petpack";
 
-/** app ready 前注册 privileged scheme（standard 使 query 参数按标准 URL 解析）。 */
-export function registerPetPackScheme(electronProtocol: typeof protocol): void {
-  electronProtocol.registerSchemesAsPrivileged([
-    {
-      scheme: PET_PACK_SCHEME,
-      privileges: { standard: true, secure: true, stream: true },
-    },
-  ]);
-}
+/**
+ * petpack 的 privileged scheme 描述（standard 使 query 参数按标准 URL 解析）。
+ * 2026-10-15 修复：registerSchemesAsPrivileged 后一次调用会覆盖前一次，宠物此前
+ * 单独调用导致 zcode-media/zcode-sandbox/themepack 的特权位被顶掉；统一并入
+ * main/index.ts 的 registerLocalMediaPreviewScheme 单次调用（见 localMediaPreviewProtocol.ts 注释）。
+ */
+export const PET_PACK_PRIVILEGED_SCHEME = {
+  scheme: PET_PACK_SCHEME,
+  privileges: { standard: true, secure: true, stream: true },
+} as const;
 
 const NET_ERR_INVALID_URL = -300;
 

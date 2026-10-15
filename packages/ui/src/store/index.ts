@@ -38,6 +38,13 @@ import {
 } from "@/lib/taskNotificationPreferences.js";
 import type { Theme } from "../useTheme.js";
 import { applyTheme, normalizeThemePreference, resolveTheme } from "../useTheme.js";
+import type { ThemeSkinRuntime } from "@zcode/shared";
+import {
+  applyThemeSkinDom,
+  isValidThemeSkinRuntimePayload,
+  readThemeSkinSnapshotFromStorage,
+  writeThemeSkinSnapshotToStorage,
+} from "@/lib/themeSkinDom.js";
 
 import {
   INTERFACE_MODE_STORAGE_KEY,
@@ -45,6 +52,10 @@ import {
   type InterfaceMode,
 } from "@/lib/interfaceMode.js";
 import { logger } from "@/logger.js";
+
+/* 全局 store 单文件集中编排跨窗口广播与主题联动（含皮肤快照），与 Root.tsx 同理
+ * 就地豁免行数上限，避免把单一 create 调用拆散成多切片造成状态所有权模糊。 */
+/* eslint-disable max-lines */
 
 export type LoginEntryPurpose = "app-login";
 
@@ -107,6 +118,10 @@ export interface ZCodeState {
   /** 当前主题 */
   theme: Theme;
   setTheme: (theme: Theme) => void;
+
+  /** 当前主题皮肤（null = 默认皮肤；快照内联 token，跨窗口广播同步） */
+  themeSkin: ThemeSkinRuntime | null;
+  setThemeSkin: (skin: ThemeSkinRuntime | null) => void;
 
   /** 当前语言 */
   locale: string;
@@ -215,9 +230,9 @@ export interface ZCodeState {
 // 需要广播的字段 —— 只有这些字段的变更会发送给其他窗口
 // ============================================================================
 
-const BROADCAST_FIELDS = new Set(["theme", "locale", "uiFontSizePx", "interfaceMode"]);
+const BROADCAST_FIELDS = new Set(["theme", "locale", "uiFontSizePx", "interfaceMode", "themeSkin"]);
 
-type BroadcastField = "theme" | "locale" | "uiFontSizePx" | "interfaceMode";
+type BroadcastField = "theme" | "locale" | "uiFontSizePx" | "interfaceMode" | "themeSkin";
 
 /** 广播频道名前缀 */
 const STATE_CHANNEL_PREFIX = "state:";
@@ -266,8 +281,18 @@ export function createZCodeStore(
       writeSafeLocalStorage("mikiko-theme", normalizedTheme);
       syncSystemThemeListener(normalizedTheme);
       applyTheme(normalizedTheme);
+      // 主题模式决定皮肤取 light 还是 dark token 集，模式切换后必须重放皮肤覆盖。
+      applyThemeSkinDom(get().themeSkin, resolveTheme(normalizedTheme));
 
       set({ theme: normalizedTheme });
+    },
+
+    // 皮肤快照从 localStorage 同步读入（启动防闪烁由入口 bootstrap 提前重放）。
+    themeSkin: readThemeSkinSnapshotFromStorage(),
+    setThemeSkin: (skin) => {
+      writeThemeSkinSnapshotToStorage(skin);
+      applyThemeSkinDom(skin, resolveTheme(get().theme));
+      set({ themeSkin: skin });
     },
 
     locale: readSafeLocalStorage("mikiko-locale") || "zh-CN",
@@ -430,6 +455,7 @@ export function createZCodeStore(
       // system 模式需要持续订阅系统亮暗变化，不能只在切换到 system 的瞬间应用一次。
       // 否则用户后续切系统主题时，DOM 上的 dark class 不会同步更新，看起来就像“跟随系统失效”。
       applyTheme("system");
+      applyThemeSkinDom(useStore.getState().themeSkin, resolveTheme("system"));
     };
 
     if (typeof mediaQuery.addEventListener === "function") {
@@ -489,6 +515,8 @@ export function createZCodeStore(
       const state = useStore.getState();
       if (field === "theme" && typeof msg.payload === "string") {
         state.setTheme(msg.payload as Theme);
+      } else if (field === "themeSkin" && isValidThemeSkinRuntimePayload(msg.payload)) {
+        state.setThemeSkin(msg.payload);
       } else if (field === "locale" && typeof msg.payload === "string") {
         state.setLocale(msg.payload);
       } else if (
@@ -506,6 +534,7 @@ export function createZCodeStore(
 
   syncSystemThemeListener(useStore.getState().theme);
   applyTheme(useStore.getState().theme);
+  applyThemeSkinDom(useStore.getState().themeSkin, resolveTheme(useStore.getState().theme));
   applyUiFontSizePx(useStore.getState().uiFontSizePx);
   document.documentElement.classList.toggle(
     "dark",

@@ -219,6 +219,20 @@ export function createDesktopPlatform(options: {
       window.zcode.petGetInstalledPreview?.(petId) ?? Promise.resolve(null),
     petImportFromCodex: () =>
       window.zcode.petImportFromCodex?.() ?? Promise.resolve({ imported: [], skipped: [] }),
+    // 主题皮肤（specs/ui/theme-skins.md）：磁盘库操作全部经 main 代理。
+    themeSkinListInstalled: () => window.zcode.themeSkinListInstalled?.() ?? Promise.resolve([]),
+    themeSkinImportFromFile: () =>
+      window.zcode.themeSkinImportFromFile?.() ??
+      Promise.resolve({ ok: false as const, error: "unavailable" }),
+    themeSkinSaveCustom: (payload) =>
+      window.zcode.themeSkinSaveCustom?.(payload) ??
+      Promise.resolve({ ok: false as const, error: "unavailable" }),
+    themeSkinDelete: (id) =>
+      window.zcode.themeSkinDelete?.(id) ?? Promise.resolve({ ok: false, error: "unavailable" }),
+    themeSkinReadExportFile: (id) =>
+      window.zcode.themeSkinReadExportFile?.(id) ?? Promise.resolve({ error: "unavailable" }),
+    themeSkinStageWallpaperImage: () =>
+      window.zcode.themeSkinStageWallpaperImage?.() ?? Promise.resolve({ canceled: true }),
     // 会话拖出侧栏 → 新窗口打开（specs/desktop/session-drag-out-window.md）。
     openSessionInNewWindow: (payload) =>
       window.zcode.openSessionInNewWindow?.(payload) ??

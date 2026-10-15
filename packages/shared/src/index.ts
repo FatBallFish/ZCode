@@ -320,6 +320,7 @@ export * from "./voice.js";
 export * from "./petWebp.js";
 export * from "./petMarket.js";
 export * from "./petAnimator.js";
+export * from "./themeSkins/index.js";
 
 export * from "./coding-plan-reset.js";
 export * from "./highspeed.js";

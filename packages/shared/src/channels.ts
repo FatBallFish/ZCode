@@ -509,6 +509,18 @@ export const PlatformChannels = {
   PetMarketUninstall: "zcode:pet:market-uninstall",
   PetMarketPreview: "zcode:pet:market-preview",
   PetImportFromCodex: "zcode:pet:import-codex",
+  /** 主题皮肤（specs/ui/theme-skins.md）：列出磁盘上的自定义/导入皮肤 */
+  ThemeSkinListInstalled: "zcode:theme-skin:list-installed",
+  /** 主题皮肤：文件对话框选择 .mikikotheme 并校验安装 */
+  ThemeSkinImportFromFile: "zcode:theme-skin:import-from-file",
+  /** 主题皮肤：新建/原地保存自定义皮肤（内置皮肤一律走新建副本） */
+  ThemeSkinSaveCustom: "zcode:theme-skin:save-custom",
+  /** 主题皮肤：删除自定义皮肤 */
+  ThemeSkinDelete: "zcode:theme-skin:delete",
+  /** 主题皮肤：读取磁盘皮肤并组装 .mikikotheme 导出 JSON */
+  ThemeSkinReadExportFile: "zcode:theme-skin:read-export-file",
+  /** 主题皮肤：选择壁纸图片并暂存到 staging（编辑器预览用，保存时转正） */
+  ThemeSkinStageWallpaperImage: "zcode:theme-skin:stage-wallpaper-image",
   PetGetActive: "zcode:pet:get-active",
   /** 宠物页 → Main：开始拖拽（main 记录锚点并接管移动；锚点式 60Hz 驱动） */
   PetDragStart: "zcode:pet:drag-start",
@@ -1443,6 +1455,34 @@ export interface PlatformChannelMap {
       imported: string[];
       skipped: { petId: string; reason: string }[];
     };
+  };
+  [PlatformChannels.ThemeSkinListInstalled]: {
+    request: void;
+    response: import("./themeSkins/index.js").ThemeSkinListItem[];
+  };
+  [PlatformChannels.ThemeSkinImportFromFile]: {
+    request: void;
+    response:
+      | { ok: true; item: import("./themeSkins/index.js").ThemeSkinListItem }
+      | { ok: false; error: string };
+  };
+  [PlatformChannels.ThemeSkinSaveCustom]: {
+    request: import("./themeSkins/index.js").ThemeSkinSavePayload;
+    response:
+      | { ok: true; item: import("./themeSkins/index.js").ThemeSkinListItem }
+      | { ok: false; error: string };
+  };
+  [PlatformChannels.ThemeSkinDelete]: {
+    request: { id: string };
+    response: { ok: boolean; error?: string };
+  };
+  [PlatformChannels.ThemeSkinReadExportFile]: {
+    request: { id: string };
+    response: { json?: string; error?: string };
+  };
+  [PlatformChannels.ThemeSkinStageWallpaperImage]: {
+    request: void;
+    response: { path?: string; canceled?: boolean; error?: string };
   };
   [PlatformChannels.PetGetActive]: {
     request: void;

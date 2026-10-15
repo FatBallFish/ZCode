@@ -16,6 +16,8 @@ import {
   playTaskNotificationSound,
   setStreamClientId,
   setReactErrorArmsReporter,
+  applyThemeSkinDom,
+  readThemeSkinSnapshotFromStorage,
 } from "@zcode/ui";
 import "@zcode/ui/styles.css";
 import { connectViaMessagePort, createMessagePortServiceConnection } from "@zcode/client";
@@ -78,9 +80,11 @@ function registerE2EStoreBridgesIfEnabled() {
   });
 }
 
-// 初始化主题：默认 Zai dark，后续由 useTheme hook 接管
+// 初始化主题：默认 Zai dark，后续由 useTheme hook 接管。
+// 2026-10-13 修复：此前读的是旧键 "zcode-theme"（store 写 "mikiko-theme"），
+// 首帧永远回落 mikiko-dark，浅色用户每次启动都会闪一次深色。
 {
-  const saved = localStorage.getItem("zcode-theme") || "mikiko-dark";
+  const saved = localStorage.getItem("mikiko-theme") || "mikiko-dark";
   const resolved =
     saved === "system"
       ? window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -102,6 +106,8 @@ function registerE2EStoreBridgesIfEnabled() {
   if (resolved === "dark") document.documentElement.classList.add("dark");
   document.documentElement.classList.toggle("theme-mikiko-light", appliedTheme === "mikiko-light");
   document.documentElement.classList.toggle("theme-mikiko-dark", appliedTheme === "mikiko-dark");
+  // 主题皮肤快照在首帧同步重放（token 覆盖 + 壁纸变量），避免默认皮肤闪帧。
+  applyThemeSkinDom(readThemeSkinSnapshotFromStorage(), resolved);
 }
 
 const isMacDesktop = navigator.userAgent.includes("Mac");
