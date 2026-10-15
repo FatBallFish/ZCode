@@ -25,8 +25,7 @@ function resolvePnpmCliPath(env) {
   const npmExecPath = env.npm_execpath;
   if (
     npmExecPath &&
-    (npmExecPath.toLowerCase().includes("\\pnpm\\") ||
-      npmExecPath.toLowerCase().includes("/pnpm/"))
+    (npmExecPath.toLowerCase().includes("\\pnpm\\") || npmExecPath.toLowerCase().includes("/pnpm/"))
   ) {
     return npmExecPath;
   }
@@ -51,6 +50,10 @@ function run(command, args, options = {}) {
     encoding: "utf8",
     env: options.env,
     stdio: options.stdio ?? ["ignore", "pipe", "pipe"],
+    // 修复原因（2026-10-15）：spawnSync 默认 maxBuffer 1MB，rebase/force-push 后
+    // pre-push base 与 HEAD 的 diff 可达上万文件（>1MB NUL 分隔输出），子进程会被
+    // 直接终止且 status=null，pre-push 以「git diff failed: <文件列表>」误报失败。
+    maxBuffer: 256 * 1024 * 1024,
   };
 
   if (process.platform === "win32" && command === "pnpm") {
@@ -159,6 +162,20 @@ function resolvePrePushTarget(root) {
 
   if (!hasCommit(root, candidate.remoteSha) || !hasCommit(root, candidate.localSha)) {
     return undefined;
+  }
+
+  // 远端 sha 不是本地 HEAD 的祖先 = 分支历史被重写（rebase/force-push）。
+  // 此时 remote..HEAD 的 diff 会把整条重写历史算进 affected（上万文件），lint-staged
+  // 与 vitest related 在该范围上既慢又失真；与其它退化场景一致直接转全量单测。
+  const ancestry = run(
+    "git",
+    ["merge-base", "--is-ancestor", candidate.remoteSha, candidate.localSha],
+    { cwd: root, stdio: ["ignore", "ignore", "ignore"] },
+  );
+  if ((ancestry.status ?? 1) !== 0) {
+    return {
+      forceFullRun: `${candidate.remoteRef} 远端历史已被重写（rebase/force-push），affected 范围不可用`,
+    };
   }
 
   return {
@@ -290,6 +307,9 @@ function main() {
   const target = resolveDiffTarget(root);
   if (!target) {
     return runFullUnitTests(root, "未找到可用于比较的 upstream 或默认 base");
+  }
+  if (target.forceFullRun) {
+    return runFullUnitTests(root, target.forceFullRun);
   }
 
   const comparisonBase = target.useMergeBase
