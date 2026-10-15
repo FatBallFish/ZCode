@@ -81,5 +81,7 @@ packages/desktop/.e2e-artifacts/
 packages/desktop/.e2e-cache/
 packages/desktop/.e2e-network-capture/
 .zcode-runtime/
+# 开发版 Electron 运行时（品牌改名后目录）；同上避免误提交 Electron.app 副本。
+.mikiko-runtime/
 packages/mikiko-cloud/seed-builtin.json
 packages/mikiko-cloud/.admin-credentials.local
