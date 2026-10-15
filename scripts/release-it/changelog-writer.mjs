@@ -1,13 +1,33 @@
 import createConventionalCommitsPreset from "conventional-changelog-conventionalcommits";
 
+/**
+ * CHANGELOG 模板（specs/release/changelog-audience.md 的口径）：
+ * 更新日志面向用户——只保留「新增功能 / 问题修复 / 体验优化」三个用户可感分区，
+ * 分区名用中文大白话；chore/docs/refactor/test 等开发向类型不进入日志；
+ * 开发工作流与云端服务（mikiko-cloud、pre-push、ci、e2e 等 scope）整体略过。
+ */
+
 export const RELEASE_CHANGELOG_TYPES = [
-  { type: "feat", section: "Features" },
-  { type: "fix", section: "Bug Fixes" },
-  { type: "chore", section: "Chores" },
-  { type: "docs", section: "Documentation" },
-  { type: "refactor", section: "Refactorings" },
-  { type: "", section: "Other Changes" },
+  { type: "feat", section: "新增功能" },
+  { type: "fix", section: "问题修复" },
+  { type: "perf", section: "体验优化" },
 ];
+
+/** 用户无感的 scope：出现在这里面的提交不进入更新日志。 */
+export const RELEASE_CHANGELOG_HIDDEN_SCOPES = new Set([
+  "mikiko-cloud",
+  "cloud",
+  "pre-push",
+  "architecture",
+  "knip",
+  "ci",
+  "e2e",
+  "sync",
+  "test",
+  "release",
+  "brand",
+  "site",
+]);
 
 export const RELEASE_CHANGELOG_PARSER_OPTS = {
   headerPattern: /^(?:(\w+)(?:\(([^)]*)\))?:\s+)?(.+)$/,
@@ -26,6 +46,17 @@ export function extractCommitBodyBullets(body) {
     .filter((item) => item && !/^BREAKING[ -]CHANGE:/i.test(item));
 }
 
+export function isHiddenReleaseScope(scope) {
+  if (!scope) {
+    return false;
+  }
+  // 逗号/斜杠复合 scope（如 "desktop/ui"）任一命中即隐藏。
+  return scope
+    .split(/[,/]/)
+    .map((part) => part.trim())
+    .some((part) => RELEASE_CHANGELOG_HIDDEN_SCOPES.has(part));
+}
+
 export function createReleaseChangelogWriterOpts() {
   const preset = createConventionalCommitsPreset({
     types: RELEASE_CHANGELOG_TYPES,
@@ -40,6 +71,11 @@ export function createReleaseChangelogWriterOpts() {
 {{/each}}{{/if}}
 `,
     transform(commit, context) {
+      if (isHiddenReleaseScope(commit.scope)) {
+        // 返回 falsy 即从 changelog 中剔除该提交。
+        return null;
+      }
+
       const transformed = baseTransform(commit, context);
       if (!transformed) {
         return transformed;
