@@ -14,3 +14,7 @@ third-party/runtime/*.txt -text -whitespace
 docs/knip/docs/LICENSE -text -whitespace
 docs/knip/docs/licenses/** -text -whitespace
 third-party/inventory.json linguist-generated=true
+
+# Gen UI vendor 快照按字节保存：desktop 构建对其做 sha256 校验（gen-ui-runtime-assets.mjs），
+# Windows checkout 的 CRLF 自动转换会破坏哈希导致 win 包构建失败（v1.1.2 实测）。
+apps/zcode-cli/packages/visualize-plugin/skills/visualize/assets/vendor/** -text
