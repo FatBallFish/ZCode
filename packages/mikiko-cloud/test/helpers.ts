@@ -50,14 +50,18 @@ export function createMemoryR2(): R2Bucket {
         httpMetadata: { contentType: entry.contentType },
       };
     },
-    async head() {
-      return null;
+    async head(key: string) {
+      return store.has(key) ? { key } : null;
     },
-    async delete() {
-      return undefined;
+    async delete(key: string) {
+      store.delete(key);
     },
-    async list() {
-      return { truncated: false, objects: [] };
+    async list(options?: { prefix?: string; cursor?: string }) {
+      const prefix = options?.prefix ?? "";
+      return {
+        truncated: false,
+        objects: [...store.keys()].filter((key) => key.startsWith(prefix)).map((key) => ({ key })),
+      };
     },
     async createMultipartUpload() {
       throw new Error("not implemented in memory mock");

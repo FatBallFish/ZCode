@@ -70,3 +70,6 @@ enabled = true
 # 对齐 sub2api 同步间隔（发版频率天级，每天 4 次足够跟上且压住 GitHub API 配额）。
 [triggers]
 crons = ["0 */6 * * *"]
+
+[vars]
+MIKIKO_OIDC_ISSUER = "https://oauth.mikiko.ai/realms/mikiko"

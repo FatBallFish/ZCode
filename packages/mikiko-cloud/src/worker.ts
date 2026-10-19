@@ -87,6 +87,8 @@ interface Env {
   MIKIKO_ADMIN_USERNAME?: string;
   MIKIKO_ADMIN_PASSWORD?: string;
   MIKIKO_ADMIN_SESSION_SECRET?: string;
+  /** Mikiko ID issuer（反馈账号端点验签用，wrangler [vars]）。 */
+  MIKIKO_OIDC_ISSUER?: string;
   /** 发版流水线写官网更新日志的令牌（wrangler secret put）。 */
   MIKIKO_RELEASE_PUBLISH_TOKEN?: string;
 }
@@ -169,6 +171,20 @@ export default {
       if (url.pathname === "/api/v1/client/configs") {
         if (request.method !== "GET") return methodNotAllowed();
         return handleClientConfigs(env);
+      }
+      if (url.pathname === "/api/v1/admin/logout") {
+        if (request.method !== "POST") return methodNotAllowed();
+        // 2026-10-20 D.3：登出端点——清 session cookie（此前登出靠 reload + cookie 自然过期）。
+        return jsonResponse({ ok: true }, 200, {
+          "set-cookie": [
+            `${SESSION_COOKIE_NAME}=`,
+            "Path=/",
+            "HttpOnly",
+            "Secure",
+            "SameSite=Lax",
+            "Max-Age=0",
+          ].join("; "),
+        });
       }
       if (url.pathname === "/api/v1/admin/login") {
         if (request.method !== "POST") return methodNotAllowed();

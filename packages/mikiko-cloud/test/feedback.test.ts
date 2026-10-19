@@ -10,10 +10,10 @@ import { createMemoryD1, createMemoryKv, createMemoryR2 } from "./helpers.ts";
  * 走 worker.fetch 全路由（含鉴权门禁）；D1 用 node:sqlite 内存 shim 跑真 SQL。
  */
 
-const MIGRATION_SQL = readFileSync(
-  join(import.meta.dirname, "..", "migrations", "0001-feedback-init.sql"),
-  "utf-8",
-);
+// 0002（kind/owner 账户化列）随 0001 一并建：生产 D1 由 CI migrations apply 顺序执行。
+const MIGRATION_SQL = ["0001-feedback-init.sql", "0002-feedback-account.sql"]
+  .map((name) => readFileSync(join(import.meta.dirname, "..", "migrations", name), "utf-8"))
+  .join("\n");
 
 const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD = "correct-horse";
