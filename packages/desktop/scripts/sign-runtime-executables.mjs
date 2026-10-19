@@ -61,8 +61,6 @@ export async function signRuntimeExecutables(context, options = {}) {
           const file = queue.shift();
           if (!file) return resolve();
           try {
-            // 嵌套二进制不带 --timestamp：Apple TSA 请求在部分 runner 上挂起；
-            // 公证只要求最外层 .app 签名带 secure timestamp。
             execFileSync(
               "/usr/bin/codesign",
               [
@@ -75,18 +73,30 @@ export async function signRuntimeExecutables(context, options = {}) {
               { stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 },
             );
             signed += 1;
-          } catch (error) {
+          } catch {
+            // 完整签名失败（如 entitlements 对 linker-signed 通用二进制挂起）：
+            // 降级为不带 entitlements 的基础 Developer ID 签名，公证仍接受。
             try {
-              execFileSync("/usr/bin/codesign", ["--verify", file], {
-                stdio: "ignore",
-                timeout: 5_000,
-              });
-              signed += 1;
-            } catch {
-              failed += 1;
-              console.error(
-                `[afterPack][sign-runtime] 签名失败: ${file}: ${error.message?.slice(0, 200)}`,
+              execFileSync(
+                "/usr/bin/codesign",
+                ["--sign", identity, "--force", file],
+                { stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 },
               );
+              signed += 1;
+              console.warn(`[afterPack][sign-runtime] 降级签名（无 entitlements）: ${file}`);
+            } catch (error) {
+              try {
+                execFileSync("/usr/bin/codesign", ["--verify", file], {
+                  stdio: "ignore",
+                  timeout: 5_000,
+                });
+                signed += 1;
+              } catch {
+                failed += 1;
+                console.error(
+                  `[afterPack][sign-runtime] 签名失败: ${file}: ${error.message?.slice(0, 200)}`,
+                );
+              }
             }
           }
           next();
