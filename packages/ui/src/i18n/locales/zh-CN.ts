@@ -1584,7 +1584,6 @@ const zhCN: Record<string, string> = {
   "appHeader.openProviderConfigInEditorFailed": "无法在 {editor} 中打开 Provider 配置文件",
   "workspaceHeader.help.menu": "帮助",
   "workspaceHeader.help.issueReport": "问题上报",
-  "workspaceHeader.help.reportVulnerability": "提交漏洞",
   "workspaceHeader.help.productRequest": "给产品提需求",
   "workspaceHeader.help.productRequestDraft": "我想建议：",
   "workspaceHeader.help.community": "用户社群",
@@ -3123,6 +3122,8 @@ const zhCN: Record<string, string> = {
   "settings.sub2api.login.hint": "站点开启人机验证时无法密码登录，请直接粘贴 API Key。",
   "settings.sub2api.login.success": "登录成功，已同步 {count} 个密钥",
   "settings.sub2api.login.failed": "登录失败",
+  "settings.sub2api.login.syncFailed":
+    "已登录，但模型列表同步失败，将自动重试；也可稍后在「设置 → 模型设置」手动同步",
   "settings.sub2api.login.captchaBlocked":
     "该站点开启了人机验证，暂不支持应用内密码登录。请在站点控制台创建 API Key 后使用下方“添加密钥”。",
   "settings.sub2api.keys.title": "API 密钥",

@@ -1712,7 +1712,6 @@ const enUS: Record<string, string> = {
   "appHeader.openProviderConfigInEditorFailed": "Could not open provider config in {editor}",
   "workspaceHeader.help.menu": "Help",
   "workspaceHeader.help.issueReport": "Report an issue",
-  "workspaceHeader.help.reportVulnerability": "Report a vulnerability",
   "workspaceHeader.help.productRequest": "Request a feature",
   "workspaceHeader.help.productRequestDraft": "I would like to suggest: ",
   "workspaceHeader.help.community": "User community",
@@ -3329,6 +3328,8 @@ const enUS: Record<string, string> = {
     "If the site enforces a captcha, paste an API key directly instead.",
   "settings.sub2api.login.success": "Signed in, synced {count} keys",
   "settings.sub2api.login.failed": "Sign-in failed",
+  "settings.sub2api.login.syncFailed":
+    "Signed in, but model list sync failed and will retry automatically; you can also sync manually later in Settings → Model Providers",
   "settings.sub2api.login.captchaBlocked":
     "This site enforces a captcha and cannot be signed into from the app. Create an API key in the site console and add it below.",
   "settings.sub2api.keys.title": "API Keys",

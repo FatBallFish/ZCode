@@ -4,6 +4,7 @@ import { mkdir, readFile, rename, stat as fsStat, writeFile } from "node:fs/prom
 import { randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 import { getAppConfigDir } from "../paths.js";
+import { createServiceLogger } from "../logger/serviceLogger.js";
 import type { IProviderSettingsService } from "../model-provider/providerFacadeServices.js";
 import type {
   ISub2ApiService,
@@ -179,10 +180,57 @@ function isoDate(offsetDays: number): string {
 }
 
 export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2ApiService {
+  const logger = createServiceLogger("sub2api");
   const configFile = join(getAppConfigDir(), "sub2api.json");
   const changeEmitter = new Emitter<Sub2ApiSitesState>();
   let cached: StoredConfigV2 | null = null;
   let cachedMtime: number | undefined;
+  /** 登录后自动同步失败的延迟重试必须经代理排队（写方法），不能走闭包 raw 引用
+   *  （那会在登录的队列槽外并行写盘，破坏写串行化）。 */
+  let serializedServiceRef: ISub2ApiService | null = null;
+
+  /** 登录后自动同步失败的一次性延迟重试（2026-10-20）：首启时 provider 配置运行时
+   *  可能尚未 ready 或模型清单拉取超时，此前静默失败后模型列表一直为空，直到用户
+   *  打开设置页才被间接重试。5s 后经写队列重试一次；仍失败由 UI 的 syncError 提示。 */
+  function scheduleProviderSyncRetry(siteId: string): void {
+    const timer = setTimeout(() => {
+      void serializedServiceRef?.syncProviders(siteId).catch((error: unknown) => {
+        logger.warn(undefined, "登录后模型列表同步重试仍失败", {
+          siteId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }, 5_000);
+    timer.unref?.();
+  }
+
+  /** 登录后自动同步 + 失败显式化（2026-10-20 修复模型列表静默为空）：
+   *  ① 整体失败（syncProviders 抛错）→ 返回错误信息并安排延迟重试；
+   *  ② 部分密钥被跳过（syncProviders 对单密钥投影失败是「跳过该密钥」而非整体失败，
+   *     bindings 少于密钥数即部分跳过，典型为首启 provider 运行时未 ready）→ 同样
+   *     返回信号并安排重试。此前两条路径都静默，用户登录成功但模型列表为空且无提示。 */
+  async function runLoginAutoSync(siteId: string): Promise<string | undefined> {
+    try {
+      await service.syncProviders(siteId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(undefined, "登录后模型列表同步失败，将延迟重试", {
+        siteId,
+        error: message,
+      });
+      scheduleProviderSyncRetry(siteId);
+      return message;
+    }
+    const postSync = await service.getSites();
+    const synced = postSync.sites.find((entry) => entry.siteId === siteId);
+    const total = synced?.keys.length ?? 0;
+    const projected = synced?.providerBindings.length ?? 0;
+    if (projected < total) {
+      scheduleProviderSyncRetry(siteId);
+      return `部分密钥未同步（${projected}/${total}）`;
+    }
+    return undefined;
+  }
 
   function defaultMikikoSite(): StoredSite {
     return {
@@ -392,6 +440,11 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
         ? Date.now() + (asNumber(data.expires_in) as number) * 1000
         : undefined,
     };
+    // 2026-10-20 缺陷修复：刷新成功必须立即落盘。sub2api 的 /auth/refresh 会轮换
+    // refresh token（旧值立即作废），此前只变异内存缓存，一旦轮换后退出应用，磁盘上
+    // 仍是已失效的旧 token，重启后刷新必失败，用户被静默登出。静默持久化（不广播）
+    // 与 listKeys 等高频路径同纪律；site 是 loadConfig 缓存快照内的引用，重读即同源。
+    await persistSilently(await loadConfig());
     return true;
   }
 
@@ -895,12 +948,10 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       const syncedKeyCount = await fetchAndStoreKeys(site, groups);
       await saveConfig({ ...config, sites: config.sites });
       // 登录后自动同步供应商与模型列表（用户需求 #3）：不再依赖用户打开设置页才触发。
-      try {
-        await service.syncProviders(site.id);
-      } catch {
-        // 同步失败不阻断登录返回；用户进设置页可手动重试。
-      }
-      return { state: toSiteState(site), syncedKeyCount };
+      // 2026-10-20：失败不再静默——返回 syncError 让 UI 提示，并延迟 5s 重试一次
+      // （首启 provider 运行时未 ready 的窗口即被覆盖；仍失败用户可进设置页手动重试）。
+      const syncError = await runLoginAutoSync(site.id);
+      return { state: toSiteState(site), syncedKeyCount, ...(syncError ? { syncError } : {}) };
     },
     async loginWith2FA(request) {
       const { config, site } = await findSite(request.siteId);
@@ -927,12 +978,9 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       const syncedKeyCount = await fetchAndStoreKeys(site, groups);
       await saveConfig({ ...config, sites: config.sites });
       // 登录后自动同步（2FA）供应商与模型列表（用户需求 #3）：不再依赖用户打开设置页才触发。
-      try {
-        await service.syncProviders(site.id);
-      } catch {
-        // 同步失败不阻断登录返回；用户进设置页可手动重试。
-      }
-      return { state: toSiteState(site), syncedKeyCount };
+      // 2026-10-20：失败处理与 login 一致（syncError + 延迟重试），不再静默。
+      const syncError = await runLoginAutoSync(site.id);
+      return { state: toSiteState(site), syncedKeyCount, ...(syncError ? { syncError } : {}) };
     },
     async logout(siteId) {
       const { config, site } = await findSite(siteId);
@@ -1538,7 +1586,8 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
 
   // 返回代理而非 raw service：外部（RPC/UI）调用写方法时整体排队；闭包内部的
   // service.xxx 自调用仍指向 raw 对象，在调用方已持有的队列槽内继续执行，不重入。
-  return new Proxy(service, {
+  // 代理回填给 serializedServiceRef，供 scheduleProviderSyncRetry 的延迟重试排队使用。
+  const serializedService: ISub2ApiService = new Proxy(service, {
     get(target, prop) {
       const value = Reflect.get(target, prop);
       if (typeof prop === "string" && configWriteMethods.has(prop) && typeof value === "function") {
@@ -1549,4 +1598,6 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       return value;
     },
   });
+  serializedServiceRef = serializedService;
+  return serializedService;
 }

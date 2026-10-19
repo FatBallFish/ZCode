@@ -51,6 +51,8 @@
 - `syncProviders` 按站点互斥（`syncInFlight`），login 内置自动同步，UI 不重复触发。
 - 差量更新：已有供应商的 api.type 以当前生效值为准（用户手动改过不回退）；同步清单外的用户手动模型保留；孤儿供应商按名称前缀认领或清理。
 - 模型 API 类型推断：anthropic → anthropic-messages；openai 且全量 gpt- 前缀 → openai-responses；其余 openai-chat-completions。虚拟模型（SUB2API_VIRTUAL_MODEL_IDS）不进清单。
+- **登录同步失败显式化与重试（2026-10-20）**：`login`/`loginWith2FA` 的自动同步失败不再静默——整体抛错或「部分密钥被跳过（providerBindings < keys，典型：首启 provider 运行时未 ready，单密钥投影失败按既有降级语义跳过）」都经返回值 `syncError` 透出（UI toast），并延迟 5s 经序列化代理（写队列）重试一次；仍失败由用户在设置页手动同步。回归：`packages/services/test/sub2apiLoginSyncAndTokenPersist.test.ts`。
+- **refresh token 轮换落盘（2026-10-20 缺陷修复）**：`refreshSiteToken` 成功后立即 `persistSilently` 落盘——sub2api `/api/v1/auth/refresh` 会轮换 refresh token（旧值立即作废），此前只变异内存缓存，轮换后重启会被静默登出。
 - **退出登录（2026-09-28 语义修订）**：`logout` 清账号态之外，与 `removeSite` 同语义级联清理——删除该站点全部密钥的个人供应商（连模型配置一并删除，`deleteExactForProvider`）、品牌前缀（`"{brand} · "`）兜底清扫孤儿供应商、清空 `providerBindings`/`keyModels`/`activeKeyId`/`providerId` 与该站点前缀的 `modelConfigs` 覆盖；站点记录本身保留（MikikoCC 为内置站点不可删，重登即按当前规则全新同步）。动机：MikikoCC 只能退出不能删除，旧语义下其模型配置永远无法经「退出重登」重新初始化；且换账号登录会复用上一账号的供应商与密钥配置。供应商删除失败时与删除站点一致地抛错重试，不静默留幽灵。
 
 ## 模型推荐配置（智能配置落盘）

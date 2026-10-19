@@ -8,12 +8,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Sub2ApiSiteState } from "@zcode/services";
 import { ISub2ApiService } from "@zcode/services";
 import { Button } from "@/components/ui/button.js";
+import { toast } from "@/components/ui/toast.js";
 import { TurnstileWidget } from "@/components/ui/TurnstileWidget.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { logger } from "@/logger.js";
 
 const inputClassName =
   "flex h-8 w-full rounded-md border border-border bg-transparent px-2 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none";
+
+/** 登录成功但模型列表同步失败：不阻断进入已登录态，toast 提示（服务层已安排延迟重试）。 */
+function notifySyncError(
+  syncError: string | undefined,
+  intl: ReturnType<typeof useZCodeIntl>["intl"],
+): void {
+  if (!syncError) {
+    return;
+  }
+  toast(intl.formatMessage({ id: "settings.sub2api.login.syncFailed" }), { variant: "warning" });
+}
 
 export interface Sub2ApiLoginPanelProps {
   sub2ApiService: ISub2ApiService;
@@ -77,6 +89,7 @@ export function Sub2ApiLoginPanel({
         turnstileToken: turnstileToken ?? undefined,
       });
       setPassword("");
+      notifySyncError(result.syncError, intl);
       onLoggedIn(result.state);
     } catch (error) {
       const errorCode = (error as { errorCode?: string }).errorCode;
@@ -120,6 +133,7 @@ export function Sub2ApiLoginPanel({
       setPassword("");
       setTotpCode("");
       setTwoFactor(null);
+      notifySyncError(result.syncError, intl);
       onLoggedIn(result.state);
     } catch (error) {
       setErrorText(

@@ -111,6 +111,9 @@ export type Sub2ApiLoginErrorCode =
 export interface Sub2ApiLoginResult {
   state: Sub2ApiSiteState;
   syncedKeyCount: number;
+  /** 登录成功但登录后自动同步供应商/模型列表失败时的错误摘要（2026-10-20：
+   *  此前静默吞掉，用户进主界面后模型列表为空且无提示、无重试）。 */
+  syncError?: string;
 }
 
 export interface Sub2ApiAccountDetail {
