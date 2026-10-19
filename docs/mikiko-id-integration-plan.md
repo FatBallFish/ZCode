@@ -657,6 +657,7 @@ API 变更：
 - **真实链路复验通过（A.4 前置 #3 已闭环）**：sub2api `token_exchange_allowed_clients` 上线后，用线上 KeyCloak + 真实账号完成授权 → id_token → **真实 mikiko.cc token-exchange** → 平台 token → `/auth/me` 拉到真实账号数据。Part A 生产链路全绿。
 - **F 后端（mikiko-cloud，commit 3513e1c3）**：migration 0002（kind/owner）、oidcTokenVerify（手写 WebCrypto JWKS RS256）、账号端点（mine/详情/评论/migrate 含匿名行认领）、admin DELETE/kind+owner 过滤/inline 预览/logout。测试 43/43。
 - **F 客户端（services，commit af40af03）**：账号通道（登录态创建挂 owner+kind）、远端「我的反馈」、本人评论、`syncAccountRecords`（登录事件自动触发迁移+清档）。测试 5/5 新增。
+- **mikiko-cloud 已先行发布（用户授权）并完成生产冒烟**：D1 migration 0002 远端应用 ✅、worker 部署（版本 b78f8521，含 MIKIKO_OIDC_ISSUER var）✅。生产验证：无凭据 mine 401 / 真实 KeyCloak Bearer mine 200（生产 WebCrypto JWKS 验签链路对真 KeyCloak 生效）/ Bearer 建单 kind=feature 挂 owner / mine 可见 ownerEmail / admin DELETE 清理后归零——生产读写闭环完成。
 - **桌面 E2E 用例已编写（未本地执行通过）**：`mikikocc-oidc-login.test.ts`（真实 KeyCloak 全链路 + I 模型列表断言）、`onboarding-migration-dialog.test.ts`（H 竞态回归）。两用例 typecheck 通过；本地 wdio 执行受阻于环境问题——`.e2e-cache` 中发现并清除陈旧 chromedriver-147（与 Electron 41/Chromium 146 不匹配，DevToolsActivePort 失败，属仓库级修复），此后会话创建仍在沙箱内握手超时（应用本体手动启动正常）。需在交互式 macOS 会话或 CI runner 上执行后计入通过口径。
 
 # 13. 待决策点汇总（rev3：全部裁定）
