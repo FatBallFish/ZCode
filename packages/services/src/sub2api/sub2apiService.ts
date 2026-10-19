@@ -6,6 +6,20 @@ import { dirname, join } from "node:path";
 import { getAppConfigDir } from "../paths.js";
 import { createServiceLogger } from "../logger/serviceLogger.js";
 import type { IProviderSettingsService } from "../model-provider/providerFacadeServices.js";
+import { type LoopbackOAuthListener, LoopbackOAuthError } from "../oauth/loopbackCallbackListener.js";
+import {
+  MIKIKO_OIDC_CALLBACK_PATH,
+  MikikoOidcError,
+  buildMikikoOidcAuthorizeUrl,
+  exchangeMikikoIdTokenForPlatformTokens,
+  exchangeMikikoOidcCode,
+  generateOidcNonce,
+  generateOidcPkce,
+  generateOidcState,
+  parseMikikoOidcIdToken,
+  refreshMikikoOidcToken,
+  startMikikoOidcCallbackListener,
+} from "./sub2apiOidcClient.js";
 import type {
   ISub2ApiService,
   Sub2ApiAccountDetail,
@@ -37,6 +51,23 @@ interface StoredAccount {
   accessToken?: string;
   refreshToken?: string;
   expiresAt?: number;
+  /** Mikiko ID（KeyCloak）身份；仅 MikikoCC OIDC 登录写入（2026-10-20 批次 2）。
+   *  refresh token 不落此明文文件，经 credentialStore 加密存储（方案 §13.7 裁定）。 */
+  oidc?: StoredOidcIdentity;
+}
+
+interface StoredOidcIdentity {
+  sub: string;
+  email?: string;
+  /** 指向加密凭据条目的键（credentialStore），sub2api.json 不出现明文 OIDC 凭据。 */
+  credentialKey: string;
+}
+
+/** OIDC refresh token 的加密存储面（生产注入 credentialService；缺省内存实现仅供测试）。 */
+export interface Sub2ApiCredentialStore {
+  load(key: string): Promise<string | null>;
+  save(key: string, value: string): Promise<void>;
+  delete(key: string): Promise<void>;
 }
 
 interface StoredSite {
@@ -63,6 +94,9 @@ interface StoredSite {
 interface StoredConfigV2 {
   version: 2;
   sites: StoredSite[];
+  /** A.9 一次性升级迁移（2026-10-20 裁定）：历史账密登录的 MikikoCC 账号清态引导
+   *  OIDC 重登；置位后不再重复执行。 */
+  mikikoccPasswordMigrationDone?: boolean;
   /** 首次全量同步标记：登录后自动为所有密钥建供应商只做一次。 */
   providerSyncCompleted?: Record<string, boolean>;
   /** `${siteId}:${keyId}:${model}` → 模型配置覆盖。 */
@@ -71,6 +105,10 @@ interface StoredConfigV2 {
 
 interface Sub2ApiServiceDependencies {
   providerSettingsService: IProviderSettingsService;
+  /** KeyCloak offline refresh token 加密存储（生产为 credentialService 适配）。 */
+  credentialStore?: Sub2ApiCredentialStore;
+  /** OIDC 出站请求出口（生产为 host API 网络 transport，httpProxy/CA 生效）；缺省裸 fetch。 */
+  request?: typeof fetch;
 }
 
 interface PanelEnvelope<T> {
@@ -179,6 +217,21 @@ function isoDate(offsetDays: number): string {
   return `${y}-${m}-${d}`;
 }
 
+function createInMemoryCredentialStore(): Sub2ApiCredentialStore {
+  const cache = new Map<string, string>();
+  return {
+    async load(key) {
+      return cache.get(key) ?? null;
+    },
+    async save(key, value) {
+      cache.set(key, value);
+    },
+    async delete(key) {
+      cache.delete(key);
+    },
+  };
+}
+
 export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2ApiService {
   const logger = createServiceLogger("sub2api");
   const configFile = join(getAppConfigDir(), "sub2api.json");
@@ -230,6 +283,157 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       return `部分密钥未同步（${projected}/${total}）`;
     }
     return undefined;
+  }
+
+  /** MikikoCC 的 KeyCloak refresh token 加密存储键（固定单键：内置站点唯一）。 */
+  const MIKIKOCC_OIDC_CREDENTIAL_KEY = "sub2api:mikikocc:oidc-refresh-token";
+  // 无注入时退化为内存存储：仅单测使用——重启即失，不满足加密持久化要求。
+  const credentialStore: Sub2ApiCredentialStore =
+    deps.credentialStore ?? createInMemoryCredentialStore();
+  const oidcRequest = deps.request ?? fetch;
+  const oidcLoginCompletedEmitter = new Emitter<{
+    siteId: string;
+    state: Sub2ApiSiteState;
+    syncedKeyCount: number;
+    syncError?: string;
+  }>();
+  const oidcLoginFailedEmitter = new Emitter<{ siteId: string; message: string; errorCode?: string }>();
+  interface PendingOidcSession {
+    siteId: string;
+    state: string;
+    nonce: string;
+    codeVerifier: string;
+    listener: LoopbackOAuthListener;
+  }
+  let pendingOidc: PendingOidcSession | null = null;
+  const oidcAccessTokenCache = new Map<string, { token: string; expiresAt: number }>();
+  const oidcAccessTokenInFlight = new Map<string, Promise<string | null>>();
+
+  function normalizeOidcFailure(error: unknown): { message: string; errorCode?: string } {
+    if (error instanceof MikikoOidcError || error instanceof LoopbackOAuthError) {
+      return { message: error.message, ...(error.errorCode ? { errorCode: error.errorCode } : {}) };
+    }
+    return { message: error instanceof Error ? error.message : String(error) };
+  }
+
+  /** 完成续体：交换 → nonce 校验 → token-exchange → 账号态/密钥/供应商 → 事件。
+   *  必须经 withConfigLock 排队（写 config 与密钥同步），与其它写方法串行。 */
+  async function completeOIDCLogin(params: {
+    siteId: string;
+    code: string;
+    codeVerifier: string;
+    nonce: string;
+    redirectUri: string;
+  }): Promise<void> {
+    const { config, site } = await findSite(params.siteId);
+    if (site.kind !== "mikikocc") {
+      throw new Error("仅 MikikoCC 支持 Mikiko ID 登录");
+    }
+    const codeExchange = await exchangeMikikoOidcCode({
+      code: params.code,
+      codeVerifier: params.codeVerifier,
+      redirectUri: params.redirectUri,
+      request: oidcRequest,
+    });
+    const claims = parseMikikoOidcIdToken(codeExchange.idToken, {
+      expectedNonce: params.nonce,
+    });
+    const platform = await exchangeMikikoIdTokenForPlatformTokens({
+      panelBaseUrl: site.panelBaseUrl,
+      idToken: codeExchange.idToken,
+      request: oidcRequest,
+    });
+    if (codeExchange.refreshToken) {
+      await credentialStore.save(MIKIKOCC_OIDC_CREDENTIAL_KEY, codeExchange.refreshToken);
+    }
+    site.account = {
+      email: claims.email ?? "",
+      accessToken: platform.accessToken,
+      refreshToken: platform.refreshToken,
+      ...(platform.expiresIn
+        ? { expiresAt: Date.now() + platform.expiresIn * 1000 }
+        : {}),
+      oidc: {
+        sub: claims.sub,
+        ...(claims.email ? { email: claims.email } : {}),
+        credentialKey: MIKIKOCC_OIDC_CREDENTIAL_KEY,
+      },
+    };
+    const me = await panelRequest<Record<string, unknown>>(site, "/api/v1/auth/me").catch(
+      () => null,
+    );
+    if (me?.ok) {
+      const meUser = ((me.data as Record<string, unknown>).user as Record<string, unknown>) ?? me.data;
+      site.account.email = pickString(meUser, ["email"]) ?? site.account.email;
+      site.account.balanceUsd = pickNumber(meUser, ["balance"]);
+    }
+    const groups = await fetchGroups(site).catch(() => []);
+    const syncedKeyCount = await fetchAndStoreKeys(site, groups);
+    await saveConfig({ ...config, sites: config.sites });
+    const syncError = await runLoginAutoSync(site.id);
+    logger.info(undefined, "MikikoCC Mikiko ID 登录完成", { siteId: site.id, sub: claims.sub });
+    oidcLoginCompletedEmitter.fire({
+      siteId: site.id,
+      state: toSiteState(site),
+      syncedKeyCount,
+      ...(syncError ? { syncError } : {}),
+    });
+  }
+
+  /** 清除 OIDC 身份（refresh 失效/撤销时）：保留平台 token 会话不受影响。 */
+  async function clearOIDCIdentity(siteId: string): Promise<void> {
+    const { config, site } = await findSite(siteId);
+    if (site.account?.oidc) {
+      site.account = { ...site.account, oidc: undefined };
+      await credentialStore.delete(MIKIKOCC_OIDC_CREDENTIAL_KEY).catch(() => undefined);
+      await saveConfig({ ...config, sites: config.sites });
+      logger.info(undefined, "MikikoCC OIDC 身份已清除（refresh 失效或被撤销）", { siteId });
+    }
+  }
+
+  /** A.9 一次性升级迁移：历史账密登录的 MikikoCC 账号清态（logout 同语义级联），
+   *  引导以 OIDC 重登并重新初始化模型列表。幂等：mikikoccPasswordMigrationDone 置位。 */
+  async function migrateLegacyMikikoPasswordAccount(): Promise<void> {
+    const config = await loadConfig();
+    if (config.mikikoccPasswordMigrationDone) {
+      return;
+    }
+    const site = config.sites.find((entry) => entry.kind === "mikikocc");
+    if (site?.account && !site.account.oidc) {
+      await cascadeRemoveSiteProviders(config, site);
+      site.account = null;
+      site.legacyKeys = [];
+      site.providerBindings = [];
+      site.keyModels = {};
+      site.activeKeyId = undefined;
+      site.providerId = undefined;
+      for (const key of Object.keys(config.modelConfigs)) {
+        if (key.startsWith(`${site.id}:`)) {
+          delete config.modelConfigs[key];
+        }
+      }
+      await credentialStore.delete(MIKIKOCC_OIDC_CREDENTIAL_KEY).catch(() => undefined);
+      config.mikikoccPasswordMigrationDone = true;
+      await saveConfig({ ...config, sites: config.sites });
+      logger.info(undefined, "MikikoCC 历史账密账号已清态，等待 OIDC 重登", { siteId: site.id });
+      return;
+    }
+    config.mikikoccPasswordMigrationDone = true;
+    // 仅置幂等标记：无账号事实变化，静默持久化即可——saveConfig 会广播 onDidChange，
+    // 余额轮询等订阅方会被无意义多触发一次（回归：sub2apiBalanceBroadcast 双广播）。
+    await persistSilently({ ...config, sites: config.sites });
+  }
+
+  /** G.2.1 主动续期：平台 access token 临期（<120s）先刷新再请求（401 反应式保留兜底）。 */
+  async function ensureFreshAccessToken(site: StoredSite): Promise<void> {
+    const account = site.account;
+    if (!account?.refreshToken || !account.expiresAt) {
+      return;
+    }
+    if (account.expiresAt - Date.now() > 120_000) {
+      return;
+    }
+    await refreshSiteToken(site).catch(() => undefined);
   }
 
   function defaultMikikoSite(): StoredSite {
@@ -813,6 +1017,8 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
 
   const service: ISub2ApiService = {
     onDidChange: (listener) => changeEmitter.event(listener),
+    onOIDCLoginCompleted: (listener) => oidcLoginCompletedEmitter.event(listener),
+    onOIDCLoginFailed: (listener) => oidcLoginFailedEmitter.event(listener),
     async getSites() {
       return toSitesState(await loadConfig());
     },
@@ -911,6 +1117,12 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
     },
     async login(request) {
       const { config, site } = await findSite(request.siteId);
+      // 2026-10-20 裁定：MikikoCC 彻底移除账密登录（服务端兜底守卫，UI 已全入口切换 OIDC）。
+      if (site.kind === "mikikocc") {
+        const error = loginError(400, undefined, "MikikoCC 已切换 Mikiko ID 登录");
+        error.errorCode = "mikikocc-oidc-required";
+        throw error;
+      }
       const login = await panelRequest<Record<string, unknown>>(site, "/api/v1/auth/login", {
         method: "POST",
         auth: false,
@@ -955,6 +1167,12 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
     },
     async loginWith2FA(request) {
       const { config, site } = await findSite(request.siteId);
+      // 2026-10-20 裁定：MikikoCC 彻底移除账密登录（2FA 二段同样拒绝）。
+      if (site.kind === "mikikocc") {
+        const error = loginError(400, undefined, "MikikoCC 已切换 Mikiko ID 登录");
+        error.errorCode = "mikikocc-oidc-required";
+        throw error;
+      }
       const login = await panelRequest<Record<string, unknown>>(site, "/api/v1/auth/login/2fa", {
         method: "POST",
         auth: false,
@@ -982,8 +1200,139 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       const syncError = await runLoginAutoSync(site.id);
       return { state: toSiteState(site), syncedKeyCount, ...(syncError ? { syncError } : {}) };
     },
+    async startOIDCLogin(siteId) {
+      const { site } = await findSite(siteId);
+      if (site.kind !== "mikikocc") {
+        throw new Error("仅 MikikoCC 支持 Mikiko ID 登录");
+      }
+      // 同一时刻最多一个在途会话（对齐 ChatGPT pendingAuthorization 模式）；重复发起先取消。
+      await this.cancelOIDCLogin(siteId);
+      const state = generateOidcState();
+      const nonce = generateOidcNonce();
+      const { codeVerifier, codeChallenge } = generateOidcPkce();
+      const session: PendingOidcSession = {
+        siteId: site.id,
+        state,
+        nonce,
+        codeVerifier,
+        listener: null as unknown as LoopbackOAuthListener,
+      };
+      session.listener = await startMikikoOidcCallbackListenerWithSession();
+      async function startMikikoOidcCallbackListenerWithSession(): Promise<LoopbackOAuthListener> {
+        return startMikikoOidcCallbackListener({
+          expectedState: state,
+          onCode: (code) =>
+            // 完成续体经写队列执行（config 写入串行化）；结果由 listener.done 语义承载。
+            withConfigLock(() =>
+              completeOIDCLogin({
+                siteId: site.id,
+                code,
+                codeVerifier,
+                nonce,
+                redirectUri: `http://127.0.0.1:${session.listener.port}${MIKIKO_OIDC_CALLBACK_PATH}`,
+              }),
+            ),
+        });
+      }
+      pendingOidc = session;
+      const redirectUri = `http://127.0.0.1:${session.listener.port}${MIKIKO_OIDC_CALLBACK_PATH}`;
+      const authorizeUrl = buildMikikoOidcAuthorizeUrl({
+        redirectUri,
+        state,
+        nonce,
+        codeChallenge,
+      });
+      void session.listener.done
+        .then(() => {
+          if (pendingOidc === session) pendingOidc = null;
+        })
+        .catch((error: unknown) => {
+          if (pendingOidc !== session) return;
+          pendingOidc = null;
+          // 本地成功页已在交换前返回浏览器：「已登录」≠账号已写入；失败必须经事件透出
+          //（对齐 ChatGPT 2026-10-17 案例），取消（cancel 先清 pending）不在此列。
+          const { message, errorCode } = normalizeOidcFailure(error);
+          logger.warn(undefined, "MikikoCC Mikiko ID 登录失败", { siteId, error: message, errorCode });
+          oidcLoginFailedEmitter.fire({ siteId, message, ...(errorCode ? { errorCode } : {}) });
+        });
+      logger.info(undefined, "MikikoCC Mikiko ID 登录开始", { siteId, redirectUri });
+      return { authorizeUrl };
+    },
+    async cancelOIDCLogin(siteId) {
+      const session = pendingOidc;
+      if (session?.siteId !== siteId) {
+        return;
+      }
+      pendingOidc = null;
+      session.listener.close();
+    },
+    async getOIDCIdentity(siteId) {
+      const { site } = await findSite(siteId);
+      const oidc = site.account?.oidc;
+      if (!oidc) {
+        return null;
+      }
+      return { sub: oidc.sub, ...(oidc.email ? { email: oidc.email } : {}) };
+    },
+    async getOIDCAccessToken(siteId) {
+      const cached = oidcAccessTokenCache.get(siteId);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.token;
+      }
+      const inFlight = oidcAccessTokenInFlight.get(siteId);
+      if (inFlight) {
+        return inFlight;
+      }
+      // 单飞必须在首个 await 前同步注册：并发调用方合并到同一次刷新，
+      // 避免 realm 开 reuse detection 时同一 refresh token 被并发复用而遭拒。
+      const flight = (async () => {
+        try {
+          const { site } = await findSite(siteId);
+          if (!site.account?.oidc) {
+            return null;
+          }
+          const refresh = await credentialStore.load(MIKIKOCC_OIDC_CREDENTIAL_KEY);
+          if (!refresh) {
+            return null;
+          }
+          const exchanged = await refreshMikikoOidcToken({
+            refreshToken: refresh,
+            request: oidcRequest,
+          });
+          if (exchanged.refreshToken && exchanged.refreshToken !== refresh) {
+            // realm 开了轮换时覆盖存储（G.2.2 轮换自适应）。
+            await credentialStore.save(MIKIKOCC_OIDC_CREDENTIAL_KEY, exchanged.refreshToken);
+          }
+          const token = exchanged.accessToken;
+          oidcAccessTokenCache.set(siteId, {
+            token,
+            expiresAt: Date.now() + Math.max(5_000, (exchanged.expiresIn ?? 300) * 1000 - 60_000),
+          });
+          return token;
+        } catch (error) {
+          if (error instanceof MikikoOidcError && error.errorCode === "invalid_grant") {
+            // 会话被撤销/过期：清 OIDC 身份（经写队列），平台会话不受影响。
+            await withConfigLock(() => clearOIDCIdentity(siteId)).catch(() => undefined);
+            return null;
+          }
+          logger.warn(undefined, "MikikoCC OIDC access token 刷新失败", {
+            siteId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        } finally {
+          oidcAccessTokenInFlight.delete(siteId);
+        }
+      })();
+      oidcAccessTokenInFlight.set(siteId, flight);
+      return flight;
+    },
     async logout(siteId) {
       const { config, site } = await findSite(siteId);
+      // OIDC 凭据随账号态一并清除（加密存储面不残留孤儿凭据）。
+      if (site.kind === "mikikocc") {
+        await credentialStore.delete(MIKIKOCC_OIDC_CREDENTIAL_KEY).catch(() => undefined);
+      }
       // 2026-09-28 语义修订（spec specs/desktop/sub2api-gateway.md「同步语义」）：
       // 退出登录不仅清账号态，还级联删除该站点全部密钥供应商与模型配置——
       // MikikoCC 为内置站点不可删除、只能退出，旧语义下其模型配置永远无法经
@@ -1010,6 +1359,8 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       if (!site.account) {
         throw new Error("站点未登录");
       }
+      // G.2.1 主动续期：临期先刷新（60-120s 轮询入口），401 反应式路径保留兜底。
+      await ensureFreshAccessToken(site);
       // 余额快照（变更检测用）：getAccountDetail 是余额轮询入口（60-120s 一次），
       // 下面的变异只改内存缓存。footer 等订阅方只收 onDidChange——字段没变就不广播
       // （沿用 persistSilently 防"订阅 → 重拉 → 再写盘"闪环的约束），变了必须走
@@ -1599,5 +1950,11 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
     },
   });
   serializedServiceRef = serializedService;
+  // A.9 一次性升级迁移：经写队列执行（幂等）；失败仅记日志，不阻断服务创建。
+  void withConfigLock(() => migrateLegacyMikikoPasswordAccount()).catch((error: unknown) => {
+    logger.warn(undefined, "MikikoCC 历史账密账号迁移失败", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
   return serializedService;
 }

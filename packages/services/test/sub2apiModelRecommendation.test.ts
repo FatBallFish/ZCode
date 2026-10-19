@@ -114,6 +114,8 @@ test("同步投影：新模型落盘推荐快照，历史空配置模型补写�
     join(base, ".mikiko", "v2", "sub2api.json"),
     JSON.stringify({
       version: 2,
+      // A.9 迁移预置已完成：迁移线程对本夹具完全 no-op。
+      mikikoccPasswordMigrationDone: true,
       sites: [
         {
           id: "site-relay",
@@ -121,7 +123,7 @@ test("同步投影：新模型落盘推荐快照，历史空配置模型补写�
           panelBaseUrl: "https://panel.test",
           gatewayBaseUrl: "https://gw.test",
           siteName: "Relay",
-          account: { email: "u@test", balanceUsd: 1, accessToken: "tok" },
+          account: { email: "u@test", balanceUsd: 1, accessToken: "tok", oidc: { sub: "u1", credentialKey: "sub2api:mikikocc:oidc-refresh-token" } },
           legacyKeys: [
             { id: "k1", name: "K1", apiKey: "sk-x", platform: "openai", status: "active" },
           ],

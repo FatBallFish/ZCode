@@ -36,6 +36,8 @@ async function seedConfig(base: string, balanceUsd: number): Promise<string> {
     configFile,
     JSON.stringify({
       version: 2,
+      // A.9 迁移预置已完成：迁移线程对本夹具完全 no-op。
+      mikikoccPasswordMigrationDone: true,
       sites: [
         {
           id: "mikikocc",
@@ -43,7 +45,7 @@ async function seedConfig(base: string, balanceUsd: number): Promise<string> {
           panelBaseUrl: "https://mikiko.cc",
           gatewayBaseUrl: "https://api.mikiko.cc",
           siteName: "MikikoCC",
-          account: { email: "u@test", balanceUsd, accessToken: "tok" },
+          account: { email: "u@test", balanceUsd, accessToken: "tok", oidc: { sub: "u1", credentialKey: "sub2api:mikikocc:oidc-refresh-token" } },
           legacyKeys: [],
         },
       ],

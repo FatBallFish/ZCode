@@ -2796,7 +2796,17 @@ export function createLocalServices(options: {
     .register(IModelSelectionService, providerRuntime.modelSelection)
     .register(
       ISub2ApiService,
-      createSub2ApiService({ providerSettingsService: providerRuntime.providerSettings }),
+      createSub2ApiService({
+        providerSettingsService: providerRuntime.providerSettings,
+        // KeyCloak offline refresh token 加密存储（方案 §13.7：不允许明文落 sub2api.json）。
+        credentialStore: {
+          load: (key) => credentialService.load(key),
+          save: (key, value) => credentialService.save(key, value),
+          delete: (key) => credentialService.delete(key),
+        },
+        // OIDC 出站请求走 host 网络 transport：设置页 httpProxy/CA 对授权链路生效。
+        request: hostApiNetworkTransport.fetch,
+      }),
     );
   if (isDesktopAttachedRemote || options.providerProvisioningTargetEnabled === true) {
     services.register(

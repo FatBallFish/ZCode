@@ -143,6 +143,8 @@ export default defineConfig({
             "packages/services/test/sub2apiBalanceBroadcast.test.ts",
             "packages/services/test/sub2apiConfigWriteRace.test.ts",
             "packages/services/test/sub2apiLoginSyncAndTokenPersist.test.ts",
+            "packages/services/test/sub2apiOidcClient.test.ts",
+            "packages/services/test/sub2apiOidcLogin.test.ts",
             "packages/services/test/sub2apiLogout.test.ts",
             "packages/services/test/sub2apiModelRecommendation.test.ts",
             "packages/services/test/worktreeService.test.ts",

@@ -34,7 +34,7 @@ async function seedConfig(base: string, site: Record<string, unknown>): Promise<
   await mkdir(join(base, ".mikiko", "v2"), { recursive: true });
   await writeFile(
     configFile,
-    JSON.stringify({ version: 2, sites: [site], modelConfigs: {} }),
+    JSON.stringify({ version: 2, mikikoccPasswordMigrationDone: true, sites: [site], modelConfigs: {} }),
   );
   return configFile;
 }
@@ -59,6 +59,8 @@ test("401 触发 refresh 后新 token pair 落盘（轮换不丢失）", async (
     balanceUsd: 2,
     accessToken: "tok-expired",
     refreshToken: "rt-old",
+    // 模拟 OIDC 登录账号（A.9 迁移只清历史账密账号）。
+    oidc: { sub: "u1", credentialKey: "sub2api:mikikocc:oidc-refresh-token" },
   }));
 
   let meCalls = 0;
@@ -102,9 +104,17 @@ test("登录后同步失败：返回 syncError 且 5s 后经写队列重试一�
     await rm(base, { recursive: true, force: true });
   });
   setDataBaseDir(base);
-  // keyModels 预置模型清单：无模型的密钥在 syncProviders 中不产生投影动作，
+  // 2026-10-20 批次 2 起 mikikocc 账密被服务端守卫拒绝，本用例改用 sub2api 自建站点
+  // （登录/同步语义同构）；keyModels 预置模型清单：无模型的密钥不产生投影动作，
   // 预置后才会走到 createPersonalProvider（可观测点）。
-  await seedConfig(base, { ...mikikoccSite(null), keyModels: { "1": ["gpt-5.5"] } });
+  await seedConfig(base, {
+    id: "self-hosted",
+    kind: "sub2api",
+    panelBaseUrl: "https://s.test",
+    siteName: "S",
+    account: null,
+    keyModels: { "1": ["gpt-5.5"] },
+  });
 
   const originalFetch = globalThis.fetch;
   t.after(() => {
@@ -150,7 +160,7 @@ test("登录后同步失败：返回 syncError 且 5s 后经写队列重试一�
     providerSettingsService: providerSettingsStub as never,
   });
   const result = await service.login({
-    siteId: "mikikocc",
+    siteId: "self-hosted",
     email: "u@test",
     password: "pw",
   });

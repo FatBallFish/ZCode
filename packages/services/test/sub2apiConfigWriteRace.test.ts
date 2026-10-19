@@ -38,13 +38,15 @@ test("在途 listKeys 写回不得冲掉并发 addSite 的占位站点", async (
     join(base, ".mikiko", "v2", "sub2api.json"),
     JSON.stringify({
       version: 2,
+      // A.9 迁移预置已完成：迁移线程对本夹具完全 no-op。
+      mikikoccPasswordMigrationDone: true,
       sites: [
         {
           id: "site-logged-in",
           kind: "sub2api",
           panelBaseUrl: "https://panel.test",
           siteName: "Panel",
-          account: { email: "u@test", balanceUsd: 1, accessToken: "tok" },
+          account: { email: "u@test", balanceUsd: 1, accessToken: "tok", oidc: { sub: "u1", credentialKey: "sub2api:mikikocc:oidc-refresh-token" } },
           legacyKeys: [],
           providerBindings: [],
         },
@@ -114,13 +116,15 @@ test("在途 listKeys 写回不得复活已删除站点", async (t) => {
     join(base, ".mikiko", "v2", "sub2api.json"),
     JSON.stringify({
       version: 2,
+      // A.9 迁移预置已完成：迁移线程对本夹具完全 no-op。
+      mikikoccPasswordMigrationDone: true,
       sites: [
         {
           id: "site-victim",
           kind: "sub2api",
           panelBaseUrl: "https://panel.test",
           siteName: "Panel",
-          account: { email: "u@test", balanceUsd: 1, accessToken: "tok" },
+          account: { email: "u@test", balanceUsd: 1, accessToken: "tok", oidc: { sub: "u1", credentialKey: "sub2api:mikikocc:oidc-refresh-token" } },
           legacyKeys: [],
           providerBindings: [],
         },

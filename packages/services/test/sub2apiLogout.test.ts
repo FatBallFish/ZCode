@@ -22,6 +22,8 @@ test("logout 级联删除供应商与模型配置并保留站点记录", async (
     join(base, ".mikiko", "v2", "sub2api.json"),
     JSON.stringify({
       version: 2,
+      // A.9 迁移预置已完成：迁移线程对本夹具完全 no-op。
+      mikikoccPasswordMigrationDone: true,
       sites: [
         {
           id: "mikikocc",
@@ -29,7 +31,7 @@ test("logout 级联删除供应商与模型配置并保留站点记录", async (
           panelBaseUrl: "https://mikiko.cc",
           gatewayBaseUrl: "https://api.mikiko.cc",
           siteName: "MikikoCC",
-          account: { email: "u@test", balanceUsd: 1, accessToken: "tok" },
+          account: { email: "u@test", balanceUsd: 1, accessToken: "tok", oidc: { sub: "u1", credentialKey: "sub2api:mikikocc:oidc-refresh-token" } },
           legacyKeys: [
             { id: "k1", name: "K1", apiKey: "sk-x", platform: "openai", status: "active" },
           ],
@@ -101,6 +103,8 @@ test("logout 供应商删除失败时抛错且不写回半清理状态", async (
     join(base, ".mikiko", "v2", "sub2api.json"),
     JSON.stringify({
       version: 2,
+      // A.9 迁移预置已完成：迁移线程对本夹具完全 no-op。
+      mikikoccPasswordMigrationDone: true,
       sites: [
         {
           id: "mikikocc",
@@ -108,7 +112,7 @@ test("logout 供应商删除失败时抛错且不写回半清理状态", async (
           panelBaseUrl: "https://mikiko.cc",
           gatewayBaseUrl: "https://api.mikiko.cc",
           siteName: "MikikoCC",
-          account: { email: "u@test", balanceUsd: 1, accessToken: "tok" },
+          account: { email: "u@test", balanceUsd: 1, accessToken: "tok", oidc: { sub: "u1", credentialKey: "sub2api:mikikocc:oidc-refresh-token" } },
           legacyKeys: [],
           providerBindings: [{ keyId: "k1", keyName: "K1", providerId: "p-1" }],
         },

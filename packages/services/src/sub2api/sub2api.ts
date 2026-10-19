@@ -116,6 +116,30 @@ export interface Sub2ApiLoginResult {
   syncError?: string;
 }
 
+/** Mikiko ID（KeyCloak OIDC）登录会话：authorizeUrl 由 UI 用系统浏览器打开。 */
+export interface Sub2ApiOIDCLoginSession {
+  authorizeUrl: string;
+}
+
+/** MikikoCC 账号的 Mikiko ID 身份（KeyCloak sub 为用户账号唯一键，Part E/F 消费）。 */
+export interface Sub2ApiOIDCIdentity {
+  sub: string;
+  email?: string;
+}
+
+export interface Sub2ApiOIDCLoginCompletedEvent {
+  siteId: string;
+  state: Sub2ApiSiteState;
+  syncedKeyCount: number;
+  syncError?: string;
+}
+
+export interface Sub2ApiOIDCLoginFailedEvent {
+  siteId: string;
+  message: string;
+  errorCode?: string;
+}
+
 export interface Sub2ApiAccountDetail {
   account: Sub2ApiAccountSummary;
   subscriptions: Sub2ApiSubscriptionInfo[];
@@ -192,6 +216,23 @@ export interface ISub2ApiService {
     tempToken: string;
     totpCode: string;
   }): Promise<Sub2ApiLoginResult>;
+  /**
+   * MikikoCC 专用：发起 Mikiko ID（KeyCloak OIDC）登录（授权码 + PKCE，loopback 随机
+   * 端口回调）。仅 kind=mikikocc（用户裁定：MikikoCC 彻底移除账密，sub2api 站点走账密）。
+   * 返回 authorizeUrl 由 UI 用系统浏览器打开；结果经 onOIDCLoginCompleted/Failed 回传。
+   */
+  startOIDCLogin(siteId: string): Promise<Sub2ApiOIDCLoginSession>;
+  cancelOIDCLogin(siteId: string): Promise<void>;
+  readonly onOIDCLoginCompleted: Event<Sub2ApiOIDCLoginCompletedEvent>;
+  readonly onOIDCLoginFailed: Event<Sub2ApiOIDCLoginFailedEvent>;
+  /** MikikoCC 的 Mikiko ID 身份；未登录/非 mikikocc 返回 null。 */
+  getOIDCIdentity(siteId: string): Promise<Sub2ApiOIDCIdentity | null>;
+  /**
+   * 用离线 refresh token 换短时 KeyCloak access token（单飞合并；realm 开轮换时
+   * 新 refresh token 覆盖加密存储）。身份失效（invalid_grant）时清除 OIDC 身份并
+   * 返回 null，不影响平台 token 会话。
+   */
+  getOIDCAccessToken(siteId: string): Promise<string | null>;
   logout(siteId: string): Promise<Sub2ApiSiteState>;
   /** 余额 + 订阅 + 分组一次拉全（登录态展示用）。 */
   getAccountDetail(siteId: string): Promise<Sub2ApiAccountDetail>;

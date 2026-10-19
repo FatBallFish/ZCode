@@ -1,6 +1,9 @@
-import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { arch, release as osRelease, type as osType } from "node:os";
+import {
+  LOOPBACK_CALLBACK_PORT_IN_USE,
+  LoopbackOAuthError,
+  startLoopbackOAuthListener,
+} from "../oauth/loopbackCallbackListener.js";
 import {
   CHATGPT_OAUTH_CALLBACK_PATH,
   CHATGPT_OAUTH_CALLBACK_PORT,
@@ -212,7 +215,9 @@ export async function revokeChatGPTToken(params: {
   });
 }
 
-// ── loopback 回调监听（127.0.0.1:1455，占用即中断） ──
+// ── loopback 回调监听（127.0.0.1:1455，占用即中断）──
+// 2026-10-20：实现提取为通用 startLoopbackOAuthListener（services/oauth），此处仅保留
+// ChatGPT 语义包装：固定端口、成功页与既有错误类型映射，公共签名与行为不变。
 
 export interface ChatGPTCallbackListener {
   readonly port: number;
@@ -231,94 +236,20 @@ export function startChatGPTCallbackListener(params: {
   port?: number;
   timeoutMs?: number;
 }): Promise<ChatGPTCallbackListener> {
-  const port = params.port ?? CHATGPT_OAUTH_CALLBACK_PORT;
-  return new Promise((resolveListener, rejectListener) => {
-    let server: Server | null = null;
-    let settled = false;
-    let timer: NodeJS.Timeout | null = null;
-
-    const close = () => {
-      if (timer) clearTimeout(timer);
-      server?.close();
-      server = null;
-    };
-
-    server = createServer((request, response) => {
-      const url = new URL(request.url ?? "/", `http://127.0.0.1:${port}`);
-      if (url.pathname === CHATGPT_OAUTH_CALLBACK_PATH) {
-        const code = url.searchParams.get("code")?.trim();
-        const state = url.searchParams.get("state")?.trim();
-        const error = url.searchParams.get("error")?.trim();
-        if (error) {
-          settled = true;
-          response.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          response.end(`<h1>授权失败</h1><p>${escapeHtml(error)}</p>`);
-          close();
-          doneReject(new ChatGPTOAuthError(`授权被拒绝: ${error}`, undefined, error));
-          return;
-        }
-        if (!code || state !== params.expectedState) {
-          response.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          response.end("<h1>State mismatch</h1>");
-          return;
-        }
-        settled = true;
-        response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-        response.end(CALLBACK_SUCCESS_HTML);
-        close();
-        void params
-          .onCode(code)
-          .then(() => doneResolve({ code }))
-          .catch((error: unknown) => doneReject(error));
-        return;
+  return startLoopbackOAuthListener({
+    expectedState: params.expectedState,
+    onCode: params.onCode,
+    port: params.port ?? CHATGPT_OAUTH_CALLBACK_PORT,
+    path: CHATGPT_OAUTH_CALLBACK_PATH,
+    timeoutMs: params.timeoutMs ?? CHATGPT_AUTHORIZATION_TIMEOUT_MS,
+    successHtml: CALLBACK_SUCCESS_HTML,
+  }).then(
+    (listener) => listener,
+    (error: unknown) => {
+      if (error instanceof LoopbackOAuthError && error.errorCode === LOOPBACK_CALLBACK_PORT_IN_USE) {
+        throw new ChatGPTOAuthError(CHATGPT_CALLBACK_PORT_IN_USE);
       }
-      response.writeHead(404);
-      response.end();
-    });
-
-    server.once("error", (error: NodeJS.ErrnoException) => {
-      if (settled) return;
-      settled = true;
-      close();
-      if (error.code === "EADDRINUSE") {
-        rejectListener(new ChatGPTOAuthError(CHATGPT_CALLBACK_PORT_IN_USE));
-        return;
-      }
-      rejectListener(error);
-    });
-
-    server.listen(port, "127.0.0.1", () => {
-      const address = server?.address() as AddressInfo | null;
-      const boundPort = address?.port ?? port;
-      resolveListener({
-        port: boundPort,
-        done,
-        close() {
-          if (!settled) {
-            settled = true;
-            doneReject(new ChatGPTOAuthError("授权已取消", undefined, "cancelled"));
-          }
-          close();
-        },
-      });
-      timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        close();
-        doneReject(new ChatGPTOAuthError("授权超时，请重试", undefined, "timeout"));
-      }, params.timeoutMs ?? CHATGPT_AUTHORIZATION_TIMEOUT_MS);
-      timer.unref?.();
-    });
-
-    let doneResolve: (value: { code: string }) => void;
-    let doneReject: (error: unknown) => void;
-    const done = new Promise<{ code: string }>((resolve, reject) => {
-      doneResolve = resolve;
-      doneReject = reject;
-    });
-  });
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
+      throw error;
+    },
+  );
 }
