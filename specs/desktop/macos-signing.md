@@ -60,3 +60,4 @@ sequenceDiagram
 7. 推送修复后 workflow_dispatch mac-only=true 验证两个架构，确认 bundle 步骤结束，
    分别报告构建与 Apple 公证的真实状态，不发布 release 或更新 feed。
 8. 模拟 staple 追加 ticket 后，DMG 哈希、大小和 blockmap 更新，ZIP 元数据不受影响。
+9. Apple Accepted 后，stapler 或任一验收命令失败仍须终止，不刷新或发布未验收产物。

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 最终 DMG 签名、公证、staple 和验收；App 签名由 builder 在封装前完成。
 # 规则见 specs/desktop/macos-signing.md。
-set -u
+set -euo pipefail
 
 if [ "$#" -eq 0 ]; then
   echo "usage: $0 <dmg> [dmg ...]" >&2

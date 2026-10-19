@@ -151,7 +151,7 @@ describe("macOS CI 签名生命周期", () => {
   });
 });
 
-async function notarizationFixture(status: string, failSecondApp = false) {
+async function notarizationFixture(status: string, failure?: "second-app" | "staple") {
   const root = await temporaryDirectory();
   const bin = join(root, "bin");
   await mkdir(bin);
@@ -166,7 +166,10 @@ if (name === 'xcrun' && args[0] === 'notarytool' && args[1] === 'submit') {
   console.log(JSON.stringify({id:'11111111-2222-3333-4444-555555555555',status:process.env.TEST_STATUS}));
 }
 if (name === 'hdiutil') fs.writeFileSync(args.at(-1), 'rebuilt image');
-if (name === 'xcrun' && args[0] === 'stapler' && args[1] === 'staple') fs.appendFileSync(args.at(-1), 'ticket');
+if (name === 'xcrun' && args[0] === 'stapler' && args[1] === 'staple') {
+  if (process.env.TEST_FAIL_STAPLE === '1') process.exit(1);
+  fs.appendFileSync(args.at(-1), 'ticket');
+}
 if (name === 'spctl' && process.env.TEST_FAIL_SECOND === '1' && args.some(x=>x.includes('/mac/Mikiko.app'))) process.exit(1);
 `;
   for (const command of ["codesign", "xcrun", "spctl", "hdiutil"]) {
@@ -201,7 +204,8 @@ if (name === 'spctl' && process.env.TEST_FAIL_SECOND === '1' && args.some(x=>x.i
     TEST_CALLS: calls,
     TEST_STATUS: status,
     LC_ALL: "C",
-    TEST_FAIL_SECOND: failSecondApp ? "1" : "0",
+    TEST_FAIL_SECOND: failure === "second-app" ? "1" : "0",
+    TEST_FAIL_STAPLE: failure === "staple" ? "1" : "0",
   };
   let code = 0;
   try {
@@ -233,7 +237,7 @@ describe.skipIf(process.platform === "win32")("公证脚本失败边界", () => 
   });
 
   it("Accepted 后验收全部架构，第二个 App 失败也不能报告成功", async () => {
-    const { code, invocations } = await notarizationFixture("Accepted", true);
+    const { code, invocations } = await notarizationFixture("Accepted", "second-app");
     expect(code).not.toBe(0);
     expect(
       invocations
@@ -253,5 +257,16 @@ describe.skipIf(process.platform === "win32")("公证脚本失败边界", () => 
     expect(metadata.files[1].sha512).toBe(zipHash);
     expect(metadata.sha512).toBe(zipHash);
     expect(blockmap.equals(Buffer.from("outdated"))).toBe(false);
+  });
+
+  it("Apple Accepted 后 staple 失败也必须终止，不刷新元数据或继续验收", async () => {
+    const { code, invocations, metadata, blockmap } = await notarizationFixture(
+      "Accepted",
+      "staple",
+    );
+    expect(code).not.toBe(0);
+    expect(invocations.some(({ name }) => name === "spctl")).toBe(false);
+    expect(metadata.files[0].sha512).toBe("old");
+    expect(blockmap.equals(Buffer.from("outdated"))).toBe(true);
   });
 });
