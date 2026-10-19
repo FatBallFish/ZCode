@@ -131,11 +131,11 @@ describe("zcodeEndpoint", () => {
     );
   });
 
-  it("derives runtime zcode-plan urls from ZCODE_ENV", () => {
-    expect(buildRuntimeZCodeEndpointUrls({ ZCODE_ENV: "test" }).zcodePlanOpenAiBaseUrl).toBe(
+  it("derives runtime zcode-plan urls from MIKIKO_ENV", () => {
+    expect(buildRuntimeZCodeEndpointUrls({ MIKIKO_ENV: "test" }).zcodePlanOpenAiBaseUrl).toBe(
       "https://zcode.z.ai/api/v1/zcode-plan",
     );
-    expect(buildRuntimeZCodeEndpointUrls({ ZCODE_ENV: "production" }).zcodePlanOpenAiBaseUrl).toBe(
+    expect(buildRuntimeZCodeEndpointUrls({ MIKIKO_ENV: "production" }).zcodePlanOpenAiBaseUrl).toBe(
       "https://zcode.z.ai/api/v1/zcode-plan",
     );
     expect(buildRuntimeZCodeEndpointUrls({}).zcodePlanOpenAiBaseUrl).toBe(
@@ -143,7 +143,7 @@ describe("zcodeEndpoint", () => {
     );
     expect(
       buildRuntimeZCodeEndpointUrls({
-        ZCODE_ENV: "test",
+        MIKIKO_ENV: "test",
         MIKIKO_BASE_URL: "https://zcode.z.ai/ignored/path",
       }).zcodePlanAnthropicBaseUrl,
     ).toBe("https://zcode.z.ai/api/v1/zcode-plan/anthropic");
@@ -176,31 +176,31 @@ describe("zcodeEndpoint", () => {
     ).toBe("ws://localhost:8787/ws");
   });
 
-  it("derives BigModel API origin from ZCODE_ENV", () => {
-    expect(resolveBigModelApiOrigin({ ZCODE_ENV: "production" })).toBe("https://bigmodel.cn");
-    expect(resolveBigModelApiOrigin({ ZCODE_ENV: "test" })).toBe("https://bigmodel.cn");
-    expect(buildBigModelApiUrl({ ZCODE_ENV: "test" }, "/api/biz/subscription/list")).toBe(
+  it("derives BigModel API origin from MIKIKO_ENV", () => {
+    expect(resolveBigModelApiOrigin({ MIKIKO_ENV: "production" })).toBe("https://bigmodel.cn");
+    expect(resolveBigModelApiOrigin({ MIKIKO_ENV: "test" })).toBe("https://bigmodel.cn");
+    expect(buildBigModelApiUrl({ MIKIKO_ENV: "test" }, "/api/biz/subscription/list")).toBe(
       "https://bigmodel.cn/api/biz/subscription/list",
     );
   });
 
-  it("derives BigModel Coding Plan manage urls from ZCODE_ENV", () => {
-    expect(buildBigModelCodingPlanPersonalManageUrl({ ZCODE_ENV: "test" })).toBe(
+  it("derives BigModel Coding Plan manage urls from MIKIKO_ENV", () => {
+    expect(buildBigModelCodingPlanPersonalManageUrl({ MIKIKO_ENV: "test" })).toBe(
       "https://bigmodel.cn/coding-plan/personal/overview",
     );
-    expect(buildBigModelCodingPlanPersonalManageUrl({ ZCODE_ENV: "production" })).toBe(
+    expect(buildBigModelCodingPlanPersonalManageUrl({ MIKIKO_ENV: "production" })).toBe(
       "https://bigmodel.cn/coding-plan/personal/overview",
     );
-    expect(buildBigModelCodingPlanTeamManageUrl({ ZCODE_ENV: "test" })).toBe(
+    expect(buildBigModelCodingPlanTeamManageUrl({ MIKIKO_ENV: "test" })).toBe(
       "https://bigmodel.cn/coding-plan/team/plans",
     );
-    expect(buildBigModelCodingPlanTeamManageUrl({ ZCODE_ENV: "production" })).toBe(
+    expect(buildBigModelCodingPlanTeamManageUrl({ MIKIKO_ENV: "production" })).toBe(
       "https://bigmodel.cn/coding-plan/team/plans",
     );
   });
 
   it("resolves all product endpoints for the test product environment", () => {
-    expect(resolveRuntimeProductEndpointConfig({ ZCODE_ENV: "test" })).toMatchObject({
+    expect(resolveRuntimeProductEndpointConfig({ MIKIKO_ENV: "test" })).toMatchObject({
       zcodeEnv: "test",
       zcodeEndpointOrigin: TEST_ZCODE_ENDPOINT_ORIGIN,
       zaiOAuthOrigin: TEST_ZAI_OAUTH_ORIGIN,
@@ -211,7 +211,7 @@ describe("zcodeEndpoint", () => {
   });
 
   it("resolves all product endpoints for the production product environment", () => {
-    expect(resolveRuntimeProductEndpointConfig({ ZCODE_ENV: "production" })).toMatchObject({
+    expect(resolveRuntimeProductEndpointConfig({ MIKIKO_ENV: "production" })).toMatchObject({
       zcodeEnv: "production",
       zcodeEndpointOrigin: DEFAULT_ZCODE_ENDPOINT_ORIGIN,
       zaiOAuthOrigin: DEFAULT_ZAI_OAUTH_ORIGIN,
@@ -222,23 +222,23 @@ describe("zcodeEndpoint", () => {
   });
 
   it("builds product endpoint URLs from the selected environment", () => {
-    expect(buildRuntimeZCodeApiUrl({ ZCODE_ENV: "test" }, "/api/v1/oauth/token")).toBe(
+    expect(buildRuntimeZCodeApiUrl({ MIKIKO_ENV: "test" }, "/api/v1/oauth/token")).toBe(
       "https://zcode.z.ai/api/v1/oauth/token",
     );
-    expect(buildRuntimeZaiOAuthUrl({ ZCODE_ENV: "test" }, "/api/oauth/authorize")).toBe(
+    expect(buildRuntimeZaiOAuthUrl({ MIKIKO_ENV: "test" }, "/api/oauth/authorize")).toBe(
       "https://chat.z.ai/api/oauth/authorize",
     );
-    expect(buildRuntimeZaiBusinessUrl({ ZCODE_ENV: "test" }, "/api/auth/z/login")).toBe(
+    expect(buildRuntimeZaiBusinessUrl({ MIKIKO_ENV: "test" }, "/api/auth/z/login")).toBe(
       "https://api.z.ai/api/auth/z/login",
     );
-    expect(buildBigModelApiUrl({ ZCODE_ENV: "test" }, "/login")).toBe(
+    expect(buildBigModelApiUrl({ MIKIKO_ENV: "test" }, "/login")).toBe(
       "https://bigmodel.cn/login",
     );
   });
 
   it("keeps environment-scoped endpoint overrides centralized", () => {
     const env = {
-      ZCODE_ENV: "test",
+      MIKIKO_ENV: "test",
       MIKIKO_BASE_URL: "https://test-zcode.example.com/path",
       ZAI_TEST_OAUTH_ORIGIN: "https://test-oauth.example.com/oauth",
       ZAI_TEST_BUSINESS_BASE_URL: "https://test-business.example.com/api",
@@ -257,7 +257,7 @@ describe("zcodeEndpoint", () => {
 
   it("keeps unscoped endpoint overrides above scoped endpoint overrides", () => {
     const env = {
-      ZCODE_ENV: "test",
+      MIKIKO_ENV: "test",
       ZAI_OAUTH_ORIGIN: "https://oauth-global.example.com",
       ZAI_TEST_OAUTH_ORIGIN: "https://oauth-test.example.com",
       ZAI_BUSINESS_BASE_URL: "https://business-global.example.com",
@@ -276,7 +276,7 @@ describe("zcodeEndpoint", () => {
 
   it("ignores blank runtime endpoint overrides", () => {
     const env = {
-      ZCODE_ENV: "test",
+      MIKIKO_ENV: "test",
       MIKIKO_BASE_URL: " ",
       MIKIKO_BASE_URL: "\t",
       ZAI_OAUTH_ORIGIN: "",

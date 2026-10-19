@@ -532,10 +532,22 @@ export function createSub2ApiService(deps: Sub2ApiServiceDependencies): ISub2Api
       .map(([configKey]) => configKey.split(":")[2] ?? "")
       .filter((model) => model.length > 0 && !models.includes(model));
     models.push(...customModels.slice(0, MAX_PROJECTED_MODELS - models.length));
+    // 2026-10-15 修复：relay 激活投影整层替换 api（savePersonalProviderOverlay 替换语义），
+    // 若不带回用户已配置的分组 token 覆盖（specs/provider/group-token-override.md），
+    // 每次激活密钥都会静默清掉该配置。
+    const existingPersonalApi = (
+      await deps.providerSettingsService.getView()
+    ).providers.find((p) => p.providerId === site.providerId)?.personalConfig?.api;
     const apiConfig = {
       type: inferApiType(key.platform, models),
       baseUrl: `${gatewayBase(site)}/v1`,
-    } as const;
+      ...(existingPersonalApi?.contextWindow !== undefined
+        ? { contextWindow: existingPersonalApi.contextWindow }
+        : {}),
+      ...(existingPersonalApi?.maxOutputTokens !== undefined
+        ? { maxOutputTokens: existingPersonalApi.maxOutputTokens }
+        : {}),
+    };
     const accessConfig = { type: "api-key", apiKey: key.apiKey } as const;
     const providerName = site.kind === "mikikocc" ? "MikikoCC" : site.siteName || "Sub2api";
 

@@ -32,18 +32,30 @@ export function worktreeShortId(idOrPath: string): string {
   return leaf.slice(0, 4);
 }
 
-/** worktree workspace 的展示名：「repoName · 短id」。 */
+/**
+ * 工作树身份展示值（specs/desktop/worktrees.md 分支展示规则，2026-10-15）：
+ * 已绑定分支展示分支名，游离态回落短 id——所有「该会话/工作树关联分支」的展示位统一走这里，
+ * 不得直接用 entry.ref（创建时起点 ref 快照，不代表当前分支）。
+ */
+export function resolveWorktreeBranchLabel(worktreePath: string): string | null {
+  const branch = getWorktreeBranchSnapshot(worktreePath);
+  return branch ?? worktreeShortId(worktreePath);
+}
+
+/** worktree workspace 的展示名：「repoName · 分支名或短id」。 */
 export function formatWorktreeWorkspaceLabel(worktreePath: string, rootPath: string): string {
   const entry = resolveWorktreeEntryForPath(worktreePath);
-  const shortId = entry ? worktreeShortId(entry.id) : worktreeShortId(worktreePath);
+  const identity = resolveWorktreeBranchLabel(worktreePath);
   const repoName = entry
     ? getPathLeaf(entry.rootWorkspacePath) || getPathLeaf(rootPath)
     : getPathLeaf(rootPath);
-  return `${repoName} · ${shortId}`;
+  return `${repoName} · ${identity ?? worktreeShortId(worktreePath)}`;
 }
 
 interface WorktreeStoreState {
   registryEntries: WorktreeRegistryEntry[];
+  /** worktreePath（normalize 前，服务端原样路径）→ 当前分支名；游离/缺失为 null。 */
+  branchByWorktreePath: Record<string, string | null>;
   registryLoadedAt: number | null;
   registryLoading: boolean;
   refreshRegistry: (service: IWorktreeService | undefined) => Promise<void>;
@@ -57,6 +69,7 @@ interface WorktreeStoreState {
 export const DEFAULT_DRAFT_LOCATION: DraftWorkLocation = { mode: "local" };
 
 let registryCache: WorktreeRegistryEntry[] = [];
+let branchCache = new Map<string, string | null>();
 let registryRequestId = 0;
 
 function resolveWorktreeEntryForPath(path: string): WorktreeRegistryEntry | undefined {
@@ -65,6 +78,7 @@ function resolveWorktreeEntryForPath(path: string): WorktreeRegistryEntry | unde
 
 export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
   registryEntries: [],
+  branchByWorktreePath: {},
   registryLoadedAt: null,
   registryLoading: false,
 
@@ -78,18 +92,27 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
       set({ registryLoading: true });
     }
     try {
-      const entries = await service
-        .list()
-        .then((result) =>
-          result.groups.flatMap((group) => group.worktrees.map((item) => item.entry)),
-        )
-        .catch(() => [] as WorktreeRegistryEntry[]);
+      const result = await service.list().catch(() => null);
       if (requestId !== registryRequestId) {
         return;
       }
+      // 2026-10-15：list() 的 overview 现携带 branch（git worktree list 对账），
+      // 此前只保留 entry 导致绑定分支后 UI 无数据可展示。
+      const entries: WorktreeRegistryEntry[] = [];
+      const branches: Record<string, string | null> = {};
+      if (result) {
+        for (const group of result.groups) {
+          for (const item of group.worktrees) {
+            entries.push(item.entry);
+            branches[item.entry.worktreePath] = item.branch;
+          }
+        }
+      }
       registryCache = entries;
+      branchCache = new Map(Object.entries(branches));
       set({
         registryEntries: entries,
+        branchByWorktreePath: branches,
         registryLoadedAt: Date.now(),
         registryLoading: false,
       });
@@ -122,6 +145,11 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
 /** 注册表快照查询（非响应式；用于一次性判断）。 */
 export function getWorktreeRegistrySnapshot(): WorktreeRegistryEntry[] {
   return registryCache;
+}
+
+/** 某工作树的当前分支快照（非响应式）；未注册/游离/数据未加载为 null。 */
+export function getWorktreeBranchSnapshot(worktreePath: string): string | null {
+  return branchCache.get(worktreePath) ?? null;
 }
 
 /** 某路径是否是注册的 worktree workspace。 */

@@ -25,6 +25,8 @@ const TARGET_SAMPLE_RATE = 16_000;
 const FRAME_SAMPLES = TARGET_SAMPLE_RATE / 10;
 const ERROR_AUTO_DISMISS_MS = 3_000;
 const CLEANUP_TIMEOUT_MS = 60_000;
+/** 语义整理默认最大输出 Token（2026-10-14 调参值）；分组覆盖存在时被覆盖（specs/provider/group-token-override.md）。 */
+const VOICE_CLEANUP_MAX_OUTPUT_TOKENS = 16_384;
 
 /** AudioWorklet 处理器：mono 混音 + 线性插值重采样到 16k，分帧输出 Int16。
  * 每帧附带 RMS 电平（音浪动画）；支持 flush 消息把重采样累加器里的尾帧
@@ -297,17 +299,23 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
     // "Reasoning level is required"）。调用前懒补默认档位（最高档），视图不可用则按原样
     // 发出让 RPC 错误路径兜底（降级回填原文 + warn）。
     let selectionWithLevel = selection;
+    let cleanupMaxOutputTokens = VOICE_CLEANUP_MAX_OUTPUT_TOKENS;
     {
       // 2026-10-14 二轮修复：语音整理是短文案润色任务，统一使用最低思考档——
       // 无论是存量保存了最高档还是新保存的，这里都覆写（用户反馈 GLM-5.3 在
       // 高思考档下既慢又容易耗尽输出预算导致返回原文）。
       const view = await currentServices.modelSelectionService.getView().catch(() => null);
-      const model = view?.providers
-        ?.find((p) => p.providerId === selection.providerId)
-        ?.models?.find((m) => m.modelId === selection.modelId);
+      const provider = view?.providers?.find((p) => p.providerId === selection.providerId);
+      const model = provider?.models?.find((m) => m.modelId === selection.modelId);
       const lowestLevel = model?.config?.optionSpecs?.reasoningLevel?.values?.[0];
       if (lowestLevel) {
         selectionWithLevel = { ...selection, reasoningLevel: lowestLevel };
+      }
+      // 2026-10-15：语义整理最大输出 Token 读 Provider 分组覆盖
+      // （specs/provider/group-token-override.md）；未配置时维持既有 16384 调参。
+      const groupOverride = provider?.config?.api?.maxOutputTokens;
+      if (groupOverride != null) {
+        cleanupMaxOutputTokens = groupOverride;
       }
     }
     const systemPrompt = currentIntl.formatMessage({
@@ -338,7 +346,8 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
         querySource: "voice-cleanup",
         // 2026-10-14 二轮：maxOutputTokens 8192→16384，配合最低思考档。思考型
         // 模型在高思考档下 8192 仍可能被 reasoning 耗尽；16384 + 最低档双保险。
-        maxOutputTokens: 16384,
+        // 2026-10-15：Provider 分组覆盖存在时改用覆盖值（上方 provider 解析）。
+        maxOutputTokens: cleanupMaxOutputTokens,
         requestTimeoutMs: CLEANUP_TIMEOUT_MS,
       });
       const text = result.text.trim();

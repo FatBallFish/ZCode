@@ -645,7 +645,7 @@ describe("createUsageStatsService", () => {
         }),
       ],
       env: {
-        ZCODE_BIGMODEL_USAGE_API_KEY: "env-usage-key",
+        MIKIKO_BIGMODEL_USAGE_API_KEY: "env-usage-key",
       },
     });
 

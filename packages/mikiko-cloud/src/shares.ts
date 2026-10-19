@@ -267,14 +267,25 @@ async function registerDevice(context: ShareRequestContext): Promise<Response> {
 }
 
 async function requireDeviceToken(context: ShareRequestContext): Promise<boolean> {
-  const header = context.request.headers.get("authorization") ?? "";
+  return verifyMikikoDeviceToken(context.request, context.env.MIKIKO_SHARE);
+}
+
+/**
+ * 设备 token 校验（2026-10-19 抽出）：feedback 等同 Worker 其他端点复用同一
+ * 设备身份体系（register 端点仍在本模块的 /api/v1/shares/device/register）。
+ */
+export async function verifyMikikoDeviceToken(
+  request: Request,
+  shareKv: KVNamespace,
+): Promise<boolean> {
+  const header = request.headers.get("authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
   const separator = token.indexOf(".");
   if (separator === -1) return false;
   const deviceHash = token.slice(0, separator);
   const secret = token.slice(separator + 1);
   if (!/^[0-9a-f]{64}$/u.test(deviceHash) || !secret) return false;
-  const record = (await context.env.MIKIKO_SHARE.get(`device:${deviceHash}`, "json")) as {
+  const record = (await shareKv.get(`device:${deviceHash}`, "json")) as {
     secretHashes?: string[];
     secretHash?: string;
   } | null;
@@ -324,6 +335,22 @@ async function consumeRateLimit(
   const current = Number.parseInt((await context.env.MIKIKO_SHARE.get(key)) ?? "0", 10) || 0;
   if (current >= limit) return false;
   await context.env.MIKIKO_SHARE.put(key, String(current + 1), { expirationTtl: 120 });
+  return true;
+}
+
+/** 固定阈值分钟桶限流（2026-10-19 抽出）：feedback 等无 client-config 阈值来源的端点复用。 */
+export async function consumeKvMinuteRateLimit(
+  shareKv: KVNamespace,
+  request: Request,
+  bucketPrefix: string,
+  limitPerMinute: number,
+): Promise<boolean> {
+  const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+  const bucket = Math.floor(Date.now() / 60_000);
+  const key = `${bucketPrefix}:${ip}:${bucket}`;
+  const current = Number.parseInt((await shareKv.get(key)) ?? "0", 10) || 0;
+  if (current >= limitPerMinute) return false;
+  await shareKv.put(key, String(current + 1), { expirationTtl: 120 });
   return true;
 }
 

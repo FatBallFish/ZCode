@@ -6,11 +6,13 @@ import type {
 } from "@zcode/shared";
 
 /**
- * 反馈功能总开关（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4，暂时关闭）：
+ * 反馈功能总开关：2026-10-19 重开（specs/mikiko-cloud/feedback-tickets.md）——
+ * 上报已切自建 agent.mikiko.ai（设备 token 鉴权），不再出网智谱官方；
+ * 关闭期见 specs/mikiko-cloud/agent-endpoint-plan.md §4.4 的历史决策。
  * false 时所有入口（quickpick、帮助按钮、错误上下文按钮、远控失败页）统一失效，
- * openSubmit/openTickets 等 no-op，反馈弹窗不再出现；服务层代码保留，恢复改回 true。
+ * openSubmit/openTickets 等 no-op，反馈弹窗不再出现；服务层代码保留，可再关。
  */
-export const FEEDBACK_ENTRY_ENABLED = false;
+export const FEEDBACK_ENTRY_ENABLED = true;
 
 type FeedbackTab = "submit" | "tickets";
 

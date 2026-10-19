@@ -37,7 +37,7 @@ Var newStartMenuLink
 Var newDesktopLink
 Var keepShortcuts
 
-!include "${ZCODE_INSTALLER_NSH}"
+!include "${MIKIKO_INSTALLER_NSH}"
 ; 回归原因：electron-builder 异步生成 header 时，自定义 include 可能先于插件目录注册。
 ; 普通场景使用真实 UAC 判据，避免恒假替身掩盖插件尚未可用的编译错误。
 !addplugindir /x86-unicode "${NSIS_PLUGIN_DIR}"

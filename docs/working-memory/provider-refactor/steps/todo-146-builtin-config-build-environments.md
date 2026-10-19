@@ -9,7 +9,7 @@
 
 - 正式配置保留 `config/provider/zcode-builtin.json`，新增 `zcode-builtin.test.json`。
   初始内容与 revision 完全一致，后续允许独立维护。
-- 由构建期 `ZCODE_ENV` 选择，不由分支或 `NODE_ENV=production` 推断产品环境。
+- 由构建期 `MIKIKO_ENV` 选择，不由分支或 `NODE_ENV=production` 推断产品环境。
 - Desktop、CLI、SEA、HTTP Server、远程 Server、Server CLI 共用构建选择与校验入口。
 - 输出资源路径和运行时 Schema 不变，不新增 Overlay，不迁移个人配置，不发布在线配置。
 - 复用旧 CLI JS 时也必须更新配置；Turbo 缓存记录环境与配置输入。

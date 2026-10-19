@@ -35,6 +35,7 @@ export const DEFAULT_MIKIKO_BUILTIN_CONFIG_URL = `${DEFAULT_MIKIKO_CLOUD_ORIGIN}
 export const DEFAULT_MIKIKO_CLIENT_CONFIG_URL = `${DEFAULT_MIKIKO_CLOUD_ORIGIN}/api/v1/client/configs`;
 export const DEFAULT_MIKIKO_SHARE_API_BASE = `${DEFAULT_MIKIKO_CLOUD_ORIGIN}/api/v1`;
 export const DEFAULT_MIKIKO_SHARE_WEB_URL = `${DEFAULT_MIKIKO_CLOUD_ORIGIN}/cn/share`;
+export const DEFAULT_MIKIKO_FEEDBACK_API_BASE = `${DEFAULT_MIKIKO_CLOUD_ORIGIN}/api/v1`;
 
 export interface RuntimeMikikoCloudEnv {
   [key: string]: string | undefined;
@@ -42,6 +43,7 @@ export interface RuntimeMikikoCloudEnv {
   MIKIKO_CLIENT_CONFIG_URL?: string;
   MIKIKO_SHARE_API_BASE?: string;
   MIKIKO_SHARE_WEB_URL?: string;
+  MIKIKO_FEEDBACK_API_BASE?: string;
 }
 
 /**
@@ -75,6 +77,16 @@ export function resolveMikikoShareWebUrl(
   return resolveMikikoCloudUrl(env.MIKIKO_SHARE_WEB_URL, DEFAULT_MIKIKO_SHARE_WEB_URL);
 }
 
+/**
+ * 自建 Bug 上报 API base（specs/mikiko-cloud/feedback-tickets.md）。
+ * 2026-10-19 起反馈彻底切换自建域名，不再出网 zcode.z.ai；禁用语义同上。
+ */
+export function resolveMikikoFeedbackApiBase(
+  env: RuntimeMikikoCloudEnv = readProductEndpointEnv(),
+): string | null {
+  return resolveMikikoCloudUrl(env.MIKIKO_FEEDBACK_API_BASE, DEFAULT_MIKIKO_FEEDBACK_API_BASE);
+}
+
 function resolveMikikoCloudUrl(raw: string | undefined, defaultUrl: string): string | null {
   const value = raw?.trim();
   if (value === undefined || value === "") {
@@ -104,6 +116,7 @@ export function pickProductEndpointEnv(
     "MIKIKO_CLIENT_CONFIG_URL",
     "MIKIKO_SHARE_API_BASE",
     "MIKIKO_SHARE_WEB_URL",
+    "MIKIKO_FEEDBACK_API_BASE",
   ];
   return Object.fromEntries(
     keys.flatMap((key) => (env[key]?.trim() ? [[key, env[key]!.trim()]] : [])),
@@ -173,7 +186,7 @@ export interface ZCodeEndpointUrls {
 
 export interface RuntimeZCodeEndpointEnv {
   [key: string]: string | undefined;
-  ZCODE_ENV?: string;
+  MIKIKO_ENV?: string;
   /** MIKIKO_ 前缀（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.5）；ZCODE_ 旧名已移除读取。 */
   MIKIKO_BASE_URL?: string;
   MIKIKO_ENDPOINT_ORIGIN?: string;
@@ -181,7 +194,7 @@ export interface RuntimeZCodeEndpointEnv {
 
 export interface RuntimeBigModelApiEnv {
   [key: string]: string | undefined;
-  ZCODE_ENV?: string;
+  MIKIKO_ENV?: string;
   BIGMODEL_API_BASE_URL?: string;
   BIGMODEL_TEST_API_BASE_URL?: string;
   BIGMODEL_PRODUCTION_API_BASE_URL?: string;
@@ -189,7 +202,7 @@ export interface RuntimeBigModelApiEnv {
 
 export interface RuntimeZaiEndpointEnv {
   [key: string]: string | undefined;
-  ZCODE_ENV?: string;
+  MIKIKO_ENV?: string;
   ZAI_OAUTH_ORIGIN?: string;
   ZAI_TEST_OAUTH_ORIGIN?: string;
   ZAI_PRODUCTION_OAUTH_ORIGIN?: string;
@@ -294,8 +307,11 @@ export function resolveZCodeEndpointOrigin(options?: {
 }
 
 export function resolveRuntimeZCodeEnv(env: RuntimeZCodeEndpointEnv = {}): ZCodeEnv {
-  // 独立 CLI / 服务测试未注入 ZCODE_ENV 时默认生产域；桌面测试包会显式下发 ZCODE_ENV=test。
-  return env.ZCODE_ENV?.trim().toLowerCase() === "test" ? "test" : "production";
+  // 独立 CLI / 服务测试未注入 MIKIKO_ENV 时默认生产域；桌面测试包会显式下发 MIKIKO_ENV=test。
+  // D6 双读窗口（specs/brand/surface-rebrand.md）：旧部署远端只下发 ZCODE_ENV 时兜底旧键，
+  // 远端整体换代后连同 connect.ts 双转发一起删除。
+  const rawEnv = env.MIKIKO_ENV ?? env.ZCODE_ENV;
+  return rawEnv?.trim().toLowerCase() === "test" ? "test" : "production";
 }
 
 export function resolveRuntimeZCodeEndpointOrigin(
@@ -364,7 +380,7 @@ export function buildBigModelApiUrl(env: RuntimeBigModelApiEnv = {}, path: strin
 }
 
 export function buildBigModelCodingPlanPersonalManageUrl(env: RuntimeBigModelApiEnv = {}): string {
-  // 修复原因：BigModel Coding Plan 管理页要跟随 ZCODE_ENV；
+  // 修复原因：BigModel Coding Plan 管理页要跟随 MIKIKO_ENV；
   // 测试环境如果继续写死 bigmodel.cn，会把测试账号带到生产套餐页。
   return buildBigModelApiUrl(env, "/coding-plan/personal/overview");
 }

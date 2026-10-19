@@ -296,10 +296,14 @@ export function createWorktreeService(options: CreateWorktreeServiceOptions): IW
       const groups: WorktreeRootGroup[] = [];
       for (const [rootKey, rootEntries] of byRoot) {
         // 对账真值：git worktree list（主树根目录执行）。主树目录被删时全部标记 missing。
+        // 2026-10-15 修复：branch 此前被丢弃，绑定分支后 UI 只能展示游离态短 id
+        // （specs/desktop/worktrees.md 分支展示规则），现随对账带出（剥 refs/heads/ 前缀）。
         let diskPaths: Set<string> | null = null;
+        let branchByDiskPath = new Map<string, string | null>();
         try {
           const listed = await worktreeRepo.listWorktrees(rootKey);
           diskPaths = new Set(listed.map((item) => normalizeFsPath(item.path)));
+          branchByDiskPath = new Map(listed.map((item) => [normalizeFsPath(item.path), item.branch]));
         } catch (error) {
           log.warn(undefined, "[Worktree] list 对账失败，回退注册表", { rootKey, error });
         }
@@ -321,6 +325,9 @@ export function createWorktreeService(options: CreateWorktreeServiceOptions): IW
               diskStatus = "missing";
             }
           }
+          // 游离态（branch null）展示端回落短 id；missing/pruned 一并 null。
+          const branch =
+            diskStatus === "ready" ? (branchByDiskPath.get(normalizedWorktreePath) ?? null) : null;
           const sessions = await taskIndexRepo
             .listTaskMetas({ workspacePath: normalizedWorktreePath })
             .then((metas) =>
@@ -338,7 +345,7 @@ export function createWorktreeService(options: CreateWorktreeServiceOptions): IW
               });
               return [];
             });
-          items.push({ entry, diskStatus, dirtyFileCount, headShortSha, sessions });
+          items.push({ entry, diskStatus, dirtyFileCount, headShortSha, branch, sessions });
         }
         items.sort((a, b) => b.entry.lastUsedAt.localeCompare(a.entry.lastUsedAt));
         groups.push({

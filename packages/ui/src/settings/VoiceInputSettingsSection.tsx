@@ -287,7 +287,7 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
           control={
             <div className="flex items-center gap-2">
               {shortcutLabel ? (
-                <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-ui-xs text-fg-subtle">
+                <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-ui-xs text-foreground-subtle">
                   {shortcutLabel}
                 </kbd>
               ) : null}

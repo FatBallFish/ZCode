@@ -409,7 +409,18 @@ export const MemoTaskItem = memo(function TaskListItem({
     id: isArchiveConfirming ? "common.confirm" : "taskList.archive",
   });
   const taskTitleWithChanges = formatTaskTitleWithChanges(taskTitle, taskChangeSummary, intl);
-  const workspaceLabel = getPathLeaf(task.workspacePath);
+  // 2026-10-16 hover 调整：worktree 会话的项目名此前拼「repoName · 分支/短id」与下方
+  // 分支行重复且拥挤——hover「项目」只显示 repoName（注册表 rootWorkspacePath 的末段），
+  // 分支拆到独立行（TaskHoverDetailsContent 分支字段）。行内其余展示位不变。
+  const worktreeEntryForLabel = useWorktreeStore((state) =>
+    state.registryEntries.find((entry) => entry.worktreePath === task.workspacePath),
+  );
+  const worktreeBranch = useWorktreeStore(
+    (state) => state.branchByWorktreePath[task.workspacePath] ?? null,
+  );
+  const workspaceLabel = worktreeEntryForLabel
+    ? getPathLeaf(worktreeEntryForLabel.rootWorkspacePath) || getPathLeaf(workspacePath)
+    : getPathLeaf(task.workspacePath);
   const taskItemKey = `${buildTaskWorkspaceKey(task.workspacePath, task.workspaceIdentity)}:${task.taskId}`;
   // 工作流运行行：标题下的第二条通道，
   // 与前置 16px 槽（error > unread > spinner）互不占位。只在会话带 run 摘要时挂组件。
@@ -831,7 +842,7 @@ export const MemoTaskItem = memo(function TaskListItem({
             )}
           </li>
         </TooltipTrigger>
-        {/* 会话行 hover 详情卡：名称/项目/工作位置/最近会话模糊时间（自测反馈）。
+        {/* 会话行 hover 详情卡：名称/项目/分支（worktree 会话）/工作位置/最近会话模糊时间（自测反馈）。
             delayDuration 450ms 避免鼠标扫过列表时连环弹卡。 */}
         <TooltipContent side="right" align="center" sideOffset={6} className="p-2.5">
           <TaskHoverDetailsContent
@@ -839,6 +850,8 @@ export const MemoTaskItem = memo(function TaskListItem({
             projectLabel={workspaceLabel}
             rootWorkspacePath={workspacePath}
             remoteSessionId={remoteSessionId}
+            isWorktree={isWorktreeSession}
+            branchLabel={worktreeBranch}
             intl={intl}
           />
         </TooltipContent>

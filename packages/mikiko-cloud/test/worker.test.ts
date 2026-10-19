@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import worker from "../src/worker.ts";
-import { createMemoryKv, createMemoryR2 } from "./helpers.ts";
+import { createMemoryD1, createMemoryKv, createMemoryR2 } from "./helpers.ts";
 
 const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD = "correct-horse";
@@ -37,6 +37,8 @@ function createEnv() {
     MIKIKO_CLIENT_CONFIG: createMemoryKv(),
     MIKIKO_SHARE: createMemoryKv(),
     SHARE_ARTIFACTS: createMemoryR2(),
+    DB: createMemoryD1(),
+    FEEDBACK_ARTIFACTS: createMemoryR2(),
     MIKIKO_ADMIN_USERNAME: ADMIN_USERNAME,
     MIKIKO_ADMIN_PASSWORD: ADMIN_PASSWORD,
     MIKIKO_ADMIN_SESSION_SECRET: ADMIN_SESSION_SECRET,
@@ -105,6 +107,29 @@ describe("公开端点", () => {
       const response = await worker.fetch(new Request(`https://agent.mikiko.ai${path}`), env);
       assert.equal(response.status, 308);
       assert.match(response.headers.get("location") ?? "", new RegExp(`${path}/$`));
+    }
+  });
+
+  // 2026-10-15：桌面端帮助菜单写死 https://agent.mikiko.ai/changelog，语言页面只在
+  // public/{cn,en}/ 下，未经地域分流直连 assets 是 404（worker.ts 语言分流路由）。
+  it("/changelog 按地域语言分流：CN/HK/MO/TW→/cn/changelog，其余/未知→/en/changelog", async () => {
+    const env = createEnv();
+    const request = (country: string | undefined) => {
+      const req = new Request("https://agent.mikiko.ai/changelog?from=help");
+      if (country !== undefined) {
+        Object.defineProperty(req, "cf", { value: { country } });
+      }
+      return req;
+    };
+    for (const country of ["CN", "HK", "MO", "TW"]) {
+      const response = await worker.fetch(request(country), env);
+      assert.equal(response.status, 308);
+      assert.match(response.headers.get("location") ?? "", /\/cn\/changelog\?from=help$/u);
+    }
+    for (const country of ["US", "JP", "SG", undefined]) {
+      const response = await worker.fetch(request(country), env);
+      assert.equal(response.status, 308);
+      assert.match(response.headers.get("location") ?? "", /\/en\/changelog\?from=help$/u);
     }
   });
 

@@ -4276,8 +4276,12 @@ describe("结构性不变量", () => {
           delta.op === "row.appended" ||
           delta.op === "row.upserted" ||
           delta.op === "row.removed" ||
+          // usage/stats 是展示型指标键（specs/ui/session-stats.md）：与 usage 同口径
+          // 不入 REVISION_BEARING_PATCH_KEYS，这里同样不算结构性变化。
           (delta.op === "state.updated" &&
-            Object.keys(delta.patch).some((key) => key !== "revision" && key !== "usage")),
+            Object.keys(delta.patch).some(
+              (key) => key !== "revision" && key !== "usage" && key !== "stats",
+            )),
       );
       const prev = snapshots[index]!.revision;
       const next = snapshots[index + 1]!.revision;
@@ -10168,5 +10172,246 @@ describe("userInput 行的 epilogueStart（热路径）", () => {
     const rows = projection.getSnapshot().rows.window.filter((row) => row.kind === "userInput");
     expect(rows[0]).toMatchObject({ text: "Summarize\n\n---\nStandard", epilogueStart: 9 });
     expect(rows[1]).not.toHaveProperty("epilogueStart");
+  });
+});
+
+// 未知容量降级（docs/coding-plan-context-usage.md）：chatgpt/sub2api slug 无 contextWindow
+// 元数据时 contextWindow 保持 null，用量与本地明细经 contextUsage 下发供 UI 降级展示；
+// 容量恢复已知时显式置 null 清理，避免降级数据残留。
+describe("usage contextUsage 未知容量降级", () => {
+  function degradedTurnEvents(log: EventLog): void {
+    log.push(SessionEventType.SessionCreated, { mode: "default" });
+    log.push(
+      SessionEventType.TurnStarted,
+      { turnNumber: 1, input: "hello" },
+      { turnId: "turn-1" },
+    );
+    log.push(
+      SessionEventType.ModelComplete,
+      {
+        content: "world",
+        stopReason: "end_turn",
+        querySource: "main_turn",
+        usage: { inputTokens: 120, outputTokens: 30, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        contextUsageBreakdown: [
+          { source: "messages", chars: 800 },
+          { source: "skills", chars: 200 },
+        ],
+      },
+      { turnId: "turn-1" },
+    );
+  }
+
+  it("contextWindow 未知时经 contextUsage 下发用量与明细", () => {
+    const log = new EventLog();
+    degradedTurnEvents(log);
+    const { projection } = runAll(log.events);
+    const usage = projection.getSnapshot().usage;
+    expect(usage.contextWindow).toBeNull();
+    expect(usage.contextUsage).toEqual({
+      usedTokens: 150,
+      breakdown: [
+        { source: "messages", chars: 800 },
+        { source: "skills", chars: 200 },
+      ],
+    });
+  });
+
+  it("容量恢复已知后 contextUsage 被清空", () => {
+    const log = new EventLog();
+    degradedTurnEvents(log);
+    log.push(
+      SessionEventType.TurnStarted,
+      { turnNumber: 2, input: "again" },
+      { turnId: "turn-2" },
+    );
+    log.push(
+      SessionEventType.ModelComplete,
+      {
+        content: "ok",
+        stopReason: "end_turn",
+        querySource: "main_turn",
+        contextWindow: 400_000,
+        usage: { inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      },
+      { turnId: "turn-2" },
+    );
+    const { projection } = runAll(log.events);
+    const usage = projection.getSnapshot().usage;
+    expect(usage.contextWindow).toMatchObject({ usedTokens: 110, maxTokens: 400_000 });
+    expect(usage.contextUsage).toBeNull();
+  });
+
+  it("usage 全零时不产生降级数据", () => {
+    const log = new EventLog();
+    log.push(SessionEventType.SessionCreated, { mode: "default" });
+    log.push(
+      SessionEventType.TurnStarted,
+      { turnNumber: 1, input: "hello" },
+      { turnId: "turn-1" },
+    );
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "text_start", delta: "", done: false },
+      { turnId: "turn-1" },
+    );
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "text_delta", delta: "world", done: false },
+      { turnId: "turn-1" },
+    );
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "text_end", delta: "", done: false },
+      { turnId: "turn-1" },
+    );
+    log.push(
+      SessionEventType.ModelComplete,
+      {
+        content: "world",
+        stopReason: "end_turn",
+        querySource: "main_turn",
+        usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      },
+      { turnId: "turn-1" },
+    );
+    const { projection } = runAll(log.events);
+    const usage = projection.getSnapshot().usage;
+    expect(usage.contextWindow).toBeNull();
+    expect(usage.contextUsage).toBeNull();
+  });
+});
+
+// 会话统计（specs/ui/session-stats.md）：投影聚合 → snapshot.stats / state.updated patch。
+describe("会话统计 snapshot.stats", () => {
+  it("聚合轮次/步数/模型用时/TTFT/输出token/平均TPS，并在请求完成后清空实时速率", () => {
+    const log = new EventLog();
+    log.push(SessionEventType.SessionCreated, { mode: "default" });
+    log.push(
+      SessionEventType.TurnStarted,
+      { turnNumber: 1, input: "hi" },
+      { turnId: "t1", timestampMs: 1_000 },
+    );
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "text_start", delta: "", done: false },
+      { turnId: "t1", timestampMs: 1_100 },
+    );
+    // 50 个 CJK 字符 → 估算 50 token；5s 滚动窗口 → 10 tok/s。
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "text_delta", delta: "你".repeat(50), done: false },
+      { turnId: "t1", timestampMs: 2_000 },
+    );
+    log.push(
+      SessionEventType.ModelNetworkStatus,
+      {
+        type: "model_request_completed",
+        requestId: "r1",
+        providerId: "p",
+        modelId: "m",
+        transport: "sse",
+        attempt: 1,
+        maxAttempts: 1,
+        durationMs: 4_000,
+        timeToFirstContentMs: 800,
+        usage: { inputTokens: 100, outputTokens: 640 },
+        querySource: "main_turn",
+      },
+      { turnId: "t1", timestampMs: 5_000 },
+    );
+    const { projection, snapshots, deltasPerEvent } = runAll(log.events);
+    expect(snapshots[4]?.stats?.liveTokensPerSecond).toBe(10);
+    expect(projection.getSnapshot().stats).toEqual({
+      turnCount: 1,
+      stepCount: 1,
+      modelDurationMs: 4_000,
+      toolDurationMs: 0,
+      ttftAvgMs: 800,
+      outputTokens: 640,
+      generationDurationMs: 3_200,
+      liveTokensPerSecond: null,
+    });
+    expect(
+      deltasPerEvent.some(
+        (deltas) => deltas.some((delta) => delta.op === "state.updated" && delta.patch.stats != null),
+      ),
+    ).toBe(true);
+  });
+
+  it("subagent 请求不计入步数与模型用时", () => {
+    const log = new EventLog();
+    log.push(SessionEventType.SessionCreated, { mode: "default" });
+    log.push(
+      SessionEventType.TurnStarted,
+      { turnNumber: 1, input: "hi" },
+      { turnId: "t1", timestampMs: 1_000 },
+    );
+    log.push(
+      SessionEventType.ModelNetworkStatus,
+      {
+        type: "model_request_completed",
+        requestId: "r-sub",
+        providerId: "p",
+        modelId: "m",
+        transport: "sse",
+        attempt: 1,
+        maxAttempts: 1,
+        durationMs: 9_000,
+        usage: { inputTokens: 10, outputTokens: 99 },
+        querySource: "subagent",
+      },
+      { turnId: "t1", timestampMs: 2_000 },
+    );
+    const { projection } = runAll(log.events);
+    expect(projection.getSnapshot().stats).toEqual({
+      turnCount: 1,
+      stepCount: 0,
+      modelDurationMs: 0,
+      toolDurationMs: 0,
+      ttftAvgMs: null,
+      outputTokens: 0,
+      generationDurationMs: 0,
+      liveTokensPerSecond: null,
+    });
+  });
+
+  it("工具行终态累计 toolDurationMs 并按 toolCallId 去重", () => {
+    const log = new EventLog();
+    log.push(SessionEventType.SessionCreated, { mode: "default" });
+    log.push(
+      SessionEventType.TurnStarted,
+      { turnNumber: 1, input: "run pwd" },
+      { turnId: "t1", timestampMs: 1_000 },
+    );
+    log.push(
+      SessionEventType.ToolCallScheduled,
+      {
+        toolCallId: "tool-1",
+        toolName: "Bash",
+        input: { command: "pwd" },
+        schedule: { parallelGroups: [["tool-1"]], executionOrder: ["tool-1"] },
+      },
+      { turnId: "t1", timestampMs: 2_000 },
+    );
+    // startedAt 只由 ToolCallStarted（running 态）写入；缺少该事件时行无 startedAt 不计入。
+    log.push(
+      SessionEventType.ToolCallStarted,
+      { toolCallId: "tool-1" },
+      { turnId: "t1", timestampMs: 2_500 },
+    );
+    log.push(
+      SessionEventType.ToolCallResult,
+      { toolCallId: "tool-1", result: { success: true, content: "ok" }, duration: 3 },
+      { turnId: "t1", timestampMs: 5_000 },
+    );
+    // TurnComplete 可能再次 upsert 已终态工具行，统计不得重复累计。
+    log.push(
+      SessionEventType.TurnComplete,
+      { response: "ok", tokenCount: 1, toolCallCount: 1, duration: 4, resultType: "success" },
+      { turnId: "t1", timestampMs: 5_100 },
+    );
+    const { projection } = runAll(log.events);
+    expect(projection.getSnapshot().stats?.toolDurationMs).toBe(2_500);
   });
 });

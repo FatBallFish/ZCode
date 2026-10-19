@@ -97,10 +97,15 @@ export function formatContextUsageSummary({
   used,
 }: {
   locale: string;
-  percent: number;
-  size: number;
+  /** 容量未知（size=null 降级）时为 null，仅展示用量不展示百分比。 */
+  percent: number | null;
+  size: number | null;
   used: number;
 }): string {
+  // 未知容量降级：只显示已用 token，不拼容量与百分比，避免用 0% 误导。
+  if (size === null || percent === null) {
+    return formatContextUsageTokenCount(used, locale);
+  }
   const percentageFormatter = new Intl.NumberFormat(locale, {
     maximumFractionDigits: 1,
     style: "percent",
@@ -214,7 +219,7 @@ export function buildContextUsageProgressSegments(
 }
 
 export function getRenderableTaskUsage<
-  T extends { used: number; size: number },
+  T extends { used: number; size: number | null },
 >(taskUsage: T | null): T | null {
   if (!taskUsage) {
     return null;
@@ -222,12 +227,12 @@ export function getRenderableTaskUsage<
 
   // ZCode Protocol 迁移后会单独补齐真实 contextUsed/contextWindow。
   // used=0 或非法值不代表可展示的上下文占用，避免把初始化/异常兜底渲染成误导性的 0%。
-  if (
-    !Number.isFinite(taskUsage.used) ||
-    !Number.isFinite(taskUsage.size) ||
-    taskUsage.used <= 0 ||
-    taskUsage.size <= 0
-  ) {
+  // size=null 是未知容量降级（chatgpt/sub2api slug 无 contextWindow 元数据），
+  // 只要 used 有效仍可展示用量与明细占比，容量与百分比由渲染层隐藏。
+  if (!Number.isFinite(taskUsage.used) || taskUsage.used <= 0) {
+    return null;
+  }
+  if (taskUsage.size !== null && (!Number.isFinite(taskUsage.size) || taskUsage.size <= 0)) {
     return null;
   }
 
@@ -236,6 +241,11 @@ export function getRenderableTaskUsage<
 
 export function getContextCompressionCommand(_provider: ZCodeProvider): string {
   return "/compact";
+}
+
+/** 未知容量降级判定：size 非正数或 null 都视为容量未知。 */
+function hasKnownCapacityLabel(size: number | null | undefined): size is number {
+  return size != null && Number.isFinite(size) && size > 0;
 }
 
 // 自动/运营完成（startedAt 为空）当前生效的 used_at；手动完成不进入触发器交互。
@@ -270,7 +280,8 @@ export function ChatContextUsage({
   startPlanBalance?: ChatStartPlanBalanceConfig;
   taskUsage: {
     used: number;
-    size: number;
+    /** null = 未知容量降级：仅展示用量与明细，隐藏容量/百分比。 */
+    size: number | null;
     cache?: { hitRate: number | null };
     breakdown?: ZCodeContextUsageBreakdownItem[];
   } | null;
@@ -860,6 +871,14 @@ export function ChatContextUsage({
       return null;
     }
 
+    // 未知容量降级：i18n 文案不含总量（模型元数据未提供 contextWindow 时）。
+    if (!hasKnownCapacityLabel(renderableTaskUsage.size)) {
+      return intl.formatMessage(
+        { id: "chat.contextUsage.degraded" },
+        { used: numberFormatter.format(renderableTaskUsage.used) },
+      );
+    }
+
     return intl.formatMessage(
       { id: "chat.contextUsage" },
       {
@@ -902,17 +921,19 @@ export function ChatContextUsage({
     return null;
   }
 
-  const usagePercent = renderableTaskUsage
-    ? Math.min(
-        Math.max(renderableTaskUsage.used / renderableTaskUsage.size, 0),
-        1,
-      )
-    : 0;
+  const hasKnownCapacity = renderableTaskUsage?.size != null && renderableTaskUsage.size > 0;
+  const usagePercent =
+    renderableTaskUsage && hasKnownCapacity
+      ? Math.min(
+          Math.max(renderableTaskUsage.used / (renderableTaskUsage.size as number), 0),
+          1,
+        )
+      : null;
   const compactTokenUsageLabel = renderableTaskUsage
     ? formatContextUsageSummary({
         locale,
         percent: usagePercent,
-        size: renderableTaskUsage.size,
+        size: hasKnownCapacity ? (renderableTaskUsage.size as number) : null,
         used: renderableTaskUsage.used,
       })
     : null;
@@ -924,7 +945,8 @@ export function ChatContextUsage({
           id: "settings.modelProvider.startPlan.balance.title",
         }));
   const contextUsedTokens = renderableTaskUsage?.used ?? 0;
-  const contextMaxTokens = renderableTaskUsage?.size ?? 1;
+  // 未知容量降级时传 0：Context 图标的 formatUsagePercent 对 maxTokens<=0 已有空环兜底。
+  const contextMaxTokens = renderableTaskUsage?.size ?? 0;
 
   return (
     <Context
@@ -1010,12 +1032,15 @@ export function ChatContextUsage({
                   {compactTokenUsageLabel}
                 </span>
               </div>
-              <Progress
-                className="h-2 bg-surface"
-                indicatorClassName="min-w-2"
-                segments={progressSegments}
-                value={usagePercent * PERCENT_MAX}
-              />
+              {/* 未知容量降级（size=null）时没有可信分母，隐藏总量进度条只保留标签行。 */}
+              {hasKnownCapacity ? (
+                <Progress
+                  className="h-2 bg-surface"
+                  indicatorClassName="min-w-2"
+                  segments={progressSegments}
+                  value={(usagePercent as number) * PERCENT_MAX}
+                />
+              ) : null}
             </div>
           ) : null}
           {renderableTaskUsage &&

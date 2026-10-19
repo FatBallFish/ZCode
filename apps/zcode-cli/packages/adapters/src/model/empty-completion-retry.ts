@@ -5,7 +5,12 @@ import { calculateRetryDelay, logRetryDelayDecision, sleep } from "./runner-retr
 import { publishModelStatus, type ModelStatusContext } from "./runner-status.js";
 import type { ResolvedAiSdkModelRetryOptions } from "./retry-policy.js";
 
-export const EMPTY_COMPLETION_MAX_RETRIES = 1;
+// 修复依据（2026-10-16 客户报障，specs/agent/empty-completion-retry.md）：网关（sub2api →
+// ChatGPT Codex 通道）间歇性返回 response.failed 空响应，旧预算 1 次导致连续两连空
+// 直接把 turn 判失败（4 天日志 13 次空回、5 组两连空）；提高预算可直接消掉大部分
+// 用户可见空输出。语义：同一轮请求最多重试 5 次（连同首试最多 6 次物理尝试），
+// 与网络错误重试（maxAttempts，默认 11）是独立预算、互不占用。
+export const EMPTY_COMPLETION_MAX_RETRIES = 5;
 export const EMPTY_COMPLETION_MESSAGE =
   "Model returned no text, no tool calls, and no usage before completing the turn.";
 

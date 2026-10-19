@@ -242,8 +242,8 @@ describe("autoUpdater ready state sync", () => {
     });
     delete process.env["TEST_UPDATER_ARCH"];
     delete process.env["MIKIKO_UPDATE_FEED_URL"];
-    delete process.env["ZCODE_AUTO_UPDATE_DEV"];
-    delete process.env["ZCODE_AUTO_UPDATE_DEV_VERSION"];
+    delete process.env["MIKIKO_AUTO_UPDATE_DEV"];
+    delete process.env["MIKIKO_AUTO_UPDATE_DEV_VERSION"];
     readFileMock.mockReset();
     readFileMock.mockRejectedValue(new Error("missing update config"));
   });
@@ -262,7 +262,7 @@ describe("autoUpdater ready state sync", () => {
   });
 
   it("Preview 禁用更新器后，漏改的手动检查入口也不能触碰未初始化的 updater", async () => {
-    // Bugfix: 托盘/命令入口若仍按 ZCODE_ENV 放行，会对占位 feed 发真实 checkForUpdates；
+    // Bugfix: 托盘/命令入口若仍按 MIKIKO_ENV 放行，会对占位 feed 发真实 checkForUpdates；
     // 禁用语义必须在 autoUpdater 模块内 fail-closed，而不是依赖每个调用点各自判断。
     const win = {
       isDestroyed: () => false,
@@ -319,8 +319,8 @@ describe("autoUpdater ready state sync", () => {
   it("显式开启开发态自动更新时会覆盖本地版本并发起检查", async () => {
     appMock.isPackaged = false;
     appMock.getVersion.mockReturnValue("1.0.0");
-    process.env["ZCODE_AUTO_UPDATE_DEV"] = "1";
-    process.env["ZCODE_AUTO_UPDATE_DEV_VERSION"] = "3.3.1";
+    process.env["MIKIKO_AUTO_UPDATE_DEV"] = "1";
+    process.env["MIKIKO_AUTO_UPDATE_DEV_VERSION"] = "3.3.1";
 
     const { initAutoUpdater } = await import("../src/main/autoUpdater.js");
     await initAutoUpdater();
@@ -887,7 +887,7 @@ describe("autoUpdater ready state sync", () => {
   it("开发态缓存包 ready 后的 Squirrel 迟到错误不会关闭待安装状态", async () => {
     mockProcessPlatform("darwin");
     appMock.isPackaged = false;
-    process.env["ZCODE_AUTO_UPDATE_DEV"] = "1";
+    process.env["MIKIKO_AUTO_UPDATE_DEV"] = "1";
     const win = {
       isDestroyed: () => false,
       webContents: {
@@ -2242,7 +2242,7 @@ describe("autoUpdater ready state sync", () => {
   it("开发态自动更新安装请求会重启当前 dev app", async () => {
     mockProcessPlatform("darwin");
     appMock.isPackaged = false;
-    process.env["ZCODE_AUTO_UPDATE_DEV"] = "1";
+    process.env["MIKIKO_AUTO_UPDATE_DEV"] = "1";
     const onBeforeQuitAndInstall = vi.fn();
     const { initAutoUpdater } = await import("../src/main/autoUpdater.js");
 

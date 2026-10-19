@@ -148,7 +148,7 @@ export function VoiceDevicePermissionCard() {
                 <span
                   className={cn(
                     "flex items-center gap-1.5 text-ui-sm",
-                    permissionBlocked ? "text-warning" : "text-fg-subtle",
+                    permissionBlocked ? "text-warning" : "text-foreground-subtle",
                   )}
                   data-testid="voice-mic-permission-status"
                 >

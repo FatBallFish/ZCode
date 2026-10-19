@@ -15,7 +15,7 @@ import type { ISettingService } from "../src/setting/setting.js";
 
 const originalHome = process.env.HOME;
 const originalDesktopHome = process.env.MIKIKO_DESKTOP_HOME_DIR;
-const originalZCodeEnv = process.env.ZCODE_ENV;
+const originalZCodeEnv = process.env.MIKIKO_ENV;
 const originalFsFaults = process.env.ZCODE_E2E_FS_FAULTS;
 const originalFsFaultsAllow = process.env.ZCODE_E2E_FS_FAULTS_ALLOW;
 const originalSettingWriteQueueTimeout = process.env.ZCODE_SETTING_WRITE_QUEUE_TIMEOUT_MS;
@@ -47,7 +47,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   restoreEnvValue("HOME", originalHome);
   restoreEnvValue("MIKIKO_DESKTOP_HOME_DIR", originalDesktopHome);
-  restoreEnvValue("ZCODE_ENV", originalZCodeEnv);
+  restoreEnvValue("MIKIKO_ENV", originalZCodeEnv);
   restoreEnvValue("ZCODE_E2E_FS_FAULTS", originalFsFaults);
   restoreEnvValue("ZCODE_E2E_FS_FAULTS_ALLOW", originalFsFaultsAllow);
   restoreEnvValue("ZCODE_SETTING_WRITE_QUEUE_TIMEOUT_MS", originalSettingWriteQueueTimeout);
@@ -65,7 +65,7 @@ describe("settingService", () => {
     const ordinaryHome = makeTempHome();
     const desktopHome = makeTempHome();
     process.env.MIKIKO_DESKTOP_HOME_DIR = desktopHome;
-    process.env.ZCODE_ENV = "production";
+    process.env.MIKIKO_ENV = "production";
     const service = await createSettingServiceInHome(ordinaryHome);
     await service.update({ providerFamilyDomain: "bigmodel" });
     expect(existsSync(join(desktopHome, ".mikiko", "v2", "setting.json"))).toBe(true);
@@ -737,7 +737,7 @@ describe("settingService", () => {
   it("保存 setting.json 时可以注入磁盘/权限类写入错误", async () => {
     const home = makeTempHome();
     const settingsFile = join(home, ".mikiko", "v2", "setting.json");
-    process.env.ZCODE_ENV = "test";
+    process.env.MIKIKO_ENV = "test";
     process.env.ZCODE_E2E_FS_FAULTS = JSON.stringify([
       {
         code: "EACCES",

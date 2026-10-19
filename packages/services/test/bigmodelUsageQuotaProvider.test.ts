@@ -1009,7 +1009,7 @@ describe("BigModelUsageQuotaProvider", () => {
     expect(snapshot.unavailableReason).toBeUndefined();
   });
 
-  it("ZCODE_ENV=test 时 BigModel Coding Plan quota 使用 bigmodel.cn", async () => {
+  it("MIKIKO_ENV=test 时 BigModel Coding Plan quota 使用 bigmodel.cn", async () => {
     const requestUrls: string[] = [];
     const apiClient: ApiClient = {
       request: vi.fn(async (input) => {
@@ -1031,7 +1031,7 @@ describe("BigModelUsageQuotaProvider", () => {
     const provider = createProviderForTest({
       apiClient,
       env: {
-        ZCODE_ENV: "test",
+        MIKIKO_ENV: "test",
       },
       modelProviderService: {
         getAllCached: vi.fn(async () => [createBigModelCodingPlanProvider()]),
@@ -1480,7 +1480,7 @@ describe("BigModelUsageQuotaProvider", () => {
         getAllCached: vi.fn(async () => [createBigModelCodingPlanProvider()]),
       } as LegacyModelProviderReader,
       env: {
-        ZCODE_BIGMODEL_USAGE_API_KEY: "env-usage-key",
+        MIKIKO_BIGMODEL_USAGE_API_KEY: "env-usage-key",
       },
     });
 

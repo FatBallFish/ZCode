@@ -377,8 +377,8 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
     );
   });
 
-  it("ZCODE_ENV=test 时 BigModel Coding Plan API 使用 bigmodel.cn", async () => {
-    vi.stubEnv("ZCODE_ENV", "test");
+  it("MIKIKO_ENV=test 时 BigModel Coding Plan API 使用 bigmodel.cn", async () => {
+    vi.stubEnv("MIKIKO_ENV", "test");
     const apiClient: ApiClient = {
       request: vi.fn(async () =>
         createJsonResponse({
@@ -486,10 +486,10 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
     );
   });
 
-  it("ZCODE_ENV=test 时 Z.ai Coding Plan 业务接口使用 api.z.ai", async () => {
-    vi.stubEnv("ZCODE_ENV", "test");
+  it("MIKIKO_ENV=test 时 Z.ai Coding Plan 业务接口使用 api.z.ai", async () => {
+    vi.stubEnv("MIKIKO_ENV", "test");
     // 修复原因：开发机若设了 ZAI_BUSINESS_BASE_URL=https://api.z.ai，
-    // resolveZaiBusinessBaseUrl 会优先读它，覆盖 ZCODE_ENV fallback，导致断言不稳定。
+    // resolveZaiBusinessBaseUrl 会优先读它，覆盖 MIKIKO_ENV fallback，导致断言不稳定。
     vi.stubEnv("ZAI_BUSINESS_BASE_URL", "");
     const apiClient: ApiClient = {
       request: vi.fn(async (input) => {
@@ -850,15 +850,15 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
     );
   });
 
-  it("client configs 根据 ZCODE_ENV 选择测试或生产环境", () => {
+  it("client configs 根据 MIKIKO_ENV 选择测试或生产环境", () => {
     expect(
       resolveCodingPlanClientConfigUrl({
-        ZCODE_ENV: "test",
+        MIKIKO_ENV: "test",
       }).toString(),
     ).toBe("https://zcode.z.ai/api/v1/client/configs");
     expect(
       resolveCodingPlanClientConfigUrl({
-        ZCODE_ENV: "production",
+        MIKIKO_ENV: "production",
         MIKIKO_ENDPOINT_ORIGIN: "https://runtime.example.com",
       }).toString(),
     ).toBe("https://runtime.example.com/api/v1/client/configs");
@@ -1802,8 +1802,8 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
     });
   });
 
-  it("ZCODE_ENV=test 时 Team Plan 企业接口使用 bigmodel.cn", async () => {
-    vi.stubEnv("ZCODE_ENV", "test");
+  it("MIKIKO_ENV=test 时 Team Plan 企业接口使用 bigmodel.cn", async () => {
+    vi.stubEnv("MIKIKO_ENV", "test");
     const apiClient: ApiClient = {
       request: vi
         .fn()
@@ -2379,8 +2379,8 @@ describe("ZaiCodingPlanSubscriptionProvider (family-aware Team Plan)", () => {
   });
 
   // 修复原因：开发机可能设了 ZAI_BUSINESS_BASE_URL=https://api.z.ai 环境变量，
-  // resolveZaiBusinessBaseUrl 会优先读它，覆盖 ZCODE_ENV 逻辑导致测试域名断言不稳定。
-  // 测试里统一 stub 成空，强制走 ZCODE_ENV fallback 链。
+  // resolveZaiBusinessBaseUrl 会优先读它，覆盖 MIKIKO_ENV 逻辑导致测试域名断言不稳定。
+  // 测试里统一 stub 成空，强制走 MIKIKO_ENV fallback 链。
   function createZaiCredentialService(token = "zai-business-jwt") {
     return {
       load: vi.fn(async (key: string) => (key === "oauth:zai:access_token" ? token : null)),
@@ -2453,9 +2453,9 @@ describe("ZaiCodingPlanSubscriptionProvider (family-aware Team Plan)", () => {
     });
   });
 
-  it("ZCODE_ENV=test 时 zai Team Plan 企业接口使用 api.z.ai", async () => {
-    vi.stubEnv("ZCODE_ENV", "test");
-    // 开发机 ZAI_BUSINESS_BASE_URL 会覆盖 ZCODE_ENV fallback，这里 stub 成空强制走 fallback
+  it("MIKIKO_ENV=test 时 zai Team Plan 企业接口使用 api.z.ai", async () => {
+    vi.stubEnv("MIKIKO_ENV", "test");
+    // 开发机 ZAI_BUSINESS_BASE_URL 会覆盖 MIKIKO_ENV fallback，这里 stub 成空强制走 fallback
     vi.stubEnv("ZAI_BUSINESS_BASE_URL", "");
     const apiClient: ApiClient = {
       request: vi.fn(async () => createJsonResponse({ code: 200, data: { productList: [] } })),

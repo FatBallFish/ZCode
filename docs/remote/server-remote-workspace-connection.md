@@ -195,7 +195,7 @@ Remote Connection
 
 - 本地 Vite 开发启动，或 Desktop platform 明确标记 `isLocalDevelopmentRuntime = true`：展示 `Server` 类型卡片。
 - production-mode 打包的 Desktop（包括正式包和预览包）：不展示 `Server` 类型卡片，即使产品环境配置为 `test` 也不放开。
-- 门禁只使用本地开发运行形态，不使用 `ZCODE_ENV` 或内网探测结果；SSH / WSL / Docker 的展示规则不受影响。
+- 门禁只使用本地开发运行形态，不使用 `MIKIKO_ENV` 或内网探测结果；SSH / WSL / Docker 的展示规则不受影响。
 
 Server 表单字段：
 

@@ -41,7 +41,7 @@ const TEST_DESKTOP_OAUTH_LOGIN_REDIRECT_URI = buildDesktopOAuthLoginRedirectUri(
 // Windows 机器上设置了 ZAI_TEST_OAUTH_ORIGIN 等环境变量，会覆盖测试预期的 test 端点值
 // 过滤掉这些可能污染测试的环境变量
 const OAUTH_ENV_KEYS_TO_OMIT = new Set([
-  "ZCODE_ENV",
+  "MIKIKO_ENV",
   "MIKIKO_ENDPOINT_ORIGIN",
   "ZAI_TEST_OAUTH_ORIGIN",
   "ZAI_PRODUCTION_OAUTH_ORIGIN",
@@ -55,8 +55,8 @@ const OAUTH_ENV_KEYS_TO_OMIT = new Set([
   "ZAI_TEST_BUSINESS_BASE_URL",
   "ZAI_PRODUCTION_BUSINESS_BASE_URL",
   "ZAI_BUSINESS_BASE_URL",
-  "ZCODE_TEST_BASE_URL",
-  "ZCODE_PRODUCTION_BASE_URL",
+  "MIKIKO_TEST_BASE_URL",
+  "MIKIKO_PRODUCTION_BASE_URL",
   "MIKIKO_BASE_URL",
 ]);
 const cleanProcessEnv = Object.fromEntries(
@@ -1000,7 +1000,7 @@ describe("oauthService", () => {
       env: {
         ...cleanProcessEnv,
         BIGMODEL_OAUTH_APP_SECRET: "unit-test-secret",
-        ZCODE_ENV: "test",
+        MIKIKO_ENV: "test",
         ZAI_OAUTH_CLIENT_ID: "client_P8X5CMWmlaRO9gyO-KSqtg",
         ZAI_OAUTH_ORIGIN: "https://chat.z.ai/",
       },
@@ -1021,7 +1021,7 @@ describe("oauthService", () => {
       env: {
         ...cleanProcessEnv,
         BIGMODEL_OAUTH_APP_SECRET: "unit-test-secret",
-        ZCODE_ENV: "test",
+        MIKIKO_ENV: "test",
       },
     });
 
@@ -1031,12 +1031,12 @@ describe("oauthService", () => {
     expect(parsed.searchParams.get("redirect")).toBe(TEST_DESKTOP_OAUTH_LOGIN_REDIRECT_URI);
   });
 
-  it("uses bigmodel.cn to build BigModel authorize URL when ZCODE_ENV=test", async () => {
+  it("uses bigmodel.cn to build BigModel authorize URL when MIKIKO_ENV=test", async () => {
     const service = createBigModelService({
       env: {
         ...cleanProcessEnv,
         BIGMODEL_OAUTH_APP_SECRET: "unit-test-secret",
-        ZCODE_ENV: "test",
+        MIKIKO_ENV: "test",
       },
     });
 
@@ -1046,12 +1046,12 @@ describe("oauthService", () => {
     expect(parsed.origin + parsed.pathname).toBe("https://bigmodel.cn/login");
   });
 
-  it("uses production bigmodel.cn to build BigModel authorize URL when ZCODE_ENV=production", async () => {
+  it("uses production bigmodel.cn to build BigModel authorize URL when MIKIKO_ENV=production", async () => {
     const service = createBigModelService({
       env: {
         ...process.env,
         BIGMODEL_OAUTH_APP_SECRET: "unit-test-secret",
-        ZCODE_ENV: "production",
+        MIKIKO_ENV: "production",
       },
     });
 
@@ -1138,12 +1138,12 @@ describe("oauthService", () => {
   });
 
   // Windows 机器上设置了 ZAI_TEST_OAUTH_ORIGIN 等环境变量，会覆盖测试预期的 test 端点值
-  it("uses testZAI endpoints from runtime ZCODE_ENV without explicit origin overrides", async () => {
+  it("uses testZAI endpoints from runtime MIKIKO_ENV without explicit origin overrides", async () => {
     const service = createBigModelService({
       env: {
         ...cleanProcessEnv,
         BIGMODEL_OAUTH_APP_SECRET: "unit-test-secret",
-        ZCODE_ENV: "test",
+        MIKIKO_ENV: "test",
       },
     });
 
@@ -2002,7 +2002,7 @@ describe("oauthService", () => {
     );
   });
 
-  // Windows 机器上设置了 ZCODE_TEST_BASE_URL 等环境变量，会覆盖测试预期的 test 端点值
+  // Windows 机器上设置了 MIKIKO_TEST_BASE_URL 等环境变量，会覆盖测试预期的 test 端点值
   it("uses test product endpoints for bigmodel token exchange and userinfo", async () => {
     const fetchMock = vi.fn<typeof fetch>();
     const service = createBigModelService({
@@ -2010,7 +2010,7 @@ describe("oauthService", () => {
       env: {
         ...cleanProcessEnv,
         BIGMODEL_OAUTH_APP_SECRET: "unit-test-secret",
-        ZCODE_ENV: "test",
+        MIKIKO_ENV: "test",
       },
     });
     const { state } = await service.startOAuth(BIGMODEL_PROVIDER_ID);

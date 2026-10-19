@@ -100,7 +100,7 @@ stateDiagram-v2
 
 ### 桌面字节码试验的启动约定
 
-- `ZCODE_DESKTOP_AGENT_BYTECODE=1` 是 Dev desktop 启动器传给 Host 的实验开关，默认关闭；
+- `MIKIKO_DESKTOP_AGENT_BYTECODE=1` 是 Dev desktop 启动器传给 Host 的实验开关，默认关闭；
   普通 Dev 启动显式关闭，`pnpm dev:desktop:bytecode` 显式开启。不开启时忽略残留字节码。
 - 仅 Electron 的工作区 dist 解析路径选择同目录 `zcode.bytecode.cjs`；显式
   `ZCODE_AGENT_SERVER_COMMAND` 保持最高优先级，非 Electron/远端保持原入口。

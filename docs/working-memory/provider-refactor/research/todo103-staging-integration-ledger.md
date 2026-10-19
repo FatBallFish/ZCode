@@ -363,7 +363,7 @@ JSON 中状态只有在相应来源片段全部有明确去向时才能改为完
 
 - installer、辅助脚本与领域 spec 的来源行为均有去向，新增 UAC 默认接线有单独证据；不新增 Provider/Selection 状态或持久化迁移。
 - electron-builder 相对固定 staging 只保留当前 Built-in Provider Config 资源，不恢复旧 chinaLlm catalog；其余 G01 构建差异均已迁入。runtime-asset 测试同时保留当前 Built-in Config 打包断言、缺 Helper 提示和 Helper signIgnore 正则，覆盖 merge `5ded50a096` 的有意义 resolution。
-- main/index 只加入 Windows AUMID 调用，不覆盖同文件的 Host/remote/account 变更；打包态读取构建期 ZCODE_ENV，开发态独立身份，macOS/Linux 不进入该分支。
+- main/index 只加入 Windows AUMID 调用，不覆盖同文件的 Host/remote/account 变更；打包态读取构建期 MIKIKO_ENV，开发态独立身份，macOS/Linux 不进入该分支。
 - G01 全部来源已有裁决及实现去向，但 Windows 相关项保留 `implemented-awaiting-windows-smoke`，其余来源已完成组内复审。共享 main/index、package.json 仍保持其他组 pending。本批可提交到隔离整合分支，不据此合回 recovery 或标记整个 Goal 完成。
 
 ## 19. G09：OAuth 401 与失败页交互（已实施、组内复审）

@@ -57,7 +57,7 @@ patch 头的目标 blob 与安装产物一致，并验证同一工作区连续�
 | 项                         | 位置 / 值                                                                                                            |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Endpoint                   | `ZCODE_ARMS_RUM_ENDPOINT`（`packages/shared/src/env.ts`）                                                            |
-| 上报环境                   | `mapZCodeEnvToArmsRumEnv(runtimeEnv)`：本地开发运行态始终为 `local`；非本地运行态仅 `ZCODE_ENV=production` 为 `prod` |
+| 上报环境                   | `mapZCodeEnvToArmsRumEnv(runtimeEnv)`：本地开发运行态始终为 `local`；非本地运行态仅 `MIKIKO_ENV=production` 为 `prod` |
 | `sessionConfig.sampleRate` | `1`（100% 会话采样）                                                                                                 |
 | `autoInject`               | `true`（SDK 在 `dom-ready` 注入 Browser SDK；勿再 preload/renderer 手动 init）                                       |
 | `browserCollectors`        | `perf/webvitals/exception/whiteScreen/api/staticResource/click/longTask: true`（见 `ARMS_BROWSER_COLLECTORS`）       |

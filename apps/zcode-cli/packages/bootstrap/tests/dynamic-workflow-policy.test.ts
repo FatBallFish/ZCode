@@ -160,7 +160,7 @@ describe("session 创建：runtimeConfig.dynamicWorkflowEnabled", () => {
 describe("`/` 目录：灰度关闭时没有 workflow", () => {
   it("关闭剔除、开启保留并紧随 goal 之后（内置命令，不依赖任何插件）", async () => {
     const options = {
-      env: { ZCODE_ENV: "test" },
+      env: { MIKIKO_ENV: "test" },
       skipUserConfig: true,
       workingDirectory: process.cwd(),
     };

@@ -20,7 +20,7 @@ export function ArchivedTaskRowCard({
   onDelete,
 }: {
   task: ZCodeTaskMeta;
-  worktreeInfo: { rootWorkspacePath: string; diskStatus: string } | null;
+  worktreeInfo: { rootWorkspacePath: string; diskStatus: string; branch: string | null } | null;
   unarchivable: boolean;
   confirmArmed: boolean;
   onArmConfirm: () => void;
@@ -29,6 +29,9 @@ export function ArchivedTaskRowCard({
   onDelete: () => void;
 }) {
   const { intl } = useZCodeIntl();
+  // 2026-10-15 分支展示规则：绑定分支展示分支名；游离/注册表已删（info 为 null 或
+  // branch null）回落短 id（路径末段前 4 位，注册表删除后仍可显示）。
+  const worktreeIdentity = worktreeInfo?.branch ?? worktreeShortId(task.workspacePath);
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -43,7 +46,7 @@ export function ArchivedTaskRowCard({
         </span>
         {worktreeInfo ? (
           <span className="shrink-0 rounded bg-surface-raised px-1.5 py-0.5 font-mono text-ui-xs text-foreground-subtle">
-            {worktreeShortId(task.workspacePath)}
+            {worktreeIdentity}
           </span>
         ) : null}
         <span className="shrink-0 text-ui-xs text-foreground-subtlest">

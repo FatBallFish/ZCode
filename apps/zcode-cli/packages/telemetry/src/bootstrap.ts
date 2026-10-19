@@ -159,7 +159,7 @@ async function createPreparedOwner(
     buildCommitId: normalizeBuildCommitId(options.buildCommitId ?? env.MIKIKO_BUILD_COMMIT_ID),
     cliVersion: normalizeVersion(options.cliVersion),
     deploymentEnvironment:
-      env.ZCODE_ENV ??
+      env.MIKIKO_ENV ??
       env.MIKIKO_RUNTIME_ENV ??
       resourceAttributesFromEnv(env)["deployment.environment.name"],
     installationId: normalizeTelemetryDeviceMid(env.MIKIKO_TELEMETRY_DEVICE_MID),

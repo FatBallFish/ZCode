@@ -26,7 +26,7 @@ describe("desktop E2E build cache", () => {
     mkdirSync(resolve(ROOT, "src"), { recursive: true });
     writeFileSync(resolve(ROOT, "src/main.ts"), "export const value = 1;\n");
     const base = createE2EDesktopBuildFingerprint({
-      env: { VITE_ZCODE_E2E_STORE_BRIDGE: "1", ZCODE_ENV: "test" },
+      env: { VITE_ZCODE_E2E_STORE_BRIDGE: "1", MIKIKO_ENV: "test" },
       gitHead: "head-a",
       inputPaths: ["src"],
       repoRoot: ROOT,
@@ -35,7 +35,7 @@ describe("desktop E2E build cache", () => {
     writeFileSync(resolve(ROOT, "src/main.ts"), "export const value = 2;\n");
     expect(
       createE2EDesktopBuildFingerprint({
-        env: { VITE_ZCODE_E2E_STORE_BRIDGE: "1", ZCODE_ENV: "test" },
+        env: { VITE_ZCODE_E2E_STORE_BRIDGE: "1", MIKIKO_ENV: "test" },
         gitHead: "head-a",
         inputPaths: ["src"],
         repoRoot: ROOT,
@@ -43,7 +43,7 @@ describe("desktop E2E build cache", () => {
     ).not.toBe(base);
     expect(
       createE2EDesktopBuildFingerprint({
-        env: { VITE_ZCODE_E2E_STORE_BRIDGE: "1", ZCODE_ENV: "test" },
+        env: { VITE_ZCODE_E2E_STORE_BRIDGE: "1", MIKIKO_ENV: "test" },
         gitHead: "head-b",
         inputPaths: ["src"],
         repoRoot: ROOT,
@@ -74,7 +74,7 @@ describe("desktop E2E build cache", () => {
     }
     expect(
       createE2EDesktopBuildFingerprint({
-        env: { ZCODE_ENV: "" },
+        env: { MIKIKO_ENV: "" },
         gitHead: "head-a",
         inputPaths: ["src"],
         repoRoot: ROOT,

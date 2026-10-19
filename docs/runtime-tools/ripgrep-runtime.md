@@ -8,7 +8,7 @@
 ## 方案
 
 - `packages/shared/src/runtime-tool-runtime.ts` 统一声明内置 `bfs`、`ripgrep`、`ugrep` runtime tool
-- 本地 desktop/SEA 和 Linux remote 的 `ripgrep` 固定为 Microsoft `ripgrep-prebuilt v14.1.1-1`；macOS arm64/x64、Linux arm64/x64 与 Windows x64/arm64 全部从 `${ZCODE_DEPS_BASE_URL}/native-search-tools/ripgrep-v14.1.1-1` 下载固定 SHA-256 的 Microsoft 原始归档，不再由 native-search producer 构建。所选 macOS 归档的 deployment target 不高于 12.0，Linux 使用无 glibc 依赖的 musl 静态归档，Windows 两个架构拒绝动态 CRT 与本应静态链接的构建依赖，因此升级 rg 不改变 ZCode 原有系统分发下限。Darwin remote producer 暂时保留历史 `v13.0.0-10` 资源，两者不共用版本 metadata，desktop prepare 不再暴露旧版本下载入口
+- 本地 desktop/SEA 和 Linux remote 的 `ripgrep` 固定为 Microsoft `ripgrep-prebuilt v14.1.1-1`；macOS arm64/x64、Linux arm64/x64 与 Windows x64/arm64 全部从 `${MIKIKO_DEPS_BASE_URL}/native-search-tools/ripgrep-v14.1.1-1` 下载固定 SHA-256 的 Microsoft 原始归档，不再由 native-search producer 构建。所选 macOS 归档的 deployment target 不高于 12.0，Linux 使用无 glibc 依赖的 musl 静态归档，Windows 两个架构拒绝动态 CRT 与本应静态链接的构建依赖，因此升级 rg 不改变 ZCode 原有系统分发下限。Darwin remote producer 暂时保留历史 `v13.0.0-10` 资源，两者不共用版本 metadata，desktop prepare 不再暴露旧版本下载入口
 - `packages/services/src/runtime-tools/runtimeCommandEnv.ts` 在 host / server 启动时：
   - 尝试从 login shell 回放一份 `PATH`
   - 再把内置工具目录 append 到 `PATH`；`rg` 保留用户已有命令的优先级，`find` / `grep` 由 embedded-search prelude 直接使用随包绝对路径

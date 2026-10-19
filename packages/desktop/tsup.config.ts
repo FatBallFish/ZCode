@@ -43,7 +43,7 @@ function loadEnvFiles(): Record<string, string> {
     }
   }
   // 真实环境变量优先级最高
-  if (process.env.ZCODE_ENV) vars.ZCODE_ENV = process.env.ZCODE_ENV;
+  if (process.env.MIKIKO_ENV) vars.MIKIKO_ENV = process.env.MIKIKO_ENV;
   if (process.env.MIKIKO_BASE_URL) vars.MIKIKO_BASE_URL = process.env.MIKIKO_BASE_URL;
   if (process.env.VITE_MIKIKO_BASE_URL) vars.VITE_MIKIKO_BASE_URL = process.env.VITE_MIKIKO_BASE_URL;
   // OAuth origin/client_id 由 host runtime 读取；这里保留覆盖入口，方便开发构建时观察统一 env 来源。
@@ -68,9 +68,9 @@ function loadEnvFiles(): Record<string, string> {
 
 const env = loadEnvFiles();
 const { environment: zcodeEnv } = await loadBuiltinProviderConfig();
-// 安装包身份与后端环境分轴：ZCODE_PREVIEW_IDENTITY=1 让生产后端的构建仍以 ZCode Preview 身份打包运行。
-const zcodeProductFlavor = resolveDesktopProductFlavor({ ...process.env, ZCODE_ENV: zcodeEnv });
-console.log(`[tsup] ZCODE_ENV=${zcodeEnv} ZCODE_PRODUCT_FLAVOR=${zcodeProductFlavor}`);
+// 安装包身份与后端环境分轴：MIKIKO_PREVIEW_IDENTITY=1 让生产后端的构建仍以 ZCode Preview 身份打包运行。
+const zcodeProductFlavor = resolveDesktopProductFlavor({ ...process.env, MIKIKO_ENV: zcodeEnv });
+console.log(`[tsup] MIKIKO_ENV=${zcodeEnv} ZCODE_PRODUCT_FLAVOR=${zcodeProductFlavor}`);
 
 function parseCsvEnv(value: string | undefined): string[] {
   return (value ?? "")
@@ -100,10 +100,10 @@ export function resolveBuildRemoteCdnReleaseRoots(runtimeEnv: Record<string, str
 export function resolveBuildPackagedAgentTelemetryEnv(
   runtimeEnv: Record<string, string | undefined>,
 ): Record<string, string> {
-  const endpoint = runtimeEnv.ZCODE_PACKAGED_AGENT_OTEL_ENDPOINT?.trim();
-  const headers = runtimeEnv.ZCODE_PACKAGED_AGENT_OTEL_HEADERS?.trim();
+  const endpoint = runtimeEnv.MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT?.trim();
+  const headers = runtimeEnv.MIKIKO_PACKAGED_AGENT_OTEL_HEADERS?.trim();
   const serviceName =
-    runtimeEnv.ZCODE_PACKAGED_AGENT_OTEL_SERVICE_NAME?.trim() || "zcode-cli-agent";
+    runtimeEnv.MIKIKO_PACKAGED_AGENT_OTEL_SERVICE_NAME?.trim() || "zcode-cli-agent";
 
   if (!endpoint && !headers) {
     if (
@@ -116,37 +116,37 @@ export function resolveBuildPackagedAgentTelemetryEnv(
   }
   if (!endpoint || !headers) {
     throw new Error(
-      "ZCODE_PACKAGED_AGENT_OTEL_ENDPOINT and ZCODE_PACKAGED_AGENT_OTEL_HEADERS must be configured together",
+      "MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT and MIKIKO_PACKAGED_AGENT_OTEL_HEADERS must be configured together",
     );
   }
   if (endpoint.length > 2_048) {
-    throw new Error("ZCODE_PACKAGED_AGENT_OTEL_ENDPOINT exceeds 2048 characters");
+    throw new Error("MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT exceeds 2048 characters");
   }
   if (headers.length > 8_192 || /[\r\n]/u.test(headers)) {
-    throw new Error("ZCODE_PACKAGED_AGENT_OTEL_HEADERS is invalid");
+    throw new Error("MIKIKO_PACKAGED_AGENT_OTEL_HEADERS is invalid");
   }
   if (!/^[A-Za-z0-9._:-]{1,128}$/u.test(serviceName)) {
-    throw new Error("ZCODE_PACKAGED_AGENT_OTEL_SERVICE_NAME is invalid");
+    throw new Error("MIKIKO_PACKAGED_AGENT_OTEL_SERVICE_NAME is invalid");
   }
 
   let parsedEndpoint: URL;
   try {
     parsedEndpoint = new URL(endpoint);
   } catch {
-    throw new Error("ZCODE_PACKAGED_AGENT_OTEL_ENDPOINT must be a valid HTTP(S) URL");
+    throw new Error("MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT must be a valid HTTP(S) URL");
   }
   if (
     !["http:", "https:"].includes(parsedEndpoint.protocol) ||
     parsedEndpoint.username ||
     parsedEndpoint.password
   ) {
-    throw new Error("ZCODE_PACKAGED_AGENT_OTEL_ENDPOINT must be a valid HTTP(S) URL");
+    throw new Error("MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT must be a valid HTTP(S) URL");
   }
   if (
-    resolveZCodeEnv(runtimeEnv.ZCODE_ENV) === "production" &&
+    resolveZCodeEnv(runtimeEnv.MIKIKO_ENV) === "production" &&
     parsedEndpoint.protocol !== "https:"
   ) {
-    throw new Error("ZCODE_PACKAGED_AGENT_OTEL_ENDPOINT must use HTTPS in production");
+    throw new Error("MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT must use HTTPS in production");
   }
 
   return {

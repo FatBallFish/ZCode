@@ -33,7 +33,7 @@ describe("desktop renderer Vite dependency aliases", () => {
   const isWindows = process.platform === "win32";
 
   (isWindows ? it.skip : it)("injects the selected ZCode endpoint origin into renderer env", async () => {
-    vi.stubEnv("ZCODE_ENV", "test");
+    vi.stubEnv("MIKIKO_ENV", "test");
     vi.stubEnv("MIKIKO_BASE_URL", "");
     const desktopRoot = resolve(import.meta.dirname, "..");
     const configFile = resolve(desktopRoot, "vite.config.ts");
@@ -59,7 +59,7 @@ describe("desktop renderer Vite dependency aliases", () => {
   });
 
   it("marks non-production renderer builds as local development runtime", async () => {
-    vi.stubEnv("ZCODE_ENV", "production");
+    vi.stubEnv("MIKIKO_ENV", "production");
     const desktopRoot = resolve(import.meta.dirname, "..");
     const configFile = resolve(desktopRoot, "vite.config.ts");
     const result = await loadConfigFromFile(
@@ -103,7 +103,7 @@ describe("desktop renderer Vite dependency aliases", () => {
   });
 
   it("injects the E2E store bridge only from the runner flag", async () => {
-    vi.stubEnv("ZCODE_ENV", "test");
+    vi.stubEnv("MIKIKO_ENV", "test");
     vi.stubEnv("VITE_ZCODE_E2E_STORE_BRIDGE", "1");
     const desktopRoot = resolve(import.meta.dirname, "..");
     const configFile = resolve(desktopRoot, "vite.config.ts");
@@ -126,9 +126,9 @@ describe("desktop renderer Vite dependency aliases", () => {
     });
   });
 
-  it("ZCODE_PREVIEW_IDENTITY=1 让生产后端的 renderer 编译成 Preview 身份", async () => {
-    vi.stubEnv("ZCODE_ENV", "production");
-    vi.stubEnv("ZCODE_PREVIEW_IDENTITY", "1");
+  it("MIKIKO_PREVIEW_IDENTITY=1 让生产后端的 renderer 编译成 Preview 身份", async () => {
+    vi.stubEnv("MIKIKO_ENV", "production");
+    vi.stubEnv("MIKIKO_PREVIEW_IDENTITY", "1");
     const desktopRoot = resolve(import.meta.dirname, "..");
     const configFile = resolve(desktopRoot, "vite.config.ts");
     const result = await loadConfigFromFile(

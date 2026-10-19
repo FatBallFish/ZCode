@@ -34,6 +34,7 @@ import {
 } from "./retry-policy.js";
 import { resolveRetryOptionsForBudget } from "./retry-budget.js";
 import { DEFAULT_MODEL_STREAM_IDLE_TIMEOUT_MS } from "./stream-idle-timeout.js";
+import { resolveStreamRepetitionGuardEnabled } from "./stream-repetition-guard.js";
 import { runGenerateText } from "./runner-generate.js";
 import { runStreamText } from "./runner-stream.js";
 import { normalizeReasoningHistory } from "./reasoning-history-normalization.js";
@@ -69,6 +70,8 @@ export interface AiSdkModelAdapterOptions {
   retry?: AiSdkModelRetryOptions;
   statusSink?: ModelStatusSink;
   streamIdleTimeoutMs?: number;
+  /** 显式覆盖重复退化护栏开关；缺省读 `ZCODE_MODEL_STREAM_REPETITION_GUARD`（默认开）。 */
+  streamRepetitionGuardEnabled?: boolean;
   modelIoFullRetentionEnabled?: boolean;
 }
 
@@ -91,6 +94,7 @@ export class AiSdkModelAdapter {
   private readonly retry: ResolvedAiSdkModelRetryOptions;
   private statusSink?: ModelStatusSink;
   private readonly streamIdleTimeoutMs: number;
+  private readonly streamRepetitionGuardEnabled: boolean;
   private modelIoFullRetentionEnabled: boolean;
 
   constructor(options: AiSdkModelAdapterOptions) {
@@ -117,6 +121,8 @@ export class AiSdkModelAdapter {
     this.retry = resolveAiSdkModelRetryOptions(options.retry, this.env);
     this.statusSink = options.statusSink;
     this.streamIdleTimeoutMs = options.streamIdleTimeoutMs ?? DEFAULT_MODEL_STREAM_IDLE_TIMEOUT_MS;
+    this.streamRepetitionGuardEnabled =
+      options.streamRepetitionGuardEnabled ?? resolveStreamRepetitionGuardEnabled(this.env);
     this.modelIoFullRetentionEnabled = options.modelIoFullRetentionEnabled ?? false;
   }
 
@@ -356,6 +362,7 @@ export class AiSdkModelAdapter {
       runtime: this.runtime,
       statusSink: this.statusSink,
       streamIdleTimeoutMs: this.streamIdleTimeoutMs,
+      streamRepetitionGuardEnabled: this.streamRepetitionGuardEnabled,
       modelIoFullRetentionEnabled: this.modelIoFullRetentionEnabled,
     });
   }

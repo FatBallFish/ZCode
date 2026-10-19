@@ -549,8 +549,8 @@ describe("Coding Plan API key resolver", () => {
     });
   });
 
-  it("uses bigmodel.cn for BigModel API key resolution when ZCODE_ENV=test", async () => {
-    vi.stubEnv("ZCODE_ENV", "test");
+  it("uses bigmodel.cn for BigModel API key resolution when MIKIKO_ENV=test", async () => {
+    vi.stubEnv("MIKIKO_ENV", "test");
     const httpClient = new FakeHttpClient([
       customerInfoResponse(),
       jsonResponse({
@@ -618,8 +618,8 @@ describe("BigModel OAuth client", () => {
     );
   });
 
-  it("uses bigmodel.cn for authorize URL when ZCODE_ENV=test", () => {
-    vi.stubEnv("ZCODE_ENV", "test");
+  it("uses bigmodel.cn for authorize URL when MIKIKO_ENV=test", () => {
+    vi.stubEnv("MIKIKO_ENV", "test");
     const httpClient = new FakeHttpClient([]);
     const client = createBigmodelOAuthClient({
       appSecret: "test-secret",
@@ -634,8 +634,8 @@ describe("BigModel OAuth client", () => {
     expect(authorizeUrl).toContain("https://bigmodel.cn/login?");
   });
 
-  it("uses bigmodel.cn for token exchange when ZCODE_ENV=test", async () => {
-    vi.stubEnv("ZCODE_ENV", "test");
+  it("uses bigmodel.cn for token exchange when MIKIKO_ENV=test", async () => {
+    vi.stubEnv("MIKIKO_ENV", "test");
     const httpClient = new FakeHttpClient([
       jsonResponse({
         data: {

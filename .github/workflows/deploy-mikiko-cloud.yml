@@ -1,0 +1,57 @@
+name: Deploy Mikiko Cloud
+
+# 产品云端 Worker（agent.mikiko.ai）自动部署：模型预置规则 / 功能配置 / 分享 /
+# Bug 上报工单（specs/mikiko-cloud/feedback-tickets.md）。
+# 触发与远控部署对齐（deploy-remote-control.yml）：push 分支不触发，打 v* tag 或
+# 手动 dispatch 才部署，保证线上内容对应一次确定要发布的版本。
+# D1 迁移在 deploy 前执行（migrations/ 目录，wrangler 按名称解析 wrangler.toml 里的
+# database_id）；首次建库/建桶是一次性操作，见 packages/mikiko-cloud/wrangler.toml 头部注释。
+# 需 secret CLOUDFLARE_API_TOKEN（Workers 部署 + D1 编辑权限）；未配置时跳过不阻塞其他工作流。
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-mikiko-cloud
+  cancel-in-progress: false
+
+jobs:
+  mikiko-cloud:
+    name: deploy worker (agent.mikiko.ai)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply D1 migrations
+        working-directory: packages/mikiko-cloud
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::notice::secrets.CLOUDFLARE_API_TOKEN 未配置，跳过 mikiko-cloud 部署"
+            exit 78
+          fi
+          pnpm exec wrangler d1 migrations apply mikiko-cloud-db --remote
+
+      - name: Deploy Worker
+        working-directory: packages/mikiko-cloud
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm exec wrangler deploy

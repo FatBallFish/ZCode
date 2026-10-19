@@ -299,7 +299,7 @@ async function runCloseCancellationScenario({ closeBarrier, modules, paths, prov
 function createApp(input) {
   const env = {
     ...process.env,
-    ZCODE_ENV: "test",
+    MIKIKO_ENV: "test",
     MIKIKO_STORAGE_DIR: input.storageRoot,
   };
   const target = {

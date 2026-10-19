@@ -125,3 +125,32 @@ function stableJson(value: unknown): string {
   }
   return JSON.stringify(value) ?? "undefined";
 }
+
+/** adapter 重复退化护栏在合成 finish 的 providerMetadata 上携带的标记（specs/agent/stream-repetition-guard.md）。 */
+export interface StreamRepetitionGuardMarker {
+  repeatCount: number;
+  stoppedAtChars: number;
+  trimToIndex: number;
+  unitLength: number;
+}
+
+export function readStreamRepetitionGuardMarker(
+  providerMetadata: Record<string, unknown> | undefined,
+): StreamRepetitionGuardMarker | undefined {
+  const marker = providerMetadata?.streamRepetitionGuard;
+  if (!marker || typeof marker !== "object") return undefined;
+  const record = marker as Record<string, unknown>;
+  if (
+    typeof record.repeatCount !== "number" ||
+    typeof record.trimToIndex !== "number" ||
+    typeof record.unitLength !== "number"
+  ) {
+    return undefined;
+  }
+  return {
+    repeatCount: record.repeatCount,
+    stoppedAtChars: typeof record.stoppedAtChars === "number" ? record.stoppedAtChars : 0,
+    trimToIndex: record.trimToIndex,
+    unitLength: record.unitLength,
+  };
+}

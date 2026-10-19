@@ -399,6 +399,130 @@
           <button id="client-configs-save">保存功能配置</button>
           <p id="client-configs-msg" class="msg"></p>
         </div>
+
+        <h2 style="margin-top: 24px">问题反馈工单（feedback tickets）</h2>
+        <div class="card">
+          <div class="row">
+            <div>
+              <label>状态</label>
+              <select id="fb-filter-status">
+                <option value="">全部</option>
+                <option value="pending_triage">待定位</option>
+                <option value="triaging">定位中</option>
+                <option value="located">已定位</option>
+                <option value="not_issue">非问题</option>
+                <option value="awaiting_release">待出包</option>
+                <option value="resolved">已解决</option>
+              </select>
+            </div>
+            <div>
+              <label>类型</label>
+              <select id="fb-filter-type">
+                <option value="">全部</option>
+                <option value="legacy_bug">历史Bug</option>
+                <option value="new_regression">新引入缺陷</option>
+                <option value="config_issue">配置问题</option>
+                <option value="product_misunderstanding">产品理解问题</option>
+                <option value="env_data_anomaly">环境数据异常</option>
+                <option value="product_design">产品设计问题</option>
+                <option value="other">其他</option>
+              </select>
+            </div>
+            <div>
+              <label>关键词</label>
+              <input id="fb-filter-q" type="text" placeholder="标题 / 描述" />
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button class="secondary" id="fb-refresh" type="button">刷新</button>
+            </div>
+          </div>
+          <p class="meta" id="fb-list-meta">未加载</p>
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>标题</th>
+                <th>状态</th>
+                <th>类型</th>
+                <th>修复版本</th>
+                <th>跟进人</th>
+                <th>附件</th>
+              </tr>
+            </thead>
+            <tbody id="fb-tickets"></tbody>
+          </table>
+          <div class="row">
+            <button class="secondary" id="fb-prev-page" type="button">上一页</button>
+            <span class="meta" id="fb-page-info"></span>
+            <button class="secondary" id="fb-next-page" type="button">下一页</button>
+          </div>
+          <p id="fb-list-msg" class="msg"></p>
+        </div>
+
+        <div class="card" id="fb-detail-card" style="display: none">
+          <p class="meta">
+            <button class="link" id="fb-detail-close" type="button">← 返回列表</button>
+            <span id="fb-detail-title" style="font-weight: 600"></span>
+          </p>
+          <div class="row">
+            <div>
+              <label>状态</label>
+              <select id="fb-detail-status">
+                <option value="pending_triage">待定位</option>
+                <option value="triaging">定位中</option>
+                <option value="located">已定位</option>
+                <option value="not_issue">非问题</option>
+                <option value="awaiting_release">待出包</option>
+                <option value="resolved">已解决</option>
+              </select>
+            </div>
+            <div>
+              <label>类型</label>
+              <select id="fb-detail-type">
+                <option value="">未分类</option>
+                <option value="legacy_bug">历史Bug</option>
+                <option value="new_regression">新引入缺陷</option>
+                <option value="config_issue">配置问题</option>
+                <option value="product_misunderstanding">产品理解问题</option>
+                <option value="env_data_anomaly">环境数据异常</option>
+                <option value="product_design">产品设计问题</option>
+                <option value="other">其他</option>
+              </select>
+            </div>
+            <div>
+              <label>修复版本</label>
+              <input id="fb-detail-fix-version" type="text" placeholder="如 1.1.3" />
+            </div>
+            <div>
+              <label>跟进人</label>
+              <input id="fb-detail-assignee" type="text" />
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button id="fb-detail-save" type="button">保存</button>
+            </div>
+          </div>
+          <p id="fb-detail-msg" class="msg"></p>
+          <div id="fb-detail-body"></div>
+          <h3 style="margin-top: 16px">评论</h3>
+          <div id="fb-comments"></div>
+          <div class="row">
+            <div>
+              <label>署名</label>
+              <input id="fb-comment-author" type="text" style="width: 140px" />
+            </div>
+            <div style="flex: 1">
+              <label>新增评论（根因 / 过程 / 修复方案 / 发布备注）</label>
+              <textarea id="fb-comment-body" rows="3"></textarea>
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button id="fb-comment-add" type="button">追加</button>
+            </div>
+          </div>
+          <p id="fb-comment-msg" class="msg"></p>
+        </div>
       </div>
     </div>
 
@@ -885,10 +1009,14 @@
         } catch {}
         if (!response.ok) {
           const detail =
-            body && (body.detail || body.error)
-              ? body.detail || body.error
+            body && (body.detail || body.error || body.msg)
+              ? body.detail || body.error || body.msg
               : "HTTP " + response.status;
           throw new Error(detail);
+        }
+        // feedback 端点使用 {code, msg, data} 信封：code !== 0 视为业务失败。
+        if (body && typeof body.code === "number" && body.code !== 0) {
+          throw new Error(body.msg || "code " + body.code);
         }
         return body;
       }
@@ -899,6 +1027,8 @@
           api("/api/v1/admin/client-configs"),
           api("/api/v1/admin/builtin-config/history"),
         ]);
+        // 反馈工单列表独立加载：失败不阻塞配置区渲染。
+        loadFeedbackTickets().catch(() => {});
         if (!builtin.initialized) {
           $("builtin-meta").textContent =
             "尚未初始化：请先执行 scripts/seed-builtin-config.mjs（spec §4.2）。";
@@ -1062,6 +1192,230 @@
           await loadAdmin();
         } catch {}
       })();
+
+      /* ════════════════════════════════════════════════════════════
+       * 问题反馈工单管理（specs/mikiko-cloud/feedback-tickets.md）。
+       * 列表（过滤/分页）→ 详情（状态/类型/修复版本/跟进人 + 评论线程增删改 + 附件下载）。
+       ════════════════════════════════════════════════════════════ */
+      const FB_STATUS_LABELS = {
+        pending_triage: "待定位",
+        triaging: "定位中",
+        located: "已定位",
+        not_issue: "非问题",
+        awaiting_release: "待出包",
+        resolved: "已解决",
+      };
+      const FB_TYPE_LABELS = {
+        legacy_bug: "历史Bug",
+        new_regression: "新引入缺陷",
+        config_issue: "配置问题",
+        product_misunderstanding: "产品理解问题",
+        env_data_anomaly: "环境数据异常",
+        product_design: "产品设计问题",
+        other: "其他",
+      };
+      const fbState = { page: 1, pageSize: 20, total: 0, ticketId: null };
+
+      function fbFormatTime(ms) {
+        if (typeof ms !== "number") return "—";
+        return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
+      }
+
+      function fbEscape(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+
+      async function loadFeedbackTickets() {
+        const params = new URLSearchParams();
+        const status = $("fb-filter-status").value;
+        const type = $("fb-filter-type").value;
+        const keyword = $("fb-filter-q").value.trim();
+        if (status) params.set("status", status);
+        if (type) params.set("type", type);
+        if (keyword) params.set("q", keyword);
+        params.set("page", String(fbState.page));
+        params.set("pageSize", String(fbState.pageSize));
+        try {
+          const body = await api("/api/v1/admin/feedback/tickets?" + params.toString());
+          const data = body.data || {};
+          fbState.total = data.total || 0;
+          const tbody = $("fb-tickets");
+          tbody.textContent = "";
+          for (const ticket of data.items || []) {
+            const row = document.createElement("tr");
+            row.innerHTML =
+              "<td>" + fbEscape(fbFormatTime(ticket.createdAt)) + "</td>" +
+              "<td><a href=\"#\" data-id=\"" + fbEscape(ticket.id) + "\">" + fbEscape(ticket.title) + "</a></td>" +
+              "<td>" + fbEscape(FB_STATUS_LABELS[ticket.status] || ticket.status) + "</td>" +
+              "<td>" + fbEscape(ticket.type ? FB_TYPE_LABELS[ticket.type] || ticket.type : "—") + "</td>" +
+              "<td>" + fbEscape(ticket.fixVersion || "—") + "</td>" +
+              "<td>" + fbEscape(ticket.assignee || "—") + "</td>" +
+              "<td>" + (ticket.attachmentCount || 0) + "</td>";
+            row.querySelector("a").addEventListener("click", (event) => {
+              event.preventDefault();
+              openFeedbackDetail(ticket.id);
+            });
+            tbody.appendChild(row);
+          }
+          $("fb-list-meta").textContent = "共 " + fbState.total + " 条";
+          $("fb-page-info").textContent =
+            "第 " + fbState.page + " / " + Math.max(1, Math.ceil(fbState.total / fbState.pageSize)) + " 页";
+        } catch (error) {
+          showMsg($("fb-list-msg"), String(error.message || error), false);
+        }
+      }
+
+      async function openFeedbackDetail(ticketId) {
+        fbState.ticketId = ticketId;
+        try {
+          const body = await api("/api/v1/admin/feedback/tickets/" + encodeURIComponent(ticketId));
+          const data = body.data || {};
+          const ticket = data.ticket || {};
+          $("fb-detail-card").style.display = "block";
+          $("fb-detail-title").textContent = ticket.id + " · " + ticket.title;
+          $("fb-detail-status").value = ticket.status || "pending_triage";
+          $("fb-detail-type").value = ticket.type || "";
+          $("fb-detail-fix-version").value = ticket.fixVersion || "";
+          $("fb-detail-assignee").value = ticket.assignee || "";
+          const env = ticket.environment || {};
+          $("fb-detail-body").innerHTML =
+            "<p class=\"meta\">上报于 " + fbEscape(fbFormatTime(ticket.createdAt)) +
+            " · 版本 " + fbEscape(ticket.appVersion || "—") +
+            " · 平台 " + fbEscape(ticket.platform || "—") +
+            " · 联系方式 " + fbEscape(ticket.contact || "—") + "</p>" +
+            "<pre style=\"white-space: pre-wrap\">" + fbEscape(ticket.description || "") + "</pre>" +
+            "<p class=\"meta\">环境：" + fbEscape(JSON.stringify(env)) + "</p>" +
+            (data.attachments && data.attachments.length
+              ? "<p>附件：" +
+                data.attachments
+                  .map(
+                    (attachment) =>
+                      "<a href=\"/api/v1/admin/feedback/tickets/" +
+                      encodeURIComponent(ticketId) + "/attachments/" + encodeURIComponent(attachment.id) +
+                      "\" target=\"_blank\">" + fbEscape(attachment.fileName) + "</a>（" + attachment.kind + "，" +
+                      Math.round((attachment.size || 0) / 1024) + " KB）",
+                  )
+                  .join(" · ") +
+                "</p>"
+              : "");
+          const comments = $("fb-comments");
+          comments.textContent = "";
+          for (const comment of data.comments || []) {
+            const block = document.createElement("div");
+            block.className = "card";
+            block.style.marginTop = "8px";
+            block.innerHTML =
+              "<p class=\"meta\">" + fbEscape(comment.author) + " · " +
+              fbEscape(fbFormatTime(comment.createdAt)) +
+              (comment.updatedAt !== comment.createdAt
+                ? "（编辑于 " + fbEscape(fbFormatTime(comment.updatedAt)) + "）"
+                : "") +
+              " <button class=\"link fb-edit\">编辑</button> " +
+              "<button class=\"link fb-delete\">删除</button></p>" +
+              "<pre style=\"white-space: pre-wrap; margin: 4px 0 0\">" + fbEscape(comment.body) + "</pre>";
+            block.querySelector(".fb-edit").addEventListener("click", () => {
+              const next = window.prompt("编辑评论", comment.body);
+              if (next === null || next.trim() === comment.body.trim()) return;
+              api("/api/v1/admin/feedback/tickets/" + encodeURIComponent(ticketId) +
+                "/comments/" + encodeURIComponent(comment.id), {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ body: next }),
+              })
+                .then(() => openFeedbackDetail(ticketId))
+                .catch((error) => showMsg($("fb-comment-msg"), String(error.message || error), false));
+            });
+            block.querySelector(".fb-delete").addEventListener("click", () => {
+              if (!window.confirm("删除该评论？")) return;
+              api("/api/v1/admin/feedback/tickets/" + encodeURIComponent(ticketId) +
+                "/comments/" + encodeURIComponent(comment.id), { method: "DELETE" })
+                .then(() => openFeedbackDetail(ticketId))
+                .catch((error) => showMsg($("fb-comment-msg"), String(error.message || error), false));
+            });
+            comments.appendChild(block);
+          }
+        } catch (error) {
+          showMsg($("fb-detail-msg"), String(error.message || error), false);
+        }
+      }
+
+      $("fb-refresh").addEventListener("click", () => {
+        fbState.page = 1;
+        loadFeedbackTickets();
+      });
+      $("fb-filter-status").addEventListener("change", () => {
+        fbState.page = 1;
+        loadFeedbackTickets();
+      });
+      $("fb-filter-type").addEventListener("change", () => {
+        fbState.page = 1;
+        loadFeedbackTickets();
+      });
+      $("fb-filter-q").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          fbState.page = 1;
+          loadFeedbackTickets();
+        }
+      });
+      $("fb-prev-page").addEventListener("click", () => {
+        if (fbState.page > 1) {
+          fbState.page -= 1;
+          loadFeedbackTickets();
+        }
+      });
+      $("fb-next-page").addEventListener("click", () => {
+        if (fbState.page < Math.ceil(fbState.total / fbState.pageSize)) {
+          fbState.page += 1;
+          loadFeedbackTickets();
+        }
+      });
+      $("fb-detail-close").addEventListener("click", () => {
+        $("fb-detail-card").style.display = "none";
+      });
+      $("fb-detail-save").addEventListener("click", async () => {
+        if (fbState.ticketId === null) return;
+        try {
+          await api("/api/v1/admin/feedback/tickets/" + encodeURIComponent(fbState.ticketId), {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              status: $("fb-detail-status").value,
+              type: $("fb-detail-type").value,
+              fixVersion: $("fb-detail-fix-version").value,
+              assignee: $("fb-detail-assignee").value,
+            }),
+          });
+          showMsg($("fb-detail-msg"), "已保存。", true);
+          await loadFeedbackTickets();
+        } catch (error) {
+          showMsg($("fb-detail-msg"), String(error.message || error), false);
+        }
+      });
+      $("fb-comment-add").addEventListener("click", async () => {
+        if (fbState.ticketId === null) return;
+        const author = $("fb-comment-author").value.trim();
+        const bodyText = $("fb-comment-body").value.trim();
+        if (!author || !bodyText) {
+          showMsg($("fb-comment-msg"), "署名与评论内容均必填。", false);
+          return;
+        }
+        try {
+          await api("/api/v1/admin/feedback/tickets/" + encodeURIComponent(fbState.ticketId) + "/comments", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ author, body: bodyText }),
+          });
+          $("fb-comment-body").value = "";
+          showMsg($("fb-comment-msg"), "已追加。", true);
+          await openFeedbackDetail(fbState.ticketId);
+        } catch (error) {
+          showMsg($("fb-comment-msg"), String(error.message || error), false);
+        }
+      });
     </script>
   </body>
 </html>

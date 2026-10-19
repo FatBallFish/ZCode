@@ -49,7 +49,7 @@ Linux 桌面构建与 `notify:feishu:linux:*` 已启用；正式 tag 的 macOS�
 | job                                          | 触发           | 职责                                                                                                                                                   |
 | -------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `approve:merge-request`                      | 手动、blocking | 放行当前 MR 的 production 验收包 DAG                                                                                                                   |
-| `build:preview`                              | 手动、optional | 启动同一 MR commit 的 Preview child pipeline；不继承 parent 默认变量，只显式传递 Preview 控制变量，固定 `ZCODE_ENV=test`，不阻塞 production 验收包 DAG |
+| `build:preview`                              | 手动、optional | 启动同一 MR commit 的 Preview child pipeline；不继承 parent 默认变量，只显式传递 Preview 控制变量，固定 `MIKIKO_ENV=test`，不阻塞 production 验收包 DAG |
 | `test:e2e:conversation-session:auto`         | 手动、optional | 在共享 `macos + e2e` Runner 上单 job 执行正式 conversation/plugin/workspace-file-tree replay 集合                                                      |
 | `test:e2e:conversation-session:auto:windows` | 手动、optional | 生成四个 WDIO 原生 shard，调度到 `windows-e2e + e2e` Runner 池                                                                                         |
 | `test:e2e:conversation-session:auto:mac`     | 手动、optional | 只生成一个 job，并调度到专用标签的 darwin/arm64 Runner                                                                            |
@@ -72,9 +72,9 @@ Linux 桌面构建与 `notify:feishu:linux:*` 已启用；正式 tag 的 macOS�
 - `ci*` 分支 push：非 tag 的真实 release 链路验证入口，产物目录为 `@electron/ci/$CI_COMMIT_REF_SLUG/`，上传路径为 `OSS_PATH_PREFIX_SANDBOX/$CI_COMMIT_REF_SLUG`；`release:approve` 放行后自动执行 validate、upload、preload 和 gray publish，stable promote / release-notify 为手动。默认不允许 `ci*` 把验证包发布为正式 `status=1`；只有发布负责人明确批准演练时才可临时设置 `ALLOW_CI_RELEASE_STABLE_PUBLISH=1`。
 - Merge Request 到 `main` / `staging`：默认 production 打包验证，产物目录为 `@electron/dev/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME/`
 - Merge Request 到 `main` / `staging`：`approve-mr` 阶段额外展示 `build:preview`；不点击时不阻塞现有 MR 流水线，点击后以相同 MR ref/SHA 启动子流水线，Preview 产物目录为 `@electron-preview/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME/`
-- MR、GitLab Run pipeline、Pipeline Trigger API 或普通 API pipeline 显式传入 `ZCODE_ENV=test` 时，同样在 workflow 创建 job graph 时切换到 `@electron-preview/<branch>/`；未传或使用 `production` 时继续写入 `@electron/dev/<branch>/`。tag 与 `ci/*` 发布验证路径保持不变。
+- MR、GitLab Run pipeline、Pipeline Trigger API 或普通 API pipeline 显式传入 `MIKIKO_ENV=test` 时，同样在 workflow 创建 job graph 时切换到 `@electron-preview/<branch>/`；未传或使用 `production` 时继续写入 `@electron/dev/<branch>/`。tag 与 `ci/*` 发布验证路径保持不变。
 - 源分支为 `staging` 或 `chore/ci` 的 MR：允许跑 CI
-- GitLab Web UI / Pipeline Trigger API / 普通 API 手动触发：production 产物目录为 `@electron/dev/$CI_COMMIT_REF_NAME/`，显式传入 `ZCODE_ENV=test` 时使用 Preview 路径。Trigger API 可以传 `ZCODE_BUILD_PLATFORMS=macos-arm64,windows-x64` 只自动打指定平台；未选平台保留非阻塞手动 job。
+- GitLab Web UI / Pipeline Trigger API / 普通 API 手动触发：production 产物目录为 `@electron/dev/$CI_COMMIT_REF_NAME/`，显式传入 `MIKIKO_ENV=test` 时使用 Preview 路径。Trigger API 可以传 `ZCODE_BUILD_PLATFORMS=macos-arm64,windows-x64` 只自动打指定平台；未选平台保留非阻塞手动 job。
 - CUA Helper 双架构 job 跟随对应 macOS 平台选择规则；未传 `ZCODE_BUILD_PLATFORMS` 时双架构自动运行，传入列表后未选架构保留非阻塞手动入口。
 - MR 与 GitLab Web UI 手动触发的 pipeline 会展示 `test:e2e:conversation-session:auto`、`test:e2e:conversation-session:auto:windows` 和 `test:e2e:conversation-session:auto:mac` 三个手动 optional E2E 入口；未点击或执行失败都不阻塞 `build:*`。tag 和 `ci*` release 验证链路不创建这些 job。
 
@@ -91,8 +91,8 @@ Preview 手动链路：
 MR parent pipeline
   `-- build:preview [manual, optional]
         +-- inherit parent default variables: false
-        +-- forward: ZCODE_PREVIEW_PIPELINE / ZCODE_ENV / TARGET_OUTPUT_DIR
-        `-- child pipeline [same MR ref/SHA, ZCODE_ENV=test]
+        +-- forward: ZCODE_PREVIEW_PIPELINE / MIKIKO_ENV / TARGET_OUTPUT_DIR
+        `-- child pipeline [same MR ref/SHA, MIKIKO_ENV=test]
               +-- resolve temp/cache paths from child runner CI_PROJECT_DIR
               +-- desktop app + macOS/Windows/Linux + Computer Use Helper + remote assets
               +-- artifact notifications
@@ -200,7 +200,7 @@ sockets are minted as random `broker-<hex>.sock` files; do not hard-code
 
 三个平台的正式打包 job 都不得调用 runtime 行为 E2E。native-search 的 Bash toolcall E2E 和 SEA 单文件 runtime-tools E2E 继续保留为独立测试命令；其中 SEA 只验证 CLI 单文件交付，不是 desktop Electron 打包的前置条件。
 
-三个平台的打包 job 都会在 `prepare:desktop-runtime` 前执行 `ci:ensure-native-search-deps`，并作为授权的共享 deps 写入入口显式设置 `ZCODE_NATIVE_SEARCH_ALLOW_PUBLISH=1`。该步骤直接检查共享根的 `deps/native-search-tools`：Microsoft `rg` 缺失时立即失败；自产 `bfs` / `ugrep` 缺失时，在当前平台 runner 构建并发布。相同 `platform-arch` 的 job 通过 `resource_group` 跨 pipeline 串行。所有 producer 归档都必须配置 SHA-256，并在发布、HTTP prepare 和解包前通过校验；摘要缺失或不匹配时立即失败。发布后仍由正式 HTTP prepare 路径重新下载、解包和验证，不能直接消费 job 临时目录。脚本本身仍保持默认拒绝写入，因此本地或其他 CI 入口不会因为归档缺失而自动发布。
+三个平台的打包 job 都会在 `prepare:desktop-runtime` 前执行 `ci:ensure-native-search-deps`，并作为授权的共享 deps 写入入口显式设置 `MIKIKO_NATIVE_SEARCH_ALLOW_PUBLISH=1`。该步骤直接检查共享根的 `deps/native-search-tools`：Microsoft `rg` 缺失时立即失败；自产 `bfs` / `ugrep` 缺失时，在当前平台 runner 构建并发布。相同 `platform-arch` 的 job 通过 `resource_group` 跨 pipeline 串行。所有 producer 归档都必须配置 SHA-256，并在发布、HTTP prepare 和解包前通过校验；摘要缺失或不匹配时立即失败。发布后仍由正式 HTTP prepare 路径重新下载、解包和验证，不能直接消费 job 临时目录。脚本本身仍保持默认拒绝写入，因此本地或其他 CI 入口不会因为归档缺失而自动发布。
 
 ### 共享产物根路径（macOS / Linux / upload）
 
@@ -227,26 +227,26 @@ rpm Requires 在 electron-builder 默认集（gtk3、nss、libnotify、libXScrnS
 ## 关键 CI 变量
 
 - `TARGET_OUTPUT_DIR`：当前流水线写入共享目录的相对路径，由 `workflow.rules` 统一计算
-  - MR/Preview child 的 `ZCODE_ENV=test`：`@electron-preview/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME/`
-  - web/API/trigger 的 `ZCODE_ENV=test`：`@electron-preview/$CI_COMMIT_REF_NAME/`
+  - MR/Preview child 的 `MIKIKO_ENV=test`：`@electron-preview/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME/`
+  - web/API/trigger 的 `MIKIKO_ENV=test`：`@electron-preview/$CI_COMMIT_REF_NAME/`
   - MR/web/API/trigger 的 production：`@electron/dev/<branch>/`
-- `ZCODE_CI_TMPDIR` / `NPM_CONFIG_CACHE` / `ELECTRON_CACHE` / `ELECTRON_BUILDER_CACHE`：引用 runner checkout 的 job-local 路径。Preview trigger 不转发 parent 中这些默认变量，避免 trigger 阶段缺少 job-only `CI_PROJECT_DIR` 时把路径固化为 `/.tmp`、`/.npm-cache` 等根目录；child job 使用自己 pipeline 的默认定义重新解析。
+- `MIKIKO_CI_TMPDIR` / `NPM_CONFIG_CACHE` / `ELECTRON_CACHE` / `ELECTRON_BUILDER_CACHE`：引用 runner checkout 的 job-local 路径。Preview trigger 不转发 parent 中这些默认变量，避免 trigger 阶段缺少 job-only `CI_PROJECT_DIR` 时把路径固化为 `/.tmp`、`/.npm-cache` 等根目录；child job 使用自己 pipeline 的默认定义重新解析。
 - `ZCODE_CI_SHARED_ROOT`：macOS / upload 使用的宿主机共享根（默认 `/Users/dev/shared/zcode`）
-- `ZCODE_CI_TEST_REMOTE_ASSET_ROOT`：`ZCODE_ENV=test` 时 SSH remote runtime 资源的固定共享根
+- `ZCODE_CI_TEST_REMOTE_ASSET_ROOT`：`MIKIKO_ENV=test` 时 SSH remote runtime 资源的固定共享根
   （默认 `/Users/dev/shared/ssh-remote-assets`），CI 会把 `manifest-*.json` 和 `components/`
   同步到 `${ZCODE_CI_TEST_REMOTE_ASSET_ROOT}/${VERSION}`，对应访问地址为
   `http://intranet.example.invalid:12345/ssh-remote-assets/${VERSION}`
 - `ZCODE_CI_LINUX_CONTAINER_OUT`：Linux Docker 容器内共享挂载点（默认 `/output`）
 - `ZCODE_CI_WINDOWS_SHARED_ROOT`：Windows SMB 根路径（默认 `//172.16.0.10/shared/zcode`）
-- `ZCODE_NATIVE_SEARCH_DEPS_ROOT`：`ci:ensure-native-search-deps` 使用的共享 deps 根。平台 job 分别从上述 macOS、Linux container 与 Windows 根自动推导，通常不需要单独配置
-- `ZCODE_NATIVE_SEARCH_ALLOW_PUBLISH`：显式补产开关。三个平台打包 template 已设为 `1`；其他调用方只应在确认具有共享 deps 写入职责时设置。protected ref 即使未设置也可补齐缺失的自产归档
+- `MIKIKO_NATIVE_SEARCH_DEPS_ROOT`：`ci:ensure-native-search-deps` 使用的共享 deps 根。平台 job 分别从上述 macOS、Linux container 与 Windows 根自动推导，通常不需要单独配置
+- `MIKIKO_NATIVE_SEARCH_ALLOW_PUBLISH`：显式补产开关。三个平台打包 template 已设为 `1`；其他调用方只应在确认具有共享 deps 写入职责时设置。protected ref 即使未设置也可补齐缺失的自产归档
 - `LINUX_SHARED_OUTPUT_ROOT`（可选，仅 Linux Docker）：覆盖容器内产物收集根目录
 - `OSS_BUCKET` / `OSS_PATH_PREFIX` / `CDN_DOMAIN`：OSS 上传与主 CDN URL 生成所需变量（仓库 `.gitlab-ci.yml` 默认：`cgx-public`、`zcode/electron/releases`、`cdn-zcode.z.ai`；可在 GitLab CI/CD 设置中覆盖）。CI URL 校验、upload 和 preload 脚本的域名兜底也统一为 `cdn-zcode.z.ai`。`CDN_DOMAIN` 和 `OSS_BUCKET` 支持逗号列表并按顺序对应；`OSS_PATH_PREFIX` 支持单值复用，也可配置同样数量的逗号列表。upload/publish 阶段会展开全部目标；桌面包不再把这些变量写入可配置的旧 generic feed。
 - `OSS_CONFIG_FILE`：可选，控制每组 OSS 目标调用 `ossutil` 时使用的配置文件。支持单值复用，或配置为与 `CDN_DOMAIN` 等长的逗号列表；为空时使用 runner 默认 ossutil 配置。新旧 OSS AK/SK 或 region 不一致时，应把 AK/SK 和 region 写入对应配置文件，并按 `CDN_DOMAIN` 顺序配置文件路径。
 - `CDN_PRELOAD_PROFILE` / `ALIYUN_CDN_PROFILE`：可选，控制 `cdn-preload.sh` 调用阿里云 CDN OpenAPI 时使用的 aliyun CLI profile。`CDN_PRELOAD_PROFILE` 优先级更高；支持单值复用，或配置为与 `CDN_DOMAIN` 等长的逗号列表。预热脚本不显式传 `--region`，region 由对应 profile 或 aliyun CLI 默认配置决定，避免覆盖多账号迁移时每个 profile 自带的 endpoint 配置。
 - `CDN_PRELOAD_DOMAINS`：历史兼容变量；当前 upload/preload 链路不再读取，新 OSS/CDN 迁移通过 `CDN_DOMAIN` 列表展开预热域名。
-- `ZCODE_UPDATE_FEED_URL`：可选运行时诊断变量，用完整服务端 manifest 接口 URL 覆盖默认更新检查接口。客户端仍会写入当前 `platform` / `device_mid` / `channel` 查询参数和对应 header，不切换到旧 generic feed。
-- `ZCODE_ENV`：可选，`production` 打正式包，`test` 打测试包。测试包文件名会追加 `_TEST`，构建产物飞书通知会把环境标识放进卡片标题；测试环境标题背景色使用红色，正式环境使用默认蓝色。`publish-release.sh` 会拒绝 `ZCODE_ENV=test` 调用正式 release API。
+- `MIKIKO_UPDATE_FEED_URL`：可选运行时诊断变量，用完整服务端 manifest 接口 URL 覆盖默认更新检查接口。客户端仍会写入当前 `platform` / `device_mid` / `channel` 查询参数和对应 header，不切换到旧 generic feed。
+- `MIKIKO_ENV`：可选，`production` 打正式包，`test` 打测试包。测试包文件名会追加 `_TEST`，构建产物飞书通知会把环境标识放进卡片标题；测试环境标题背景色使用红色，正式环境使用默认蓝色。`publish-release.sh` 会拒绝 `MIKIKO_ENV=test` 调用正式 release API。
 - `APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID`：macOS notarytool 公证凭据
 - `APPLE_SIGNING_IDENTITY` 或 `CSC_NAME`：macOS 签名身份
 - `APPLE_DEVELOPER_ID_APPLICATION_P12_BASE64` / `APPLE_DEVELOPER_ID_APPLICATION_P12_PASSWORD`：macOS Developer ID Application p12。配置后 macOS build job 会为当前 job 创建一次性 keychain 并导入 p12，runtime 预签名和 electron-builder 最终签名都显式使用该 keychain，避免多个 job 共享 runner login keychain 时触发 `errSecInternalComponent`

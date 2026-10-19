@@ -24,14 +24,14 @@ function resolveZCodeEnv(value: string | undefined): "test" | "production" {
 }
 
 export default defineConfig(({ mode }) => {
-  // `.env*` 只提供链接常量；当前产品环境由启动脚本或 CI 注入 ZCODE_ENV。
+  // `.env*` 只提供链接常量；当前产品环境由启动脚本或 CI 注入 MIKIKO_ENV。
   // 启动脚本通过 process.env 显式选择 test/production；它必须优先于 .env 文件，
   // 否则 share:test 可能被 mode 的旧配置误解析到错误 endpoint。
   const env = { ...loadEnv(mode, REPO_ROOT, ""), ...process.env };
-  const zcodeEnv = resolveZCodeEnv(env.ZCODE_ENV);
+  const zcodeEnv = resolveZCodeEnv(env.MIKIKO_ENV);
   const endpointEnv = {
     ...env,
-    ZCODE_ENV: zcodeEnv,
+    MIKIKO_ENV: zcodeEnv,
   };
   const zcodeEndpointOrigin = resolveRuntimeZCodeEndpointOrigin(endpointEnv);
   const zaiOAuthOrigin = resolveZaiOAuthOrigin(endpointEnv);
@@ -85,7 +85,7 @@ export default defineConfig(({ mode }) => {
       __ZCODE_VERSION__: JSON.stringify(
         resolveRemoteFrontendVersion(version, process.env.WEB_REMOTE_FRONTEND_VERSION),
       ),
-      __ZCODE_COMMIT__: JSON.stringify(env.ZCODE_COMMIT || "unknown"),
+      __ZCODE_COMMIT__: JSON.stringify(env.MIKIKO_COMMIT || "unknown"),
       __ZCODE_ENV__: JSON.stringify(zcodeEnv),
       "import.meta.env.VITE_MIKIKO_BASE_URL": JSON.stringify(zcodeEndpointOrigin),
       // 兼容旧 Web runtime 读取名；新代码统一读 VITE_MIKIKO_BASE_URL。

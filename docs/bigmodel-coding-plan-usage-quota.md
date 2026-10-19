@@ -21,9 +21,9 @@ authorization: <完整 API key>
 - `authorization` header 直接传完整 API key，格式为 `<id>.<secret>`。
 - 不要加 `Bearer` 前缀；该接口加 `Bearer` 会鉴权失败。
 - ZCode 默认优先读取当前模型供应商配置里的 `builtin:zai` API key，其次读取 `builtin:bigmodel`，再尝试 endpoint 指向 `bigmodel.cn` 或 `api.z.ai` 的自定义供应商。
-- `builtin:zai` 或 endpoint 指向 `api.z.ai` 的供应商默认请求 `https://api.z.ai/api/monitor/usage/quota/limit`；其他 BigModel 供应商默认请求当前环境的 BigModel API 主域名，生产为 `https://bigmodel.cn/api/monitor/usage/quota/limit`，`ZCODE_ENV=test` 为 `https://bigmodel.cn/api/monitor/usage/quota/limit`。
-- 本地调试可通过 `ZCODE_BIGMODEL_USAGE_API_KEY` 或 `BIGMODEL_USAGE_API_KEY` 覆盖。
-- 接口地址可通过 `ZCODE_BIGMODEL_USAGE_QUOTA_URL` 或 `BIGMODEL_USAGE_QUOTA_URL` 覆盖。
+- `builtin:zai` 或 endpoint 指向 `api.z.ai` 的供应商默认请求 `https://api.z.ai/api/monitor/usage/quota/limit`；其他 BigModel 供应商默认请求当前环境的 BigModel API 主域名，生产为 `https://bigmodel.cn/api/monitor/usage/quota/limit`，`MIKIKO_ENV=test` 为 `https://bigmodel.cn/api/monitor/usage/quota/limit`。
+- 本地调试可通过 `MIKIKO_BIGMODEL_USAGE_API_KEY` 或 `BIGMODEL_USAGE_API_KEY` 覆盖。
+- 接口地址可通过 `MIKIKO_BIGMODEL_USAGE_QUOTA_URL` 或 `BIGMODEL_USAGE_QUOTA_URL` 覆盖。
 
 ## 返回解析
 

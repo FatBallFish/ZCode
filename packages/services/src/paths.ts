@@ -10,7 +10,7 @@ import {
 } from "@zcode/shared";
 
 let _dataBaseDir: string | null = null;
-export const ZCODE_WINDOWS_APP_INSTALL_DIR_ENV = "ZCODE_WINDOWS_APP_INSTALL_DIR";
+export const ZCODE_WINDOWS_APP_INSTALL_DIR_ENV = "MIKIKO_WINDOWS_APP_INSTALL_DIR";
 const envDataBaseDir = process.env.MIKIKO_DATA_BASE_DIR?.trim() || null;
 const defaultDataBaseDir = process.env.HOME?.trim() || homedir();
 

@@ -1183,7 +1183,7 @@ async function createStaticFileServer(
 const tempDirs: string[] = [];
 const originalCwd = process.cwd();
 const originalRemoteDevAgentBundleEnv =
-  process.env.ZCODE_REMOTE_DEV_AGENT_BUNDLE;
+  process.env.MIKIKO_REMOTE_DEV_AGENT_BUNDLE;
 const originalZCodeRuntimeEnv = process.env[ZCODE_RUNTIME_ENV_KEY];
 const DEV_CLI_BUNDLE_TEST_SUFFIX = join(
   "apps",
@@ -1197,9 +1197,9 @@ const DEV_CLI_BUNDLE_TEST_SUFFIX = join(
 afterEach(async () => {
   process.chdir(originalCwd);
   if (originalRemoteDevAgentBundleEnv === undefined) {
-    delete process.env.ZCODE_REMOTE_DEV_AGENT_BUNDLE;
+    delete process.env.MIKIKO_REMOTE_DEV_AGENT_BUNDLE;
   } else {
-    process.env.ZCODE_REMOTE_DEV_AGENT_BUNDLE = originalRemoteDevAgentBundleEnv;
+    process.env.MIKIKO_REMOTE_DEV_AGENT_BUNDLE = originalRemoteDevAgentBundleEnv;
   }
   if (originalZCodeRuntimeEnv === undefined) {
     delete process.env[ZCODE_RUNTIME_ENV_KEY];
@@ -2376,7 +2376,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       ),
     );
     process.chdir(repoDir);
-    process.env.ZCODE_REMOTE_DEV_AGENT_BUNDLE = "1";
+    process.env.MIKIKO_REMOTE_DEV_AGENT_BUNDLE = "1";
     process.env[ZCODE_RUNTIME_ENV_KEY] = "development";
 
     const backend = new FakeRemoteBackend();
@@ -2422,7 +2422,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     await writeFile(cliBundlePath, "console.log('dev zcode agent');\n", "utf8");
     await writeTestOfficialPluginPackages(repoDir);
     process.chdir(repoDir);
-    process.env.ZCODE_REMOTE_DEV_AGENT_BUNDLE = "1";
+    process.env.MIKIKO_REMOTE_DEV_AGENT_BUNDLE = "1";
     process.env[ZCODE_RUNTIME_ENV_KEY] = "development";
 
     const backend = new FakeRemoteBackend();
@@ -2524,7 +2524,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     );
     await writeTestOfficialPluginPackages(repoDir);
     process.chdir(repoDir);
-    process.env.ZCODE_REMOTE_DEV_AGENT_BUNDLE = "1";
+    process.env.MIKIKO_REMOTE_DEV_AGENT_BUNDLE = "1";
     process.env[ZCODE_RUNTIME_ENV_KEY] = "development";
 
     const devVersion = await computeDevelopmentAgentAssetsSha256ForTest(

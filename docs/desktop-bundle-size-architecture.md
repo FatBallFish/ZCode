@@ -20,7 +20,7 @@
 - 生产安装包不再包含 `remote-assets`
 - 生产态 remote 资源通过 CDN 的 `manifest-<platform-arch>.json` 与跨版本 `components/...` 分发
 - 首次 remote 连接时会按 manifest 下载缺失组件，解压到本地 component cache，并组装到 `remoteCacheDir/releases/<version>/<platform-arch>/`；后续命中缓存不重复下载
-- `ZCODE_ENV=production` 时默认内置两组官方 CDN：
+- `MIKIKO_ENV=production` 时默认内置两组官方 CDN：
   - 国内：`https://cdn.codegeex.cn/zcode/electron/releases/<version>`
   - 海外：`https://cdn-zcode.z.ai/zcode/electron/releases/<version>`
 - CI 若配置 `CDN_DOMAIN` / `OSS_PATH_PREFIX`，生产包会在构建期把这些变量展开为 remote CDN 候选列表。
@@ -30,12 +30,12 @@
   - `locale` 为中文，且时区处于 UTC+8：优先国内 CDN，海外 CDN 作为备选
   - 其他情况：优先海外 CDN，国内 CDN 作为备选
 - 如果构建期注入了 `CDN_DOMAIN` 列表，则按 CI 列表顺序使用，不再按语言/时区重排。
-- `ZCODE_ENV=test` 时默认使用内网测试资源根：
+- `MIKIKO_ENV=test` 时默认使用内网测试资源根：
   `http://intranet.example.invalid:12345/ssh-remote-assets/<version>`。该目录由 CI 的
   `build:remote:assets` job 在测试环境构建时从 `mock-cdn/releases/<version>/manifest-*.json`
   与 `mock-cdn/components/` 同步生成，目录下直接包含 `manifest-*.json` 和 `components/`。
 - `remoteCdnBaseUrl` 仍可通过环境变量覆盖；一旦显式设置，就只使用该自定义基址，不再套用
-  `ZCODE_ENV` 默认值或 production 地区分流
+  `MIKIKO_ENV` 默认值或 production 地区分流
 - SSH 远端服务器下载模式会在远端 `~/.zcode/server/asset-cache/` 下缓存已校验并解压的组件；最终安装路径仍是 `~/.zcode/server/` 下的现有 runtime、server、agent 和 tools 目录。
 
 ## 开发态切换公网 CDN
@@ -86,7 +86,7 @@ Git、terminal cwd 都保持远端语义。
 `zcode.cjs` 的实际 SHA-256 与本地一致时才跳过重复上传。发布包或另一客户端覆盖
 bundle 但残留开发标记时，必须重新上传；无法校验实际内容也按需重新部署。
 生产态不启用该覆盖，仍严格使用 manifest/component 资源。开发时如需临时关闭覆盖，可设置
-`ZCODE_REMOTE_DEV_AGENT_BUNDLE=0`。
+`MIKIKO_REMOTE_DEV_AGENT_BUNDLE=0`。
 
 ## 哪些资源允许跨平台但禁止进包
 
@@ -139,4 +139,4 @@ asar 内容审计必须由 Node 直接调用项目锁定版本的 `@electron/asa
 获取待解析输出，避免 workspace engine warning 等 pnpm 诊断信息混入 stdout 后被误判为 asar 条目。
 
 `pnpm-workspace.yaml#supportedArchitectures` 只控制工作区安装阶段允许准备哪些平台依赖，不能作为安装包
-资源边界。最终安装包资源集合必须由 `ZCODE_TARGET_OS` / `ZCODE_TARGET_ARCH` 决定。
+资源边界。最终安装包资源集合必须由 `MIKIKO_TARGET_OS` / `MIKIKO_TARGET_ARCH` 决定。

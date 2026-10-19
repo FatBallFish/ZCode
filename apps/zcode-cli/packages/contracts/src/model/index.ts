@@ -264,6 +264,22 @@ export interface ModelStreamStalledStatusEvent extends ModelNetworkStatusBase {
 }
 
 /**
+ * 流式重复退化护栏触发（spec: specs/agent/stream-repetition-guard.md）：
+ * 文本尾部同单元连续铺满达到阈值，adapter 已终止物理流并合成正常 finish。
+ * 随后仍会发布 model_request_completed 关闭请求生命周期。
+ */
+export interface ModelStreamRepetitionStoppedStatusEvent extends ModelNetworkStatusBase {
+  type: "model_stream_repetition_stopped";
+  unitLength: number;
+  repeatCount: number;
+  message: string;
+  durationMs?: number;
+  requestHeaderCount?: number;
+  requestHeaders?: Record<string, string>;
+  streamOutputCommitted?: boolean;
+}
+
+/**
  * 仅供实时观测 Sink 消费的 Provider 里程碑。它们不进入 SessionEvent/回放协议，
  * 避免为了 Trace 事件扩大产品状态面。
  */
@@ -292,6 +308,7 @@ export type ModelNetworkStatusEvent =
   | ModelRequestFailedStatusEvent
   | ModelRetryScheduledStatusEvent
   | ModelStreamStalledStatusEvent
+  | ModelStreamRepetitionStoppedStatusEvent
   | ModelTelemetryMilestoneStatusEvent;
 
 export interface ModelStatusSink {
@@ -1025,6 +1042,7 @@ export const modelNetworkStatusEventJsonSchema = {
         "model_request_failed",
         "model_retry_scheduled",
         "model_stream_stalled",
+        "model_stream_repetition_stopped",
       ],
     },
     timestamp: { type: "string", minLength: 1 },

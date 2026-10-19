@@ -15,6 +15,7 @@ import {
   projectMessagesForInputFormat,
   projectMessagesForMediaBudget,
   readRawFinishReason,
+  readStreamRepetitionGuardMarker,
 } from "../helpers/index.js";
 import type { RunModelTextRequestOptions, RuntimeModelTextResult } from "../types.js";
 import type { AgentRuntimeInternal } from "../internal.js";
@@ -453,6 +454,32 @@ export async function runModelTextRequest(
   }
   await streamingEventQueue.drain();
 
+  // 重复退化护栏（spec: specs/agent/stream-repetition-guard.md）：adapter 在尾部同单元
+  // 连续铺满时终止了物理流并用带标记的合成 finish 收尾。此处按标记裁剪重复尾部，
+  // 防止 2026-10-17 sess_6db0845f 事故中 16.9k 重复字符进入持久化历史、随后每次
+  // 请求都被回显并加剧退化。UI 已流式渲染的部分以最终持久化文本为准。
+  const repetitionGuardMarker = readStreamRepetitionGuardMarker(providerMetadata);
+  let repetitionTextTrimmed = false;
+  if (repetitionGuardMarker) {
+    const trimToIndex = Math.min(
+      Math.max(repetitionGuardMarker.trimToIndex, 0),
+      text.length,
+    );
+    const trimmedChars = text.length - trimToIndex;
+    if (trimmedChars > 0) {
+      text = text.slice(0, trimToIndex);
+      repetitionTextTrimmed = true;
+    }
+    this.logger?.warn("Model stream stopped by repetition guard; trailing repeats trimmed", {
+      ...traceContextToLogContext(options.traceContext),
+      event: "model.runtime.stream.repetition_guard_stopped",
+      module: "core.runtime",
+      repeatCount: repetitionGuardMarker.repeatCount,
+      trimmedChars,
+      unitLength: repetitionGuardMarker.unitLength,
+    });
+  }
+
   const rawFinishReason = readRawFinishReason(providerMetadata);
   const outputTokenLimit = isOutputTokenLimitFinishReason(finishReason, rawFinishReason);
   const contextExceeded =
@@ -477,9 +504,12 @@ export async function runModelTextRequest(
 
   // 流在只发出 start/prelude 后以 finishReason=unknown 结束时，会被记到 turn-model-step
   // 的 suspicious empty。这里在返回 result 前再扫一遍 providerMetadata/空 completion。
+  // 重复退化护栏触发的合成 finish 不参与该判定：极端情况下（首个字符起即退化）裁剪后
+  // 文本为空是预期结果，按空回重试只会用同一上下文再次退化。
   if (
     !contextExceeded &&
     !outputTokenLimit &&
+    !repetitionGuardMarker &&
     isSuspiciousEmptyModelResult(finishReason, text.length, toolCalls.length, usage)
   ) {
     // zcode-plan 常返回 HTTP 200 空 SSE，需在抛错前打出 finish/providerMetadata 摘要，避免只能看到 UI 泛化文案。
@@ -509,6 +539,14 @@ export async function runModelTextRequest(
     ...(contextUsageBreakdown.length > 0 ? { contextUsageBreakdown } : {}),
     finishReason,
     providerMetadata,
+    ...(repetitionGuardMarker
+      ? {
+          repetitionGuard: {
+            ...repetitionGuardMarker,
+            textTrimmed: repetitionTextTrimmed,
+          },
+        }
+      : {}),
     reasoning: reasoning.length > 0 ? reasoning : undefined,
     text,
     toolCalls: toolCalls.length > 0 ? toolCalls : undefined,

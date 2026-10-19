@@ -7,7 +7,7 @@
 > [`provider-and-model-configuration-overview.md`](./provider-and-model-configuration-overview.md) 为准。
 
 正式环境源文件沿用 `zcode-builtin.json`，测试环境使用同目录 `zcode-builtin.test.json`。
-两份遵循相同维护规范，按 `ZCODE_ENV` 打包；选择与缓存契约见
+两份遵循相同维护规范，按 `MIKIKO_ENV` 打包；选择与缓存契约见
 [双环境打包](../../../../builtin-provider-config-build-environments.md)。
 
 ## 1. 目标与边界

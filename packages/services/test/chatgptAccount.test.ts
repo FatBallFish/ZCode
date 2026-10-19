@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { Emitter } from "@zcode/rpc";
 import type { ChatGPTAccountRecord, ChatGPTAccountView } from "@zcode/shared";
 import type { ICredentialService } from "../src/credential/credential.js";
+import type { ServiceLogger } from "../src/logger/serviceLogger.js";
 import { createChatGPTAccountRepository } from "../src/chatgpt/chatgptAccountRepository.js";
 import { createChatGPTAccountRuntime } from "../src/chatgpt/chatgptAccountRuntime.js";
 import { createChatGPTAccountService } from "../src/chatgpt/chatgptAccountService.js";
 import { createChatGPTBackendClient } from "../src/chatgpt/chatgptBackendClient.js";
 import { createChatGPTIdentityResolver } from "../src/chatgpt/chatgptIdentity.js";
+import type { ChatGPTAuthorizationResult } from "../src/chatgpt/chatgptAccount.js";
 import { AccountRequestCredentialUnavailableError } from "../src/model-provider/accountProviderRequestAuthService.js";
 
 /** 进程内凭据服务（真实栈走加密文件；这里只验证仓储行为）。 */
@@ -66,6 +70,45 @@ function createIdentityStub() {
 
 function oauthResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
+}
+
+function base64UrlNoPad(value: string): string {
+  return Buffer.from(value, "utf8").toString("base64url");
+}
+
+/** 3 段 JWT（解析只解码 payload，不验签）。 */
+function makeIdToken(claims: Record<string, unknown>): string {
+  return ["e30", base64UrlNoPad(JSON.stringify(claims)), "sig"].join(".");
+}
+
+/** 探测一个空闲 loopback 端口供回调监听测试使用（避免固定 1455 与本机 Codex CLI 冲突）。 */
+async function reserveLoopbackPort(): Promise<number> {
+  const probe = createServer();
+  try {
+    return await new Promise<number>((resolve, reject) => {
+      probe.once("error", reject);
+      probe.listen(0, "127.0.0.1", () => {
+        resolve((probe.address() as AddressInfo).port);
+      });
+    });
+  } finally {
+    await new Promise<void>((resolve) => probe.close(() => resolve()));
+  }
+}
+
+function createLoggerStub(): { logger: ServiceLogger; warns: unknown[][] } {
+  const warns: unknown[][] = [];
+  return {
+    warns,
+    logger: {
+      debug: () => {},
+      info: () => {},
+      warn: (_traceId, ...args: unknown[]) => {
+        warns.push(args);
+      },
+      error: () => {},
+    },
+  };
 }
 
 test("仓储：upsert/update/delete 往返与 createdAt 排序", async () => {
@@ -365,4 +408,121 @@ test("sub2api 导入：建号/补全/重复导入 updated（backend client 全 m
 
   const second = await service.importSub2ApiAccounts("/fake/sub2api.json");
   assert.equal(second.imported[0]?.state, "updated");
+});
+
+test("浏览器授权：code 兑换成功 → 落库 + completed 事件（request 注入贯穿 exchange）", async () => {
+  const credentialService = createMemoryCredentialService();
+  const repository = createChatGPTAccountRepository({ credentialService });
+  const emitter = new Emitter<ChatGPTAccountView[]>();
+  const { logger } = createLoggerStub();
+  const runtime = createChatGPTAccountRuntime({
+    repository,
+    identity: createIdentityStub(),
+    accountsChangedEmitter: emitter,
+  });
+  const callbackPort = await reserveLoopbackPort();
+  const exchangedCodes: string[] = [];
+  const service = createChatGPTAccountService({
+    repository,
+    // enrich 失败不应阻断授权完成（服务内已捕获，只 warn）。
+    backendClient: createChatGPTBackendClient({
+      request: (async () => {
+        throw new Error("enrich unreachable");
+      }) as typeof fetch,
+    }),
+    identity: createIdentityStub(),
+    runtime,
+    accountsChangedEmitter: emitter,
+    logger,
+    callbackPort,
+    request: (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = new URLSearchParams(String(init?.body ?? ""));
+      exchangedCodes.push(body.get("code") ?? "");
+      return oauthResponse({
+        access_token: "at-oauth",
+        refresh_token: "rt-oauth",
+        id_token: makeIdToken({
+          email: "oauth@example.com",
+          exp: Math.floor(Date.now() / 1000) + 3600,
+          "https://api.openai.com/auth": {
+            chatgpt_account_id: "acc-oauth",
+            chatgpt_plan_type: "pro",
+          },
+        }),
+      });
+    }) as typeof fetch,
+  });
+  const completed = new Promise<ChatGPTAuthorizationResult>((resolve) => {
+    service.onAuthorizationCompleted(resolve);
+  });
+  const session = await service.startAuthorization();
+  const state = new URL(session.authUrl).searchParams.get("state");
+  assert.ok(state, "authUrl 携带 state");
+  const response = await fetch(
+    `http://127.0.0.1:${callbackPort}/auth/callback?code=code-1&state=${state}`,
+  );
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /已登录/, "回调页在兑换完成前即返回成功页");
+
+  const result = await completed;
+  assert.equal(result.accountId, "acc-oauth");
+  assert.equal(result.email, "oauth@example.com");
+  assert.deepEqual(exchangedCodes, ["code-1"], "request 注入贯穿到 token 兑换");
+  const record = await repository.get("acc-oauth");
+  assert.equal(record?.credentials.refreshToken, "rt-oauth");
+  assert.equal(record?.profile.planType, "pro");
+});
+
+test("浏览器授权：兑换网络失败 → 回调页仍示成功 + failed 网络文案 + warn 日志（2026-10-17 客户案例回归）", async () => {
+  const credentialService = createMemoryCredentialService();
+  const repository = createChatGPTAccountRepository({ credentialService });
+  const emitter = new Emitter<ChatGPTAccountView[]>();
+  const { logger, warns } = createLoggerStub();
+  const runtime = createChatGPTAccountRuntime({
+    repository,
+    identity: createIdentityStub(),
+    accountsChangedEmitter: emitter,
+  });
+  const callbackPort = await reserveLoopbackPort();
+  const service = createChatGPTAccountService({
+    repository,
+    backendClient: createChatGPTBackendClient(),
+    identity: createIdentityStub(),
+    runtime,
+    accountsChangedEmitter: emitter,
+    logger,
+    callbackPort,
+    // 模拟 host 直连 auth.openai.com 失败（fetch 抛错，非 HTTP 错误响应）。
+    request: (async () => {
+      throw new TypeError("fetch failed");
+    }) as typeof fetch,
+  });
+  const failed = new Promise<{ message: string }>((resolve) => {
+    service.onAuthorizationFailed(resolve);
+  });
+  const session = await service.startAuthorization();
+  const state = new URL(session.authUrl).searchParams.get("state");
+  assert.ok(state);
+  const response = await fetch(
+    `http://127.0.0.1:${callbackPort}/auth/callback?code=code-1&state=${state}`,
+  );
+  // 回调成功页在兑换之前返回：浏览器「已登录」≠ 账号已添加（客户案例表象）。
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /已登录/);
+
+  const event = await failed;
+  assert.match(event.message, /网络错误/);
+  assert.match(event.message, /HTTP 代理/, "网络失败文案指引设置页代理");
+  assert.ok(
+    warns.some((args) => String(args[0]).includes("chatgpt authorization failed")),
+    "失败路径落 warn 日志",
+  );
+  assert.ok(
+    warns.some((args) => {
+      const detail = args[1] as { error?: string } | undefined;
+      return typeof detail?.error === "string" && detail.error.includes("授权码兑换网络错误");
+    }),
+    "warn 携带网络错误分类信息",
+  );
+  assert.equal((await repository.list()).length, 0, "失败不落账号");
 });

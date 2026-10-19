@@ -318,7 +318,7 @@ ready -> login -> verifying -> submitting -> success-preparing -> result
 
 ## 轮询与展示
 
-环境频率恢复：正式构建且 `ZCODE_ENV=production` 时正常轮询间隔10分钟；test或开发构建30秒。移除随机 jitter，保留失败退避和事件立即刷新。旧 ManualClaimPlanBanner/ResultDialog 及其专属辅助逻辑和测试删除；输入框正在使用的模型选择引导、共用失败文案、Hero HTML/ZIP 与测试 fixture 保留。
+环境频率恢复：正式构建且 `MIKIKO_ENV=production` 时正常轮询间隔10分钟；test或开发构建30秒。移除随机 jitter，保留失败退避和事件立即刷新。旧 ManualClaimPlanBanner/ResultDialog 及其专属辅助逻辑和测试删除；输入框正在使用的模型选择引导、共用失败文案、Hero HTML/ZIP 与测试 fixture 保留。
 
 ```text
 query完成 -> production build + production env ? 600s : 30s -> 下一次query

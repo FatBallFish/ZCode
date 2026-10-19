@@ -151,15 +151,15 @@ function stripViteRequestQuery(id: string) {
 }
 
 export default defineConfig(({ mode }) => {
-  // `.env*` 只提供链接常量；当前产品环境由启动脚本或 CI 注入 ZCODE_ENV。
+  // `.env*` 只提供链接常量；当前产品环境由启动脚本或 CI 注入 MIKIKO_ENV。
   const env = loadEnv(mode, "../..", "");
   const repoRoot = resolve(__dirname, "../..");
-  const zcodeEnv = resolveZCodeEnv(env.ZCODE_ENV);
+  const zcodeEnv = resolveZCodeEnv(env.MIKIKO_ENV);
   // 安装包身份与后端环境分轴；renderer 用它决定是否展示更新入口。
   const zcodeProductFlavor = resolveDesktopProductFlavor({
     ...process.env,
     ...env,
-    ZCODE_ENV: zcodeEnv,
+    MIKIKO_ENV: zcodeEnv,
   });
   const e2eCoverageEnabled =
     env.ZCODE_E2E_COVERAGE === "1" || process.env.ZCODE_E2E_COVERAGE === "1";
@@ -170,7 +170,7 @@ export default defineConfig(({ mode }) => {
     envBaseOrigin:
       env.MIKIKO_BASE_URL ??
       env.MIKIKO_ENDPOINT_ORIGIN ??
-      (zcodeEnv === "production" ? env.ZCODE_PRODUCTION_BASE_URL : env.ZCODE_TEST_BASE_URL),
+      (zcodeEnv === "production" ? env.MIKIKO_PRODUCTION_BASE_URL : env.MIKIKO_TEST_BASE_URL),
   });
   const codingPlanWebviewOrigin =
     env.VITE_CODING_PLAN_WEBVIEW_ORIGIN ?? process.env.VITE_CODING_PLAN_WEBVIEW_ORIGIN ?? "";
@@ -213,7 +213,7 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_MIKIKO_ENDPOINT_ORIGIN": JSON.stringify(zcodeEndpointOrigin),
       "import.meta.env.VITE_CODING_PLAN_WEBVIEW_ORIGIN": JSON.stringify(codingPlanWebviewOrigin),
       "import.meta.env.VITE_REWARDS_WEBVIEW_ORIGIN": JSON.stringify(env.VITE_REWARDS_WEBVIEW_ORIGIN ?? process.env.VITE_REWARDS_WEBVIEW_ORIGIN ?? ""),
-      // Bugfix: E2E store bridge 只能由 WDIO 专用变量打开，避免把 ZCODE_ENV=test 产品环境误当成测试运行态。
+      // Bugfix: E2E store bridge 只能由 WDIO 专用变量打开，避免把 MIKIKO_ENV=test 产品环境误当成测试运行态。
       "import.meta.env.VITE_ZCODE_E2E_STORE_BRIDGE": JSON.stringify(
         e2eStoreBridgeEnabled ? "1" : "",
       ),

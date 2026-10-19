@@ -3,7 +3,7 @@
 ## 目标
 
 Share 落地页单独构建并发布为 nginx 静态镜像，不和手机远控 `/remote` 镜像或
-Deployment 共用。Jenkins Job 通过 `ZCODE_ENV=test|production` 选择构建时注入的
+Deployment 共用。Jenkins Job 通过 `MIKIKO_ENV=test|production` 选择构建时注入的
 ZCode API/OAuth endpoint；页面入口为 `/cn/share`（中文）或 `/share`（英文）。
 
 ## 发布链路
@@ -32,7 +32,7 @@ nginx 和静态产物，material-icons 从 `packages/web/public` 一并复制。
 - 镜像：`staging-zcode-conversation-share`
 - Deployment 与容器：`staging-zcode-conversation-share`
 - namespace/context：`zcode` / `openwebui`
-- `ZCODE_ENV=test`，构建 endpoint 为 `https://zcode.z.ai`
+- `MIKIKO_ENV=test`，构建 endpoint 为 `https://zcode.z.ai`
 
 可通过 Pipeline 参数切换 `production`，并覆盖镜像名、Deployment 名和容器名。Git 仓库
 credential 沿用 remote Pipeline 的值；Share 不需要 CUA credential。share 专属的镜像和

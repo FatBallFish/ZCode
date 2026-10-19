@@ -131,10 +131,10 @@ describe("desktop tsup chunk isolation", () => {
   it("正式安装包 Agent OTLP 配置应映射为 Main 使用的标准环境字段", () => {
     expect(
       resolveBuildPackagedAgentTelemetryEnv({
-        ZCODE_ENV: "production",
-        ZCODE_PACKAGED_AGENT_OTEL_ENDPOINT: "https://arms.example.com/otlp",
-        ZCODE_PACKAGED_AGENT_OTEL_HEADERS: "x-arms-license-key=write-only",
-        ZCODE_PACKAGED_AGENT_OTEL_SERVICE_NAME: "zcode-cli-agent",
+        MIKIKO_ENV: "production",
+        MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT: "https://arms.example.com/otlp",
+        MIKIKO_PACKAGED_AGENT_OTEL_HEADERS: "x-arms-license-key=write-only",
+        MIKIKO_PACKAGED_AGENT_OTEL_SERVICE_NAME: "zcode-cli-agent",
       }),
     ).toEqual({
       OTEL_EXPORTER_OTLP_ENDPOINT: "https://arms.example.com/otlp",
@@ -147,15 +147,15 @@ describe("desktop tsup chunk isolation", () => {
   it("正式安装包 Agent OTLP 配置不完整或生产环境使用 HTTP 时应阻止构建", () => {
     expect(() =>
       resolveBuildPackagedAgentTelemetryEnv({
-        ZCODE_ENV: "production",
-        ZCODE_PACKAGED_AGENT_OTEL_ENDPOINT: "https://arms.example.com/otlp",
+        MIKIKO_ENV: "production",
+        MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT: "https://arms.example.com/otlp",
       }),
     ).toThrow("must be configured together");
     expect(() =>
       resolveBuildPackagedAgentTelemetryEnv({
-        ZCODE_ENV: "production",
-        ZCODE_PACKAGED_AGENT_OTEL_ENDPOINT: "http://arms.example.com/otlp",
-        ZCODE_PACKAGED_AGENT_OTEL_HEADERS: "x-arms-license-key=write-only",
+        MIKIKO_ENV: "production",
+        MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT: "http://arms.example.com/otlp",
+        MIKIKO_PACKAGED_AGENT_OTEL_HEADERS: "x-arms-license-key=write-only",
       }),
     ).toThrow("must use HTTPS in production");
   });
@@ -177,7 +177,7 @@ describe("desktop tsup chunk isolation", () => {
   });
 
   it("安装包身份与后端环境作为两个编译期常量注入每个 bundle", () => {
-    // 打包后的应用不能依赖机器环境变量：ZCODE_PREVIEW_IDENTITY 在构建时折叠成 __ZCODE_PRODUCT_FLAVOR__。
+    // 打包后的应用不能依赖机器环境变量：MIKIKO_PREVIEW_IDENTITY 在构建时折叠成 __ZCODE_PRODUCT_FLAVOR__。
     for (const entry of ["main", "host", "preload"] as const) {
       const defines = getDefines(entry);
       expect(defines).toHaveProperty("__ZCODE_ENV__");

@@ -17,12 +17,12 @@ const { version } = JSON.parse(readFileSync(resolve(REPO_ROOT, "package.json"), 
 
 export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, REPO_ROOT, ""), ...process.env };
-  const zcodeEnv = env.ZCODE_ENV?.trim().toLowerCase() === "production" ? "production" : "test";
-  const endpointEnv = { ...env, ZCODE_ENV: zcodeEnv };
+  const zcodeEnv = env.MIKIKO_ENV?.trim().toLowerCase() === "production" ? "production" : "test";
+  const endpointEnv = { ...env, MIKIKO_ENV: zcodeEnv };
   const endpointOrigin = resolveRuntimeZCodeEndpointOrigin(endpointEnv);
   const oauthOrigin = resolveZaiOAuthOrigin(endpointEnv);
   const oauthClientId = resolveZaiOAuthClientId(endpointEnv);
-  // BigModel 授权入口必须跟随 ZCODE_ENV，否则测试环境会把测试账号带到生产授权页。
+  // BigModel 授权入口必须跟随 MIKIKO_ENV，否则测试环境会把测试账号带到生产授权页。
   const bigmodelOAuthOrigin = resolveBigModelApiOrigin(endpointEnv);
 
   return {
@@ -52,7 +52,7 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       __ZCODE_VERSION__: JSON.stringify(version),
-      __ZCODE_COMMIT__: JSON.stringify(env.ZCODE_COMMIT || "unknown"),
+      __ZCODE_COMMIT__: JSON.stringify(env.MIKIKO_COMMIT || "unknown"),
       __ZCODE_ENV__: JSON.stringify(zcodeEnv),
       "import.meta.env.VITE_MIKIKO_BASE_URL": JSON.stringify(endpointOrigin),
       "import.meta.env.VITE_MIKIKO_ENDPOINT_ORIGIN": JSON.stringify(endpointOrigin),

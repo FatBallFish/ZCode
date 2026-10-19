@@ -43,7 +43,7 @@ export type CodingPlanUnavailableReason =
 
 function buildZaiSubscriptionListUrl(): string {
   // ZAI 测试环境业务 token 只能请求配置的 ZAI Business origin。
-  // availability 校验必须和 OAuth business login 共用同一套 ZCODE_ENV 域名分流，只允许 origin 不同。
+  // availability 校验必须和 OAuth business login 共用同一套 MIKIKO_ENV 域名分流，只允许 origin 不同。
   return buildRuntimeZaiBusinessUrl(process.env, "/api/biz/subscription/list");
 }
 

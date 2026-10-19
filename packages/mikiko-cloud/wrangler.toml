@@ -1,5 +1,7 @@
 # Mikiko 自建云端（spec specs/mikiko-cloud/agent-endpoint-plan.md）
 # 域名：agent.mikiko.ai（API + 主页 + 管理页）。安装包下载仍走 agent-dl.mikiko.ai，更新走 agent-update.mikiko.ai。
+# 日常部署走 GitHub Actions（.github/workflows/deploy-mikiko-cloud.yml，v* tag / 手动触发，
+# 含 D1 迁移）；下方首次部署步骤仅用于建库/建桶等一次性初始化。
 #
 # 首次部署步骤：
 #   1. wrangler kv namespace create MIKIKO_BUILTIN_CONFIG   → 将返回的 id 填到下方
@@ -8,7 +10,10 @@
 #      wrangler secret put MIKIKO_ADMIN_PASSWORD
 #      wrangler secret put MIKIKO_ADMIN_SESSION_SECRET     # ≥32 字节随机串（session cookie 签名）
 #   4. node scripts/seed-builtin-config.mjs                # 从官方拉原始规则种子化 KV（spec §4.2 初始化）
-#   5. wrangler deploy
+#   5. wrangler d1 create mikiko-cloud-db                   → 将返回的 id 填到下方 d1_databases
+#      wrangler d1 migrations apply mikiko-cloud-db --remote
+#   6. wrangler r2 bucket create mikiko-feedback-artifacts
+#   7. wrangler deploy
 name = "mikiko-cloud"
 main = "src/worker.ts"
 compatibility_date = "2025-09-01"
@@ -22,8 +27,10 @@ directory = "./public"
 binding = "ASSETS"
 # /api/* 与 /healthz 必须先进 Worker；分享落地页（/cn/share/{code}）由 Worker 改写后走资产；
 # 其余路径（主页、/admin）由静态资产直接服务。
-# "/" 进 Worker 做地域语言分流（其余路径 assets 直出；Worker 内非 "/" 路径透传 assets）。
-run_worker_first = ["/api/*", "/healthz", "/cn/share/*", "/share/*", "/"]
+# "/" 与 "/changelog" 进 Worker 做地域语言分流（其余路径 assets 直出；Worker 内非分流路径透传 assets）。
+# /changelog 显式声明而非依赖资产未命中兜底：语言页面只在 cn/en 下，直出必然 404，
+# 且防止未来误加根级 changelog.html 后 assets 抢先直出绕过分流（2026-10-15 桌面端帮助菜单 404 报障）。
+run_worker_first = ["/api/*", "/healthz", "/cn/share/*", "/share/*", "/", "/changelog"]
 
 [[kv_namespaces]]
 binding = "MIKIKO_BUILTIN_CONFIG"
@@ -42,6 +49,18 @@ id = "50760466109348f7a818506697408a87"
 [[r2_buckets]]
 binding = "SHARE_ARTIFACTS"
 bucket_name = "mikiko-share-artifacts"
+
+# Bug 上报工单存储（specs/mikiko-cloud/feedback-tickets.md）：D1 存工单/评论/附件元数据。
+# id 在 `wrangler d1 create mikiko-cloud-db` 后回填；migrations 见 migrations/。
+[[d1_databases]]
+binding = "DB"
+database_name = "mikiko-cloud-db"
+database_id = "5f3c0ecb-8e4a-46a5-bfbe-0b6ccf2f1b14"
+
+# Bug 上报附件（日志 zip ≤40MB / 截图 ≤10MB），feedback/{ticketId}/{attachmentId} 前缀。
+[[r2_buckets]]
+binding = "FEEDBACK_ARTIFACTS"
+bucket_name = "mikiko-feedback-artifacts"
 
 [observability]
 enabled = true

@@ -165,9 +165,9 @@ test("installer creates zcode and the installed command defaults to CLI", async 
   await exec("sh", [installer], {
     env: {
       ...process.env,
-      ZCODE_DIST_BASE_URL: `file://${downloads}/`,
-      ZCODE_DIST_HOME: installRoot,
-      ZCODE_DIST_BIN_DIR: bin,
+      MIKIKO_DIST_BASE_URL: `file://${downloads}/`,
+      MIKIKO_DIST_HOME: installRoot,
+      MIKIKO_DIST_BIN_DIR: bin,
     },
   });
   await rm(root, { recursive: true });

@@ -18,6 +18,8 @@ import {
 /**
  * ChatGPT OAuth HTTP 客户端 + loopback 回调监听（官方 codex-rs login 口径）。
  * 纯 IO 适配层：不做账号事实写入，业务编排见 chatgptAccountService。
+ * 出站请求经 request 注入：生产为 host API 网络 transport（设置页 httpProxy/CA 生效），
+ * 缺省裸 fetch 仅供测试。
  */
 
 export interface ChatGPTTokenResponse {
@@ -89,22 +91,36 @@ export async function exchangeChatGPTCode(params: {
   redirectUri?: string;
   request?: typeof fetch;
 }): Promise<ChatGPTTokenResponse> {
-  const response = await (params.request ?? fetch)(CHATGPT_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "content-type": "application/x-www-form-urlencoded",
-      accept: "application/json",
-      ...authHeaders(),
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: CHATGPT_OAUTH_CLIENT_ID,
-      code: params.code,
-      redirect_uri: params.redirectUri ?? CHATGPT_OAUTH_REDIRECT_URI,
-      code_verifier: params.codeVerifier,
-    }).toString(),
-    signal: AbortSignal.timeout(OAUTH_REQUEST_TIMEOUT_MS),
-  });
+  let response: Response;
+  try {
+    response = await (params.request ?? fetch)(CHATGPT_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        accept: "application/json",
+        ...authHeaders(),
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: CHATGPT_OAUTH_CLIENT_ID,
+        code: params.code,
+        redirect_uri: params.redirectUri ?? CHATGPT_OAUTH_REDIRECT_URI,
+        code_verifier: params.codeVerifier,
+      }).toString(),
+      signal: AbortSignal.timeout(OAUTH_REQUEST_TIMEOUT_MS),
+    });
+  } catch (error) {
+    // 网络错误按 transient/network 包装（对齐 refreshChatGPTToken）：回调成功页已在
+    // 兑换前返回浏览器，这里的失败只经 onAuthorizationFailed 透出；不包装则上层
+    // 无法区分「连不上」与「上游拒绝」，只能给笼统的「授权失败」文案（2026-10-17
+    // 客户案例：浏览器走系统代理完成授权、host 直连失败，排查无日志可依）。
+    throw new ChatGPTOAuthError(
+      `ChatGPT 授权码兑换网络错误: ${error instanceof Error ? error.message : String(error)}`,
+      undefined,
+      "network",
+      { kind: "transient", reason: "network" },
+    );
+  }
   if (!response.ok) throw await readOAuthError(response);
   const body = (await response.json()) as {
     access_token?: string;

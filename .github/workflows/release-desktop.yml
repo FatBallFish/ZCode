@@ -2,7 +2,13 @@ name: Release Desktop Installers
 
 # 推送 v* 版本 tag 触发：三端四架构打包（mac arm64/x64、win x64、linux x64），
 # 汇总产物并按历史 Commit 生成 Notes（Features/BugFix/Optimize）发布 GitHub Release。
-# Mac 无证书模式：bundle 会自动注入 DMG「清除隔离标记」辅助脚本（specs/desktop/dmg-installer.md）。
+# Mac 签名&公证（可选，2026-10-19 接入）：配置 secrets.MAC_SIGNING_P12_BASE64 /
+#   MAC_SIGNING_P12_PASSWORD / MAC_SIGNING_IDENTITY 后自动启用 Developer ID 签名，
+#   打包后经 scripts/notarize-macos.sh 公证+staple+验收；未配置则保持无证书模式
+#   （bundle 自动注入 DMG「清除隔离标记」辅助脚本，specs/desktop/dmg-installer.md）。
+#   公证凭据三选一：APPLE_ID+APPLE_APP_SPECIFIC_PASSWORD+APPLE_TEAM_ID 或
+#   APPLE_API_KEY_BASE64+APPLE_API_KEY_ID+APPLE_API_ISSUER 或 APPLE_KEYCHAIN_PROFILE。
+#   开了签名但缺公证凭据时 fail-closed（签名未公证的 DMG 会被 Gatekeeper 拦截，比无签名更糟）。
 # relay job 同时打包手机远控中转服务两种部署产物（服务器直连 / Cloudflare 边缘，spec §20）并入 Release。
 on:
   push:
@@ -10,7 +16,13 @@ on:
       - "v*.*.*"
   # 手动触发（配额内可用）：出包工作流选对应 v* tag 作为 ref 运行，
   # GITHUB_REF_NAME 语义与 tag push 完全一致，release job 无需区分触发方式。
+  # mac-only=true：仅 mac 双架构构建（验证签名&公证链路），跳过 relay/release/publish。
   workflow_dispatch:
+    inputs:
+      mac-only:
+        description: "仅构建 mac 双架构（签名&公证链路验证）"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -22,29 +34,12 @@ jobs:
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runner: macos-latest
-            target: mac
-            arch: arm64
-          - runner: macos-latest
-            target: mac
-            arch: x64
-          - runner: windows-latest
-            target: win
-            arch: x64
-          # Windows on ARM 原生包（2026-09-29 官网分架构下载）：无签名流程，arm64 nsis
-          # 可交叉产出；官网聚合按命名规则自动发现，更新通道仍以 x64 manifest 为准。
-          - runner: windows-latest
-            target: win
-            arch: arm64
-          - runner: ubuntu-latest
-            target: linux
-            arch: x64
+      # mac-only 验证跑法：矩阵整体切换为仅 mac 双架构（exclude 不支持表达式过滤）。
+      matrix: ${{ inputs.mac-only && fromJSON('{"include":[{"runner":"macos-latest","target":"mac","arch":"arm64"},{"runner":"macos-latest","target":"mac","arch":"x64"}]}') || fromJSON('{"include":[{"runner":"macos-latest","target":"mac","arch":"arm64"},{"runner":"macos-latest","target":"mac","arch":"x64"},{"runner":"windows-latest","target":"win","arch":"x64"},{"runner":"windows-latest","target":"win","arch":"arm64"},{"runner":"ubuntu-latest","target":"linux","arch":"x64"}]}') }}
     env:
       # 正式包身份（production flavor）；跳过开发态 mock-cdn 离线缓存，打包态不依赖。
-      ZCODE_ENV: production
-      ZCODE_SKIP_REMOTE_ASSETS: "1"
+      MIKIKO_ENV: production
+      MIKIKO_SKIP_REMOTE_ASSETS: "1"
       HUSKY: "0"
     steps:
       - name: Check out
@@ -69,8 +64,56 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prepare macOS signing identity
+        # 证书未配置时跳过（保持无证书模式）；配置了则导入临时 keychain 并打开签名开关。
+        # MIKIKO_ENABLE_MAC_SIGN / APPLE_SIGNING_IDENTITY 写入 GITHUB_ENV，bundle 步骤直接消费。
+        if: runner.os == 'macOS'
+        env:
+          MAC_SIGNING_P12_BASE64: ${{ secrets.MAC_SIGNING_P12_BASE64 }}
+          MAC_SIGNING_P12_PASSWORD: ${{ secrets.MAC_SIGNING_P12_PASSWORD }}
+          MAC_SIGNING_IDENTITY: ${{ secrets.MAC_SIGNING_IDENTITY }}
+        run: |
+          if [ -z "$MAC_SIGNING_P12_BASE64" ]; then
+            echo "::notice::secrets.MAC_SIGNING_P12_BASE64 未配置，Mac 走无证书模式"
+            exit 0
+          fi
+          KEYCHAIN=build-mac-sign.keychain-db
+          security create-keychain -p "" "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          printf '%s' "$MAC_SIGNING_P12_BASE64" | base64 --decode > /tmp/mac-sign.p12
+          security import /tmp/mac-sign.p12 -k "$KEYCHAIN" -P "$MAC_SIGNING_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "" "$KEYCHAIN"
+          rm -f /tmp/mac-sign.p12
+          echo "APPLE_SIGNING_IDENTITY=$MAC_SIGNING_IDENTITY" >> "$GITHUB_ENV"
+          echo "MIKIKO_ENABLE_MAC_SIGN=1" >> "$GITHUB_ENV"
+
       - name: Bundle desktop installers
         run: pnpm bundle:desktop -- --os ${{ matrix.target }} --arch ${{ matrix.arch }}
+
+      - name: Notarize macOS DMG
+        # 签名开启后必须公证：fail-closed，避免产出发不出去的“已签名未公证”安装包。
+        if: runner.os == 'macOS' && env.MIKIKO_ENABLE_MAC_SIGN == '1'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          if [ -n "$APPLE_API_KEY_BASE64" ]; then
+            printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > /tmp/apple-api-key.p8
+            echo "APPLE_API_KEY_PATH=/tmp/apple-api-key.p8" >> "$GITHUB_ENV"
+            export APPLE_API_KEY_PATH=/tmp/apple-api-key.p8
+          fi
+          sh scripts/notarize-macos.sh packages/desktop/dist/*.dmg
+
+      - name: Cleanup macOS signing keychain
+        if: always() && runner.os == 'macOS'
+        run: |
+          security default-keychain -s ~/Library/Keychains/login.keychain-db || true
+          security delete-keychain build-mac-sign.keychain-db || true
 
       - name: Upload installers
         uses: actions/upload-artifact@v4
@@ -91,6 +134,7 @@ jobs:
           retention-days: 7
 
   relay:
+    if: ${{ !inputs.mac-only }}
     name: package relay deploy kits
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -116,7 +160,7 @@ jobs:
         run: pnpm --filter @zcode/relay-server run build:bundle
 
       - name: Build phone UI (Pages, domain-agnostic)
-        # 不注入 VITE_ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL：运行时经票据 ws 参数定位 relay（spec §5.3）。
+        # 不注入 VITE_MIKIKO_WEB_REMOTE_CONTROL_RELAY_WS_URL：运行时经票据 ws 参数定位 relay（spec §5.3）。
         run: pnpm --filter @zcode/web run build:remote-pages
 
       - name: Assemble server-mode kit
@@ -159,6 +203,7 @@ jobs:
           retention-days: 7
 
   release:
+    if: ${{ !inputs.mac-only }}
     name: publish release
     needs: [build, relay]
     runs-on: ubuntu-latest
@@ -215,6 +260,7 @@ jobs:
             artifacts/*
 
   publish-update-feed:
+    if: ${{ !inputs.mac-only }}
     name: publish update feed (R2)
     needs: release
     runs-on: ubuntu-latest

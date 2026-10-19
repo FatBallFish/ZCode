@@ -111,7 +111,7 @@ describe("windowsChromeAppBoundKey", () => {
     );
     expect(source).toContain("VerifyProcessImagePathHandle(brokerProcess, GetSelfPath())");
     expect(source).toContain("VerifyPipeClient(pipe.SafePipeHandle, GetSelfPath(), brokerPid)");
-    expect(buildSource).toContain('targetArch === "arm64" && !process.env.ZCODE_CSC_PATH');
+    expect(buildSource).toContain('targetArch === "arm64" && !process.env.MIKIKO_CSC_PATH');
     expect(buildSource).toContain('`/platform:${targetArch}`');
   });
 

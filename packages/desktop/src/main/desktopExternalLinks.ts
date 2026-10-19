@@ -8,7 +8,8 @@ export const DESKTOP_RELEASES_DOWNLOAD_URL = "https://github.com/FatBallFish/ZCo
 
 /**
  * 帮助菜单「更新日志」的外链出口（2026-09-28 改）：应用内更新日志统一指向自建官网
- * https://agent.mikiko.ai/changelog（packages/mikiko-cloud/public/changelog.html，
- * Workers assets 漂亮路径）；GitHub Releases 仍保留为安装包分发页。
+ * https://agent.mikiko.ai/changelog（mikiko-cloud Worker 按 IP 地域 308 分流到
+ * /cn/changelog 或 /en/changelog，语言页面在 packages/mikiko-cloud/public/{cn,en}/
+ * 下）；GitHub Releases 仍保留为安装包分发页。
  */
 export const MIKIKO_CHANGELOG_URL = "https://agent.mikiko.ai/changelog";

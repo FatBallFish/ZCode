@@ -18,8 +18,8 @@
   !define ZCODE_INSTALL_MANIFEST_NAME ".mikiko-install-manifest"
 !endif
 
-!ifndef ZCODE_UNINSTALLER_LOG_PATH
-  !define ZCODE_UNINSTALLER_LOG_PATH "$TEMP\Mikiko-uninstaller.log"
+!ifndef MIKIKO_UNINSTALLER_LOG_PATH
+  !define MIKIKO_UNINSTALLER_LOG_PATH "$TEMP\Mikiko-uninstaller.log"
 !endif
 !ifndef ZCODE_UNINSTALLER_FUNCTION_PREFIX
   !define ZCODE_UNINSTALLER_FUNCTION_PREFIX "un."
@@ -43,7 +43,7 @@
 
     StrCmp $MikikoUninstallerLogUnavailable "1" zcodeUninstallerLogDone
     ClearErrors
-    FileOpen $R1 "${ZCODE_UNINSTALLER_LOG_PATH}" a
+    FileOpen $R1 "${MIKIKO_UNINSTALLER_LOG_PATH}" a
     IfErrors zcodeUninstallerLogFailed zcodeUninstallerLogWrite
     zcodeUninstallerLogWrite:
       System::Call "kernel32::GetCurrentProcessId() i.R0"
@@ -191,7 +191,7 @@
   Function MikikoResetUninstallerLog
     StrCpy $MikikoUninstallerDetailsUnavailable ""
     ClearErrors
-    FileOpen $R0 "${ZCODE_UNINSTALLER_LOG_PATH}" w
+    FileOpen $R0 "${MIKIKO_UNINSTALLER_LOG_PATH}" w
     IfErrors zcodeUninstallerDetailsResetFailed zcodeUninstallerDetailsResetSucceeded
     zcodeUninstallerDetailsResetSucceeded:
       FileClose $R0
@@ -210,7 +210,7 @@
 
     StrCmp $MikikoUninstallerDetailsUnavailable "1" zcodeShowUninstallerDetailsDone
     ClearErrors
-    FileOpen $R0 "${ZCODE_UNINSTALLER_LOG_PATH}" r
+    FileOpen $R0 "${MIKIKO_UNINSTALLER_LOG_PATH}" r
     IfErrors zcodeShowUninstallerDetailsDone
     zcodeShowUninstallerDetailsRead:
       ClearErrors
@@ -298,7 +298,7 @@
       SetDetailsPrint listonly
       DetailPrint "Mikiko: cleanup-failed exit-code=$R0"
       Call MikikoShowUninstallerCleanupDetails
-      MessageBox MB_OK|MB_ICONSTOP "旧版本清理失败（错误码 $R0）。可能是文件被占用、权限不足或磁盘空间不足。详细日志：${ZCODE_UNINSTALLER_LOG_PATH}" /SD IDOK
+      MessageBox MB_OK|MB_ICONSTOP "旧版本清理失败（错误码 $R0）。可能是文件被占用、权限不足或磁盘空间不足。详细日志：${MIKIKO_UNINSTALLER_LOG_PATH}" /SD IDOK
       SetErrorLevel 2
       Quit
     ${endif}
@@ -370,17 +370,17 @@
     Push $R2
 
     StrCpy $R2 ""
-    System::Call 'Kernel32::SetEnvironmentVariableW(w "ZCODE_SHORTCUT_PATH", w "$R9") i.R1'
+    System::Call 'Kernel32::SetEnvironmentVariableW(w "MIKIKO_SHORTCUT_PATH", w "$R9") i.R1'
     StrCmp $R1 "0" zcodeReadShortcutTargetDone 0
 
-    nsExec::ExecToStack /TIMEOUT=5000 `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "[Console]::Out.Write(([Activator]::CreateInstance([type]::GetTypeFromProgID('WScript.Shell'))).CreateShortcut([Environment]::GetEnvironmentVariable('ZCODE_SHORTCUT_PATH')).TargetPath)"`
+    nsExec::ExecToStack /TIMEOUT=5000 `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "[Console]::Out.Write(([Activator]::CreateInstance([type]::GetTypeFromProgID('WScript.Shell'))).CreateShortcut([Environment]::GetEnvironmentVariable('MIKIKO_SHORTCUT_PATH')).TargetPath)"`
     Pop $R1
     Pop $R2
     StrCmp $R1 "0" zcodeReadShortcutTargetDone 0
     StrCpy $R2 ""
 
     zcodeReadShortcutTargetDone:
-      System::Call 'Kernel32::SetEnvironmentVariableW(w "ZCODE_SHORTCUT_PATH", p 0) i.R1'
+      System::Call 'Kernel32::SetEnvironmentVariableW(w "MIKIKO_SHORTCUT_PATH", p 0) i.R1'
       StrCpy $R9 "$R2"
       Pop $R2
       Pop $R1

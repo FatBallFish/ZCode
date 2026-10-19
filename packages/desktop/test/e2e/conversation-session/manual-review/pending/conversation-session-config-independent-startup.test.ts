@@ -122,7 +122,7 @@ async function configStatus(): Promise<{
   configRequests: number;
   configResponses: number;
 }> {
-  const origin = process.env.ZCODE_TEST_BASE_URL;
+  const origin = process.env.MIKIKO_TEST_BASE_URL;
   if (!origin) throw new Error("缺少 case-local 配置网关");
   return await (await fetch(new URL("/__scb/status", origin))).json();
 }

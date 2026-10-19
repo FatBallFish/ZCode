@@ -799,7 +799,7 @@ describe("desktopResourceTelemetry CLI 角色与 Windows 门禁保留行为", ()
 
   it("PERF-RES-01 登记 agent pid 后的周期采样只记录 skipped 审计，不启动外部进程", async () => {
     vi.useFakeTimers();
-    vi.stubEnv("ZCODE_ENV", "test");
+    vi.stubEnv("MIKIKO_ENV", "test");
     vi.stubEnv("ZCODE_E2E_RUNTIME_LOG_DIR", "C:\\e2e\\runtime-logs\\desktop");
     const platformSpy = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
     const logger = { info: vi.fn(), warn: vi.fn() };

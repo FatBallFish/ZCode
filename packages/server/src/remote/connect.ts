@@ -57,9 +57,14 @@ export interface RemoteConnection {
 }
 
 const REMOTE_RUNTIME_ENV_KEYS = [
-  "ZCODE_ENV",
+  "MIKIKO_ENV",
   "MIKIKO_BASE_URL",
   "MIKIKO_ENDPOINT_ORIGIN",
+  "MIKIKO_TEST_BASE_URL",
+  "MIKIKO_PRODUCTION_BASE_URL",
+  // D6 双读窗口（specs/brand/surface-rebrand.md）：三个旧键继续双转发，
+  // 供已部署旧远端 server 读取；远端整体换代后删除本组。
+  "ZCODE_ENV",
   "ZCODE_TEST_BASE_URL",
   "ZCODE_PRODUCTION_BASE_URL",
   "ZAI_OAUTH_ORIGIN",

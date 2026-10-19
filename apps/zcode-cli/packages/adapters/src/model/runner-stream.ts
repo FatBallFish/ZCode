@@ -30,6 +30,11 @@ import {
   resolveModelStreamIdleTimeoutMs,
 } from "./stream-idle-timeout.js";
 import {
+  createStreamRepetitionGuardState,
+  feedTextDeltasIntoRepetitionGuard,
+  type StreamRepetitionDetection,
+} from "./stream-repetition-guard.js";
+import {
   createStreamDiagnostics,
   isZeroOutputModelCompletion,
   isSuspiciousStreamDiagnostics,
@@ -104,6 +109,7 @@ export async function* runStreamText(input: {
   runtime: AiSdkModelRuntime;
   statusSink?: ModelStatusSink;
   streamIdleTimeoutMs: number;
+  streamRepetitionGuardEnabled: boolean;
   modelIoFullRetentionEnabled: boolean;
 }): AsyncGenerator<ModelStreamEvent> {
   // 重试预算档位：只放宽瞬态失败的放弃条件；
@@ -162,6 +168,11 @@ export async function* runStreamText(input: {
       attempt,
     );
     const toolCallAssembler = new StreamingToolCallAssembler({ logger: input.logger });
+    // 重复退化护栏按 attempt 独立：重试的新响应从头累计（spec: specs/agent/stream-repetition-guard.md）。
+    const repetitionGuard = createStreamRepetitionGuardState(input.streamRepetitionGuardEnabled);
+    let repetitionGuardStop:
+      | { detection: StreamRepetitionDetection; error: Error }
+      | undefined;
     let streamIterator: AsyncIterator<TextStreamPart<ToolSet>> | undefined;
     let streamReachedNaturalEnd = false;
     let attemptFailed = false;
@@ -416,6 +427,57 @@ export async function* runStreamText(input: {
         emittedEvent = emittedEvent || event.emittedEvent;
         emittedRetryBoundaryEvent = emittedRetryBoundaryEvent || event.emittedRetryBoundaryEvent;
 
+        const repetitionDetection =
+          !event.emittedError && !event.retryScheduled && !event.terminalError
+            ? feedTextDeltasIntoRepetitionGuard(repetitionGuard, event.visibleEvents)
+            : undefined;
+        if (repetitionDetection) {
+          // 重复退化命中：abort 物理流并合成正常 finish。同上下文重试必然复发，
+          // 因此不走 retry / 空回重试 / 流恢复；裁剪与告警由 core 按 finish 标记处理。
+          const guardError = new Error(
+            `Model stream stopped by repetition guard: ${repetitionDetection.repeatCount} consecutive repeats of a ${repetitionDetection.unitLength}-char unit.`,
+          );
+          attemptAbortController.controller.abort(guardError);
+          attemptFailed = true;
+          repetitionGuardStop = { detection: repetitionDetection, error: guardError };
+          for (const pendingEvent of pendingRetrySafeEvents.splice(0)) {
+            emittedEvent = true;
+            yield pendingEvent;
+          }
+          await publishModelStatus(
+            {
+              ...statusContext,
+              attempt,
+              durationMs: Date.now() - startedAt,
+              message: guardError.message,
+              repeatCount: repetitionDetection.repeatCount,
+              requestHeaderCount,
+              requestHeaders,
+              streamOutputCommitted,
+              timestamp: new Date().toISOString(),
+              type: "model_stream_repetition_stopped",
+              unitLength: repetitionDetection.unitLength,
+            },
+            statusPublishOptions(input, admission),
+          );
+          // 本 chunk 的尾部 delta 属于已确认的重复段，直接丢弃，不让它落在合成 finish 之后。
+          yield {
+            type: "finish",
+            finishReason: "stop",
+            providerMetadata: {
+              streamRepetitionGuard: {
+                repeatCount: repetitionDetection.repeatCount,
+                stoppedAtChars: repetitionDetection.totalChars,
+                trimToIndex: repetitionDetection.trimToIndex,
+                unitLength: repetitionDetection.unitLength,
+              },
+            },
+            usage: {},
+          } satisfies ModelStreamEvent;
+          emittedEvent = true;
+          break;
+        }
+
         if (event.retryScheduled) {
           // SSE error chunk 的 retry 是正常控制流，不会进入 catch；
           // 若不显式标记失败，finally 会跳过旧 attempt 的 iterator/tee 清理。
@@ -437,6 +499,45 @@ export async function* runStreamText(input: {
             yield visibleEvent;
           }
         }
+      }
+
+      if (repetitionGuardStop) {
+        // 护栏触发路径：finish 已合成、物理流已 abort；跳过 flush / 空回 / 可疑流判定，
+        // 补发 completed 关闭请求生命周期，并按失败口径记录 model-io（有界聚合，不等待被中断的聚合 promise）。
+        const completedAt = Date.now();
+        await publishModelStatus(
+          {
+            ...statusContext,
+            attempt,
+            durationMs: completedAt - startedAt,
+            finishReason: "stop",
+            requestHeaderCount,
+            requestHeaders,
+            streamOutputCommitted,
+            timestamp: new Date().toISOString(),
+            type: "model_request_completed",
+          },
+          statusPublishOptions(input, admission),
+        );
+        terminalStatusPublished = true;
+        if (recordModelIO && options) {
+          await recordStreamTextDebug({
+            modelIoFullRetentionEnabled: input.modelIoFullRetentionEnabled,
+            attempt,
+            debugDir: input.debugDir,
+            error: repetitionGuardStop.error,
+            isDev,
+            normalizedToolCalls: toolCallAssembler.snapshotNormalizedToolCalls(),
+            options,
+            recordModelIO,
+            request: attemptRequest,
+            requestId: statusContext.requestId,
+            resolved,
+            result: streamResult,
+            startedAt,
+          });
+        }
+        return;
       }
 
       if (retryScheduledFromStreamChunk) {

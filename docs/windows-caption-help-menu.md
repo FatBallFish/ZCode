@@ -39,8 +39,8 @@ Windows/Linux 桌面端曾在右上角自绘标题栏放一个箭头合并菜单
 状态事件使用 case 内合成 `UpdateStatePayload`，只验证 main→preload→菜单展示，不修改真实 updater，也不下载或安装。测试不再依赖 Node 侧 `ZCODE_PRODUCT_FLAVOR`（未编译 define 时固定回退为 preview）；默认期望 Preview；production 必须显式传入期望身份，并对真实菜单断言。
 
 ```bash
-ZCODE_ENV=production ZCODE_PREVIEW_IDENTITY=0 ZCODE_E2E_HELP_MENU_FLAVOR=production pnpm --filter @zcode/desktop test:e2e -- --spec ./test/e2e/help-menu-about.test.ts
-ZCODE_ENV=test ZCODE_PREVIEW_IDENTITY=1 ZCODE_E2E_HELP_MENU_FLAVOR=preview pnpm --filter @zcode/desktop test:e2e -- --spec ./test/e2e/help-menu-about.test.ts
+MIKIKO_ENV=production MIKIKO_PREVIEW_IDENTITY=0 ZCODE_E2E_HELP_MENU_FLAVOR=production pnpm --filter @zcode/desktop test:e2e -- --spec ./test/e2e/help-menu-about.test.ts
+MIKIKO_ENV=test MIKIKO_PREVIEW_IDENTITY=1 ZCODE_E2E_HELP_MENU_FLAVOR=preview pnpm --filter @zcode/desktop test:e2e -- --spec ./test/e2e/help-menu-about.test.ts
 ```
 
 两次身份切换必须重新构建；不设置 skip build。手机 Web 的入口隐藏仍由现有组件单测覆盖，本轮不声称新增手机浏览器 E2E。

@@ -887,6 +887,14 @@ export interface RuntimeModelTextResult {
   contextUsageBreakdown?: ContextUsageBreakdownItem[];
   finishReason: string;
   providerMetadata?: Record<string, unknown>;
+  /** 重复退化护栏触发信息（spec: specs/agent/stream-repetition-guard.md）；正常完成时缺省。 */
+  repetitionGuard?: {
+    repeatCount: number;
+    stoppedAtChars: number;
+    trimToIndex: number;
+    unitLength: number;
+    textTrimmed: boolean;
+  };
   reasoning?: ModelReasoningContentBlock[];
   text: string;
   toolCalls?: ModelToolCall[];

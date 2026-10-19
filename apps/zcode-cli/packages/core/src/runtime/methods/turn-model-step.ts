@@ -267,6 +267,23 @@ async function runModelBackedTurnStepImpl(
       traceContext: modelTraceContext,
     });
     throwIfTurnAborted(state.turnAbortSignal);
+    if (result.repetitionGuard) {
+      // 重复退化护栏触发的可见告警（spec: specs/agent/stream-repetition-guard.md）：
+      // adapter 已终止退化流并合成 finish、core 已裁剪重复尾部，这里把事实落到会话时间线。
+      const warningEvent = this.createEvent(
+        SessionEventType.ModelAnomalyWarning,
+        {
+          category: "stream_repetition",
+          severity: "warning",
+          observedCount: result.repetitionGuard.repeatCount,
+          threshold: result.repetitionGuard.unitLength,
+          warningInjected: false,
+        },
+        modelTraceContext,
+      );
+      await this.appendEvent(warningEvent, modelTraceContext);
+      state.events.push(warningEvent);
+    }
   } catch (error) {
     let finalError = error;
     await recordMainTurnModelUsage(this, state, {

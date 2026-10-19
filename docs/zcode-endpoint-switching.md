@@ -31,7 +31,7 @@ HTTP requests are not cancelled; later requests are rewritten by `NodeApiClient`
 origin to the active origin, while unrelated domains such as `cdn.zcode-ai.com` and
 `feedback.example.invalid` are left untouched. Provider API domains are resolved by their own
 environment rules; for example BigModel API requests use `https://bigmodel.cn` when
-`ZCODE_ENV=test` and `https://bigmodel.cn` in production.
+`MIKIKO_ENV=test` and `https://bigmodel.cn` in production.
 
 For Web dev server, desktop host services, scripts, and CLI testing, set `ZCODE_BASE_URL`, for
 example:

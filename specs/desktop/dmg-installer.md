@@ -13,7 +13,7 @@
 | 桌面对外发布页 URL      | `packages/desktop/src/main/desktopExternalLinks.ts` 的 `DESKTOP_RELEASES_DOWNLOAD_URL`（架构弹窗与 changelog 复用，不得再手写第二份）                                       |
 | DMG 背景图派生          | `brand/mikiko/tools/build-dmg-background.mjs` → `packages/desktop/build/dmg_background{,@2x}.png`（派生产物，禁止手改）                                                     |
 | 未签名 DMG 安装说明注入 | `packages/desktop/scripts/inject-unsigned-dmg-helper.mjs`（hdiutil shadow 方式注入 `build/dmg-install-readme.txt` 为卷内「安装必读.txt」，唯一写入路径）                    |
-| 「未签名模式」判定      | 与 `packages/desktop/electron-builder.config.js` 的 `shouldEnableMacSigning` 同口径：`ZCODE_ENABLE_MAC_SIGN=1` 且存在 `APPLE_SIGNING_IDENTITY`/`CSC_NAME`；否则为未签名模式 |
+| 「未签名模式」判定      | 与 `packages/desktop/electron-builder.config.js` 的 `shouldEnableMacSigning` 同口径：`MIKIKO_ENABLE_MAC_SIGN=1` 且存在 `APPLE_SIGNING_IDENTITY`/`CSC_NAME`；否则为未签名模式 |
 
 ## 产品规则
 
@@ -32,4 +32,4 @@
 1. M 系列 Mac 安装 x64 包启动：弹「架构不匹配」，点「前往下载」打开 GitHub Releases 页。
 2. 未签名模式构建的 DMG 挂载后可见「安装必读.txt」，内容含完整安装步骤与终端清除隔离标记命令（中英双语）。
 3. DMG 打开后为浅色背景，应用图标与 Applications 快捷方式清晰可见。
-4. `ZCODE_ENABLE_MAC_SIGN=1` 且配置了签名身份的构建产物不包含该脚本。
+4. `MIKIKO_ENABLE_MAC_SIGN=1` 且配置了签名身份的构建产物不包含该脚本。

@@ -1,4 +1,5 @@
-import type { KVNamespace, R2Bucket } from "@cloudflare/workers-types";
+import type { D1Database, KVNamespace, R2Bucket } from "@cloudflare/workers-types";
+import { DatabaseSync } from "node:sqlite";
 
 /** 测试共用：内存版 KVNamespace mock（签名对齐 workers-types，含 metadata 与 TTL 选项）。 */
 export function createMemoryKv(): KVNamespace {
@@ -66,4 +67,56 @@ export function createMemoryR2(): R2Bucket {
     },
   };
   return r2 as unknown as R2Bucket;
+}
+
+/**
+ * 测试共用：node:sqlite 实现的内存版 D1Database shim（跑真 SQL，零额外依赖；
+ * Node ≥23.4 起 node:sqlite 免 flag 可用）。仅覆盖本服务用到的
+ * prepare/bind/first/all/run/batch 子集。可选传入 migration SQL 预建 schema。
+ */
+export function createMemoryD1(migrationSql?: string): D1Database {
+  const db = new DatabaseSync(":memory:");
+  if (migrationSql !== undefined && migrationSql.length > 0) {
+    db.exec(migrationSql);
+  }
+  interface BoundStatement {
+    sql: string;
+    params: unknown[];
+  }
+  const makeBound = (bound: BoundStatement) => ({
+    async first<T>(): Promise<T | null> {
+      const row = db.prepare(bound.sql).get(...(bound.params as never[])) as T | undefined;
+      return row === undefined ? null : row;
+    },
+    async all<T>(): Promise<{ results: T[] }> {
+      const rows = db.prepare(bound.sql).all(...(bound.params as never[])) as T[];
+      return { results: rows };
+    },
+    async run(): Promise<{ meta: { changes: number } }> {
+      const info = db.prepare(bound.sql).run(...(bound.params as never[]));
+      return { meta: { changes: Number(info.changes) } };
+    },
+  });
+  const d1 = {
+    prepare(sql: string) {
+      const bound: BoundStatement = { sql, params: [] };
+      return {
+        bind(...args: unknown[]) {
+          bound.params = args;
+          return makeBound(bound);
+        },
+        ...makeBound(bound),
+      };
+    },
+    async batch(statements: unknown[]) {
+      const results: Array<{ meta: { changes: number } }> = [];
+      for (const statement of statements) {
+        results.push(
+          await (statement as { run(): Promise<{ meta: { changes: number } }> }).run(),
+        );
+      }
+      return results;
+    },
+  };
+  return d1 as unknown as D1Database;
 }

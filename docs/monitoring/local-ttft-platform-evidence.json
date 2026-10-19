@@ -10,7 +10,7 @@
     "serviceName": "zcode-local-ttft"
   },
   "endpointProbe": {
-    "note": "接入值取自 CI 变量 ZCODE_PACKAGED_AGENT_OTEL_ENDPOINT/_HEADERS，密钥不入库；下表只记录路径形态与状态码",
+    "note": "接入值取自 CI 变量 MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT/_HEADERS，密钥不入库；下表只记录路径形态与状态码",
     "basePath": "/apm/trace/opentelemetry",
     "headerKeys": ["x-arms-license-key", "x-arms-project", "x-cms-workspace"],
     "results": [

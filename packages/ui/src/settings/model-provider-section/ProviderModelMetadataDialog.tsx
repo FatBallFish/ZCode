@@ -52,6 +52,7 @@ export function ProviderModelMetadataDialog({
   personalConfig,
   overrideFields,
   inheritedConfig,
+  groupTokenOverride,
   onOpenChange,
   onDraftChange,
   onRestore,
@@ -70,6 +71,9 @@ export function ProviderModelMetadataDialog({
   personalConfig?: ModelConfigObject;
   overrideFields?: ReadonlySet<string>;
   inheritedConfig?: ModelConfigObject;
+  /** Provider 级 token 覆盖（specs/provider/group-token-override.md）：存在时对应输入
+   * 置灰并显示覆盖徽标——模型自身配置在覆盖期间不生效，置空分组配置后自动恢复。 */
+  groupTokenOverride?: { contextWindow?: number | null; maxOutputTokens?: number | null };
   onOpenChange: (open: boolean) => void;
   onDraftChange: (patch: Partial<ProviderModelDraftValues>) => void;
   onRestore?: () => void;
@@ -124,7 +128,19 @@ export function ProviderModelMetadataDialog({
   const handleCompositionEnd = () => {
     compositionActiveRef.current = false;
   };
-  const maxOutputTokensInputDisabled = mode === "add" && !draft.idValue.trim();
+  const maxOutputTokensInputDisabled =
+    (mode === "add" && !draft.idValue.trim()) ||
+    groupTokenOverride?.maxOutputTokens != null;
+  const contextWindowInputDisabled = groupTokenOverride?.contextWindow != null;
+  const groupOverrideBadge = (active: boolean) =>
+    active ? (
+      <span
+        className="inline-flex shrink-0 items-center rounded bg-surface-raised px-1.5 py-0.5 text-ui-xs text-foreground-subtle"
+        data-testid="model-provider-group-override-badge"
+      >
+        {intl.formatMessage({ id: "settings.modelProvider.groupOverrideBadge" })}
+      </span>
+    ) : null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {mode === "edit" ? (
@@ -203,8 +219,11 @@ export function ProviderModelMetadataDialog({
           <ModelSettingsGroup group="tokens">
             <div className="space-y-3">
               <div>
-                <div className="mb-1 block text-ui-base text-foreground-subtle">
-                  <ModelConfigInputLabel field="contextWindow" htmlFor={contextWindowInputId} />
+                <div className="mb-1 flex items-center gap-2">
+                  <div className="block text-ui-base text-foreground-subtle">
+                    <ModelConfigInputLabel field="contextWindow" htmlFor={contextWindowInputId} />
+                  </div>
+                  {groupOverrideBadge(contextWindowInputDisabled)}
                 </div>
                 <Input
                   {...TECHNICAL_INPUT_ATTRIBUTES}
@@ -214,6 +233,7 @@ export function ProviderModelMetadataDialog({
                   inputMode="numeric"
                   pattern="[0-9]*"
                   size="lg"
+                  disabled={contextWindowInputDisabled}
                   value={draft.contextWindowValue}
                   data-personal-override={overridden(
                     "contextWindowValue",
@@ -249,6 +269,7 @@ export function ProviderModelMetadataDialog({
                   <div className="text-ui-base text-foreground-subtle">
                     <ModelConfigInputLabel field="maxOutputTokens" htmlFor={maxOutputInputId} />
                   </div>
+                  {groupOverrideBadge(groupTokenOverride?.maxOutputTokens != null)}
                   {addModelConfigResolutionPending ? (
                     <span
                       className="inline-flex shrink-0 items-center text-foreground-subtlest"

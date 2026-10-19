@@ -4,7 +4,8 @@
  * 三态（worktreeStore.draftLocation，按根 workspaceKey）：
  * - local：原样渲染 GitBranchSwitcher（分支切换语义不变）；
  * - new-worktree：起始 ref 选择（不 checkout 根工作区；缺省远程默认分支）；
- * - existing-worktree：锁定展示「现有工作树 · 短id / 分离头指针」。
+ * - existing-worktree：锁定展示「现有工作树 · 分支名或短id / 当前分支（游离态短 id）」
+ *   （2026-10-15 分支展示规则：绑定分支后展示分支名，不再硬编码游离态）。
  * 在 worktree workspace 内的草稿恒为锁定态（registry 命中当前路径）。
  * 首发分流在 SessionPane（handleSendText 拦截），本组件只管选择状态。
  */
@@ -61,6 +62,7 @@ export function DraftWorkLocation({
   const services = useServices();
   const worktreeService = services.worktreeService;
   const registryEntries = useWorktreeStore((state) => state.registryEntries);
+  const branchByWorktreePath = useWorktreeStore((state) => state.branchByWorktreePath);
   const rootKey = workspaceIdentity?.trim() || workspacePath;
   // selector 的 fallback 必须是稳定引用：字面量会在每次 getSnapshot 产生新对象，
   // zustand v5 + useSyncExternalStore 会陷入快照循环导致草稿页崩溃。
@@ -107,18 +109,32 @@ export function DraftWorkLocation({
   );
 
   if (currentWorktreeEntry) {
-    // worktree workspace 草稿：两枚只读 chip（Codex 语义：现有工作树 + 分离头指针）。
+    // worktree workspace 草稿：两枚只读 chip。身份 chip 与选择器同名（分支优先、
+    // 短 id 兜底）；HEAD chip 展示当前分支，游离态才显示「游离 HEAD · 短id」。
+    // 2026-10-15 修复：此前硬编码「游离 HEAD」，工作树绑定分支后仍显示游离态。
+    const currentBranch = branchByWorktreePath[currentWorktreeEntry.worktreePath] ?? null;
+    const identity = currentBranch ?? worktreeShortId(currentWorktreeEntry.id);
     return (
       <div className={cn("flex items-center gap-1", className)}>
         <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-ui-sm text-foreground-secondary">
           <GitBranch className="h-3.5 w-3.5 text-foreground-subtle" />
           {intl.formatMessage({ id: "chat.workLocation.existingWorktree" })}
-          <span className="font-mono text-ui-xs text-foreground-subtle">
-            {worktreeShortId(currentWorktreeEntry.id)}
-          </span>
+          <span className="font-mono text-ui-xs text-foreground-subtle">{identity}</span>
         </span>
-        <span className="inline-flex h-7 items-center rounded-md border border-border bg-surface px-2 text-ui-sm text-foreground-subtle">
-          {intl.formatMessage({ id: "git.head.detached" })}
+        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-ui-sm text-foreground-subtle">
+          {currentBranch ? (
+            <>
+              <GitBranch className="h-3.5 w-3.5 text-foreground-subtle" />
+              <span className="font-mono text-ui-xs">{currentBranch}</span>
+            </>
+          ) : (
+            <>
+              {intl.formatMessage({ id: "git.head.detached" })}
+              <span className="font-mono text-ui-xs">
+                · {worktreeShortId(currentWorktreeEntry.id)}
+              </span>
+            </>
+          )}
         </span>
       </div>
     );
@@ -128,6 +144,10 @@ export function DraftWorkLocation({
     return branchSwitcher;
   }
 
+  const selectedWorktreeBranch = location.worktreePath
+    ? (branchByWorktreePath[location.worktreePath] ?? null)
+    : null;
+
   return (
     <div className={cn("flex items-center gap-1", className)}>
       <LocationSelector
@@ -135,6 +155,7 @@ export function DraftWorkLocation({
         mode={location.mode}
         selectedWorktreePath={location.worktreePath}
         rootWorktrees={rootWorktrees}
+        branchByWorktreePath={branchByWorktreePath}
         onSelect={(next) => setDraftLocation(rootKey, next)}
       />
       {location.mode === "local" ? (
@@ -146,8 +167,20 @@ export function DraftWorkLocation({
           onSelect={(ref) => setDraftLocation(rootKey, { mode: "new-worktree", ref })}
         />
       ) : (
-        <span className="inline-flex h-7 items-center rounded-md border border-border bg-surface px-2 text-ui-sm text-foreground-subtle">
-          {intl.formatMessage({ id: "git.head.detached" })}
+        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-ui-sm text-foreground-subtle">
+          {selectedWorktreeBranch ? (
+            <>
+              <GitBranch className="h-3.5 w-3.5 text-foreground-subtle" />
+              <span className="font-mono text-ui-xs">{selectedWorktreeBranch}</span>
+            </>
+          ) : (
+            <>
+              {intl.formatMessage({ id: "git.head.detached" })}
+              <span className="font-mono text-ui-xs">
+                · {location.worktreePath ? worktreeShortId(location.worktreePath) : ""}
+              </span>
+            </>
+          )}
         </span>
       )}
     </div>
@@ -159,12 +192,14 @@ function LocationSelector({
   mode,
   selectedWorktreePath,
   rootWorktrees,
+  branchByWorktreePath,
   onSelect,
 }: {
   rootKey: string;
   mode: DraftWorkLocationMode;
   selectedWorktreePath?: string;
   rootWorktrees: Array<{ id: string; worktreePath: string }>;
+  branchByWorktreePath: Record<string, string | null>;
   onSelect: (location: {
     mode: DraftWorkLocationMode;
     ref?: string;
@@ -184,15 +219,18 @@ function LocationSelector({
       },
     ];
     for (const entry of rootWorktrees) {
+      // 2026-10-15 分支展示规则：选项名分支优先、短 id 兜底，与锁定态 chip 同名。
+      const identity =
+        branchByWorktreePath[entry.worktreePath] ?? worktreeShortId(entry.id);
       base.push({
         key: `existing:${entry.worktreePath}`,
         mode: "existing-worktree",
-        label: `${intl.formatMessage({ id: "chat.workLocation.existingWorktree" })} · ${worktreeShortId(entry.id)}`,
+        label: `${intl.formatMessage({ id: "chat.workLocation.existingWorktree" })} · ${identity}`,
         worktreePath: entry.worktreePath,
       });
     }
     return base;
-  }, [intl, rootWorktrees]);
+  }, [branchByWorktreePath, intl, rootWorktrees]);
 
   // 触发器用 icon 替代「工作位置」前缀文案（本地=Laptop / 新建=GitBranchPlus / 现有=GitBranch），
   // 当前值文案保留展示；注意不要把 Tooltip 包进 PopoverTrigger asChild——Slot 无法把

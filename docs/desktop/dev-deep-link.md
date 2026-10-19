@@ -25,7 +25,7 @@ Electron bundle 的 `Info.plist` 没有 `CFBundleURLTypes`，系统登记后得�
    - `CFBundleName/CFBundleDisplayName=ZCode Dev`；
    - `CFBundleURLTypes` 中的 `zcode` scheme。
 3. 仍以 `packages/desktop` 目录作为 Electron 的开发入口启动副本，保留 Vite、HMR、
-   `ELECTRON_RENDERER_URL`、`ZCODE_ENV` 和现有单实例锁语义。
+   `ELECTRON_RENDERER_URL`、`MIKIKO_ENV` 和现有单实例锁语义。
 4. 现有 main process 继续调用 `registerDeepLinkProtocol`；由于当前进程已经来自带
    `zcode` 声明的 Dev bundle，LaunchServices 注册的是 Dev bundle，而不是 raw Electron。
 5. `open-url`、`second-instance`、ShareImport 投递和导入持久化逻辑不变。

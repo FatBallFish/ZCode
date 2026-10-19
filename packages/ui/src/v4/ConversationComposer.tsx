@@ -2212,6 +2212,7 @@ function ConversationComposerImpl({
             draftMode={draftMode}
             draftConfig={draftConfig}
             usage={composerUsage}
+            sessionStats={snapshot?.stats ?? null}
             disabled={disabled}
             modelLocked={highspeedCard !== null}
             highspeedPresented={highspeedPresented}

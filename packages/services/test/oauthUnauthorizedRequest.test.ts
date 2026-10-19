@@ -5,7 +5,7 @@ import {
 } from "#src/oauth/oauthUnauthorizedRequest.js";
 import { createNodeApiClient } from "#src/providers/api/nodeApiClient.js";
 
-function createFixture(provider = "zai", env: NodeJS.ProcessEnv = { ZCODE_ENV: "production" }) {
+function createFixture(provider = "zai", env: NodeJS.ProcessEnv = { MIKIKO_ENV: "production" }) {
   const credentials = new Map([
     ["oauth:active_provider", provider],
     ["oauth:zai:access_token", "zai-business-token"],
@@ -176,7 +176,7 @@ describe("当前 App 登录凭据的 HTTP 401 识别", () => {
 
   it("按当前环境和显式 userinfo 配置匹配，不硬编码生产域名", async () => {
     const fixture = createFixture("bigmodel", {
-      ZCODE_ENV: "test",
+      MIKIKO_ENV: "test",
       BIGMODEL_OAUTH_USERINFO_URL: "http://127.0.0.1:18080/custom/userinfo",
     });
     for (const url of [
@@ -208,7 +208,7 @@ describe("当前 App 登录凭据的 HTTP 401 识别", () => {
       const currentOrigin = `https://${environment}.example`;
       const otherOrigin = `https://${environment === "test" ? "production" : "test"}.example`;
       const fixture = createFixture(provider, {
-        ZCODE_ENV: environment,
+        MIKIKO_ENV: environment,
         [baseKey]: currentOrigin,
         [userinfoKey]: `${currentOrigin}/userinfo`,
       });
@@ -229,7 +229,7 @@ describe("当前 App 登录凭据的 HTTP 401 识别", () => {
       "无效 userinfo %s 不影响有效 customerInfo 的 401",
       async (userinfo) => {
         const fixture = createFixture(provider, {
-          ZCODE_ENV: "production",
+          MIKIKO_ENV: "production",
           [userinfoKey]: userinfo,
         });
         await expect(
@@ -251,7 +251,7 @@ describe("当前 App 登录凭据的 HTTP 401 识别", () => {
       async (base) => {
         const userinfo = "https://userinfo.example/current";
         const fixture = createFixture(provider, {
-          ZCODE_ENV: "production",
+          MIKIKO_ENV: "production",
           [baseKey]: base,
           [userinfoKey]: userinfo,
         });
@@ -271,7 +271,7 @@ describe("当前 App 登录凭据的 HTTP 401 识别", () => {
 
     it.each(["", "   "])("空白 override %j 保留默认地址", async (blank) => {
       const fixture = createFixture(provider, {
-        ZCODE_ENV: "production",
+        MIKIKO_ENV: "production",
         [baseKey]: blank,
         [userinfoKey]: blank,
       });
@@ -283,7 +283,7 @@ describe("当前 App 登录凭据的 HTTP 401 识别", () => {
 
     it("全部候选非法时返回 false，不吞掉 HTTP 响应", async () => {
       const fixture = createFixture(provider, {
-        ZCODE_ENV: "production",
+        MIKIKO_ENV: "production",
         [baseKey]: "invalid",
         [userinfoKey]: "/userinfo",
       });
@@ -303,7 +303,7 @@ describe("当前 App 登录凭据的 HTTP 401 识别", () => {
 
   it("ZAI 业务 base 异常时仍匹配默认 OAuth userinfo", async () => {
     const fixture = createFixture("zai", {
-      ZCODE_ENV: "production",
+      MIKIKO_ENV: "production",
       ZAI_BUSINESS_BASE_URL: "invalid",
     });
     await expect(
@@ -325,7 +325,7 @@ describe("当前 App 登录凭据的 HTTP 401 识别", () => {
   );
 
   it("userinfo 分类不受无关的 ZCode base 配置异常影响", async () => {
-    const fixture = createFixture("zai", { ZCODE_ENV: "production", MIKIKO_BASE_URL: "invalid" });
+    const fixture = createFixture("zai", { MIKIKO_ENV: "production", MIKIKO_BASE_URL: "invalid" });
     await expect(
       fixture.observe(
         "https://chat.z.ai/api/oauth/userinfo",
@@ -336,7 +336,7 @@ describe("当前 App 登录凭据的 HTTP 401 识别", () => {
 
   it("URL 配置异常不影响原 JWT 分支", async () => {
     const fixture = createFixture("zai", {
-      ZCODE_ENV: "production",
+      MIKIKO_ENV: "production",
       ZAI_BUSINESS_BASE_URL: "invalid",
       ZAI_OAUTH_USERINFO_URL: "invalid",
     });

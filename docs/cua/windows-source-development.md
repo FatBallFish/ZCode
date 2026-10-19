@@ -120,9 +120,9 @@ tool 名为 `list_apps`；source broker 的实际只读 RPC 名为 `list_applica
 Set-Location $zcodeRoot
 Remove-Item Env:ZCODE_CUA_DEV_ROOT -ErrorAction SilentlyContinue
 $env:ZCODE_CUA_HELPER_RUNTIME_PACKAGE_DIR=$zcodeCuaRoot
-$env:ZCODE_SKIP_REMOTE_ASSETS='1'
-$env:ZCODE_TARGET_OS='win32'
-$env:ZCODE_TARGET_ARCH='x64'
+$env:MIKIKO_SKIP_REMOTE_ASSETS='1'
+$env:MIKIKO_TARGET_OS='win32'
+$env:MIKIKO_TARGET_ARCH='x64'
 pnpm --filter @zcode/desktop build
 pnpm --filter @zcode/desktop exec electron-builder `
   --config electron-builder.config.js --win --x64 --dir

@@ -26,7 +26,7 @@ export const SessionDragOutIndicator = memo(function SessionDragOutIndicator() {
       data-testid="session-drag-out-indicator"
       aria-hidden="true"
       className="pointer-events-none fixed z-[70] flex items-center gap-2 rounded-lg border border-border
-        bg-bg-elevated px-3 py-1.5 text-ui-sm text-foreground shadow-lg"
+        bg-popover px-3 py-1.5 text-ui-sm text-foreground shadow-lg"
       style={{ left, top }}
     >
       <AppWindow className="size-4 shrink-0 text-brand" aria-hidden="true" />

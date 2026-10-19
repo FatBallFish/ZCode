@@ -12,6 +12,13 @@
 - CLI 进程标题：`apps/zcode-cli/packages/cli/src/process-name.ts`
   `CLI_PROCESS_NAME = "mikiko-cli"`；`CLI_COMMAND_NAME = "zcode"` 属安装产物命名
   空间（plan §3.3 / D8），暂不改。
+- 补漏（2026-10-15 审计后复查）：node-repl MCP 进程标题不经 process-names.ts
+  统一前缀，首查遗漏（同文件只改到 PLUGIN_ROOT 环境变量）。
+  `apps/zcode-cli/packages/node-repl-host/src/server.ts`
+  `NODE_REPL_MCP_PROCESS_TITLE = "mikiko-node-repl-mcp"`；同文件 worker 消息
+  判别器 `WORKER_KIND` → `mikiko-node-repl-call`（server 以
+  `new Worker(import.meta.url)` 自 fork 同一产物，两端同构建，无跨版本兼容）；
+  desktop E2E 进程树断言常量同步。
 - 前缀匹配方同步：`desktopStabilityTelemetry.ts` 角色映射同时认 `mikiko-host/agent`
   与旧 `zcode-host/agent`（同版本混跑窗口期）；`desktopCommandHandlers.ts`
   endpoint-submit title 握手串 `zcode-endpoint-submit:` → `mikiko-endpoint-submit:`
@@ -26,14 +33,61 @@ export 项（STORAGE_DIR/HOME/BETA/GIT/RG/UGREP/BFS_BINARY/PLUGIN_ROOT/LOG_* 等
 + `GLM_BINARY_PATH` → `MIKIKO_AGENT_BINARY_PATH` + Vite 注入 `VITE_ZCODE_*` →
 `VITE_MIKIKO_*`。写读两端同仓库原子替换，无旧名回退（plan D1 全新品牌语义）。
 
+补改（2026-10-19）：`ZCODE_ENABLE_MAC_SIGN` → `MIKIKO_ENABLE_MAC_SIGN`——Mac
+出包签名总开关，`bundle.mjs` 与 `electron-builder.config.js` 两处判定口径原子改。
+
+补改（2026-10-19 第二轮）：**构建 harness 组整体 `ZCODE_` → `MIKIKO_`**（约 50 个）：
+`ZCODE_ENV`（仅变量名字符串；TS 常量 `ZCODE_ENV` 与编译期 define `__ZCODE_ENV__`
+按 §5 代码符号口径保留）、注：`ZCODE_COMMIT` 的 TS 常量名因批量词边界替换无法
+与变量名字符串区分，已随值一并改为 `MIKIKO_COMMIT`（version.ts 及全部引用，
+typecheck/单测全量通过；`ZCODE_ENV`/`ZCODE_VERSION` 等其余常量名保持不变）、`TARGET_OS/TARGET_ARCH/COMMIT/SKIP_*(REMOTE_ASSETS/
+PREPARE/BUILD)/CSC_PATH/ENABLE_WINDOWS_SIGN/ENABLE_WINDOWS_BROWSER_IMPORT/
+DESKTOP_DIST_DIR/ELECTRON_RUNTIME_MIRROR/DESKTOP_AGENT_(BUILD_MODE|BYTECODE)/
+PREVIEW_IDENTITY/INSTALLER_NSH/UNINSTALLER_LOG_PATH/SHORTCUT_PATH/BUILD_PATH/
+MACOS_RELEASE_APP_PATH/APP_EXECUTABLE_NAME`（doctor）、`NATIVE_SEARCH_DEPS_ROOT/
+NATIVE_SEARCH_ALLOW_PUBLISH/NODE_DIST_MIRROR/(UGREP|VIIZ|BZIP2|ZSTD|ZLIB|PCRE2|
+BROTLI)_SOURCE_DIR/UGREP_OUTPUT_DIR/REFLEX_SOURCES`（CMake 对）、`CI_TMPDIR`、
+`AUTO_UPDATE(_DEV|_DEV_VERSION)`、`PACKAGED_AGENT_OTEL_(ENDPOINT|HEADERS|
+SERVICE_NAME)`、`BOOTSTRAP_WITH_REMOTE`、`DIST_(BASE_URL|HOME|BIN_DIR)`、
+`DEPS_BASE_URL`。同步面：desktop/CLI 构建脚本、
+electron-builder 配置、vite/tsup/turbo/wdio 配置、根 `.env*` 模板、`.vscode`、
+GitHub Actions（release-desktop.yml）、docs/specs 活文档与 NSIS/CMake 定义。
+
+第二轮同时修复首轮审计漏网（读写两端原子改）：
+- `ZCODE_PRODUCTION_BASE_URL`/`ZCODE_TEST_BASE_URL` → `MIKIKO_*`（DRE scoped
+  读取、vite、E2E passthrough、`.env.development/.env.production` 模板）；
+- `.env.example` 7 个端点模板键（BASE_URL/CDN/SHARE/REMOTE_ASSET_CDN/
+  BUILTIN_PROVIDER_CONFIG_FILE/DEPS_BASE_URL/DIST_BASE_URL）改 `MIKIKO_*`
+  （源码读取端首轮已改，模板漏改会静默失效）；
+- `.vscode/start-electron.mjs` `ZCODE_DEBUG` → `MIKIKO_DEBUG`（运行时读
+  `MIKIKO_DEBUG`，旧名已致 host 调试端口失效）；
+- `ZCODE_BIGMODEL_USAGE_(API_KEY|QUOTA_URL)` → `MIKIKO_*`（`BIGMODEL_*` 原名保留）；
+- 产品代码读取的 dev 开关补改：`ZCODE_WINDOWS_APP_INSTALL_DIR`（DRE 注入 ↔
+  services paths 读取对）、`ZCODE_REMOTE_DEV_AGENT_BUNDLE`（远端 dev 部署）、
+  `ZCODE_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS`、`ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA`；
+- docs/specs 过期引用同步：`ZCODE_UPDATE_FEED_URL` → `MIKIKO_UPDATE_FEED_URL`、
+  `ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL`/`VITE_ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL`
+  → `MIKIKO_*`（源码读取端均已用新名；`VITE_ZCODE_E2E_STORE_BRIDGE` 属 E2E 族保留）。
+
+**远端兼容（D6 双读先例）**：`ZCODE_ENV` 与 `ZCODE_(PRODUCTION|TEST)_BASE_URL`
+属于 client ↔ 已部署远端 server 的转发契约（`connect.ts` `REMOTE_RUNTIME_ENV_KEYS`）。
+新 client **双转发**新旧两组键名，`zcodeEndpoint` 环境解析
+**优先 `MIKIKO_ENV`、兜底 `ZCODE_ENV`**；远端整体换代后删除旧键与兜底。
+
 **保留不改**（明确清单）：
 - `ZCODE_CUA_*` 全部（plan D7：官方 Helper 签名互验）；
 - `ZAI_*`、`BIGMODEL_*`、`OPENAI_*` 等第三方官方配置；
-- `ZCODE_E2E_*`（~60 个）与构建 harness（`ZCODE_ENV/TARGET_OS/TARGET_OS/COMMIT/
-  SKIP_*/CSC_PATH/ENABLE_MAC_SIGN` 等）——CI/dev 专用，非产品面；
+- `ZCODE_E2E_*`（~60 个，含 `VITE_ZCODE_E2E_STORE_BRIDGE`）与纯测试/开发夹具
+  （smoke、offpeak-mock、pre-push 等）——CI/dev 测试矩阵，暂不在改名范围；
+- 运行时调参/灰度旋钮（`ZCODE_MODEL_RETRY_*`、`ZCODE_OFFICIAL_PLUGIN_MARKETPLACE*`
+  等）——产品内部调参面，后续单独评估；
 - `ZCODE_SERVER_*`（client↔已部署远端 server 的启动命令/凭据管道，改名会切断存量
-  远端实例，与 zcode-server.cjs 产物名一起待远端整体换代时原子处理）；
-- TS 常量标识符与 `ZCODE_*` error-code 常量值（plan §5）。
+  远端实例，与 zcode-server.cjs 产物名一起待远端整体换代时原子处理）；D6 双读窗口
+  内 `ZCODE_ENV`/`ZCODE_(PRODUCTION|TEST)_BASE_URL` 旧键随窗口删除；
+- GLM/ZCode 旧 CLI 用户环境兼容读取（`ZCODE_API_KEY`/`ZCODE_MODEL`/`ZCODE_PROVIDER`
+  /`ZCODE_SESSION_DB` 等既有用户 shell/配置存量）；
+- TS 常量标识符（含 `ZCODE_ENV` 常量名、`*_ENV_KEY` 常量名）、编译期 define
+  `__ZCODE_*__`、window 全局 `__ZCODE_*__` 与 `ZCODE_*` error-code 常量值（plan §5）。
 
 ## 3. 落盘文件/目录名
 

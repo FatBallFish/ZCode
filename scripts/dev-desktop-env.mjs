@@ -69,8 +69,8 @@ function run(command, args) {
       env: withPinnedNodePath(
         {
           ...process.env,
-          ZCODE_ENV: requestedEnv,
-          ZCODE_DESKTOP_AGENT_BYTECODE: agentBytecode ? "1" : "0",
+          MIKIKO_ENV: requestedEnv,
+          MIKIKO_DESKTOP_AGENT_BYTECODE: agentBytecode ? "1" : "0",
           ...computerUseDevEnv,
         },
         process.execPath,

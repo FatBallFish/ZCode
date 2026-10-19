@@ -80,7 +80,8 @@ export function isSuspiciousEmptyModelResult(
   // completed/stop + usage 的「内容性空回」，旧谓词要求 non-stop + 零 usage，完全放行，
   // 表现为「切到 ChatGPT 账号模型后秒回空 assistant 消息」。本产品中一轮补全
   // 零文本且零工具调用没有任何可用语义——任何 finish 下都按可疑空回处理
-  // （adapter 侧会先重试一次，core 侧转为可读错误而非静默空消息）。
+  // （adapter 侧会先按 EMPTY_COMPLETION_MAX_RETRIES 预算重试，2026-10-16 起为 5 次，
+  // core 侧转为可读错误而非静默空消息）。
   return true;
 }
 

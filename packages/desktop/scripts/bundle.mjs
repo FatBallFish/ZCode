@@ -41,7 +41,7 @@ const runtimeModuleLookupRoots = [
 const pnpmCommand = "pnpm";
 const DEFAULT_TARGET_OS = "mac";
 const DEFAULT_TARGET_ARCH = "arm64";
-const desktopDistDir = process.env.ZCODE_DESKTOP_DIST_DIR || "dist";
+const desktopDistDir = process.env.MIKIKO_DESKTOP_DIST_DIR || "dist";
 const desktopDistRoot = resolve(desktopRoot, desktopDistDir);
 const desktopProductIdentity = resolveDesktopProductIdentity(process.env);
 
@@ -151,7 +151,7 @@ export function resolveElectronMirror(env = process.env) {
 
 export function createElectronRuntimeMirrorEnv(mirror) {
   return {
-    ZCODE_ELECTRON_RUNTIME_MIRROR: mirror,
+    MIKIKO_ELECTRON_RUNTIME_MIRROR: mirror,
     // @electron/get 的 Electron runtime 环境变量是全局读取的。
     // 如果传给 electron-builder 主进程，会覆盖 dmg-builder 等 generic artifact 的 mirrorOptions。
     ELECTRON_MIRROR: "",
@@ -265,8 +265,8 @@ function printHelp() {
   -h, --help                   查看帮助
 
 环境变量:
-  ZCODE_TARGET_OS              与 --os 等价
-  ZCODE_TARGET_ARCH            与 --arch 等价
+  MIKIKO_TARGET_OS              与 --os 等价
+  MIKIKO_TARGET_ARCH            与 --arch 等价
 `);
 }
 
@@ -288,10 +288,10 @@ function normalizeArch(rawArch) {
 
 function parseArgs(argv) {
   const options = {
-    os: process.env.ZCODE_TARGET_OS ?? null,
-    arch: process.env.ZCODE_TARGET_ARCH ?? null,
-    skipPrepare: process.env.ZCODE_SKIP_PREPARE === "1",
-    skipBuild: process.env.ZCODE_SKIP_BUILD === "1",
+    os: process.env.MIKIKO_TARGET_OS ?? null,
+    arch: process.env.MIKIKO_TARGET_ARCH ?? null,
+    skipPrepare: process.env.MIKIKO_SKIP_PREPARE === "1",
+    skipBuild: process.env.MIKIKO_SKIP_BUILD === "1",
     dryRun: false,
     positionals: [],
   };
@@ -721,8 +721,8 @@ async function main() {
   console.log(`[bundle] skipPrepare=${skipPrepare} skipBuild=${skipBuild}`);
 
   const buildEnv = {
-    ZCODE_TARGET_OS: os,
-    ZCODE_TARGET_ARCH: arch,
+    MIKIKO_TARGET_OS: os,
+    MIKIKO_TARGET_ARCH: arch,
     ...createElectronRuntimeMirrorEnv(resolveElectronMirror()),
     ...createElectronBuilderBinariesMirrorEnv(resolveElectronBuilderBinariesMirror()),
   };
@@ -746,11 +746,11 @@ async function main() {
 
   // 未签名 Mac 包注入「安装必读」说明文件（specs/desktop/dmg-installer.md）。
   // 判定必须与 electron-builder.config.js 的 shouldEnableMacSigning 同口径：
-  // ZCODE_ENABLE_MAC_SIGN=1 且存在 APPLE_SIGNING_IDENTITY/CSC_NAME 才算签名模式；
+  // MIKIKO_ENABLE_MAC_SIGN=1 且存在 APPLE_SIGNING_IDENTITY/CSC_NAME 才算签名模式；
   // 两处口径若漂移，会出现“已签名包仍带绕 Gatekeeper 说明”或“未签名包缺说明”。
   const rawMacSigningIdentity = process.env.APPLE_SIGNING_IDENTITY || process.env.CSC_NAME;
   const isMacSignedPackaging =
-    process.env.ZCODE_ENABLE_MAC_SIGN === "1" && Boolean(rawMacSigningIdentity);
+    process.env.MIKIKO_ENABLE_MAC_SIGN === "1" && Boolean(rawMacSigningIdentity);
   if (os === "mac" && !isMacSignedPackaging) {
     console.log("[bundle] 未检测到 Developer ID 签名配置，走无证书打包模式：注入 DMG 安装说明");
     runTimedSync("bundle:inject-unsigned-dmg-helper", () =>

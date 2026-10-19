@@ -189,28 +189,69 @@ export function ProviderConnectionSection({
   readOnly,
   apiFormat,
   baseUrlValue,
+  contextWindowValue,
+  maxOutputTokensValue,
   onApiFormatChange,
   onBaseUrlChange,
   onBaseUrlBlur,
   onBaseUrlKeyDown,
   onBaseUrlCompositionStart,
   onBaseUrlCompositionEnd,
+  onContextWindowChange,
+  onMaxOutputTokensChange,
 }: {
   provider: ProviderSettingsFormProvider;
   readOnly?: boolean;
   apiFormat: ProviderApiType;
   baseUrlValue: string;
+  /** Provider 级 token 覆盖草稿值（空串=置空，specs/provider/group-token-override.md）。 */
+  contextWindowValue: string;
+  maxOutputTokensValue: string;
   onApiFormatChange: (value: ProviderApiType) => void;
   onBaseUrlChange: (value: string) => void;
   onBaseUrlBlur: () => void;
   onBaseUrlKeyDown?: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
   onBaseUrlCompositionStart?: () => void;
   onBaseUrlCompositionEnd?: () => void;
+  onContextWindowChange: (value: string) => void;
+  onMaxOutputTokensChange: (value: string) => void;
 }) {
   const { intl } = useZCodeIntl();
   const showApiFormat = shouldShowProviderApiFormat(provider);
   const readOnlyBaseUrl = provider.config.api?.baseUrl ?? "";
   const resolvedApiFormat = provider.config.api?.type ?? "anthropic-messages";
+  // 仅三协议可配 token 覆盖（当前 personal provider 协议全集即此三者，守卫面向未来扩展）。
+  const tokenOverrideConfigurable =
+    showApiFormat &&
+    ["anthropic-messages", "openai-chat-completions", "openai-responses"].includes(apiFormat);
+
+  const renderTokenOverrideInput = (
+    labelId: string,
+    testId: string,
+    value: string,
+    onChange: (value: string) => void,
+  ) => (
+    <div>
+      <label className="mb-1 block text-ui-base text-foreground-subtle">
+        {intl.formatMessage({ id: labelId })}
+      </label>
+      <Input
+        {...TECHNICAL_INPUT_ATTRIBUTES}
+        type="text"
+        inputMode="numeric"
+        size="lg"
+        data-testid={testId}
+        value={value}
+        placeholder={intl.formatMessage({
+          id: "settings.modelProvider.tokenOverridePlaceholder",
+        })}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <p className="mt-1 text-ui-xs text-foreground-subtlest">
+        {intl.formatMessage({ id: "settings.modelProvider.tokenOverrideHint" })}
+      </p>
+    </div>
+  );
 
   const renderReadOnlyField = (label: string, value: string) => (
     <div>
@@ -276,6 +317,22 @@ export function ProviderConnectionSection({
             {intl.formatMessage({ id: "settings.modelProvider.apiFormat" })}
           </label>
           <ProviderApiFormatSelect value={apiFormat} onChange={onApiFormatChange} />
+        </div>
+      ) : null}
+      {tokenOverrideConfigurable ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {renderTokenOverrideInput(
+            "settings.modelProvider.groupContextWindow",
+            "model-provider-group-context-window-input",
+            contextWindowValue,
+            onContextWindowChange,
+          )}
+          {renderTokenOverrideInput(
+            "settings.modelProvider.groupMaxOutputTokens",
+            "model-provider-group-max-output-tokens-input",
+            maxOutputTokensValue,
+            onMaxOutputTokensChange,
+          )}
         </div>
       ) : null}
     </>
@@ -355,6 +412,7 @@ export function ProviderModelsSection({
   providerName,
   providerEnabled = true,
   providerAccess,
+  groupTokenOverride,
   models,
   onTestModel,
   onModelCommit,
@@ -368,6 +426,8 @@ export function ProviderModelsSection({
   providerName?: string;
   providerEnabled?: boolean;
   providerAccess?: ProviderConfigObject["access"];
+  /** Provider 级 token 覆盖（specs/provider/group-token-override.md）：存在时模型弹窗置灰对应输入。 */
+  groupTokenOverride?: { contextWindow?: number | null; maxOutputTokens?: number | null };
   models: ProviderSettingsFormModel[];
   onTestModel?: (model: string) => Promise<ModelConnectivityResult>;
   onModelCommit: (
@@ -515,6 +575,7 @@ export function ProviderModelsSection({
                     providerName={providerName}
                     providerEnabled={providerEnabled}
                     providerAccess={providerAccess}
+                    groupTokenOverride={groupTokenOverride}
                     inputTestId={testId(TID_MODEL_PROVIDER_MODEL_INPUT, String(index))}
                     deleteTestId={testId(TID_MODEL_PROVIDER_MODEL_DELETE_BUTTON, String(index))}
                     model={model}

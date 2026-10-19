@@ -51,7 +51,7 @@ describe("dev desktop remote production-like script", () => {
   it("启动 env 应强制走 CDN，并允许显式 cache 覆盖", () => {
     const env = buildDesktopRemoteProdEnv(
       {
-        ZCODE_ENV: "test",
+        MIKIKO_ENV: "test",
         ZCODE_DEV_REMOTE_ASSET_USE_CDN: "0",
         MIKIKO_REMOTE_ASSET_CACHE_DIR: "/tmp/custom-cache",
       },
@@ -59,7 +59,7 @@ describe("dev desktop remote production-like script", () => {
       "/Users/alice",
     );
 
-    expect(env.ZCODE_ENV).toBe("production");
+    expect(env.MIKIKO_ENV).toBe("production");
     expect(env.ZCODE_DEV_REMOTE_ASSET_USE_CDN).toBe("1");
     expect(env.MIKIKO_REMOTE_ASSET_CACHE_DIR).toBe("/tmp/custom-cache");
   });

@@ -93,6 +93,7 @@ App(Desktop/CLI)
 
 - 形态：单 Worker + Static Assets（`wrangler.jsonc`：`assets.directory` + `run_worker_first: ["/api/*", "/admin/*"]`），`wrangler deploy` 本地构建直传（避免 Pages git 集成的不可控性）。
 - 职责边界：agent-update 只管更新（强更/manifest），agent.mikiko.ai 管功能配置、预置规则、分享、主页。
+- 语言分流路由（2026-09-29 多语言站点）：`/` 与 `/changelog` 按请求 IP 地域（`cf.country`，CN/HK/MO/TW→cn，其余含未知→en，本地 wrangler dev 无地域信息走 en）308 到 `/cn/`、`/en/`、`/cn/changelog`、`/en/changelog`，查询串保留；语言页面只存在于 `public/{cn,en}/` 下（`changelog.html` 无根级副本，故语言中立的 `/changelog` 必须经 Worker 分流，直连 assets 是 404——2026-10-15 补，桌面端帮助菜单写死 `https://agent.mikiko.ai/changelog`）。用户手动访问另一语言路径时不覆盖（仅语言中立入口按地域分流）。
 - 安装包下载继续走 R2 + agent-dl（Worker 不代理大文件）。
 
 ## 4. 专题方案
@@ -199,6 +200,11 @@ wrangler secret put MIKIKO_ADMIN_SESSION_SECRET   # session cookie 签名密钥
 
 ### 4.4 反馈与遥测关闭
 
+> **2026-10-19 已被 [feedback-tickets.md](feedback-tickets.md) 取代**：反馈重开并
+> 切自建 agent.mikiko.ai（设备 token + 本地优先 + D1/R2 工单后台）；出网红线从
+> 「无 /feedback/* 出网」改为「反馈仅出网 agent.mikiko.ai，不出网 zcode.z.ai」。
+> 以下为关闭期的历史决策记录。
+
 - 反馈（已确认：**隐藏入口方式摘除**，代码保留便于日后恢复）：titleBar「问题上报」菜单项与 feedback center 入口隐藏；`createFeedbackService` 装配（`node.ts:2594`）与 `/feedback/*` 相关代码保留但不可达，不再出网。
 - 遥测：`env.ts:58` `ZCODE_TELEMETRY_ENABLED = false`（硬关，含 onboarding 遥测）。
 
@@ -219,11 +225,11 @@ wrangler secret put MIKIKO_ADMIN_SESSION_SECRET   # session cookie 签名密钥
 | ------------------------------------------ | -------------------------------------------- | -------------------------------- |
 | `ZCODE_BASE_URL` / `ZCODE_ENDPOINT_ORIGIN` | `MIKIKO_BASE_URL` / `MIKIKO_ENDPOINT_ORIGIN` | `zcodeEndpoint.ts:18-33`         |
 | `ZCODE_CDN_BASE_URL`                       | `MIKIKO_CDN_BASE_URL`                        | `remoteCdn.ts:19`                |
-| `ZCODE_UPDATE_FEED_URL`                    | `MIKIKO_UPDATE_FEED_URL`                     | `autoUpdater.ts:26`              |
+| `MIKIKO_UPDATE_FEED_URL`                    | `MIKIKO_UPDATE_FEED_URL`                     | `autoUpdater.ts:26`              |
 | `ZCODE_DYNAMIC_WORKFLOW_MODE`              | `MIKIKO_DYNAMIC_WORKFLOW_MODE`               | `dynamic-workflow-feature.ts:20` |
 | `ZCODE_TELEMETRY_REPORT_ENDPOINT`          | `MIKIKO_TELEMETRY_REPORT_ENDPOINT`           | `env.ts:61`（关闭期保留读取口）  |
 
-**不迁移**（内部机制/测试/身份类，改前缀收益低、风险高）：`ZCODE_ENV`、`ZCODE_DATA_BASE_DIR`/`ZCODE_HOME`/`ZCODE_LOG_DIR`/`ZCODE_DESKTOP_HOME_DIR`（路径体系）、`ZCODE_OFFPEAK_MOCK*`（测试）、CUA/AGENT_SERVER/REMOTE/SERVER/PLUGIN 系（进程间传参）、`ZCODE_UPDATES_ENABLED` 等。存量 `Zcode*` 类名同理不动，仅约束新增命名。
+**不迁移**（内部机制/测试/身份类，改前缀收益低、风险高）：`MIKIKO_ENV`、`ZCODE_DATA_BASE_DIR`/`ZCODE_HOME`/`ZCODE_LOG_DIR`/`ZCODE_DESKTOP_HOME_DIR`（路径体系）、`ZCODE_OFFPEAK_MOCK*`（测试）、CUA/AGENT_SERVER/REMOTE/SERVER/PLUGIN 系（进程间传参）、`ZCODE_UPDATES_ENABLED` 等。存量 `Zcode*` 类名同理不动，仅约束新增命名。
 
 **存量 `Zcode*` 类名对客暴露评估（2026-09-28，结论：暂不重命名）**：对客可见面均已 Mikiko 品牌化——出网 UA 按品牌规范以 `Mikiko/` 开头（`specs/brand/outbound-user-agent.md`，含 WebFetch/插件安装器出口）；UI 文案无 ZCode 残留（i18n 中 `zcode` 仅存在于 key 名与 `x-zcode-bot-secret` 请求头说明等技术性内容；`.zcodeignore` 已于 2026-10-08 更名为 `.mikikoignore`，见 `specs/desktop/workspace-file-search-ignore.md`）。类名仅存在于源码与诊断日志/stack trace（`~/.mikiko/v2/logs/`，技术受众），错误 UI 只展示 traceId 不展示 stack 类名。复查触发条件：若未来某个 `Zcode*` 类名进入对客错误消息、新 UI 展示文案或对外文档，须随该变更一并重命名。
 

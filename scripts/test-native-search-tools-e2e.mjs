@@ -80,8 +80,8 @@ function verifyBashEmbeddedSearch(plan) {
 }
 
 async function resolveNativeSearchPlan(outputDir) {
-  const targetPlatform = process.env.ZCODE_TARGET_OS?.trim() || process.platform;
-  const targetArch = process.env.ZCODE_TARGET_ARCH?.trim() || process.arch;
+  const targetPlatform = process.env.MIKIKO_TARGET_OS?.trim() || process.platform;
+  const targetArch = process.env.MIKIKO_TARGET_ARCH?.trim() || process.arch;
   const bfsPath = process.env.MIKIKO_BFS_BINARY?.trim();
   const rgPath = process.env.MIKIKO_RG_BINARY?.trim();
   const ugrepPath = process.env.MIKIKO_UGREP_BINARY?.trim();

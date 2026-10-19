@@ -105,3 +105,14 @@ sequenceDiagram
 ```
 
 验收：两个 hook 共用身份，购买结果先返回后，旧 no_plan 或旧失败均不能覆盖新结果；另一身份的待完成请求仍正常生效；购买后普通刷新不复用购买前的请求。
+
+## 未知容量降级（2026-10-19）
+
+chatgpt 账号 / sub2api 导入的模型 slug 若无 contextWindow 元数据（builtin
+modelRules 无匹配规则），`usage.contextWindow` 保持 null（未知容量语义不破坏），
+但 provider usage 与本地明细仍已知——投影经新增的 `usage.contextUsage`
+（`{usedTokens, breakdown?}`，nullish：旧 CLI 不发、新客户端缺省均按 null）下发
+降级数据。UI 侧 `size=null` 时展示用量与明细占比，隐藏容量、总量进度条与百分比
+（`chat.contextUsage.degraded` 文案）；容量恢复已知后投影显式下发 null 清理。
+明细口径与智谱账号一致：全部在 CLI 本地按字符估算
+（`core/src/runtime/methods/context-usage.ts`），无供应商门控。

@@ -18,7 +18,8 @@
 
 - **创建即 detached**：`git worktree add --detach <dir> <ref>`；`git branch --show-current` 为空是预期状态，不是缺陷。
 - **ref 语义**：用户在草稿分支 chip 里选「起始分支」；未选时取远程默认分支（`symbolic-ref refs/remotes/<remote>/HEAD`，回退 main/master 探测）；fetch 开关开启时先 `git fetch --prune <remote>`（无 remote 静默跳过）。
-- **目录命名**：`<工作树根目录>/<repoName>-<hash4(rootPath)>/<id8>`；id8 = `crypto.randomBytes(4).toString("hex")`，展示用前 4 位（对齐 Codex「036b」风格）。名称≠分支名。
+- **目录命名**：`<工作树根目录>/<repoName>-<hash4(rootPath)>/<id8>`；id8 = `crypto.randomBytes(4).toString("hex")`，对齐 Codex「036b」风格。名称≠分支名。
+- **分支展示规则（2026-10-15 改）**：创建时 detached，展示短 id（前 4 位）；一旦工作树绑定了分支（经 `createBranchAndSwitch`、切换器或终端内 checkout），**所有展示「该会话/工作树关联分支」的位置一律展示当前分支名**（剥离 `refs/heads/` 前缀），仍游离则展示短 id。分支真值来自 `WorktreeService.list()` 对账 `git worktree list --porcelain` 得到的 `WorktreeOverviewItem.branch`（detached/missing/pruned 为 null）；注册表 `entry.ref` 仍是创建时起点 ref 快照，仅作历史信息，不得用于展示当前分支。生效位置：新建会话选已有工作树的名称、Git 工具区工作树身份行、系统设置-工作树列表、系统设置-归档记录、侧栏/分组视图显示名、会话列表 hover（2026-10-16 调整：hover「项目」只显示 repoName，分支独立成行并带「工作树」标识徽章，避免项目名与分支拼接拥挤）。
 - **会话根目录 = worktree 目录**：spawn cwd、CLI 会话库（按目录哈希分库）、Git 面板、tasks-index `workspace_path` 全部是 worktree 路径，绝不回落原项目。
 - **未跟踪项目资产物化（2026-10-11）**：`git worktree add` 只检出 git 跟踪文件，本地安装的项目级 `.agents`（含 `skills/`，通常未跟踪）不会出现在新工作树；且工作树建在仓库外（`~/.mikiko/worktrees/...`），CLI 的技能根回溯（至 worktree 根的 `.git` 标记为止）也够不到原项目（用户实测：uem-controller 工作树会话找不到 `ec-dev-ship` 技能）。创建成功后由 WorktreeService 把根项目 `.agents` 目录**递归拷贝**一份进工作树（覆盖 git 检出的旧版本，工作树与根项目一致）。
 - **会话配置继承（2026-10-11）**：工作位置分流不改变配置继承语义——首发 `createSession` 与本地首发同构：`firstInput` 携带完整 Submission（`modelSelection`/`mode`/`planEnabled`），顶层携带草稿先行 `config`（模型/思考强度/followupMode）。此前只透传 `text + modelSelection`，权限模式回落新 workspace 缺省、会话持久模型/思考强度丢失。
@@ -134,13 +135,13 @@ create 成功后：同根项目注册条目按 lastUsedAt 升序
 - 项目视图：根项目行的查询 `workspaceScopes` 追加其注册 worktree 的 scope；`WorkspaceSidebar` 组装时把 worktree 组合并进根组（items 合并、hasUnread/workflowCount OR 合并）；行点击/重命名/置顶等按 task 自带 workspacePath 路由。
 - timeline/pinned/自定义分组视图：经 scope 扩宽自动包含 worktree 会话。
 - 徽标：`TaskListItem`/`GroupedTaskRow` leading slot 显示 `GitBranch` icon（注册表命中该 task 的 workspacePath）；hover 让位给 pin 按钮（复用现有互斥）。
-- 显示名：worktree workspace 展示「repoName · 短id」（注册表派生），作用于侧栏项目行、分组视图行标签、空态项目菜单。
+- 显示名：worktree workspace 展示「repoName · 分支名或短id」（注册表派生；2026-10-15 起分支优先，见产品规则·分支展示规则），作用于侧栏项目行、分组视图行标签、空态项目菜单。
 
 ## `/new` 命令
 
 - 注册进 `appSlashCommands`（`/side` 同构；会话态可用，草稿态不提供——草稿本就是新建页）。
 - 本地会话：`startDraft(当前根项目)` + 工作位置=local；分支预选**当前 workspace 分支**（v1 未记录每会话的创建时分支；「按会话起点分支预选」列为后续增强，需 task meta 写通道）。
-- worktree 会话：`startDraft(当前 worktree)` + 工作位置锁「现有工作树 · 短id」、分支锁「分离头指针」（均不可交互）。
+- worktree 会话：`startDraft(当前 worktree)` + 工作位置锁「现有工作树 · 分支名或短id」、分支锁展示当前分支（游离态展示短 id；2026-10-15 起分支优先，不再硬编码「分离头指针」）（均不可交互）。
 
 ## 验收场景
 

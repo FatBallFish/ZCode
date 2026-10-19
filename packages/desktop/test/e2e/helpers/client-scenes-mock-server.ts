@@ -153,7 +153,7 @@ export function applyClientScenesMockEnv(
   baseUrl: string,
 ): void {
   environment.MIKIKO_BASE_URL = baseUrl;
-  environment.ZCODE_TEST_BASE_URL = baseUrl;
+  environment.MIKIKO_TEST_BASE_URL = baseUrl;
   environment.MIKIKO_ENDPOINT_ORIGIN = baseUrl;
 }
 
@@ -161,7 +161,7 @@ export function clearClientScenesMockEnv(
   environment: Record<string, string | undefined>,
   baseUrl: string,
 ): void {
-  for (const key of ["MIKIKO_BASE_URL", "ZCODE_TEST_BASE_URL", "MIKIKO_ENDPOINT_ORIGIN"] as const) {
+  for (const key of ["MIKIKO_BASE_URL", "MIKIKO_TEST_BASE_URL", "MIKIKO_ENDPOINT_ORIGIN"] as const) {
     if (environment[key] === baseUrl) {
       delete environment[key];
     }

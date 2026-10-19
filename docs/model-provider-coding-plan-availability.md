@@ -35,7 +35,7 @@ Model Providers 左侧入口状态会写入 `~/.zcode/v2/coding-plan-cache.json`
 - Start Plan balance 请求必须同时携带 `X-Device-Mid`（来自 `telemetry-state.json` 的 `deviceMid`）；服务端把它当必填，缺失时返回 `400 {"code":3001,"msg":"parameter error"}`，客户端会判成 `unknown` 并隐藏 Start Plan 入口。桌面 host、远端 `zcode-server`、CLI 都要在首次查询前确保所在主机的 `deviceMid` 已存在，见 `docs/zcode-endpoint-device-mid-header.md`。
 - BigModel Start Plan：BigModel OAuth callback 阶段不再调用 `tokenByAuthCode`，直接用一次性 callback `code/state/redirect_uri` 和 `provider: "bigmodel"` 调用 `https://zcode.z.ai/api/v1/oauth/token` 落盘 ZCode JWT；启用校验和余额查询只读取 `zcodejwttoken`，访问 `https://zcode.z.ai/api/v1/zcode-plan/billing/balance?app_version=<ZCODE_VERSION>`，`Authorization: Bearer <zcodejwttoken>`。
 - Z.AI Coding Plan：`https://api.z.ai/api/biz/subscription/list`
-- BigModel Coding Plan：当前环境 BigModel API 主域名 + `/api/biz/subscription/list`；生产为 `https://bigmodel.cn`，`ZCODE_ENV=test` 为 `https://bigmodel.cn`
+- BigModel Coding Plan：当前环境 BigModel API 主域名 + `/api/biz/subscription/list`；生产为 `https://bigmodel.cn`，`MIKIKO_ENV=test` 为 `https://bigmodel.cn`
 
 自动刷新时机：
 

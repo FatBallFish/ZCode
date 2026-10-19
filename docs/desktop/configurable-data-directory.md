@@ -67,7 +67,7 @@ Windows 上禁止把数据根目录设置到 ZCode 的安装目录或其子目�
 | Program Files 安装目录 | `%ProgramFiles%\ZCode`、`%ProgramFiles(x86)%\ZCode`、`%ProgramW6432%\ZCode` |
 | 用户 LocalAppData 安装目录 | `%LOCALAPPDATA%\Programs\ZCode` |
 
-`packages/desktop/src/main/desktopRuntimeEnv.ts` 会在 Windows 打包态把当前安装目录通过 `ZCODE_WINDOWS_APP_INSTALL_DIR` 传给 host process。`packages/services/src/paths.ts` 在服务层按 Windows 路径规则做大小写不敏感的“等于或位于其下”判断，`packages/services/src/setting/settingService.ts` 在复制数据前执行该校验。UI 只展示错误提示，不作为唯一安全边界。
+`packages/desktop/src/main/desktopRuntimeEnv.ts` 会在 Windows 打包态把当前安装目录通过 `MIKIKO_WINDOWS_APP_INSTALL_DIR` 传给 host process。`packages/services/src/paths.ts` 在服务层按 Windows 路径规则做大小写不敏感的“等于或位于其下”判断，`packages/services/src/setting/settingService.ts` 在复制数据前执行该校验。UI 只展示错误提示，不作为唯一安全边界。
 
 ### 安装器阻断保护
 

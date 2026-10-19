@@ -9,6 +9,35 @@ export interface ProviderDraftValues {
   apiFormat: ProviderApiType;
   baseUrlValue: string;
   apiKeyValue: string;
+  /** Provider 级 token 覆盖草稿（字符串输入；空串=置空，正整数=覆盖）。 */
+  contextWindowValue: string;
+  maxOutputTokensValue: string;
+}
+
+/** 草稿输入回填：覆盖值 number → 字符串；未配置/置空（undefined/null）→ 空串。 */
+export function formatProviderTokenOverrideValue(value: number | null | undefined): string {
+  return value == null ? "" : String(value);
+}
+
+/**
+ * Provider 级 token 覆盖草稿解析（specs/provider/group-token-override.md 三态）：
+ * 空输入 = 置空（写 null，仅当前存在覆盖才算变更）；正整数 = 覆盖；非法输入不保存。
+ */
+function resolveTokenOverrideDraftChange(
+  draftValue: string,
+  stored: number | null | undefined,
+  readOnly: boolean,
+): { changed: boolean; value?: number | null } {
+  if (readOnly) return { changed: false };
+  const trimmed = draftValue.trim();
+  if (trimmed === "") {
+    return { changed: stored != null, value: null };
+  }
+  if (!/^\d+$/u.test(trimmed) || Number(trimmed) <= 0) {
+    return { changed: false };
+  }
+  const parsed = Number(trimmed);
+  return { changed: parsed !== stored, value: parsed };
 }
 
 function normalizeConfiguredBaseUrl(value: string): string {
@@ -53,16 +82,42 @@ export function resolvePendingProviderDraftSave({
   const keyChanged =
     isApiKeyAccess(provider.config.access) &&
     draft.apiKeyValue !== (provider.config.access.apiKey ?? "");
-  if (!labelChanged && !typeChanged && !urlChanged && !keyChanged) return null;
+  const contextWindowOverride = resolveTokenOverrideDraftChange(
+    draft.contextWindowValue,
+    provider.config.api?.contextWindow ?? null,
+    Boolean(readOnlyEndpoints),
+  );
+  const maxOutputTokensOverride = resolveTokenOverrideDraftChange(
+    draft.maxOutputTokensValue,
+    provider.config.api?.maxOutputTokens ?? null,
+    Boolean(readOnlyEndpoints),
+  );
+  const tokenOverrideChanged =
+    contextWindowOverride.changed || maxOutputTokensOverride.changed;
+  if (
+    !labelChanged &&
+    !typeChanged &&
+    !urlChanged &&
+    !keyChanged &&
+    !tokenOverrideChanged
+  ) {
+    return null;
+  }
 
   // 表单只拥有名称、连接类型、地址和 Key；重建整个 api 会删除隐藏 headers，
   // 保存 Effective 对象又会把继承字段物化。分别在各自基线上只应用修改过的叶子。
   const apiChanges = {
     ...(typeChanged || (urlChanged && !provider.config.api?.type) ? { type: draft.apiFormat } : {}),
     ...(urlChanged ? { baseUrl: baseURL || undefined } : {}),
+    ...(contextWindowOverride.changed ? { contextWindow: contextWindowOverride.value } : {}),
+    ...(maxOutputTokensOverride.changed
+      ? { maxOutputTokens: maxOutputTokensOverride.value }
+      : {}),
   };
   const api =
-    typeChanged || urlChanged ? { ...provider.config.api, ...apiChanges } : provider.config.api;
+    typeChanged || urlChanged || tokenOverrideChanged
+      ? { ...provider.config.api, ...apiChanges }
+      : provider.config.api;
   const access =
     keyChanged && isApiKeyAccess(provider.config.access)
       ? { ...provider.config.access, apiKey: draft.apiKeyValue }
@@ -84,7 +139,7 @@ export function resolvePendingProviderDraftSave({
           },
         }
       : {}),
-    ...(typeChanged || urlChanged
+    ...(typeChanged || urlChanged || tokenOverrideChanged
       ? { api: { ...provider.personalConfig.api, ...apiChanges } }
       : {}),
   };

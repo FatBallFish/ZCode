@@ -2,15 +2,15 @@
 
 set -euo pipefail
 
-APP_PATH="${1:-${ZCODE_MACOS_RELEASE_APP_PATH:-/Applications/ZCode.app}}"
+APP_PATH="${1:-${MIKIKO_MACOS_RELEASE_APP_PATH:-/Applications/ZCode.app}}"
 ZCODE_HOME_DIR="${ZCODE_HOME:-${HOME:+$HOME/.zcode}}"
 CUA_HELPER_INSTALL_VARIANT="${ZCODE_CUA_HELPER_INSTALL_VARIANT:-}"
-# 安装包身份与后端环境分轴：ZCODE_PREVIEW_IDENTITY=1 让生产后端的构建仍是 ZCode Preview。
+# 安装包身份与后端环境分轴：MIKIKO_PREVIEW_IDENTITY=1 让生产后端的构建仍是 ZCode Preview。
 # 只认 "1"，与 CI workflow / release 门的精确比较同一套语义（其它拼写由 resolve_zcode_env 拒绝）。
 is_preview_identity_requested() {
-  [[ "${ZCODE_PREVIEW_IDENTITY:-}" = "1" ]]
+  [[ "${MIKIKO_PREVIEW_IDENTITY:-}" = "1" ]]
 }
-if [ -z "$CUA_HELPER_INSTALL_VARIANT" ] && { [ "${ZCODE_ENV:-production}" = "test" ] || is_preview_identity_requested; }; then
+if [ -z "$CUA_HELPER_INSTALL_VARIANT" ] && { [ "${MIKIKO_ENV:-production}" = "test" ] || is_preview_identity_requested; }; then
   CUA_HELPER_INSTALL_VARIANT="preview"
 fi
 if [ -n "$CUA_HELPER_INSTALL_VARIANT" ] && [[ ! "$CUA_HELPER_INSTALL_VARIANT" =~ ^[A-Za-z0-9_-]+$ ]]; then
@@ -24,7 +24,7 @@ ZCODE_HOME_HELPER_APP_PATH="${ZCODE_HOME_DIR:+$ZCODE_HOME_DIR/computer-use/${CUA
 HELPER_APP_PATH="${ZCODE_CUA_HELPER_APP_PATH:-$ZCODE_HOME_HELPER_APP_PATH}"
 APP_BUNDLE_NAME="$(basename "$APP_PATH")"
 APP_DISPLAY_NAME="${APP_BUNDLE_NAME%.app}"
-APP_EXECUTABLE_NAME="${ZCODE_APP_EXECUTABLE_NAME:-$APP_DISPLAY_NAME}"
+APP_EXECUTABLE_NAME="${MIKIKO_APP_EXECUTABLE_NAME:-$APP_DISPLAY_NAME}"
 HELPER_EXECUTABLE_NAME="${ZCODE_CUA_HELPER_EXECUTABLE_NAME:-ZCode Computer Use}"
 REQUIRE_CUA_HELPER="${ZCODE_CUA_REQUIRE_HELPER:-0}"
 REQUIRE_CUA_HELPER_STAPLE=0
@@ -38,7 +38,7 @@ Usage:
   bash scripts/doctor-macos-release-app.sh /Applications/ZCode.app
   ZCODE_CUA_REQUIRE_HELPER=1 bash scripts/doctor-macos-release-app.sh /Applications/ZCode.app
   ZCODE_CUA_HELPER_APP_PATH=/path/to/ZCode\ Computer\ Use.app ZCODE_CUA_REQUIRE_HELPER=1 bash scripts/doctor-macos-release-app.sh /Applications/ZCode.app
-  ZCODE_MACOS_RELEASE_APP_PATH=/Applications/ZCode.app pnpm run doctor:macos-release
+  MIKIKO_MACOS_RELEASE_APP_PATH=/Applications/ZCode.app pnpm run doctor:macos-release
 
 Always validates the installed macOS release app with:
   codesign --verify --deep --strict <app>

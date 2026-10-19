@@ -6,7 +6,7 @@
 
 1. “内置浏览器控制”直接读写官方插件 `browser-use@zcode-plugins-official` 的启用状态，不新增第二份开关。
 2. “导入 Chrome 登录状态”与“开启内置浏览器控制”同属“浏览器控制”分组的同一张卡片，作为开启控制后的第一步配套动作；“浏览器数据”分组只保留清除类的破坏性操作。文案以用户收益为主语（AI 直接打开已登录网站），不以内部数据结构（Cookie / LocalStorage / Profile）作为面向用户的说明主体。
-3. macOS/Linux 的“导入 Chrome 登录状态”先确认本机存在可执行的 Chrome/Chromium，再发现 Profile；未安装时立即返回 `chrome_executable_not_found` 并显示“Chrome 未找到”，不得访问 Profile 或修改内置浏览器数据。可执行文件发现依次覆盖显式环境变量、运行中进程、系统注册位置（macOS Spotlight 应用注册、Linux XDG desktop entry/PATH）和标准目录，从而兼容非默认安装目录；不做全盘扫描。确认安装后，按 `Local State.profile.last_used` → `Default` → 唯一可用 Profile 的顺序选择源，一次点击完成 Cookie 与 LocalStorage 的一次性导入，不提供 Profile 选择器和持续同步，也不读取密码库。Windows 桌面端暂时不渲染导入行，但继续保留清缓存和清全部数据；既有 App-Bound `v20` 原生导入实现、手动构建脚本及测试保留，待入口恢复后仍遵循显式 UAC、一次性 `LocalSystem` 服务和 fail-closed 边界。默认 Windows 开发、CI 和发布构建不得编译、签名或打包该 helper；只有显式设置 `ZCODE_ENABLE_WINDOWS_BROWSER_IMPORT=1` 时才恢复 helper 资产链路，该构建开关本身不恢复 UI 入口。macOS 请求 Chrome Safe Storage 钥匙串访问时，用户明确拒绝或取消授权必须终止整次导入，不写入 Cookie，也不再启动 LocalStorage 导入，并显示未授权提示。Linux `v11` Cookie 由同品牌 Chrome/Chromium helper 通过当前桌面会话的 Libsecret/KWallet 解密；ZCode 不直接读取密钥环。导入不主动刷新已打开的页面，用户手动刷新或新开 tab 后读取新数据；Chrome 中可恢复的 session Cookie 在内置持久化分区中保持可恢复，避免 ZCode 重启后立即丢失登录态。
+3. macOS/Linux 的“导入 Chrome 登录状态”先确认本机存在可执行的 Chrome/Chromium，再发现 Profile；未安装时立即返回 `chrome_executable_not_found` 并显示“Chrome 未找到”，不得访问 Profile 或修改内置浏览器数据。可执行文件发现依次覆盖显式环境变量、运行中进程、系统注册位置（macOS Spotlight 应用注册、Linux XDG desktop entry/PATH）和标准目录，从而兼容非默认安装目录；不做全盘扫描。确认安装后，按 `Local State.profile.last_used` → `Default` → 唯一可用 Profile 的顺序选择源，一次点击完成 Cookie 与 LocalStorage 的一次性导入，不提供 Profile 选择器和持续同步，也不读取密码库。Windows 桌面端暂时不渲染导入行，但继续保留清缓存和清全部数据；既有 App-Bound `v20` 原生导入实现、手动构建脚本及测试保留，待入口恢复后仍遵循显式 UAC、一次性 `LocalSystem` 服务和 fail-closed 边界。默认 Windows 开发、CI 和发布构建不得编译、签名或打包该 helper；只有显式设置 `MIKIKO_ENABLE_WINDOWS_BROWSER_IMPORT=1` 时才恢复 helper 资产链路，该构建开关本身不恢复 UI 入口。macOS 请求 Chrome Safe Storage 钥匙串访问时，用户明确拒绝或取消授权必须终止整次导入，不写入 Cookie，也不再启动 LocalStorage 导入，并显示未授权提示。Linux `v11` Cookie 由同品牌 Chrome/Chromium helper 通过当前桌面会话的 Libsecret/KWallet 解密；ZCode 不直接读取密钥环。导入不主动刷新已打开的页面，用户手动刷新或新开 tab 后读取新数据；Chrome 中可恢复的 session Cookie 在内置持久化分区中保持可恢复，避免 ZCode 重启后立即丢失登录态。
 4. “清除浏览器缓存”清理内置浏览器分区的 HTTP cache、Cache Storage、Service Worker 和 shader cache，保留 Cookie、LocalStorage 与 IndexedDB。
 5. “清除全部浏览器数据”作为次级危险操作，二次确认后清理内置浏览器分区的全部站点数据。
 6. Browser 数据操作按钮与设置页同层级的 Terminal font 操作控件统一使用 `lg` 尺寸：高度 `32px`、`rounded-lg`；不同操作仍通过 outline/destructive 语义区分，不以尺寸制造层级差异。
@@ -26,7 +26,7 @@
 | 非默认目录如何发现       | 不依赖默认安装目录                | 环境变量和运行进程优先；macOS 查 Spotlight 注册应用；Linux 查 PATH 与 XDG desktop entry；最后回退标准/Snap/Flatpak 目录；不遍历整块磁盘 |
 | Chrome 未安装            | 显示 Chrome 未找到                | macOS/Linux 在 Profile 发现和目标写入前检查可执行文件；缺失时返回 `chrome_executable_not_found` |
 | Windows 导入入口         | 暂时隐藏                          | Windows desktop 不渲染“导入 Chrome 登录状态”行，清缓存/清全部数据保持可用；原生实现不删除    |
-| Windows 默认构建         | 不携带导入 helper                 | 默认 dev/CI/package 不编译、不签名、不复制 helper；仅 `ZCODE_ENABLE_WINDOWS_BROWSER_IMPORT=1` 显式恢复资产链路，且不自动恢复 UI |
+| Windows 默认构建         | 不携带导入 helper                 | 默认 dev/CI/package 不编译、不签名、不复制 helper；仅 `MIKIKO_ENABLE_WINDOWS_BROWSER_IMPORT=1` 显式恢复资产链路，且不自动恢复 UI |
 | Windows App-Bound Cookie | 保留既有安全边界                  | 入口恢复后，`v20` 仅在用户确认后交给 ZCode 原生 broker + 一次性 `LocalSystem` 服务；取消或校验失败时不写 Cookie |
 | Windows 提权授权         | 入口恢复后每次显式确认并触发 UAC  | 不安装常驻服务；未勾选确认时不发起 UAC；UAC 取消后 LocalStorage 可继续作为部分成功             |
 | Windows helper 供应链    | 开发构建可验证，发布构建必须签名  | x64/arm64 helper 独立打包；发布态签名、文件摘要、应用版本、commit、架构、安装路径任一不匹配即 fail closed |
@@ -55,7 +55,7 @@
 - Windows native pipe wait × bounded timeout：所有通过 `BeginWaitForConnection` / `EndWaitForConnection` 实现有界等待的服务端命名管道必须用 `PipeOptions.Asynchronous` 创建；客户端连接保持同步即可。修复不得扩大 pipe ACL、删除超时、放宽 PID/映像路径/token 校验，或改变 broker → controller → `LocalSystem` service 的身份边界；同步创建模式与异步等待 API 的组合必须由 native source contract 阻止回归。
 - Windows helper 失败诊断 × 敏感信息：进入通用 App-Bound 失败分支时，desktop main 只允许记录 `helper_failed`、`broker_initialization_failed`、`controller_handshake_failed`、`service_channel_failed`、`elevation_failed`、`timeout`、`peer_verification_failed`、`service_failed`、`validation_failed`、`unsupported_key`、`cng_failed`、`decryption_failed`、`service_cleanup_failed` 这十三种固定白名单原因；未知或格式错误的响应统一记为 `invalid_response`。前三种阶段原因只用于区分 broker 初始化、提权控制器握手和 SYSTEM 服务通道，不携带异常文本、路径、PID、pipe/token 或其他运行时原文。不得记录 helper 原始 stdout、请求、Chrome 路径、密钥、Cookie 或 LocalStorage 内容；UI、IPC 和 `BrowserDataImportError` 仍只暴露 `chrome_cookie_app_bound_decryption_failed`。
 - UAC / service lifecycle × partial success：未确认、UAC 取消、服务创建失败、helper 签名/版本/架构失败均不得写入 Cookie；LocalStorage 继续按现有部分成功语义执行。普通 broker 与 elevated controller 都有独立父进程监控和硬超时；即使 Electron 退出、JS 定时器消失或 SYSTEM 服务卡住，controller 也必须进入停止、必要时终止精确服务 PID、删除并核验无残留。
-- Windows build gate × 当前发布流程：默认构建只保留 TypeScript/C# 源码、单元测试和手动 `prepare:browser-import-helper` 脚本，不把 helper 视为本地 runtime 必需资产，也不进入 electron-builder 的 `extraResources`、签名或签名校验。显式开启 `ZCODE_ENABLE_WINDOWS_BROWSER_IMPORT=1` 后才恢复完整资产链路；UI 入口仍由独立产品边界控制。
+- Windows build gate × 当前发布流程：默认构建只保留 TypeScript/C# 源码、单元测试和手动 `prepare:browser-import-helper` 脚本，不把 helper 视为本地 runtime 必需资产，也不进入 electron-builder 的 `extraResources`、签名或签名校验。显式开启 `MIKIKO_ENABLE_WINDOWS_BROWSER_IMPORT=1` 后才恢复完整资产链路；UI 入口仍由独立产品边界控制。
 - Linux `v11` × Libsecret/KWallet：检测到 `v11` 时使用发现 Profile 时匹配到的同品牌 Chrome/Chromium 可执行文件读取隔离快照；若运行中 Chrome 显式携带受支持的 `--password-store`，helper 必须转发该值，否则让 Chrome 按当前桌面环境自动选择。helper 不可用时允许本进程继续导入 `v10`，`v11` 计入 skipped，并保留 LocalStorage 导入。
 - OS 凭据保护 × 导入结果：单条 Cookie 无法解密时跳过受保护项；macOS 用户明确拒绝或取消 Chrome Safe Storage 钥匙串访问时，必须在任何目标写入前终止整次导入，且不得继续导入 LocalStorage。
 - 安装发现 × 自定义目录：只使用用户显式环境变量、运行进程命令行、OS 注册索引、PATH/XDG desktop entry 和已知标准目录；所有候选必须实际存在且可执行。未注册、未运行且不在这些安全来源中的任意磁盘路径不做全盘遍历，用户可通过 `CHROME_PATH` 或 `CHROME_EXECUTABLE` 显式指定。
@@ -93,7 +93,7 @@ Windows dev / CI / package
         |
         +-- 默认 ------------------------------> 不编译、不签名、不复制 helper
         |
-        +-- ZCODE_ENABLE_WINDOWS_BROWSER_IMPORT=1 --> 构建/签名/打包 helper（UI 仍保持隐藏）
+        +-- MIKIKO_ENABLE_WINDOWS_BROWSER_IMPORT=1 --> 构建/签名/打包 helper（UI 仍保持隐藏）
 ```
 
 macOS 授权与导入顺序：
@@ -203,7 +203,7 @@ Windows App-Bound 授权与导入顺序：
 | BS-C36 | 导入行继续留在“浏览器数据”分组            | pruned   | 导入是开启内置浏览器控制后的配套动作，与清除类破坏性操作不同语义；同组展示才能让用户按顺序完成配置 |
 | BS-C37 | 面向用户的描述继续以 Cookie/LocalStorage 为主语 | pruned | 用户只关心“AI 能不能直接用已登录的网站”；数据结构细节留在 spec、日志和错误码，不进入设置页主描述 |
 
-当前没有未决产品语义。本功能读取 Chrome Cookie 数据库与 `Local Storage` 快照，不发现、不打开、不复制 `Login Data`，平台返回值和界面也不包含密码字段。2026-07-16 用户确认：只实现 Windows App-Bound Cookie；保留现有 LocalStorage；不导入密码；每次显式确认并触发 UAC；使用后删除临时服务；继续兼容 Stable/Beta/Dev/Canary/Chromium。2026-07-17 用户确认：helper 细分失败原因只写本地日志，不展示给用户、不扩展 IPC 或公共错误类型。2026-07-20 用户确认：Windows 暂时隐藏 Chrome 导入入口；macOS/Linux 导入前先发现 Chrome，可通过系统注册信息覆盖非默认安装目录，未安装时提示“Chrome 未找到”。同日再次确认：Windows 原生实现后续可能恢复使用，因此不删除源码和测试；默认开发、CI、签名与打包流程停用 helper，仅保留 `ZCODE_ENABLE_WINDOWS_BROWSER_IMPORT=1` 显式资产开关。2026-08-21 用户确认：导入行从“浏览器数据”移到“浏览器控制”分组，与“开启内置浏览器控制”同一张卡片、排在开关之后；标题改为“导入 Chrome 登录状态”，描述改为面向用户收益的表述（一次性带过登录状态，AI 可直接打开已登录网站），不再以 Cookie/LocalStorage/Profile 作为主描述。功能边界、错误码、导入范围和 Windows 隐藏策略均不随本次调整改变。
+当前没有未决产品语义。本功能读取 Chrome Cookie 数据库与 `Local Storage` 快照，不发现、不打开、不复制 `Login Data`，平台返回值和界面也不包含密码字段。2026-07-16 用户确认：只实现 Windows App-Bound Cookie；保留现有 LocalStorage；不导入密码；每次显式确认并触发 UAC；使用后删除临时服务；继续兼容 Stable/Beta/Dev/Canary/Chromium。2026-07-17 用户确认：helper 细分失败原因只写本地日志，不展示给用户、不扩展 IPC 或公共错误类型。2026-07-20 用户确认：Windows 暂时隐藏 Chrome 导入入口；macOS/Linux 导入前先发现 Chrome，可通过系统注册信息覆盖非默认安装目录，未安装时提示“Chrome 未找到”。同日再次确认：Windows 原生实现后续可能恢复使用，因此不删除源码和测试；默认开发、CI、签名与打包流程停用 helper，仅保留 `MIKIKO_ENABLE_WINDOWS_BROWSER_IMPORT=1` 显式资产开关。2026-08-21 用户确认：导入行从“浏览器数据”移到“浏览器控制”分组，与“开启内置浏览器控制”同一张卡片、排在开关之后；标题改为“导入 Chrome 登录状态”，描述改为面向用户收益的表述（一次性带过登录状态，AI 可直接打开已登录网站），不再以 Cookie/LocalStorage/Profile 作为主描述。功能边界、错误码、导入范围和 Windows 隐藏策略均不随本次调整改变。
 
 ## 已接受验收用例
 
@@ -243,7 +243,7 @@ Windows App-Bound 授权与导入顺序：
 | BS-032 | macOS Chrome 安装在非默认目录，但应用已被 Spotlight 注册                                   | 点击一键导入               | 从注册的 app bundle 解析并验证可执行文件，再进入 Profile 发现；不要求位于 `/Applications`                                            | discovery unit；macOS custom-location smoke                            |
 | BS-033 | Linux Chrome 安装在非默认目录，并在 PATH 或 XDG desktop entry 注册                          | 点击一键导入               | 解析注册候选并验证可执行文件，再进入 Profile 发现；继续兼容 Snap/Flatpak                                                              | discovery unit；Linux custom-location smoke                            |
 | BS-034 | macOS/Linux 未找到任何 Chrome/Chromium 可执行文件                                           | 点击一键导入               | 在 Profile 发现前返回 `chrome_executable_not_found`；显示“Chrome 未找到”；目标 Cookie/LocalStorage 不变                               | discovery/import unit；UI component；session spy                       |
-| BS-035 | Windows 默认开发或发布构建，未设置 `ZCODE_ENABLE_WINDOWS_BROWSER_IMPORT`                    | 准备 runtime assets 并打包 | 不编译、不要求、不复制、不签名 helper；Browser 设置仍无导入行；清缓存和清全部数据保持可用                                             | build source contract；bundle config；UI component                     |
+| BS-035 | Windows 默认开发或发布构建，未设置 `MIKIKO_ENABLE_WINDOWS_BROWSER_IMPORT`                    | 准备 runtime assets 并打包 | 不编译、不要求、不复制、不签名 helper；Browser 设置仍无导入行；清缓存和清全部数据保持可用                                             | build source contract；bundle config；UI component                     |
 | BS-036 | Desktop/Web 打开 Browser 设置页                                                     | 查看导入、清缓存、清全部数据按钮 | 三个操作按钮均使用设置页 `lg` 控件尺寸（`32px` 高、`rounded-lg`），与 Terminal font 操作控件一致                                       | UI component class contract                                            |
 | BS-037 | macOS/Linux desktop 打开 Browser 设置页                                             | 查看分区信息结构                 | “导入 Chrome 登录状态”与“开启内置浏览器控制”在“浏览器控制”分组的同一张卡片内，且排在开关之后；“浏览器数据”分组只剩清缓存与清全部数据 | UI component DOM 顺序契约                                              |
 

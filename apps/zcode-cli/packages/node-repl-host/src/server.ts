@@ -38,8 +38,11 @@ import {
 
 const MAX_SYNC_TIMEOUT_MS = 120_000;
 const UNTRUSTED_SESSION_KEY = "__unscoped__";
-const WORKER_KIND = "zcode-node-repl-call";
-export const NODE_REPL_MCP_PROCESS_TITLE = "zcode-node-repl-mcp";
+// 2026-10-15 品牌化补漏：进程标题此前漏改（specs/brand/surface-rebrand.md 验收 1 要求
+// ps 无 zcode- 前缀进程，且该标题不经 process-names.ts 统一前缀）。worker 判别器同步
+// 改名——server 以 new Worker(import.meta.url) 自 fork 同一产物，消息两端同构建，无跨版本兼容。
+const WORKER_KIND = "mikiko-node-repl-call";
+export const NODE_REPL_MCP_PROCESS_TITLE = "mikiko-node-repl-mcp";
 const pluginRoot = process.env.MIKIKO_PLUGIN_ROOT ?? process.env.CLAUDE_PLUGIN_ROOT ?? process.cwd();
 // CUA 与 Browser Use 共用 node_repl host，但文档和 native 依赖必须按领域隔离；
 // 否则 CUA skill 会因为 host root 恰好来自 Browser Use 而再次产生隐式依赖。

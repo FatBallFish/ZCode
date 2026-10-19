@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 下载并整理 GLM 平台二进制。
 #
-# 开发态优先走 ZCODE_AGENT_WORKDIR / 同级仓库源码启动；只有打包态、生产态和无源码的开发环境
+# 开发态优先走 MIKIKO_AGENT_WORKDIR / 同级仓库源码启动；只有打包态、生产态和无源码的开发环境
 # 才需要依赖这个脚本提前准备平台二进制。目录布局统一服务本机打包与远程部署：
 # - 当前目标平台输出到 bundled-agents，供本机运行 / 打包直接内置
 # - 远程专用平台输出到 mock-cdn，供 remote deploy 按平台拉取
@@ -9,8 +9,8 @@
 set -euo pipefail
 INTRANET_MACHINE_HOST="${INTRANET_MACHINE_HOST:-10.0.0.100}"
 
-PLATFORM="${1:-${ZCODE_TARGET_OS:-$(uname -s | tr '[:upper:]' '[:lower:]')}}"
-RAW_ARCH="${2:-${ZCODE_TARGET_ARCH:-$(uname -m)}}"
+PLATFORM="${1:-${MIKIKO_TARGET_OS:-$(uname -s | tr '[:upper:]' '[:lower:]')}}"
+RAW_ARCH="${2:-${MIKIKO_TARGET_ARCH:-$(uname -m)}}"
 
 case "$PLATFORM" in
   mac|macos|darwin|osx) PLATFORM="darwin" ;;
@@ -27,8 +27,8 @@ esac
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 GLM_RUNTIME_VERSION="$(node -e "const fs=require('fs');const source=fs.readFileSync('$REPO_ROOT/packages/shared/src/zcode-agent-runtime.ts','utf8');const match=source.match(/version:\\s*['\"]([^'\"]+)['\"]/);if(!match){throw new Error('Unable to parse ZCode Agent runtime version');}process.stdout.write(match[1]);")"
-LOCAL_PLATFORM="${ZCODE_TARGET_OS:-$(uname -s | tr '[:upper:]' '[:lower:]')}"
-LOCAL_ARCH="${ZCODE_TARGET_ARCH:-$(uname -m)}"
+LOCAL_PLATFORM="${MIKIKO_TARGET_OS:-$(uname -s | tr '[:upper:]' '[:lower:]')}"
+LOCAL_ARCH="${MIKIKO_TARGET_ARCH:-$(uname -m)}"
 
 case "$LOCAL_PLATFORM" in
   mac|macos|darwin|osx) LOCAL_PLATFORM="darwin" ;;

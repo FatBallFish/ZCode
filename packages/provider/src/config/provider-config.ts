@@ -178,12 +178,17 @@ export class ProviderApiConfig extends ConfigOverlay<ProviderApiConfig> {
   readonly type?: ProviderApiConfigInput["type"];
   readonly baseUrl?: ProviderApiConfigInput["baseUrl"];
   readonly headers?: ProviderApiConfigInput["headers"];
+  /** Provider 级 token 覆盖（specs/provider/group-token-override.md）：undefined/null 不覆盖。 */
+  readonly contextWindow?: ProviderApiConfigInput["contextWindow"];
+  readonly maxOutputTokens?: ProviderApiConfigInput["maxOutputTokens"];
 
   constructor(input: ProviderApiConfigInput = {}) {
     super();
     this.type = input.type;
     this.baseUrl = input.baseUrl;
     this.headers = input.headers ? Object.freeze({ ...input.headers }) : input.headers;
+    this.contextWindow = input.contextWindow;
+    this.maxOutputTokens = input.maxOutputTokens;
     Object.freeze(this);
   }
 
@@ -192,6 +197,8 @@ export class ProviderApiConfig extends ConfigOverlay<ProviderApiConfig> {
       type: this.overlayValue(this.type, next.type),
       baseUrl: this.overlayValue(this.baseUrl, next.baseUrl),
       headers: this.overlayValue(this.headers, next.headers),
+      contextWindow: this.overlayValue(this.contextWindow, next.contextWindow),
+      maxOutputTokens: this.overlayValue(this.maxOutputTokens, next.maxOutputTokens),
     });
   }
 
@@ -205,6 +212,8 @@ export class ProviderApiConfig extends ConfigOverlay<ProviderApiConfig> {
       type: this.type,
       baseUrl: this.baseUrl,
       headers: this.headers,
+      contextWindow: this.contextWindow,
+      maxOutputTokens: this.maxOutputTokens,
     });
   }
 }

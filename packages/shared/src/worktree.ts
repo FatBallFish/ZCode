@@ -86,11 +86,18 @@ export interface WorktreeOverviewItem {
   dirtyFileCount: number | null;
   /** detached HEAD 当前指向的短 SHA（展示用）。 */
   headShortSha: string | null;
+  /**
+   * 当前分支名（git worktree list --porcelain 的 branch，已剥 refs/heads/ 前缀）；
+   * 游离态或 missing/pruned 时为 null——展示端以分支优先、短 id 兜底
+   * （specs/desktop/worktrees.md 分支展示规则，2026-10-15）。entry.ref 是创建时
+   * 起点 ref 快照，不代表当前分支，不得用于展示。
+   */
+  branch: string | null;
   /** 该工作树下的会话（按更新时间倒序）。 */
   sessions: Array<{
     taskId: ZCodeTaskMeta["taskId"];
     title: ZCodeTaskMeta["title"];
-    status?: ZCodeTaskPersistStatus;
+    status?: ZCodeTaskMeta["status"];
     updatedAt: ZCodeTaskMeta["updatedAt"];
   }>;
 }
@@ -135,6 +142,7 @@ export const worktreeOverviewItemSchema = z.object({
   diskStatus: z.enum(["ready", "missing", "pruned"]),
   dirtyFileCount: z.number().int().nonnegative().nullable(),
   headShortSha: z.string().nullable(),
+  branch: z.string().nullable(),
   sessions: z.array(
     z.object({
       taskId: z.string(),

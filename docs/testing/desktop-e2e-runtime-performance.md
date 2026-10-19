@@ -161,7 +161,7 @@ session/清理不稳定，因此当前默认收敛为 1 shard；需要性能并�
 
 父 runner 的 agent build 默认使用已有 Turbo 内容缓存：冷缓存仍按依赖图完整构建，
 warm cache 实测从约一分钟级降到 `1,664 ms`。显式
-`ZCODE_DESKTOP_AGENT_BUILD_MODE` 继续可以覆盖该默认值。
+`MIKIKO_DESKTOP_AGENT_BUILD_MODE` 继续可以覆盖该默认值。
 
 后续完整轮次：
 

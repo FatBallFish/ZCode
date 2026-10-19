@@ -10,7 +10,7 @@ import {
   DEFAULT_LOCALE,
   type Locale,
   ZCODE_BUILD_TIME,
-  ZCODE_COMMIT,
+  MIKIKO_COMMIT,
   ZCODE_ENV,
   ZCODE_VERSION,
 } from "@zcode/shared";
@@ -155,7 +155,7 @@ export function createAboutSnapshot(options: AboutSnapshotOptions = {}): AboutSn
 
   return {
     appVersion: normalizeValue(options.appVersion ?? buildMetadata?.appVersion ?? ZCODE_VERSION),
-    buildCommitId: normalizeValue(buildMetadata?.buildCommitId ?? ZCODE_COMMIT),
+    buildCommitId: normalizeValue(buildMetadata?.buildCommitId ?? MIKIKO_COMMIT),
     buildTime: normalizeValue(buildMetadata?.buildTime ?? ZCODE_BUILD_TIME),
     environment: normalizeValue(options.environment ?? ZCODE_ENV),
     electronVersion: normalizeValue(runtimeVersions.electron),

@@ -91,7 +91,7 @@ ARMS再次只读查询近1小时新service为0；可查询既有logstore，不�
 
 ### 平台验收（2026-09-15）
 
-上一段"新service为0"已被取代。接入值取自 CI 变量 `ZCODE_PACKAGED_AGENT_OTEL_ENDPOINT`/`_HEADERS` 后，本 ticket 的诊断用例（`conversation-session-ttft-diagnostics`，6/6 通过）与 01 的 stages 用例样本共 12 次发送写入北京 ARMS 并可查。
+上一段"新service为0"已被取代。接入值取自 CI 变量 `MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT`/`_HEADERS` 后，本 ticket 的诊断用例（`conversation-session-ttft-diagnostics`，6/6 通过）与 01 的 stages 用例样本共 12 次发送写入北京 ARMS 并可查。
 
 - 诊断口径全部落地：`records` 按 kind 齐全（start 16 / first_output 12 / first_text 12 / excluded 4 / checkpoint 442）；`excluded` 区分 cancelled 2 / failed 1 / guided 1；`attempt` 按 role+outcome 区分 response/failed 2 与 response/first_output 12，主 TTFT 未被重试放大；`no_output.wait` 记录 cancelled 2 / failed 1。
 - 准备与等待区间齐全：context、hooks、persistence、mcp、tools、request_assembly、user_confirmation、retry_wait 均有样本及 P95。

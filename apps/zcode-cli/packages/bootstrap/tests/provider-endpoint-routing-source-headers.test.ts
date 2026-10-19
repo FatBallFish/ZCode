@@ -30,8 +30,8 @@ describe("createProviderEndpointRoutingSourceHeaders", () => {
       appVersion: "1.2.3",
       env: {
         MIKIKO_DATA_BASE_DIR: dataBaseDir,
-        ZCODE_ENV: "test",
-        ZCODE_TEST_BASE_URL: "https://routing-config.example.test",
+        MIKIKO_ENV: "test",
+        MIKIKO_TEST_BASE_URL: "https://routing-config.example.test",
       },
       sourceTitle: "electron",
     });
@@ -61,7 +61,7 @@ describe("createProviderEndpointRoutingSourceHeaders", () => {
     const headers = await createProviderEndpointRoutingSourceHeaders({
       env: {
         MIKIKO_DATA_BASE_DIR: dataBaseDir,
-        ZCODE_ENV: "production",
+        MIKIKO_ENV: "production",
         MIKIKO_APP_VERSION: "2.0.0",
       },
     });

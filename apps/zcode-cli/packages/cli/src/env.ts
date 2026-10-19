@@ -132,7 +132,7 @@ function resolveCliRuntimeEnv(env: CliEnv, argv: readonly string[]): ZCodeRuntim
 
 function applyBetaStorageDefault(env: CliEnv, argv: readonly string[]): void {
   if (env.MIKIKO_STORAGE_DIR?.trim()) return;
-  const explicitBeta = env.MIKIKO_BETA === "1" || env.ZCODE_ENV === "beta";
+  const explicitBeta = env.MIKIKO_BETA === "1" || env.MIKIKO_ENV === "beta";
   const invokedAsBeta = argv.some((arg) => /(^|[/\\])zcode-beta(?:$|\.)/u.test(arg));
   if (!explicitBeta && !invokedAsBeta) return;
   env.MIKIKO_STORAGE_DIR = join(homedir(), ".mikiko-beta");

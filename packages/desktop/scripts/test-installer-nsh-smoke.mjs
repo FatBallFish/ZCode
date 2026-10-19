@@ -69,12 +69,12 @@ function readShortcutProperty(shortcutPath, propertyName) {
 
   const command = [
     "$shell = New-Object -ComObject WScript.Shell",
-    "$shortcut = $shell.CreateShortcut($env:ZCODE_SHORTCUT_PATH)",
+    "$shortcut = $shell.CreateShortcut($env:MIKIKO_SHORTCUT_PATH)",
     `[Console]::Out.Write(${propertyExpression})`,
   ].join("; ");
   return execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], {
     encoding: "utf-8",
-    env: { ...process.env, ZCODE_SHORTCUT_PATH: shortcutPath },
+    env: { ...process.env, MIKIKO_SHORTCUT_PATH: shortcutPath },
   }).trim();
 }
 
@@ -95,7 +95,7 @@ function compileFixture({
     `/DNSIS_INCLUDE_DIR=${resolve(nsisDir, "Include")}`,
     `/DELECTRON_BUILDER_NSIS_INCLUDE_DIR=${resolve(appBuilderLibDir, "templates/nsis/include")}`,
     `/DNSIS_PLUGIN_DIR=${resolve(nsisResourcesDir, "plugins/x86-unicode")}`,
-    `/DZCODE_INSTALLER_NSH=${installerNshPath}`,
+    `/DMIKIKO_INSTALLER_NSH=${installerNshPath}`,
     `/DFIXTURE_EXE=${process.env.ComSpec ?? "C:\\Windows\\System32\\cmd.exe"}`,
     `/DOUTPUT_FILE=${outputPath}`,
     `/DDEFAULT_LOG_PATH=${defaultLogPath}`,

@@ -209,7 +209,7 @@ describe("AiSdkModelAdapter", () => {
     expect(runtimeHeaders).toEqual(["token-1", "token-2"]);
   });
 
-  it("retries a generic empty generateText completion once", async () => {
+  it("retries a generic empty generateText completion when the next attempt recovers", async () => {
     let attempts = 0;
     const statusEvents: ModelNetworkStatusEvent[] = [];
     const runtime: AiSdkModelRuntime = {
@@ -234,7 +234,7 @@ describe("AiSdkModelAdapter", () => {
     };
     const adapter = new AiSdkModelAdapter({
       registry: registry(),
-      retry: { baseDelayMs: 0, jitter: false, maxAttempts: 3, maxDelayMs: 0 },
+      retry: { baseDelayMs: 0, jitter: false, maxAttempts: 11, maxDelayMs: 0 },
       runtime,
     });
 
@@ -254,8 +254,9 @@ describe("AiSdkModelAdapter", () => {
     expect(statusEvents.filter((event) => event.type === "model_retry_scheduled")).toHaveLength(1);
   });
 
-  it("does not retry a generic empty generateText completion more than once", async () => {
+  it("does not retry a generic empty generateText completion beyond the 5-retry budget", async () => {
     let attempts = 0;
+    const statusEvents: ModelNetworkStatusEvent[] = [];
     const runtime: AiSdkModelRuntime = {
       async generateText() {
         attempts += 1;
@@ -269,9 +270,48 @@ describe("AiSdkModelAdapter", () => {
         throw new Error("not used");
       },
     };
+    // maxAttempts 取默认 11：证明截断来自空回预算（1 首试 + 5 重试 = 6 次）而非总预算。
     const adapter = new AiSdkModelAdapter({
       registry: registry(),
-      retry: { baseDelayMs: 0, jitter: false, maxAttempts: 3, maxDelayMs: 0 },
+      retry: { baseDelayMs: 0, jitter: false, maxAttempts: 11, maxDelayMs: 0 },
+      runtime,
+    });
+
+    const result = await executeAdapterGenerateText(adapter, {
+      providerId: "test",
+      modelId: "model-a",
+      messages: [{ role: "user", content: "Ping" }],
+      statusSink: {
+        publish(event) {
+          statusEvents.push(event);
+        },
+      },
+    });
+
+    expect(attempts).toBe(6);
+    expect(result.text).toBe("");
+    expect(statusEvents.filter((event) => event.type === "model_retry_scheduled")).toHaveLength(5);
+  });
+
+  it("recovers a generic empty generateText completion on the last budgeted retry", async () => {
+    let attempts = 0;
+    const runtime: AiSdkModelRuntime = {
+      async generateText() {
+        attempts += 1;
+        // 前 5 次（首试 + 4 次重试）均空回，第 6 次（最后一次预算内重试）恢复。
+        return {
+          finishReason: attempts >= 6 ? "stop" : "other",
+          text: attempts >= 6 ? "recovered" : "",
+          usage: attempts >= 6 ? usage(1, 1) : usage(0, 0),
+        } as never;
+      },
+      streamText() {
+        throw new Error("not used");
+      },
+    };
+    const adapter = new AiSdkModelAdapter({
+      registry: registry(),
+      retry: { baseDelayMs: 0, jitter: false, maxAttempts: 11, maxDelayMs: 0 },
       runtime,
     });
 
@@ -281,11 +321,11 @@ describe("AiSdkModelAdapter", () => {
       messages: [{ role: "user", content: "Ping" }],
     });
 
-    expect(attempts).toBe(2);
-    expect(result.text).toBe("");
+    expect(attempts).toBe(6);
+    expect(result.text).toBe("recovered");
   });
 
-  it("retries a generic empty stream completion once without leaking its events", async () => {
+  it("retries a generic empty stream completion when the next attempt recovers without leaking its events", async () => {
     let attempts = 0;
     const statusEvents: ModelNetworkStatusEvent[] = [];
     const runtime: AiSdkModelRuntime = {
@@ -315,7 +355,7 @@ describe("AiSdkModelAdapter", () => {
     };
     const adapter = new AiSdkModelAdapter({
       registry: registry(),
-      retry: { baseDelayMs: 0, jitter: false, maxAttempts: 3, maxDelayMs: 0 },
+      retry: { baseDelayMs: 0, jitter: false, maxAttempts: 11, maxDelayMs: 0 },
       runtime,
     });
 
@@ -344,7 +384,7 @@ describe("AiSdkModelAdapter", () => {
     expect(statusEvents.filter((event) => event.type === "model_retry_scheduled")).toHaveLength(1);
   });
 
-  it("does not retry a generic empty stream completion more than once", async () => {
+  it("does not retry a generic empty stream completion beyond the 5-retry budget", async () => {
     let attempts = 0;
     const runtime: AiSdkModelRuntime = {
       async generateText() {
@@ -360,9 +400,10 @@ describe("AiSdkModelAdapter", () => {
         } as never;
       },
     };
+    // maxAttempts 取默认 11：证明截断来自空回预算（1 首试 + 5 重试 = 6 次）而非总预算。
     const adapter = new AiSdkModelAdapter({
       registry: registry(),
-      retry: { baseDelayMs: 0, jitter: false, maxAttempts: 3, maxDelayMs: 0 },
+      retry: { baseDelayMs: 0, jitter: false, maxAttempts: 11, maxDelayMs: 0 },
       runtime,
     });
 
@@ -375,7 +416,7 @@ describe("AiSdkModelAdapter", () => {
       events.push(event);
     }
 
-    expect(attempts).toBe(2);
+    expect(attempts).toBe(6);
     expect(events.map((event) => event.type)).toEqual(["start", "finish"]);
   });
 
@@ -3436,9 +3477,13 @@ describe("AiSdkModelAdapter", () => {
         } as never;
       },
     };
+    // 该流零文本+零工具（context-window-exceeded 本就零输出），按空回口径会重试
+    // EMPTY_COMPLETION_MAX_RETRIES 次；默认退避 base 2s×倍增会累计超测试超时，
+    // 这里用零延迟配置让重试瞬间跑完，断言仍验证最终 attempt 的 finish 事件。
     const adapter = new AiSdkModelAdapter({
       runtime,
       registry: registry(),
+      retry: { baseDelayMs: 0, jitter: false, maxAttempts: 11, maxDelayMs: 0 },
     });
 
     const events = [];
@@ -6512,9 +6557,12 @@ describe("AiSdkModelAdapter", () => {
         } as never;
       },
     };
+    // 同上：流未提交任何 tool call（无 input end）且零文本，按空回口径重试；
+    // 零延迟配置避免默认退避累计超时，断言语义不变（最终 attempt 的事件）。
     const adapter = new AiSdkModelAdapter({
       runtime,
       registry: registry(),
+      retry: { baseDelayMs: 0, jitter: false, maxAttempts: 11, maxDelayMs: 0 },
     });
 
     const events: ModelStreamEvent[] = [];

@@ -261,7 +261,7 @@ describe("Windows E2E shard runner", () => {
 
   it("builds desktop and agent once before starting both children concurrently", async () => {
     const plan = createPlan();
-    expect(plan.buildSteps[1]?.env.ZCODE_DESKTOP_AGENT_BUILD_MODE).toBe("turbo");
+    expect(plan.buildSteps[1]?.env.MIKIKO_DESKTOP_AGENT_BUILD_MODE).toBe("turbo");
     const events: string[] = [];
     const childResolvers: Array<(result: { exitCode: number }) => void> = [];
 

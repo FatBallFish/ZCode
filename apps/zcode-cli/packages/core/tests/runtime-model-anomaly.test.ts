@@ -9,6 +9,7 @@ import { createTestAgentRuntime } from "./test-agent-runtime.js";
 import { createToolRegistry } from "../src/tool/registry.js";
 import { createTestSessionEventStore } from "./test-event-store.js";
 import { createTestModelFactory } from "./test-runtime-model.js";
+import { readStreamRepetitionGuardMarker } from "../src/runtime/helpers/model-anomaly.js";
 
 describe("AgentRuntime model anomaly guards", () => {
   it("passes model capability through on main model requests", async () => {
@@ -471,6 +472,78 @@ describe("AgentRuntime model anomaly guards", () => {
       warningInjected: true,
     });
     expect(requestContexts[2]).toContain("This turn has already made 2 tool calls.");
+  });
+
+  it("trims trailing repeats and warns when the repetition guard marker is present", async () => {
+    const sessionId = createSessionId("runtime-stream-repetition-guard");
+    const eventStore = createTestSessionEventStore();
+    const intro = "所有工作已完成，最终总结如下。\n";
+    const block = "## 完成 ✅ 原型已全部交付，构建、交互、视觉、移动端全部验证通过。\n";
+    const streamedText = intro + block.repeat(9);
+    const marker = {
+      repeatCount: 9,
+      stoppedAtChars: streamedText.length,
+      trimToIndex: intro.length + block.length,
+      unitLength: block.length,
+    };
+
+    const runtime = createTestAgentRuntime(
+      sessionId,
+      { modelStreaming: "on" },
+      {
+        eventStore,
+        modelFactory: createTestModelFactory({
+          async generateText() {
+            throw new Error("streaming path expected");
+          },
+          async *streamText() {
+            yield { type: "text_delta", text: streamedText };
+            yield {
+              type: "finish",
+              finishReason: "stop",
+              providerMetadata: { streamRepetitionGuard: marker },
+              usage: { inputTokens: 3, outputTokens: 5, totalTokens: 8 },
+            };
+          },
+        } as never),
+      },
+    );
+
+    await runtime.executeTurn("trigger repetition guard marker");
+
+    const events = await eventStore.getEvents(sessionId);
+    const warningEvents = events.filter(
+      (event) => event.type === SessionEventType.ModelAnomalyWarning,
+    );
+    expect(warningEvents).toHaveLength(1);
+    expect(warningEvents[0]?.payload).toMatchObject({
+      category: "stream_repetition",
+      observedCount: 9,
+      severity: "warning",
+    });
+
+    const modelComplete = events.find((event) => event.type === SessionEventType.ModelComplete);
+    const payload = modelComplete?.payload as { content?: string } | undefined;
+    // 裁剪只保留首个重复块，防止退化文本进入持久化历史并在后续请求中回显。
+    expect(payload?.content).toBe(intro + block);
+  });
+
+  it("parses the repetition guard marker defensively", () => {
+    expect(readStreamRepetitionGuardMarker(undefined)).toBeUndefined();
+    expect(readStreamRepetitionGuardMarker({})).toBeUndefined();
+    expect(
+      readStreamRepetitionGuardMarker({ streamRepetitionGuard: { repeatCount: "9" } }),
+    ).toBeUndefined();
+    expect(
+      readStreamRepetitionGuardMarker({
+        streamRepetitionGuard: { repeatCount: 9, trimToIndex: 120, unitLength: 60 },
+      }),
+    ).toEqual({
+      repeatCount: 9,
+      stoppedAtChars: 0,
+      trimToIndex: 120,
+      unitLength: 60,
+    });
   });
 });
 

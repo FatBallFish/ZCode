@@ -135,7 +135,7 @@ function normalizeLoopbackOrigin(candidate: string): string | undefined {
   }
 }
 
-export const OFFICIAL_MCP_DEV_TRUSTED_ORIGINS_ENV = "ZCODE_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS";
+export const OFFICIAL_MCP_DEV_TRUSTED_ORIGINS_ENV = "MIKIKO_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS";
 
 /** Host 在 spawn 时注入的真实 workspace identity；只用于隔离/审计，不用于文件执行。 */
 export const ZCODE_WORKSPACE_IDENTITY_ENV = "MIKIKO_WORKSPACE_IDENTITY";

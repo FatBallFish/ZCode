@@ -38,12 +38,14 @@ import type {
   SessionConfigState,
   SessionPhase,
   SessionUsageState,
+  SessionStatsState,
 } from "@zcode/shared/zcode-protocol-v4";
 import { ModelConfigSelect, type ModelSelectGroup } from "@/ModelConfigSelect.js";
 import { Button } from "@/components/ui/button.js";
 import { HighspeedModelIndicator } from "@/highspeed/HighspeedModelIndicator.js";
 import { formatHighspeedRemainingTime } from "@/highspeed/highspeedTime.js";
 import { ChatContextUsage } from "@/chat-input-toolbar/display.js";
+import { ChatSessionStats } from "@/chat-input-toolbar/ChatSessionStats.js";
 import { ChatGPTContextUsage } from "@/chat-input-toolbar/ChatGPTContextUsage.js";
 import {
   hasChatCodingPlanUsageRemaining,
@@ -390,6 +392,8 @@ export interface V4ComposerToolbarProps {
   /** 当前 scope 的 Composer 选择；新任务与已有会话都只显示这份状态。 */
   draftConfig?: Partial<SessionConfigState>;
   usage: SessionUsageState | null;
+  /** 会话统计（specs/ui/session-stats.md）：旧 CLI 无该字段时为 null，胶囊整体隐藏。 */
+  sessionStats?: SessionStatsState | null;
   disabled: boolean;
   /** Highspeed 卡生效时固定本轮模型，禁止通过选择器或快捷键切换。 */
   modelLocked?: boolean;
@@ -439,6 +443,7 @@ function V4ComposerModelControlsImpl({
   draftMode = false,
   draftConfig,
   usage,
+  sessionStats,
   disabled,
   modelLocked = false,
   highspeedPresented = false,
@@ -1053,14 +1058,27 @@ function V4ComposerModelControlsImpl({
 
   const taskUsage = useMemo(() => {
     const contextWindow = usage?.contextWindow;
-    if (!contextWindow) return null;
+    // 未知容量降级（docs/coding-plan-context-usage.md）：contextWindow 为 null 但
+    // contextUsage 有值时（chatgpt/sub2api slug 无 contextWindow 元数据），
+    // 以 size=null 展示用量与明细占比，隐藏容量与百分比。
+    const degradedContextUsage = usage?.contextUsage;
+    if (!contextWindow) {
+      if (!degradedContextUsage) return null;
+      return {
+        used: degradedContextUsage.usedTokens,
+        size: null,
+        ...(degradedContextUsage.breakdown
+          ? { breakdown: degradedContextUsage.breakdown }
+          : {}),
+      };
+    }
     return {
       used: contextWindow.usedTokens,
       size: contextWindow.maxTokens,
       ...(contextWindow.cache ? { cache: contextWindow.cache } : {}),
       ...(contextWindow.breakdown ? { breakdown: contextWindow.breakdown } : {}),
     };
-  }, [usage?.contextWindow]);
+  }, [usage?.contextWindow, usage?.contextUsage]);
   // 工具条热键已转正为命令表命令：tooltip 快捷键文案读生效表，
   // 改绑后按钮提示即时跟随（不能用硬编码文案）。
   const modelShortcutLabel = useShortcutCommandLabel("openModelMenu");
@@ -1131,6 +1149,8 @@ function V4ComposerModelControlsImpl({
           compressionDisabled={disabled || recoveryPending}
         />
       ) : null}
+      {/* 会话统计胶囊（specs/ui/session-stats.md）：置于 context usage 旁。 */}
+      <ChatSessionStats sessionStats={sessionStats ?? null} />
       {currentChatGPTAccount ? (
         <ChatGPTContextUsage
           account={currentChatGPTAccount}

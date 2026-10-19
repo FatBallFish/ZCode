@@ -804,4 +804,73 @@ describe("ProviderConfigResolver", () => {
       ]),
     );
   });
+
+  it("Provider 级 token 覆盖三态：覆盖全组模型 / 置空恢复 / 未配置不影响（specs/provider/group-token-override.md）", () => {
+    const baseApi = {
+      type: "openai-chat-completions",
+      baseUrl: "https://example.com/v1",
+    } as const;
+    const providerWithApi = (api: ProviderApiConfig) =>
+      new ProviderConfig({
+        group: "standard-personal",
+        access: new ApiKeyAccessConfig({ apiKey: "fixture" }),
+        api,
+        personalModelIds: ["m1", "m2"],
+      });
+    // m1 用默认（200k/32k），m2 自带差异化值（128k/8k），验证覆盖与恢复两方向。
+    const modelRules = new ModelConfigRules([
+      { type: "model", modelMatch: "m1", config: completeModelConfig() },
+      {
+        type: "model",
+        modelMatch: "m2",
+        config: completeModelConfig({ contextWindow: 128_000 }).overlay(
+          new ModelConfig({
+            optionSpecs: new ModelOptionSpecsConfig({
+              maxOutputTokens: { max: 8_000, map: "{}" },
+            }),
+          }),
+        ),
+      },
+    ]);
+    const resolveWith = (api: ProviderApiConfig) =>
+      new ProviderConfigResolver().resolve({
+        zcodeBuiltinProviders: ProviderConfigMap.empty(),
+        accountProviders: ProviderConfigMap.empty(),
+        personalProviders: new ProviderConfigMap([
+          { providerId: "p", enabled: true, config: providerWithApi(api) },
+        ]),
+        personalModels: ModelConfigRules.empty(),
+        zcodeBuiltinModelRules: modelRules,
+      });
+
+    // 已配置：分组内所有模型的 contextWindow/maxOutputTokens.max 被覆盖；effort map 保留模型自身。
+    const overridden = resolveWith(
+      new ProviderApiConfig({ ...baseApi, contextWindow: 500_000, maxOutputTokens: 100_000 }),
+    );
+    const overriddenModels = new Map(
+      overridden.resolvedProviders[0]!.models.map((model) => [model.modelId, model]),
+    );
+    for (const model of overriddenModels.values()) {
+      expect(model.config.properties?.contextWindow).toBe(500_000);
+      expect(model.config.optionSpecs?.maxOutputTokens?.max).toBe(100_000);
+    }
+    expect(overriddenModels.get("m1")!.config.optionSpecs?.maxOutputTokens?.map).toBe(
+      "{'max_tokens': maxOutputTokens}",
+    );
+    expect(overriddenModels.get("m2")!.config.optionSpecs?.maxOutputTokens?.map).toBe("{}");
+
+    // 未配置与置空（null）等价：模型自身配置生效。
+    for (const api of [
+      new ProviderApiConfig(baseApi),
+      new ProviderApiConfig({ ...baseApi, contextWindow: null, maxOutputTokens: null }),
+    ]) {
+      const models = new Map(
+        resolveWith(api).resolvedProviders[0]!.models.map((model) => [model.modelId, model]),
+      );
+      expect(models.get("m1")!.config.properties?.contextWindow).toBe(200_000);
+      expect(models.get("m1")!.config.optionSpecs?.maxOutputTokens?.max).toBe(32_000);
+      expect(models.get("m2")!.config.properties?.contextWindow).toBe(128_000);
+      expect(models.get("m2")!.config.optionSpecs?.maxOutputTokens?.max).toBe(8_000);
+    }
+  });
 });

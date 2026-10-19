@@ -58,7 +58,7 @@ export function createChatGPTAccountRuntime(dependencies: {
   /** 与 ChatGPTAccountService 共享的账号变更事件（node.ts 注入同一实例）。 */
   accountsChangedEmitter: Emitter<ChatGPTAccountView[]>;
   logger?: ReturnType<typeof createServiceLogger>;
-  /** OAuth 端点请求注入（测试用；缺省全局 fetch）。 */
+  /** OAuth 刷新请求出口：生产为 node.ts 注入的 host API 网络 transport（httpProxy/CA 生效）；测试可 mock。 */
   request?: typeof fetch;
 }): ChatGPTAccountRuntime {
   const logger = dependencies.logger ?? createServiceLogger("chatgpt-account");

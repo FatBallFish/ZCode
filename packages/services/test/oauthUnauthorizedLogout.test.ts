@@ -35,7 +35,7 @@ function fixture(provider: OAuthProviderId = "zai", responseStatus = 401) {
   };
   const refresh = vi.fn(async () => ({ accessToken: "new-token", refreshToken: "refresh-token" }));
   const onProviderLogout = vi.fn(async () => {});
-  const env = { ZCODE_ENV: "production" };
+  const env = { MIKIKO_ENV: "production" };
   const service = new OAuthService(credentials, {
     env,
     onProviderLogout,

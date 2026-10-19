@@ -501,6 +501,22 @@ export class ProductProjection {
     touchedByEvent: false,
     usedTokens: 0,
   };
+  // 会话统计（specs/ui/session-stats.md）：内存累计 + 流式滚动窗口 + 工具行去重。
+  // handler 只累计；applyEventInternal 统一产出 state.updated { stats }（对比上次发射值，
+  // live tok/s 变化 <1 时跳过），避免 text_delta 高频把帧量翻倍。
+  private sessionStats = createEmptySessionStatsAccumulator();
+  private sessionStatsLiveWindow: { atMs: number; tokens: number }[] = [];
+  private sessionStatsCountedToolCallIds = new Set<string>();
+  private sessionStatsLastEmitted: {
+    turnCount: number;
+    stepCount: number;
+    modelDurationMs: number;
+    toolDurationMs: number;
+    ttftAvgMs: number | null;
+    outputTokens: number;
+    generationDurationMs: number;
+    liveTokensPerSecond: number | null;
+  } | null = null;
   // modelChange marker 在「下一个 turn 开始时」生成。
   // silentInitial 保持普通 Main 首轮静默；sourceLess 表示显式 ∅→X；known 保存上一轮
   // 实际使用的 provider/model。thought 只随基线记录，不触发模型身份变化。
@@ -1068,7 +1084,11 @@ export class ProductProjection {
     const deltas = materializeActions
       ? [...reducedWithSubagents, ...this.materializeCommandRowActions(reducedWithSubagents)]
       : reducedWithSubagents;
-    const finalDeltas = this.attachRevision(clearSettledOutputPreviews(deltas));
+    // 会话统计：工具行终态从本事件产出的 deltas 里收口；stats delta 在 revision 挂载前
+    // 统一拼入（单一发射点）。
+    this.collectSessionStatsToolDurations(deltas);
+    const deltasWithStats = [...deltas, ...this.buildSessionStatsDelta()];
+    const finalDeltas = this.attachRevision(clearSettledOutputPreviews(deltasWithStats));
     if (this.hydrationAccumulator) {
       applyConversationDeltasMutable(this.hydrationAccumulator, finalDeltas);
       this.snapshot.seq = event.sequenceNumber;
@@ -1169,6 +1189,12 @@ export class ProductProjection {
     clone.currentTurnId = this.currentTurnId;
     clone.currentTurnStartedModelOnly = this.currentTurnStartedModelOnly;
     clone.contextWindowState = { ...this.contextWindowState };
+    // 会话统计侧态必须随原子克隆走，否则候选提交时累计值丢失、stats 回退为旧值。
+    clone.sessionStats = { ...this.sessionStats };
+    clone.sessionStatsLiveWindow = this.sessionStatsLiveWindow.map((entry) => ({ ...entry }));
+    clone.sessionStatsCountedToolCallIds = new Set(this.sessionStatsCountedToolCallIds);
+    clone.sessionStatsLastEmitted =
+      this.sessionStatsLastEmitted === null ? null : { ...this.sessionStatsLastEmitted };
     clone.lastTurnModel = { ...this.lastTurnModel };
     clone.configModelTouchedByEvent = this.configModelTouchedByEvent;
     clone.configThoughtLevelsTouchedByEvent = this.configThoughtLevelsTouchedByEvent;
@@ -1214,6 +1240,10 @@ export class ProductProjection {
     this.currentTurnId = candidate.currentTurnId;
     this.currentTurnStartedModelOnly = candidate.currentTurnStartedModelOnly;
     this.contextWindowState = candidate.contextWindowState;
+    this.sessionStats = candidate.sessionStats;
+    this.sessionStatsLiveWindow = candidate.sessionStatsLiveWindow;
+    this.sessionStatsCountedToolCallIds = candidate.sessionStatsCountedToolCallIds;
+    this.sessionStatsLastEmitted = candidate.sessionStatsLastEmitted;
     this.lastTurnModel = candidate.lastTurnModel;
     this.configModelTouchedByEvent = candidate.configModelTouchedByEvent;
     this.configThoughtLevelsTouchedByEvent = candidate.configThoughtLevelsTouchedByEvent;
@@ -2010,6 +2040,8 @@ export class ProductProjection {
     const turnId = fact.productTurnId;
     this.currentTurnId = runtimeTurnId;
     this.currentTurnStartedModelOnly = fact.visibility === "modelOnly";
+    // 会话统计：modelOnly 轮（内部 task-notification 续轮）不计入用户可见轮次。
+    if (fact.visibility !== "modelOnly") this.sessionStats.turnCount += 1;
     // 新 runtimeTurn：product turn 映射归零（1:1），工时基准 = 本轮起点。
     this.productTurnIdByRuntimeTurnId.delete(runtimeTurnId);
     if (turnId !== runtimeTurnId) this.productTurnIdByRuntimeTurnId.set(runtimeTurnId, turnId);
@@ -2497,10 +2529,15 @@ export class ProductProjection {
         // 保持当前状态，等首个有效 text/reasoning/tool 进展再清理，避免标签闪退。
         return positiveInteger(payload.attempt, 1) <= 1 ? this.setApiRetry(null) : [];
       case "model_request_completed":
+        this.recordSessionStatsModelRequestCompleted(payload);
         return this.setApiRetry(null);
       case "model_request_failed":
         return payload.retryable ? [] : this.setApiRetry(null);
       case "model_stream_stalled":
+      // 流式重复退化护栏（specs/agent/stream-repetition-guard.md）：触发即终止本 attempt
+      // 且不重试，请求生命周期由随后的 model_request_completed 正常关闭，
+      // 与 model_stream_stalled 同属纯观测事件，不映射成重试/等待标签。
+      case "model_stream_repetition_stopped":
       case "model_first_provider_event":
       case "model_first_content":
       case "model_first_text":
@@ -2627,6 +2664,7 @@ export class ProductProjection {
         return this.openTextRow(event, fact);
       case "text_delta": {
         const open = this.streamingTextRowId === null ? this.openTextRow(event, fact) : [];
+        this.recordSessionStatsTextDelta(event, payload.delta);
         return [
           ...open,
           {
@@ -4877,6 +4915,19 @@ export class ProductProjection {
                     ? { breakdown: payload.contextUsageBreakdown }
                     : {}),
                 },
+          // 未知容量降级：maxTokens 未知（如 chatgpt/sub2api slug 无 contextWindow
+          // 元数据）时 contextWindow 保持 null，但 provider usage 与本地明细仍已知，
+          // 经 contextUsage 下发供 UI 降级展示（用量 + 明细占比、隐藏容量）；
+          // 容量恢复已知时显式置 null 清理残留。
+          contextUsage:
+            maxTokens === null && usedTokens > 0
+              ? {
+                  usedTokens,
+                  ...(payload.contextUsageBreakdown && payload.contextUsageBreakdown.length > 0
+                    ? { breakdown: payload.contextUsageBreakdown }
+                    : {}),
+                }
+              : null,
           cumulative: {
             inputTokens: cumulative.inputTokens + (usage.inputTokens ?? 0),
             outputTokens: cumulative.outputTokens + (usage.outputTokens ?? 0),
@@ -5654,6 +5705,119 @@ export class ProductProjection {
     return event.timestamp.getTime();
   }
 
+  // ── 会话统计（specs/ui/session-stats.md）──
+
+  /** main_turn 请求完成：步数 + 模型用时 + TTFT 样本 + 输出 token + 清空实时窗口。 */
+  private recordSessionStatsModelRequestCompleted(
+    payload: Extract<ModelNetworkStatusPayload, { type: "model_request_completed" }>,
+  ): void {
+    if (payload.querySource !== undefined && payload.querySource !== "main_turn") return;
+    const durationMs = Number.isFinite(payload.durationMs) ? Math.max(0, payload.durationMs) : 0;
+    const ttftRaw = payload.timeToFirstContentMs ?? payload.timeToFirstTextMs;
+    const ttftMs = Number.isFinite(ttftRaw) ? Math.max(0, ttftRaw as number) : 0;
+    this.sessionStats.stepCount += 1;
+    this.sessionStats.modelDurationMs += Math.trunc(durationMs);
+    this.sessionStats.ttftSumMs += Math.trunc(ttftMs);
+    this.sessionStats.ttftCount += 1;
+    this.sessionStats.generationDurationMs += Math.trunc(Math.max(0, durationMs - ttftMs));
+    const outputTokens = payload.usage?.outputTokens;
+    this.sessionStats.outputTokens += Number.isFinite(outputTokens)
+      ? Math.max(0, Math.trunc(outputTokens as number))
+      : 0;
+    this.sessionStats.liveTokensPerSecond = null;
+    this.sessionStatsLiveWindow = [];
+  }
+
+  /** text_delta：滚动 5s 窗口估算实时 tok/s（CJK 1 token/字，其他 4 字符/token）。 */
+  private recordSessionStatsTextDelta(event: SessionEvent, delta: string): void {
+    if (!delta) return;
+    const now = this.ms(event);
+    this.sessionStatsLiveWindow.push({ atMs: now, tokens: estimateLiveStreamTokens(delta) });
+    // 窗口裁剪：超出 6s 的样本出窗；条目上限防御异常高频流。
+    while (
+      this.sessionStatsLiveWindow.length > 0 &&
+      now - this.sessionStatsLiveWindow[0].atMs > SESSION_STATS_LIVE_WINDOW_MS + 1000
+    ) {
+      this.sessionStatsLiveWindow.shift();
+    }
+    if (this.sessionStatsLiveWindow.length > 600) {
+      this.sessionStatsLiveWindow.splice(0, this.sessionStatsLiveWindow.length - 600);
+    }
+    let tokensInWindow = 0;
+    for (const entry of this.sessionStatsLiveWindow) {
+      if (now - entry.atMs <= SESSION_STATS_LIVE_WINDOW_MS) tokensInWindow += entry.tokens;
+    }
+    this.sessionStats.liveTokensPerSecond = Math.round(
+      tokensInWindow / (SESSION_STATS_LIVE_WINDOW_MS / 1000),
+    );
+  }
+
+  /** 工具行终态：按 toolCallId 去重累计 endedAt−startedAt；row.removed 后允许重放分支重计。 */
+  private collectSessionStatsToolDurations(deltas: readonly ConversationDelta[]): void {
+    let removedFromRowId: number | null = null;
+    for (const delta of deltas) {
+      if (delta.op === "row.removed") {
+        removedFromRowId =
+          removedFromRowId === null
+            ? delta.fromRowId
+            : Math.min(removedFromRowId, delta.fromRowId);
+        continue;
+      }
+      if (delta.op !== "row.appended" && delta.op !== "row.upserted") continue;
+      const row = delta.row;
+      if (row.kind !== "toolCall" || row.endedAt === undefined || row.startedAt === undefined) {
+        continue;
+      }
+      if (this.sessionStatsCountedToolCallIds.has(row.toolCallId)) continue;
+      this.sessionStatsCountedToolCallIds.add(row.toolCallId);
+      this.sessionStats.toolDurationMs += Math.max(0, row.endedAt - row.startedAt);
+    }
+    if (removedFromRowId !== null) {
+      // rewind 删除行后，被删工具的 id 重新可计（新分支同 id 重开会再次收口）。
+      // 此处必须先于 updateToolIndexesAfterDeltas 的 map 清理执行。
+      for (const [toolCallId, rowId] of this.toolRowIdByCallId) {
+        if (rowId >= removedFromRowId) this.sessionStatsCountedToolCallIds.delete(toolCallId);
+      }
+    }
+  }
+
+  /** 单一发射点：与上次发射值对比；live 变化不足 1 tok/s 且其余字段未变时跳过。 */
+  private buildSessionStatsDelta(): ConversationDelta[] {
+    const next = {
+      turnCount: this.sessionStats.turnCount,
+      stepCount: this.sessionStats.stepCount,
+      modelDurationMs: this.sessionStats.modelDurationMs,
+      toolDurationMs: this.sessionStats.toolDurationMs,
+      ttftAvgMs:
+        this.sessionStats.ttftCount > 0
+          ? Math.trunc(this.sessionStats.ttftSumMs / this.sessionStats.ttftCount)
+          : null,
+      outputTokens: this.sessionStats.outputTokens,
+      generationDurationMs: this.sessionStats.generationDurationMs,
+      liveTokensPerSecond: this.sessionStats.liveTokensPerSecond,
+    };
+    const last = this.sessionStatsLastEmitted;
+    if (last !== null) {
+      const othersChanged =
+        last.turnCount !== next.turnCount ||
+        last.stepCount !== next.stepCount ||
+        last.modelDurationMs !== next.modelDurationMs ||
+        last.toolDurationMs !== next.toolDurationMs ||
+        last.ttftAvgMs !== next.ttftAvgMs ||
+        last.outputTokens !== next.outputTokens ||
+        last.generationDurationMs !== next.generationDurationMs;
+      const liveA = last.liveTokensPerSecond;
+      const liveB = next.liveTokensPerSecond;
+      const liveChangedEnough =
+        liveA === null || liveB === null
+          ? liveA !== liveB
+          : Math.abs(liveA - liveB) >= 1;
+      if (!othersChanged && !liveChangedEnough) return [];
+    }
+    this.sessionStatsLastEmitted = next;
+    return [{ op: "state.updated", patch: { stats: next } }];
+  }
+
   private findRow(rowId: number): ConversationRow | undefined {
     const index = this.rowIndexById.get(rowId);
     return index === undefined ? undefined : this.snapshot.rows.window[index];
@@ -5867,4 +6031,53 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 
 function nonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+// ── 会话统计（specs/ui/session-stats.md）模块级辅助 ──
+
+const SESSION_STATS_LIVE_WINDOW_MS = 5000;
+
+interface SessionStatsAccumulator {
+  turnCount: number;
+  stepCount: number;
+  modelDurationMs: number;
+  toolDurationMs: number;
+  ttftSumMs: number;
+  ttftCount: number;
+  outputTokens: number;
+  generationDurationMs: number;
+  liveTokensPerSecond: number | null;
+}
+
+function createEmptySessionStatsAccumulator(): SessionStatsAccumulator {
+  return {
+    turnCount: 0,
+    stepCount: 0,
+    modelDurationMs: 0,
+    toolDurationMs: 0,
+    ttftSumMs: 0,
+    ttftCount: 0,
+    outputTokens: 0,
+    generationDurationMs: 0,
+    liveTokensPerSecond: null,
+  };
+}
+
+/** 实时输出 token 估算：CJK 字符 1 token/字，其他字符 4 字符/token（仅用于滚动速率展示）。 */
+function estimateLiveStreamTokens(text: string): number {
+  let cjk = 0;
+  let others = 0;
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0;
+    if (
+      (code >= 0x3400 && code <= 0x9fff) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0x20000 && code <= 0x2ffff)
+    ) {
+      cjk += 1;
+    } else {
+      others += 1;
+    }
+  }
+  return cjk + Math.ceil(others / 4);
 }

@@ -180,24 +180,26 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
         >
           <div
             className={cn(
-              "rounded-2xl border border-border bg-bg-elevated/95 p-3 shadow-xl backdrop-blur",
+              // 修复原因：浮窗原先用的 surface/foreground 简写 token 不在 @theme 清单内，
+              // Tailwind v4 不生成对应工具类，暗色主题下浮窗无背景、文字不可读（守卫测试 voice-theme-token）。
+              "rounded-2xl border border-border bg-popover/95 p-3 shadow-xl backdrop-blur",
               phase === "error" ? "border-destructive/40" : "",
             )}
           >
             <div className="flex items-center gap-3">
               {phase === "finishing" ? (
-                <LoaderIcon className="size-4 shrink-0 animate-spin text-fg-subtle" aria-hidden />
+                <LoaderIcon className="size-4 shrink-0 animate-spin text-foreground-subtle" aria-hidden />
               ) : (
                 <MicIcon
                   className={cn(
                     "size-4 shrink-0",
-                    phase === "listening" ? "text-brand" : "text-fg-subtle",
+                    phase === "listening" ? "text-brand" : "text-foreground-subtle",
                   )}
                   aria-hidden
                 />
               )}
               <span
-                className="min-w-0 flex-1 truncate text-ui-sm text-fg-subtle"
+                className="min-w-0 flex-1 truncate text-ui-sm text-foreground-subtle"
                 data-testid="voice-input-overlay-status"
               >
                 {statusText}
@@ -261,7 +263,7 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
               <div
                 ref={transcriptRef}
                 data-testid="voice-input-overlay-transcript"
-                className="mt-2 max-h-36 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-bg-base/60 px-3 py-2 text-ui-base text-fg"
+                className="mt-2 max-h-36 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-surface/60 px-3 py-2 text-ui-base text-foreground"
               >
                 {partialText}
               </div>

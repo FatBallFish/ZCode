@@ -34,6 +34,7 @@ function createFakeDeps(overrides?: {
   dirtyCounts?: Map<string, number | null>;
   alivePaths?: Set<string>;
   pinnedOrUnread?: Set<string>;
+  branches?: Map<string, string | null>;
 }) {
   const state = { entries: [...(overrides?.entries ?? [])] };
   const calls: string[] = [];
@@ -42,13 +43,16 @@ function createFakeDeps(overrides?: {
   const worktreeRepo: GitWorktreeRepo = {
     async listWorktrees() {
       calls.push("listWorktrees");
-      return state.entries.map((entry) => ({
-        path: entry.worktreePath,
-        head: "abc1234",
-        branch: null,
-        bare: false,
-        detached: true,
-      }));
+      return state.entries.map((entry) => {
+        const branch = overrides?.branches?.get(entry.worktreePath) ?? null;
+        return {
+          path: entry.worktreePath,
+          head: "abc1234",
+          branch,
+          bare: false,
+          detached: branch === null,
+        };
+      });
     },
     async addDetachedWorktree(repoRoot, worktreePath, ref) {
       calls.push(`add:${worktreePath}:${ref}`);
@@ -218,6 +222,29 @@ test("create：detached 目录 + 注册表条目 + ref 缺省解析远程默认�
   assert.equal(entry.ref, "origin/main");
   assert.equal(fake.state.entries.length, 1);
   assert.ok(fake.calls.some((call) => call.startsWith("add:")));
+});
+
+// 2026-10-15 分支展示规则回归（specs/desktop/worktrees.md）：list() 必须带出
+// git worktree list --porcelain 的当前分支——此前 branch 字段在对账时被丢弃，
+// 工作树绑定分支后 UI 只能展示游离态短 id。refs/heads/ 前缀由 repo 解析层剥离，
+// fake 按解析后契约直接给分支名。
+test("list：绑定分支带出 branch，游离态为 null", async () => {
+  const bound = makeEntry({ id: "aaaabbbb" });
+  const detached = makeEntry({ id: "ccccdddd" });
+  const fake = createFakeDeps({
+    entries: [bound, detached],
+    branches: new Map([
+      [bound.worktreePath, "feature/x"],
+      [detached.worktreePath, null],
+    ]),
+  });
+  const service = createWorktreeService(fake.deps);
+  const result: WorktreeListResult = await service.list();
+  const byPath = new Map(
+    result.groups[0]!.worktrees.map((item) => [item.entry.worktreePath, item]),
+  );
+  assert.equal(byPath.get(bound.worktreePath)!.branch, "feature/x");
+  assert.equal(byPath.get(detached.worktreePath)!.branch, null);
 });
 
 // 2026-10-11：git worktree add 只检出跟踪文件，未跟踪的项目级 .agents（含 skills/）

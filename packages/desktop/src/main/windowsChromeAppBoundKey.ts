@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
-import { ZCODE_COMMIT, ZCODE_VERSION } from "@zcode/shared";
+import { MIKIKO_COMMIT, ZCODE_VERSION } from "@zcode/shared";
 import {
   createEncodedPowerShellArgs,
   createWindowsPowerShellSecurityArgs,
@@ -365,7 +365,7 @@ async function verifyHelper(helperPath: string, options: ReadAppBoundKeyOptions)
       : await runHelper(helperPath, ["--version"]);
     const fields = version.stdout.split("\t");
     const expectedAppVersion = options.expectedAppVersion ?? ZCODE_VERSION;
-    const expectedBuildCommit = options.expectedBuildCommit ?? ZCODE_COMMIT;
+    const expectedBuildCommit = options.expectedBuildCommit ?? MIKIKO_COMMIT;
     if (
       version.exitCode !== 0 ||
       fields.length !== 5 ||

@@ -76,7 +76,7 @@ function runDoctor(appPath: string, binDir: string, extraEnv: NodeJS.ProcessEnv 
     cwd: REPO_ROOT,
     env: {
       ...process.env,
-      ZCODE_ENV: "production",
+      MIKIKO_ENV: "production",
       // Test selection must not inherit a developer's active dev/preview helper variant.
       ZCODE_CUA_HELPER_INSTALL_VARIANT: "",
       ...extraEnv,
@@ -115,7 +115,7 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
     writeFakeTool(binDir, "xcrun", toolLog);
 
     const output = runDoctor(appPath, binDir, {
-      ZCODE_ENV: "test",
+      MIKIKO_ENV: "test",
       ZCODE_CUA_REQUIRE_HELPER: "1",
       MIKIKO_HOME: zcodeHome,
     });

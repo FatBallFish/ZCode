@@ -57,7 +57,7 @@ try {
       cwd: () => settings.workspace,
       env: {
         ...process.env,
-        ZCODE_ENV: "test",
+        MIKIKO_ENV: "test",
         MIKIKO_STORAGE_DIR: settings.storageRoot,
         MIKIKO_MODEL_TELEMETRY_ENABLED: "false",
       },

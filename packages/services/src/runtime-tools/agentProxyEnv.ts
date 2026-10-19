@@ -85,7 +85,7 @@ export function buildAgentRuntimeEnv(input: {
  * 两侧的官方 MCP 信任判定共用 `@zcode/shared` 的同一份实现，但**输入**
  * 曾经分叉——host 用 `resolveRuntimeZCodeEndpointOrigin(env, { overrideOrigin: settings
  * .zcodeEndpointOrigin })`，agent 只有 `resolveRuntimeZCodeEndpointOrigin(env)`，而 settings
- * 覆盖值从不下发给子进程。在 `ZCODE_ENV=test` 且用户在设置页配了自定义端点时，两侧算出的
+ * 覆盖值从不下发给子进程。在 `MIKIKO_ENV=test` 且用户在设置页配了自定义端点时，两侧算出的
  * origin 必然不同，任一 origin 的官方 MCP 都会被其中一侧 fail closed 拒绝，日志表现却酷似
  * 插件 url 配错。单源实现救不了分叉的输入，因此必须把输入也统一。
  *

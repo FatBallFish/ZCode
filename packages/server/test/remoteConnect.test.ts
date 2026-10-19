@@ -314,7 +314,7 @@ describe("connectRemote", () => {
       clientId: "test-client",
       skipDeploy: true,
       remoteRuntimeEnv: {
-        ZCODE_ENV: "test",
+        MIKIKO_ENV: "test",
         MIKIKO_BASE_URL: "https://zcode.z.ai/api/v1",
         ZAI_OAUTH_ORIGIN: "https://chat.z.ai",
         ZAI_OAUTH_CLIENT_ID: "client_'test",
@@ -323,7 +323,7 @@ describe("connectRemote", () => {
     });
     connection.dispose();
 
-    expect(backend.commands[0]).toContain("ZCODE_ENV='test'");
+    expect(backend.commands[0]).toContain("MIKIKO_ENV='test'");
     expect(backend.commands[0]).toContain("MIKIKO_BASE_URL='https://zcode.z.ai/api/v1'");
     expect(backend.commands[0]).toContain("ZAI_OAUTH_ORIGIN='https://chat.z.ai'");
     expect(backend.commands[0]).toContain(`ZAI_OAUTH_CLIENT_ID='client_'"'"'test'`);

@@ -21,7 +21,7 @@ SilentInstall silent
 
 Var appExe
 
-!include "${ZCODE_INSTALLER_NSH}"
+!include "${MIKIKO_INSTALLER_NSH}"
 
 Section
   SetOutPath "$INSTDIR"

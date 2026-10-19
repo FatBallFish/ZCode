@@ -18,7 +18,7 @@ macOS release DMG 是用户从浏览器下载后直接交给 Gatekeeper 评估�
 2. `electron-builder` 打包并签 `ZCode.app`，产出 `ZCode-<version>-mac-<arch>.dmg`。
 3. `ci-collect-artifacts` 将 DMG 收集为 `*.unnotarized.dmg`。
 4. `scripts/notarize-macos.sh` 对 `*.unnotarized.dmg` 执行 DMG 签名、公证、staple、重命名和验收。
-5. `scripts/notarize-macos.sh` 在严格 release 中还会通过 `ZCODE_MACOS_RELEASE_APP_PATH` 或 `ZCODE_DESKTOP_DIST_DIR` 定位打包出的 `ZCode.app`，复用 `scripts/doctor-macos-release-app.sh` 验收主 app；找不到 app 路径时 fail-closed。CUA/Helper release gate 额外设置 `ZCODE_CUA_REQUIRE_HELPER=1`，并显式验收最终 app 内 `Contents/Resources/cua-helper/ZCode Computer Use.app`；缺失时 fail-closed。
+5. `scripts/notarize-macos.sh` 在严格 release 中还会通过 `MIKIKO_MACOS_RELEASE_APP_PATH` 或 `MIKIKO_DESKTOP_DIST_DIR` 定位打包出的 `ZCode.app`，复用 `scripts/doctor-macos-release-app.sh` 验收主 app；找不到 app 路径时 fail-closed。CUA/Helper release gate 额外设置 `ZCODE_CUA_REQUIRE_HELPER=1`，并显式验收最终 app 内 `Contents/Resources/cua-helper/ZCode Computer Use.app`；缺失时 fail-closed。
 6. `scripts/upload-oss.sh` 正式发布时只接受已完成上述流程的 `*.dmg`。
 
 ## Computer Use Helper 的独立签名与架构约束

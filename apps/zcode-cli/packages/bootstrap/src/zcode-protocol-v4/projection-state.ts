@@ -187,6 +187,8 @@ export function computeInputRouting(
 // （每个节点约 5 次迁移）、自带单调 revision 字段、且没有任何 command 的
 // baseRevision CAS 读它——列入会让 run 在飞期间的每次节点迁移都抖动 conversation revision，
 // 徒增 CAS 假失败。
+// `stats`（会话统计，specs/ui/session-stats.md）同样刻意不在列：与 usage 同属高频展示型
+// 指标键（流式期间随 text_delta 更新 live tok/s），无任何 CAS 消费方依赖其 revision。
 const REVISION_BEARING_PATCH_KEYS: ReadonlyArray<keyof StatePatch> = [
   "control",
   "availability",

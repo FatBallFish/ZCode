@@ -778,7 +778,8 @@ export type ModelAnomalyWarningCategory =
   | "tool_call_budget"
   | "repeated_tool_call"
   | "provider_finish_mismatch"
-  | "malformed_tool_call";
+  | "malformed_tool_call"
+  | "stream_repetition";
 
 export type ModelAnomalyWarningSeverity = "info" | "warning";
 

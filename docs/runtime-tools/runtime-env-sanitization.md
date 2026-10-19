@@ -6,7 +6,7 @@ ZCode runtime processes must not let ambient shell variables silently change app
 
 | Variable                          | Role                                                                     | Inheritance                                                            |
 | --------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| `ZCODE_ENV`                       | Product environment for API/OAuth endpoints (`test` / `production`)      | Explicitly injected by app/build/runtime config                        |
+| `MIKIKO_ENV`                       | Product environment for API/OAuth endpoints (`test` / `production`)      | Explicitly injected by app/build/runtime config                        |
 | `ZCODE_RUNTIME_ENV`               | Runtime shape for ZCode behavior (`development` / `production` / `test`) | Explicitly injected by app/CLI runtime setup                           |
 | `ZCODE_HTTP_PROXY`                | Explicit ZCode proxy override                                            | Preserved and used by app/provider/network adapters                    |
 | `ZCODE_NO_PROXY`                  | Explicit ZCode proxy bypass rules                                        | Preserved and used by app/provider/network adapters                    |

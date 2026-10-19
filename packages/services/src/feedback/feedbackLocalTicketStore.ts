@@ -35,6 +35,16 @@ export class FeedbackLocalTicketStore {
       .map(({ deviceMid: _deviceMid, ...ticket }) => ticket);
   }
 
+  /** 本地优先模式的单条读取（「我的反馈」详情）。 */
+  async get(deviceMid: string, id: string): Promise<FeedbackTicketSummary | null> {
+    const ticket = (await this.read()).tickets.find(
+      (current) => current.deviceMid === deviceMid && current.id === id,
+    );
+    if (!ticket) return null;
+    const { deviceMid: _deviceMid, ...summary } = ticket;
+    return summary;
+  }
+
   async upsert(deviceMid: string, ticket: FeedbackTicketSummary): Promise<void> {
     const file = await this.read();
     const next: StoredFeedbackTicket = { ...ticket, deviceMid };

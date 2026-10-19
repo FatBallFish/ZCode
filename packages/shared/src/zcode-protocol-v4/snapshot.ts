@@ -197,6 +197,16 @@ export const sessionUsageStateSchema = z.object({
       breakdown: zcodeContextUsageBreakdownSchema.optional(),
     })
     .nullable(),
+  // 未知容量降级（docs/coding-plan-context-usage.md）：chatgpt/sub2api 等账号模型的
+  // slug 若无 contextWindow 元数据，contextWindow 保持 null（未知容量语义不破坏），
+  // 但 provider usage 与本地明细仍已知时用本字段下发。nullish：旧 CLI 不发该键、
+  // 新客户端冷启动初始快照也不带，均按 null 处理；容量恢复已知时下发 null 清理。
+  contextUsage: z
+    .object({
+      usedTokens: z.number(),
+      breakdown: zcodeContextUsageBreakdownSchema.optional(),
+    })
+    .nullish(),
   cumulative: z.object({
     inputTokens: z.number(),
     outputTokens: z.number(),
@@ -205,6 +215,28 @@ export const sessionUsageStateSchema = z.object({
   }),
 });
 export type SessionUsageState = z.infer<typeof sessionUsageStateSchema>;
+
+// ── stats（会话统计，specs/ui/session-stats.md）──
+// Additive optional：旧 CLI / 旧快照不带该字段，UI 侧整体隐藏统计胶囊。
+export const sessionStatsStateSchema = z.object({
+  /** 轮次 = TurnStarted 计数。 */
+  turnCount: z.number().int().nonnegative(),
+  /** 步数 = main_turn model_request_completed 计数（每次模型请求一步）。 */
+  stepCount: z.number().int().nonnegative(),
+  /** Σ main_turn 请求 durationMs。 */
+  modelDurationMs: z.number().int().nonnegative(),
+  /** Σ toolCall 行 endedAt−startedAt（行终态时累计一次）。 */
+  toolDurationMs: z.number().int().nonnegative(),
+  /** 首 token 平均（timeToFirstContentMs 优先，timeToFirstTextMs 兜底）；无样本为 null。 */
+  ttftAvgMs: z.number().int().nonnegative().nullable(),
+  /** Σ main_turn 输出 token（TPS 会话平均分子）。 */
+  outputTokens: z.number().int().nonnegative(),
+  /** Σ max(0, durationMs−ttftMs)（TPS 会话平均分母）。 */
+  generationDurationMs: z.number().int().nonnegative(),
+  /** 流式期间最近 5s 滚动窗口估算 tok/s；非流式为 null（UI 回退显示会话平均）。 */
+  liveTokensPerSecond: z.number().nonnegative().nullable(),
+});
+export type SessionStatsState = z.infer<typeof sessionStatsStateSchema>;
 
 // ── queue（不持久化，裁决：CLI 进程死亡即丢，客户端对账后由用户决定重发）──
 export const queueItemSchema = conversationInputIntentSchema.extend({
@@ -489,6 +521,8 @@ export const conversationSnapshotSchema = z.object({
   // 持久化稳定事实供 live 客户端识别一次性提示；旧快照缺字段时不触发。
   modelTransition: sessionModelTransitionSchema.nullable().default(null),
   usage: sessionUsageStateSchema,
+  // Additive（specs/ui/session-stats.md）：旧 CLI 不带；首个 TurnStarted 后始终携带。
+  stats: sessionStatsStateSchema.optional(),
   queue: queueStateSchema,
   pendingInteractions: z.array(pendingInteractionSchema),
   pendingCommands: z.array(commandStateSummarySchema),

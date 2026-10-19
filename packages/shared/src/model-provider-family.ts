@@ -42,7 +42,7 @@ export const MODEL_PROVIDER_FAMILY_SPECS = [
     startPlanProviderId: BUILTIN_MODEL_PROVIDER_IDS.bigmodelStartPlan,
     individualCodingPlanProviderId: BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan,
     teamCodingPlanProviderId: BUILTIN_MODEL_PROVIDER_IDS.bigmodelTeamCodingPlan,
-    teamCodingPlanManageUrl: buildBigModelCodingPlanTeamManageUrl({ ZCODE_ENV }),
+    teamCodingPlanManageUrl: buildBigModelCodingPlanTeamManageUrl({ MIKIKO_ENV: ZCODE_ENV }),
   },
 ] as const satisfies readonly ModelProviderFamilySpec[];
 

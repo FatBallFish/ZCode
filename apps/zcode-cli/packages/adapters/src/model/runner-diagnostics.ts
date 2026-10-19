@@ -441,8 +441,9 @@ function isSuspiciousModelCompletion(input: {
   if (input.textLength !== 0 || input.toolCallCount !== 0) return false;
   if (input.finishReason === undefined) return isZeroUsage(input.usage);
   // 与 core isSuspiciousEmptyModelResult 同口径（2026-10-12）：任何 finish 下的
-  // 零文本+零工具补全都触发一次空回重试。旧口径（non-stop+零 usage）放行了
-  // ChatGPT codex 的「stop + usage 内容性空回」，表现为切模型后秒回空输出。
+  // 零文本+零工具补全都触发空回重试（预算见 EMPTY_COMPLETION_MAX_RETRIES，2026-10-16
+  // 起为 5 次）。旧口径（non-stop+零 usage）放行了 ChatGPT codex 的
+  // 「stop + usage 内容性空回」，表现为切模型后秒回空输出。
   return true;
 }
 

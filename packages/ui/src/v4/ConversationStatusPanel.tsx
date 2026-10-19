@@ -362,14 +362,26 @@ function StatusSection({
   );
 }
 
-function WorktreeIdentityRow({ workspacePath }: { workspacePath: string }) {
+function WorktreeIdentityRow({
+  gitSummary,
+  workspacePath,
+}: {
+  gitSummary: GitRepositorySummary | null | undefined;
+  workspacePath: string;
+}) {
   const { intl } = useZCodeIntl();
   const entry = useWorktreeStore((state) =>
     state.registryEntries.find((item) => item.worktreePath === workspacePath),
   );
+  const branchByWorktreePath = useWorktreeStore((state) => state.branchByWorktreePath);
   if (!entry) {
     return null;
   }
+  // 2026-10-15 修复：此前右侧展示 entry.ref（创建时起点 ref 快照，永不更新），
+  // 工作树绑定分支后仍显示创建时的 ref。改为分支优先：会话内 gitSummary（live）
+  // 优先、注册表 branch 兜底，仍游离时回落短 id（specs/desktop/worktrees.md 分支展示规则）。
+  const branch = gitSummary?.branchName ?? branchByWorktreePath[workspacePath] ?? null;
+  const identity = branch ?? worktreeShortId(entry.id);
   return (
     <div
       className="flex h-8 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-ui-base text-[var(--color-foreground-secondary)]"
@@ -378,12 +390,7 @@ function WorktreeIdentityRow({ workspacePath }: { workspacePath: string }) {
       <GitBranch className="size-4 shrink-0 text-[var(--color-foreground)]" />
       <span className="min-w-0 flex-1 truncate">
         {intl.formatMessage({ id: "chat.workLocation.existingWorktree" })}
-        <span className="ml-1 font-mono text-ui-sm text-[var(--color-foreground)]">
-          {worktreeShortId(entry.id)}
-        </span>
-      </span>
-      <span className="shrink-0 font-mono text-ui-xs text-[var(--color-foreground-secondary)]">
-        {entry.ref}
+        <span className="ml-1 font-mono text-ui-sm text-[var(--color-foreground)]">{identity}</span>
       </span>
     </div>
   );
@@ -439,7 +446,9 @@ function GitStatusSection({
       }
     >
       <div className="space-y-0">
-        {git.isWorktree ? <WorktreeIdentityRow workspacePath={workspacePath} /> : null}
+        {git.isWorktree ? (
+          <WorktreeIdentityRow gitSummary={gitSummary} workspacePath={workspacePath} />
+        ) : null}
         {/* Bug 原因：V4 状态面板迁移时只保留了 Changes 的静态展示， 6761feb4 (feat(desktop): Git Worktree 管理（创建/删除/注册表单写者 + 设置页工作树总览 + 会话工作位置与任务链路隔离）)
             没有继续透传旧版 Git review 回调，导致规范中的审阅入口不可点击。 */}
         <button

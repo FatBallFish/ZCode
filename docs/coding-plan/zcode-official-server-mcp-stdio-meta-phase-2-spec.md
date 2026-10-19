@@ -88,7 +88,7 @@ targetOrigin := resolveRuntimeZCodeEndpointOrigin(env)     # 客户端自行解�
 stdio 路径下插件根本没有表达 origin 的渠道，身份头只可能被解析为"当前 ZCode API origin 的凭证"。
 `isOfficialMcpOriginTrusted` 的调用照旧保留（同一份 `@zcode/shared` 实现），此时它退化为一条
 恒真断言——**仍要调用**，因为它同时校验 https 与不带 username/password，且 dev loopback 开关
-（`ZCODE_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS`）必须继续生效。
+（`MIKIKO_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS`）必须继续生效。
 
 host 侧二次校验（`zcodeAgentService` 在读取凭据**之前**用同一份 registry 校验三元组）不变：
 agent 上报的 `targetOrigin` 就是它自己解析出的那个值，未命中即 `official_mcp_origin_untrusted`，

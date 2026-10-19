@@ -11,7 +11,7 @@ if (mode !== "test" && mode !== "mock") {
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const env = {
   ...process.env,
-  ZCODE_ENV: "test",
+  MIKIKO_ENV: "test",
   VITE_MIKIKO_BASE_URL: TEST_SHARE_ENDPOINT_ORIGIN,
   VITE_DEV_ORIGIN: "http://localhost:5173",
   VITE_CONVERSATION_SHARE_PREVIEW_MOCK: mode === "mock" ? "true" : "false",

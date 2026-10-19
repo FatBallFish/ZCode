@@ -23,6 +23,7 @@ import { useServices } from "@/hooks/useServices.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { getErrorMessage } from "@/lib/errorMessage.js";
 import { logger } from "@/logger.js";
+import { useWorktreeStore } from "@/store/worktreeStore.js";
 
 interface UseGitBranchSwitcherOptions {
   workspacePath: string;
@@ -39,7 +40,7 @@ export function useGitBranchSwitcher({
   headRefType,
   onRefreshGit,
 }: UseGitBranchSwitcherOptions) {
-  const { gitService } = useServices();
+  const { gitService, worktreeService } = useServices();
   const { intl, locale } = useZCodeIntl();
   const numberFormatter = new Intl.NumberFormat(locale);
   const [open, setOpen] = useState(false);
@@ -231,6 +232,12 @@ export function useGitBranchSwitcher({
       // 切到当前分支这类 no-op 已经是成功结果，但没必要再触发一轮额外重拉。
       if (result.didChange || result.created) {
         onRefreshGit();
+        // 2026-10-15 分支展示规则：工作树绑定/切换分支后同步刷新注册表缓存，
+        // 否则 worktree 身份类 UI（选择器/设置页/侧栏/hover）仍显示游离态短 id，
+        // 要等下次 App 挂载才更新。非 worktree 仓库此调用幂等无害。
+        if (worktreeService) {
+          void useWorktreeStore.getState().refreshRegistry(worktreeService);
+        }
       }
     },
     [
@@ -239,6 +246,7 @@ export function useGitBranchSwitcher({
       onRefreshGit,
       prepareSwitchAssistState,
       resetSwitchAssistState,
+      worktreeService,
       workspacePath,
     ],
   );

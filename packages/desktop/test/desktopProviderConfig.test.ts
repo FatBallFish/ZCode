@@ -59,7 +59,7 @@ describe("开发态按编译环境选取配置", () => {
         resolvePath({
           isPackaged: false,
           appPath: "/repo/packages/desktop",
-          env: { ZCODE_ENV: environment === "test" ? "production" : "test" },
+          env: { MIKIKO_ENV: environment === "test" ? "production" : "test" },
         }),
       ),
     ).toBe(

@@ -88,9 +88,9 @@ claim response settled
 暂停条件。该轮询仍是 desktop/web 共用 Renderer 的只读曝光逻辑，不改变 desktop continuous 或手机端
 replayable task 恢复语义。
 
-环境判定同时读取 Vite 构建模式与编译期 `ZCODE_ENV`：只有 production build 且
-`ZCODE_ENV=production` 使用 10 分钟；Vite development 或 `ZCODE_ENV=test` 均使用 30 秒。
-Desktop E2E 虽使用 production bundle，但必须因 `ZCODE_ENV=test` 命中 30 秒周期。
+环境判定同时读取 Vite 构建模式与编译期 `MIKIKO_ENV`：只有 production build 且
+`MIKIKO_ENV=production` 使用 10 分钟；Vite development 或 `MIKIKO_ENV=test` 均使用 30 秒。
+Desktop E2E 虽使用 production bundle，但必须因 `MIKIKO_ENV=test` 命中 30 秒周期。
 
 ### E2E 登录与安全校验 fixture 契约
 

@@ -1,6 +1,6 @@
 // 下载并整理 GLM 平台二进制。
 //
-// 开发态优先走 ZCODE_AGENT_WORKDIR / 同级仓库源码启动；只有打包态、生产态和无源码的开发环境
+// 开发态优先走 MIKIKO_AGENT_WORKDIR / 同级仓库源码启动；只有打包态、生产态和无源码的开发环境
 // 才需要依赖这个脚本提前准备平台二进制。目录布局统一服务本机打包与远程部署：
 // - 当前目标平台输出到 bundled-agents，供本机运行 / 打包直接内置
 // - 远程专用平台输出到 mock-cdn，供 remote deploy 按平台拉取
@@ -172,13 +172,13 @@ function download(url, dest) {
 
 export async function main() {
   const platform =
-    normalizePlatform(process.argv[2] || process.env.ZCODE_TARGET_OS || "") || detectPlatform();
+    normalizePlatform(process.argv[2] || process.env.MIKIKO_TARGET_OS || "") || detectPlatform();
   const arch =
-    normalizeArch(process.argv[3] || process.env.ZCODE_TARGET_ARCH || "") || detectArch();
+    normalizeArch(process.argv[3] || process.env.MIKIKO_TARGET_ARCH || "") || detectArch();
   const forceRemoteOutput = process.env.ZCODE_FORCE_REMOTE_MOCK_CDN === "1";
 
-  const localPlatform = normalizePlatform(process.env.ZCODE_TARGET_OS || "") || detectPlatform();
-  const localArch = normalizeArch(process.env.ZCODE_TARGET_ARCH || "") || detectArch();
+  const localPlatform = normalizePlatform(process.env.MIKIKO_TARGET_OS || "") || detectPlatform();
+  const localArch = normalizeArch(process.env.MIKIKO_TARGET_ARCH || "") || detectArch();
 
   const platformKey = `${platform}-${arch}`;
   const localKey = `${localPlatform}-${localArch}`;

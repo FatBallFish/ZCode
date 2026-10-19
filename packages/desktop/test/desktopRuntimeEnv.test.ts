@@ -52,12 +52,12 @@ vi.mock("@zcode/shared", () => ({
     const trimmed = value.trim();
     return ["disabled", "onDemand", "alwaysOn"].includes(trimmed) ? trimmed : undefined;
   },
-  ZCODE_COMMIT: "commit-test",
+  MIKIKO_COMMIT: "commit-test",
   ZCODE_VERSION: "0.0.0-test",
   DEFAULT_ZCODE_ENDPOINT_ORIGIN: "https://zcode.z.ai",
   TEST_ZCODE_ENDPOINT_ORIGIN: "https://zcode.z.ai",
   resolveRuntimeZCodeEndpointOrigin: (env: Record<string, string | undefined>) =>
-    env.MIKIKO_BASE_URL ?? env.ZCODE_TEST_BASE_URL ?? "https://zcode.z.ai",
+    env.MIKIKO_BASE_URL ?? env.MIKIKO_TEST_BASE_URL ?? "https://zcode.z.ai",
   resolveZaiOAuthOrigin: (env: Record<string, string | undefined>) =>
     env.ZAI_OAUTH_ORIGIN ?? env.ZAI_TEST_OAUTH_ORIGIN ?? "https://chat.z.ai",
   resolveZaiBusinessBaseUrl: (env: Record<string, string | undefined>) =>
@@ -148,7 +148,7 @@ vi.mock("@zcode/services/node", () => ({
   getAppConfigDir: vi.fn(() => "/mock/config"),
   getDataBaseDir: vi.fn(() => "/mock/db"),
   ZCODE_CUA_BUNDLED_HELPER_APP_PATH_ENV: "ZCODE_CUA_BUNDLED_HELPER_APP_PATH",
-  ZCODE_WINDOWS_APP_INSTALL_DIR_ENV: "ZCODE_WINDOWS_APP_INSTALL_DIR",
+  ZCODE_WINDOWS_APP_INSTALL_DIR_ENV: "MIKIKO_WINDOWS_APP_INSTALL_DIR",
 }));
 
 const originalUseCdnSwitch = process.env["ZCODE_DEV_REMOTE_ASSET_USE_CDN"];
@@ -169,7 +169,7 @@ const originalDesktopHomeDir = process.env["MIKIKO_DESKTOP_HOME_DIR"];
 const originalDesktopUserDataDir = process.env["MIKIKO_DESKTOP_USER_DATA_DIR"];
 const originalDesktopSessionDataDir = process.env["MIKIKO_DESKTOP_SESSION_DATA_DIR"];
 const originalDesktopUseElectronDefaultUserData =
-  process.env["ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA"];
+  process.env["MIKIKO_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA"];
 const originalCwd = process.cwd();
 const originalResourcesPathDescriptor = Object.getOwnPropertyDescriptor(process, "resourcesPath");
 const createdDirs: string[] = [];
@@ -793,7 +793,7 @@ describe("desktopRuntimeEnv buildHostProcessEnv", () => {
 
     const env = buildHostProcessEnv(loadHostProcessEnvFromLocalFiles());
 
-    expect(env.ZCODE_ENV).toBe("test");
+    expect(env.MIKIKO_ENV).toBe("test");
     expect(env.MIKIKO_BASE_URL).toBe("https://zcode.z.ai");
     expect(env.ZAI_OAUTH_ORIGIN).toBe("https://chat.z.ai");
     expect(env.ZAI_BUSINESS_BASE_URL).toBe("https://api.z.ai");
@@ -921,7 +921,7 @@ describe("desktopRuntimeEnv runtime identity", () => {
     delete process.env["MIKIKO_DESKTOP_HOME_DIR"];
     delete process.env["MIKIKO_DESKTOP_USER_DATA_DIR"];
     delete process.env["MIKIKO_DESKTOP_SESSION_DATA_DIR"];
-    delete process.env["ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA"];
+    delete process.env["MIKIKO_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA"];
   });
 
   afterAll(() => {
@@ -950,9 +950,9 @@ describe("desktopRuntimeEnv runtime identity", () => {
     }
 
     if (originalDesktopUseElectronDefaultUserData == null) {
-      delete process.env["ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA"];
+      delete process.env["MIKIKO_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA"];
     } else {
-      process.env["ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA"] =
+      process.env["MIKIKO_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA"] =
         originalDesktopUseElectronDefaultUserData;
     }
   });
@@ -993,7 +993,7 @@ describe("desktopRuntimeEnv runtime identity", () => {
   });
 
   it("e2e 可保留 Chromedriver 注入的 Electron userData 目录", async () => {
-    process.env["ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA"] = "1";
+    process.env["MIKIKO_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA"] = "1";
     appMock.getPath.mockImplementation((name: string) => {
       if (name === "appData") {
         throw new Error("Failed to get 'appData' path");

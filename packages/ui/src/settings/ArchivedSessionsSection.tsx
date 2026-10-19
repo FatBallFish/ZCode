@@ -100,7 +100,7 @@ export function ArchivedSessionsSection() {
   const [confirmDeleteTaskId, setConfirmDeleteTaskId] = useState<string | null>(null);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const [worktreeByPath, setWorktreeByPath] = useState<
-    Map<string, { rootWorkspacePath: string; diskStatus: string }>
+    Map<string, { rootWorkspacePath: string; diskStatus: string; branch: string | null }>
   >(new Map());
   const requestIdRef = useRef(0);
 
@@ -119,12 +119,17 @@ export function ArchivedSessionsSection() {
         return null;
       }
       setTasks(archived);
-      const byPath = new Map<string, { rootWorkspacePath: string; diskStatus: string }>();
+      // 2026-10-15：带出 branch（绑定分支后归档记录展示分支名，游离态由卡片端回落短 id）。
+      const byPath = new Map<
+        string,
+        { rootWorkspacePath: string; diskStatus: string; branch: string | null }
+      >();
       for (const group of worktreeList?.groups ?? []) {
         for (const item of group.worktrees) {
           byPath.set(item.entry.worktreePath, {
             rootWorkspacePath: item.entry.rootWorkspacePath,
             diskStatus: item.diskStatus,
+            branch: item.branch,
           });
         }
       }

@@ -76,13 +76,13 @@ Linux 的兼容性门禁检查最终 ELF 的 `readelf --version-info`，按数�
 
 ## 预编译资源分发
 
-普通 desktop/SEA prepare 与本地开发流程不在下载失败后现场编译 native search tools。自产 `bfs` / `ugrep` 归档与 Microsoft `ripgrep-prebuilt v14.1.1-1` 原始归档统一从 `${ZCODE_DEPS_BASE_URL}/native-search-tools` 下载。平台打包 CI 在执行 prepare 之前可运行一次 deps ensure：它根据同一份 `platform-arch` release plan 直接检查 runner 映射的共享 deps 文件系统；producer 归档缺失时，受信任流水线在当前目标 toolchain 上构建、验证、确定性打包，并以临时文件加同目录 rename 发布到共享 deps。所有 producer 归档都必须在 release plan 中配置 `archiveSha256`，并在复用、发布和下载前严格校验；摘要缺失或不匹配时立即失败，不能继续打包。ensure 默认拒绝补产，只有 protected ref 或显式设置 `ZCODE_NATIVE_SEARCH_ALLOW_PUBLISH=1` 的受信任入口才进入写入分支；仓库内 macOS、Linux、Windows 三个平台打包 template 是授权的共享 deps 写入入口。同一 `platform-arch` 的打包 job 必须使用 GitLab `resource_group` 跨 pipeline 串行，避免两个 producer 同时发布同一个固定版本路径；不同目标仍可并行。已存在的版本归档不可覆盖；若人工调用期间看到目标已出现，只能在内容摘要相同时接受。
+普通 desktop/SEA prepare 与本地开发流程不在下载失败后现场编译 native search tools。自产 `bfs` / `ugrep` 归档与 Microsoft `ripgrep-prebuilt v14.1.1-1` 原始归档统一从 `${MIKIKO_DEPS_BASE_URL}/native-search-tools` 下载。平台打包 CI 在执行 prepare 之前可运行一次 deps ensure：它根据同一份 `platform-arch` release plan 直接检查 runner 映射的共享 deps 文件系统；producer 归档缺失时，受信任流水线在当前目标 toolchain 上构建、验证、确定性打包，并以临时文件加同目录 rename 发布到共享 deps。所有 producer 归档都必须在 release plan 中配置 `archiveSha256`，并在复用、发布和下载前严格校验；摘要缺失或不匹配时立即失败，不能继续打包。ensure 默认拒绝补产，只有 protected ref 或显式设置 `MIKIKO_NATIVE_SEARCH_ALLOW_PUBLISH=1` 的受信任入口才进入写入分支；仓库内 macOS、Linux、Windows 三个平台打包 template 是授权的共享 deps 写入入口。同一 `platform-arch` 的打包 job 必须使用 GitLab `resource_group` 跨 pipeline 串行，避免两个 producer 同时发布同一个固定版本路径；不同目标仍可并行。已存在的版本归档不可覆盖；若人工调用期间看到目标已出现，只能在内容摘要相同时接受。
 
 上述 ensure 不是 downloader fallback：Microsoft `rg` 缺失必须立即失败，不能改为自产或重新打包；HTTP 超时、非 200、SHA-256 缺失或不匹配、解压失败或二进制校验失败也必须终止当前构建，不能触发 producer。Microsoft `rg` 与自产 `bfs` / `ugrep` 的全部正式归档都必须在 release plan 中固定 SHA-256，并在解包前校验。尚未准备且未由受信任 CI 补产的 producer 资源，其默认 URL 必须 404，不能用其他平台的产物补位。内网 `rg` 只镜像 Microsoft release 的原始字节，不重命名、不重新打包。
 
-下载器默认直连 `${ZCODE_DEPS_BASE_URL}` 内网镜像。只有 `github.com` 与其 `githubusercontent.com` release 重定向主机允许读取构建环境的 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`；其他主机不隐式进入代理。所有下载都必须在连接长期无响应时明确失败，不能让无法直连 GitHub 的构建机无限等待，也不能让内网依赖地址被外部代理劫持。
+下载器默认直连 `${MIKIKO_DEPS_BASE_URL}` 内网镜像。只有 `github.com` 与其 `githubusercontent.com` release 重定向主机允许读取构建环境的 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`；其他主机不隐式进入代理。所有下载都必须在连接长期无响应时明确失败，不能让无法直连 GitHub 的构建机无限等待，也不能让内网依赖地址被外部代理劫持。
 
-新增资源统一放在 `${ZCODE_DEPS_BASE_URL}/native-search-tools` 下，并按工具独立版本化：
+新增资源统一放在 `${MIKIKO_DEPS_BASE_URL}/native-search-tools` 下，并按工具独立版本化：
 
 ```text
 native-search-tools/
@@ -140,7 +140,7 @@ Microsoft 预编译归档的上游下载地址为 `https://github.com/microsoft/
 | Windows arm64 | `ugrep-v7.8.4-1-aarch64-pc-windows-msvc.zip`      | `e9de73f1b542105203d586b19b4d57b8ecf2bf780f23e86c66a0fb7f56d51024` |
 | Windows x64   | `ugrep-v7.8.4-1-x86_64-pc-windows-msvc.zip`       | `7bbd8e56540d2019a343688f1fc0ddb2ff5f0988090c577d2b9d6f4a8a86be21` |
 
-`<tool>-v<version>-<revision>` 中的 revision 只在同一个上游版本下因编译方式或二进制内容变化时递增，不随 ZCode CLI 版本变化。`bfs 4.1.1` 的 Linux 产物因 GLIBC 构建基线变化保留 `-2`；`ugrep` 上游版本升级后，所有平台从新的 `v7.8.4-1` namespace 开始，Linux 不继承旧版 `v7.5.0-2` 的 revision。历史 remote `rg` resource 仍单独消费 `${ZCODE_DEPS_BASE_URL}/ripgrep-v13.0.0-10`；该兼容资源不属于新的 desktop/SEA embedded-search release plan，也不能作为其版本 fallback。
+`<tool>-v<version>-<revision>` 中的 revision 只在同一个上游版本下因编译方式或二进制内容变化时递增，不随 ZCode CLI 版本变化。`bfs 4.1.1` 的 Linux 产物因 GLIBC 构建基线变化保留 `-2`；`ugrep` 上游版本升级后，所有平台从新的 `v7.8.4-1` namespace 开始，Linux 不继承旧版 `v7.5.0-2` 的 revision。历史 remote `rg` resource 仍单独消费 `${MIKIKO_DEPS_BASE_URL}/ripgrep-v13.0.0-10`；该兼容资源不属于新的 desktop/SEA embedded-search release plan，也不能作为其版本 fallback。
 
 固定归档摘要用于确认下载内容身份；下载后的二进制仍必须通过版本、feature、架构、动态依赖校验，Linux producer 产物还必须通过 GLIBC 2.28 ceiling 校验。`.bundle-meta.json` 同时记录归档摘要和实际二进制摘要：前者使摘要变化后的旧缓存失效，后者用于本地缓存一致性；两者不能互相替代。
 
@@ -187,7 +187,7 @@ producer 仍可作为显式人工流程使用：在对应平台的 producer runn
 
 GitHub commit archive 不携带 `.git`，bfs 4.1.1 的 `build/version.sh` 会因此回退成 `4.1`。producer 必须通过构建环境 `VERSION=4.1.1` 固定 patch version，不能传 `./configure --version=4.1.1`；后者会污染 `bfs --version` 的 `CONFFLAGS` 输出。
 
-TODO：全部平台的 native build 与 E2E 接入完成后，将上述锁定源码归档同步到 ZCode 内部依赖源，并为 source downloader 增加专用镜像地址解析；在镜像产物准备完成前继续使用官方 URL 与 SHA-256 校验，不能把源码文件名直接假设为现有 `ZCODE_DEPS_BASE_URL` 下的资源。
+TODO：全部平台的 native build 与 E2E 接入完成后，将上述锁定源码归档同步到 ZCode 内部依赖源，并为 source downloader 增加专用镜像地址解析；在镜像产物准备完成前继续使用官方 URL 与 SHA-256 校验，不能把源码文件名直接假设为现有 `MIKIKO_DEPS_BASE_URL` 下的资源。
 
 可观察基线只覆盖 `bfs` / `ugrep` 顶层版本、Oniguruma 开关、`ugrep` feature set，以及 ripgrep/PCRE2 能力。Microsoft 归档来自同一 ripgrep 14.1.1 上游版本，不要求 build identity 逐字节一致；当前目标是相同版本、feature set、参数行为和动态依赖边界。表中的传递依赖版本是为可复现构建固定的兼容版本。
 

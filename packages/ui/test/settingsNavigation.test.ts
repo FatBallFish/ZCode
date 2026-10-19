@@ -7,7 +7,7 @@ async function loadSettingsNavigation(env: "test" | "production") {
       await vi.importActual<typeof import("@zcode/shared")>("@zcode/shared");
     return {
       ...actual,
-      ZCODE_ENV: env,
+      MIKIKO_ENV: env,
     };
   });
 

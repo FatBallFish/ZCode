@@ -40,7 +40,7 @@
       ],
       "outputs": ["dist/**"],
       "cache": true,
-      "env": ["ZCODE_ENV", "MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE", "NODE_ENV"]
+      "env": ["MIKIKO_ENV", "MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE", "NODE_ENV"]
     },
     "dev": {
       "cache": false,
@@ -86,7 +86,7 @@
       ],
       "outputs": ["dist/**"],
       "cache": true,
-      "env": ["ZCODE_ENV", "MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE", "NODE_ENV"]
+      "env": ["MIKIKO_ENV", "MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE", "NODE_ENV"]
     }
   }
 }

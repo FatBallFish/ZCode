@@ -6,7 +6,7 @@
 
 ## 1. 背景与目标
 
-正式版 App 的手机远控 = 「`/remote` base 构建的 Web 页面 + HMAC 签名票据 URL + 官方 relay WS 全中转」（依据：`packages/web/src/env.d.ts` 的 `/remote`、`/remote/v3` 注释与 `VITE_ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL` 声明、`browserOAuthCredentialRepo.ts:31` 的线上 `/remote` 登录态注释、v4 协议 `mobileRelayBytes` 帧预算命名）。该链路在开源快照中缺失：无二维码生成、无配对票据、无 relay 客户端，仅保留地基。
+正式版 App 的手机远控 = 「`/remote` base 构建的 Web 页面 + HMAC 签名票据 URL + 官方 relay WS 全中转」（依据：`packages/web/src/env.d.ts` 的 `/remote`、`/remote/v3` 注释与 `VITE_MIKIKO_WEB_REMOTE_CONTROL_RELAY_WS_URL` 声明、`browserOAuthCredentialRepo.ts:31` 的线上 `/remote` 登录态注释、v4 协议 `mobileRelayBytes` 帧预算命名）。该链路在开源快照中缺失：无二维码生成、无配对票据、无 relay 客户端，仅保留地基。
 
 目标：
 
@@ -140,7 +140,7 @@ POST /api/rc/bind  body: { sid, hash, t, mid }
 // 作废时机: 被踢 / 桌面主动断开 / relay 重启 / 自然过期
 ```
 
-> 手机端 WS 基址解析顺序（2026-09-24 增补，目标：relay 域名迁移免重新构建手机页）：票据 URL `ws` 参数（须为 `wss?://`，非法即忽略）> 构建期 `VITE_ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL` > 同源回退；bind 响应 `relayWsBase` 的运行时兜底语义不变。安全上 `ws` 参数仅指定 bind/WS 目的地，会话仍须持有 relay 签发的有效票据，指向伪造 relay 时 bind 必然 401。
+> 手机端 WS 基址解析顺序（2026-09-24 增补，目标：relay 域名迁移免重新构建手机页）：票据 URL `ws` 参数（须为 `wss?://`，非法即忽略）> 构建期 `VITE_MIKIKO_WEB_REMOTE_CONTROL_RELAY_WS_URL` > 同源回退；bind 响应 `relayWsBase` 的运行时兜底语义不变。安全上 `ws` 参数仅指定 bind/WS 目的地，会话仍须持有 relay 签发的有效票据，指向伪造 relay 时 bind 必然 401。
 
 ## 6. Relay Server 设计
 
@@ -405,7 +405,7 @@ waiting  ──超时──▶ pending(自动重签票据并提示重扫)
 ### 8.1 构建与部署
 
 - `packages/web` 以 base `/remote/` 构建两次产物（或一次构建 + 路由变量），部署至 `m.example.com`（静态托管，Caddy 终止 TLS）。
-- 构建期注入：`VITE_ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL = wss://relay.example.com`（env 声明已存在于 `packages/web/src/env.d.ts:17`，此前零消费，本方案为其唯一消费方）。HTTP 基址由其推导（`wss:` → `https:`，即 `RELAY_HTTP_BASE`），bind 响应中的 `relayWsBase` 与之一致并作为运行时兜底。
+- 构建期注入：`VITE_MIKIKO_WEB_REMOTE_CONTROL_RELAY_WS_URL = wss://relay.example.com`（env 声明已存在于 `packages/web/src/env.d.ts:17`，此前零消费，本方案为其唯一消费方）。HTTP 基址由其推导（`wss:` → `https:`，即 `RELAY_HTTP_BASE`），bind 响应中的 `relayWsBase` 与之一致并作为运行时兜底。
 - 落地页与远控页共用 `main.tsx` 入口，按 §8.2 分支。
 
 ### 8.2 bootstrap 分支（`resolveWebBootstrap` 扩展，定死）
@@ -621,7 +621,7 @@ type RtcSignal =
 1. **Workers/Pages Functions 不能 fetch 裸 IP 源站**（`error code: 1003`，且与端口无关；8787/8080 均拒）。回源必须域名。
 2. **Worker 内泵 WS 的方案不可用**：升级/路由/踢人等控制面全部正常，但 Host→手机方向的 RPC 帧无法穿过 Worker WebSocket 泵（ChannelClient 等不到服务端 Initialize，页面空转）。改为 WS 直连隧道域名后立即恢复。
 3. relay 必须监听 **8080**（cloudflared 回源 localhost 任意端口均可；8080 同时释放了原静态托管端口）。限频键支持 `x-forwarded-for`（经 CF 代理时透传真实 IP）。
-4. **trycloudflare 快速隧道域名随机且进程重启会变**——测试可用；生产建议：自有域名 + named tunnel（`cloudflared tunnel login` 交互授权，当前 wrangler OAuth scope 不含 tunnel 权限），并把 `RELAY_PUBLIC_WS_BASE`/构建注入的 `VITE_ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL` 指向固定域名。
+4. **trycloudflare 快速隧道域名随机且进程重启会变**——测试可用；生产建议：自有域名 + named tunnel（`cloudflared tunnel login` 交互授权，当前 wrangler OAuth scope 不含 tunnel 权限），并把 `RELAY_PUBLIC_WS_BASE`/构建注入的 `VITE_MIKIKO_WEB_REMOTE_CONTROL_RELAY_WS_URL` 指向固定域名。
 5. 桌面端点经 `~/.mikiko/remote-control.json` 配置（§17），打包 App 免环境变量；票据 URL 由 relay 的 `RELAY_WEB_REMOTE_BASE` 生成指向 Pages 域。
 
 真机复验（最终架构）：落地页秒开 → 连接 → 主界面与真实任务列表渲染；期间 relay 重启（token 失效自动重注册）、桌面重启均自动恢复。

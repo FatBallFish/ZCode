@@ -20,9 +20,12 @@ export function generateId(): string {
 }
 
 export const PRESET_SUBSCRIPTION_TIMEOUT_MS = 2 * 60 * 1000;
-export const BIGMODEL_REGISTRATION_URL = buildBigModelApiUrl({ ZCODE_ENV }, "/login");
+export const BIGMODEL_REGISTRATION_URL = buildBigModelApiUrl(
+  { MIKIKO_ENV: ZCODE_ENV },
+  "/login",
+);
 export const BIGMODEL_CODING_PLAN_PERSONAL_MANAGE_URL = buildBigModelCodingPlanPersonalManageUrl({
-  ZCODE_ENV,
+  MIKIKO_ENV: ZCODE_ENV,
 });
 
 export interface PresetProviderSpec {

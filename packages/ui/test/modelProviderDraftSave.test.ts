@@ -63,6 +63,8 @@ function createDraft(overrides: Partial<ProviderDraftValues> = {}): ProviderDraf
     apiFormat: "openai-chat-completions",
     baseUrlValue: "https://new.example.com/v1/chat/completions",
     apiKeyValue: "sk-new",
+    contextWindowValue: "",
+    maxOutputTokensValue: "",
     ...overrides,
   };
 }
@@ -109,6 +111,8 @@ describe("Provider draft uses formal Provider Config", () => {
           apiFormat: "anthropic-messages",
           baseUrlValue: "",
           apiKeyValue: "",
+          contextWindowValue: "",
+          maxOutputTokensValue: "",
         },
         now: () => 0,
       }),
@@ -779,5 +783,75 @@ describe("Model metadata uses formal Model Config", () => {
         },
       }),
     ).toEqual({ status: "invalid", field: "contextWindow" });
+  });
+});
+
+describe("Provider 级 token 覆盖草稿（specs/provider/group-token-override.md）", () => {
+  it("配置写入 api 覆盖；置空写 null 且保留 headers；非法输入不保存", () => {
+    const provider = createProvider();
+    // 与存量值一致的字段（类型/地址/Key）不构成变更，隔离出 token 覆盖单变量。
+    const set = resolvePendingProviderDraftSave({
+      provider,
+      draft: createDraft({
+        apiFormat: "anthropic-messages",
+        baseUrlValue: "https://old.example.com/v1",
+        apiKeyValue: "sk-old",
+        contextWindowValue: "500000",
+        maxOutputTokensValue: "100000",
+      }),
+      now: () => 0,
+    });
+    expect(set?.config.api).toMatchObject({
+      contextWindow: 500_000,
+      maxOutputTokens: 100_000,
+    });
+    expect(set?.personalConfig.api).toMatchObject({
+      contextWindow: 500_000,
+      maxOutputTokens: 100_000,
+    });
+
+    const withOverride = createProvider({
+      config: {
+        ...provider.config,
+        api: {
+          ...provider.config.api!,
+          contextWindow: 500_000,
+          maxOutputTokens: 100_000,
+        },
+      },
+      personalConfig: {
+        ...provider.personalConfig,
+        api: { ...provider.personalConfig.api!, contextWindow: 500_000 },
+      },
+    });
+    const cleared = resolvePendingProviderDraftSave({
+      provider: withOverride,
+      draft: createDraft({
+        apiFormat: "anthropic-messages",
+        baseUrlValue: "https://old.example.com/v1",
+        apiKeyValue: "sk-old",
+        contextWindowValue: "",
+        maxOutputTokensValue: "100000",
+      }),
+      now: () => 0,
+    });
+    expect(cleared?.config.api).toMatchObject({
+      contextWindow: null,
+      maxOutputTokens: 100_000,
+      headers: { "x-old": "remove-on-edit" },
+    });
+
+    expect(
+      resolvePendingProviderDraftSave({
+        provider,
+        draft: createDraft({
+          apiFormat: "anthropic-messages",
+          baseUrlValue: "https://old.example.com/v1",
+          apiKeyValue: "sk-old",
+          contextWindowValue: "abc",
+        }),
+        now: () => 0,
+      }),
+    ).toBeNull();
   });
 });

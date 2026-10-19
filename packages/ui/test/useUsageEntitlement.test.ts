@@ -309,7 +309,7 @@ describe("刷新失败保留已确认订阅", () => {
           : { type: "zhipu-account", family: "bigmodel", planKind: "individual-coding-plan" };
       const providerId = `account:bigmodel-${scope === "team" ? "team" : "individual"}-coding-plan`;
       const provider = new BigModelUsageQuotaProvider({
-        env: { ZCODE_ENV: "production" },
+        env: { MIKIKO_ENV: "production" },
         credentialService: { load: async () => "business" },
         accountRequestAuthService: {
           resolveAccessCurrent: vi.fn(),

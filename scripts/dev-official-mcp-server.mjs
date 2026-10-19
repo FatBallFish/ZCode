@@ -480,7 +480,7 @@ console.log("plugins.dirs =",c.plugins.dirs);
 `);
   console.log("4) 带 dev 开关启动 desktop（值为逗号分隔的 loopback origin）：");
   console.log(`
-export ZCODE_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS='${origin}'
+export MIKIKO_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS='${origin}'
 pnpm dev:desktop
 `);
   console.log("   该开关只接受 http loopback，无法把凭证导向远端；不设置时一切 fail closed。");

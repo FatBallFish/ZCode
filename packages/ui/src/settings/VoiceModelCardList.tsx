@@ -70,7 +70,7 @@ export function VoiceModelCardList({
                     <CircleIcon
                       className={cn(
                         "size-4 shrink-0",
-                        status === "installed" ? "text-fg-subtle" : "text-fg-subtlest",
+                        status === "installed" ? "text-foreground-subtle" : "text-foreground-subtlest",
                       )}
                       aria-hidden
                     />
@@ -78,7 +78,7 @@ export function VoiceModelCardList({
                   <span className="min-w-0 truncate text-ui-base font-medium text-foreground">
                     {intl.formatMessage({ id: manifest.labelKey })}
                   </span>
-                  <span className="shrink-0 rounded-full bg-surface px-2 py-0.5 text-ui-xs text-fg-subtle">
+                  <span className="shrink-0 rounded-full bg-surface px-2 py-0.5 text-ui-xs text-foreground-subtle">
                     {intl.formatMessage({
                       id: `settings.voiceInput.model.${manifest.id}.tag`,
                     })}
@@ -120,17 +120,17 @@ export function VoiceModelCardList({
                   </Button>
                 )}
               </div>
-              <div className="pl-6 text-ui-sm text-fg-subtle">
+              <div className="pl-6 text-ui-sm text-foreground-subtle">
                 {intl.formatMessage({
                   id: `settings.voiceInput.model.${manifest.id}.description`,
                 })}
-                <span className="ml-1 text-fg-subtlest">
+                <span className="ml-1 text-foreground-subtlest">
                   {intl.formatMessage({
                     id: `settings.voiceInput.model.${manifest.id}.license`,
                   })}
                 </span>
               </div>
-              <div className="pl-6 flex flex-wrap gap-x-4 gap-y-1 text-ui-xs text-fg-subtlest">
+              <div className="pl-6 flex flex-wrap gap-x-4 gap-y-1 text-ui-xs text-foreground-subtlest">
                 <span>
                   {intl.formatMessage({ id: "settings.voiceInput.model.disk" })}
                   {formatMb(manifest.approxDiskMb)}

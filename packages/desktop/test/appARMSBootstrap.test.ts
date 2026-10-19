@@ -33,7 +33,7 @@ vi.mock("@zcode/shared", async (importOriginal) => {
   return {
     ...actual,
     MIKIKO_ARMS_RUM_ENDPOINT: "https://example.test/endpoint",
-    ZCODE_ENV: "test",
+    MIKIKO_ENV: "test",
     ZCODE_VERSION: "0.0.0-test",
     mapZCodeEnvToArmsRumEnv: vi.fn(() => "local"),
   };

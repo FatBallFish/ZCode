@@ -1493,6 +1493,10 @@ export function createLocalServices(options: {
   // 账号事实唯一 owner = repository（加密 credentials.json）；此处装配身份解析、
   // 运行时（定时刷新/outcome/信封投影）与 RPC 服务，并把动态账号 provider 合并进
   // 既有 Account 快照（复用 providerUpdateAccountConfig 推送链路，不另建写路径）。
+  // 登录链路全部出站请求（OAuth 兑换/刷新/revoke + wham backend）与 NodeApiClient
+  // 共用 hostApiNetworkTransport：host 是独立 Node 进程，系统代理/Electron 代理都
+  // 不影响裸 fetch；不注入则设置页 httpProxy 对 ChatGPT 登录无效（2026-10-17 客户
+  // 案例：浏览器经代理授权成功，host 直连 auth.openai.com 失败）。
   const mikikoClientConfigService = createMikikoClientConfigService({ apiClient });
   const chatGPTAccountsChangedEmitter = new Emitter<ChatGPTAccountView[]>();
   const chatGPTIdentityResolver = createChatGPTIdentityResolver({
@@ -1500,12 +1504,15 @@ export function createLocalServices(options: {
     mikikoClientConfigService,
     appVersion: ZCODE_VERSION,
   });
-  const chatGPTBackendClient = createChatGPTBackendClient();
+  const chatGPTBackendClient = createChatGPTBackendClient({
+    request: hostApiNetworkTransport.fetch,
+  });
   const chatGPTAccountRepository = createChatGPTAccountRepository({ credentialService });
   const chatGPTAccountRuntime = createChatGPTAccountRuntime({
     repository: chatGPTAccountRepository,
     identity: chatGPTIdentityResolver,
     accountsChangedEmitter: chatGPTAccountsChangedEmitter,
+    request: hostApiNetworkTransport.fetch,
   });
   const chatGPTAccountService = createChatGPTAccountService({
     repository: chatGPTAccountRepository,
@@ -1513,6 +1520,7 @@ export function createLocalServices(options: {
     identity: chatGPTIdentityResolver,
     runtime: chatGPTAccountRuntime,
     accountsChangedEmitter: chatGPTAccountsChangedEmitter,
+    request: hostApiNetworkTransport.fetch,
   });
   chatGPTAccountRuntime.start();
   chatGPTAccountRuntimeForAuth = chatGPTAccountRuntime;

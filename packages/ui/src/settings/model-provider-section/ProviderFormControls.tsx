@@ -19,6 +19,7 @@ export function ModelRowInput({
   providerName = providerId,
   providerEnabled = true,
   providerAccess,
+  groupTokenOverride,
   inputTestId,
   deleteTestId,
   onCommit,
@@ -33,6 +34,8 @@ export function ModelRowInput({
   providerName?: string;
   providerEnabled?: boolean;
   providerAccess?: ProviderConfigObject["access"];
+  /** Provider 级 token 覆盖（specs/provider/group-token-override.md）：存在时模型弹窗置灰对应输入。 */
+  groupTokenOverride?: { contextWindow?: number | null; maxOutputTokens?: number | null };
   inputTestId?: string;
   deleteTestId?: string;
   onCommit: (model: ProviderSettingsFormModel, basedOnRevision: number) => void | Promise<void>;
@@ -304,6 +307,7 @@ export function ModelRowInput({
           draftErrorField={draftErrorField}
           overrideFields={editor.overrides}
           inheritedConfig={editor.inheritedConfig}
+          groupTokenOverride={groupTokenOverride}
           onOpenChange={handleMetadataDialogOpenChange}
           onDraftChange={updateDraft}
           onCommit={handleMetadataDialogCommit}

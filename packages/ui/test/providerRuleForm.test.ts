@@ -34,6 +34,8 @@ describe("Todo104 Provider 规则外层元数据表单", () => {
     apiFormat: "anthropic-messages" as const,
     baseUrlValue: "https://example.test",
     apiKeyValue: "",
+    contextWindowValue: "",
+    maxOutputTokensValue: "",
   };
 
   it("读取外层名称/模板；未编辑不保存", () => {

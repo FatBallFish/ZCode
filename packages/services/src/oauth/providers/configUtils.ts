@@ -26,7 +26,7 @@ export function readBoolean(env: NodeJS.ProcessEnv, key: string, fallback: boole
 }
 
 export function buildZCodeApiUrlFromEnv(env: NodeJS.ProcessEnv, path: string): string {
-  // OAuth provider 是运行时配置，必须跟随传入 env.ZCODE_ENV；
+  // OAuth provider 是运行时配置，必须跟随传入 env.MIKIKO_ENV；
   // 地址来自 .env 的通用变量，默认线上；登录与 token 交换必须使用同一配置来源。
   return buildRuntimeZCodeApiUrl(env, path);
 }

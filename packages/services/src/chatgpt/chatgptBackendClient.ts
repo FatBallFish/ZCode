@@ -76,6 +76,7 @@ export interface ChatGPTBackendClient {
 }
 
 export function createChatGPTBackendClient(options?: {
+  /** 请求出口：生产为 node.ts 注入的 host API 网络 transport（httpProxy/CA 生效）；缺省裸 fetch 仅供测试。 */
   request?: typeof fetch;
   cookieJar?: ChatGPTCloudflareCookieJar;
 }): ChatGPTBackendClient {

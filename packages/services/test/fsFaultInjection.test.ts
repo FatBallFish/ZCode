@@ -107,14 +107,14 @@ describe("fsFaultInjection", () => {
     const productionInjector = createFsFaultInjectorFromEnv({
       NODE_ENV: "production",
       ZCODE_E2E_FS_FAULTS: rawRules,
-      ZCODE_ENV: "production",
+      MIKIKO_ENV: "production",
     });
     expect(productionInjector.isEnabled()).toBe(false);
 
     const testInjector = createFsFaultInjectorFromEnv({
       NODE_ENV: "production",
       ZCODE_E2E_FS_FAULTS: rawRules,
-      ZCODE_ENV: "test",
+      MIKIKO_ENV: "test",
     });
     expect(testInjector.isEnabled()).toBe(true);
 
@@ -122,7 +122,7 @@ describe("fsFaultInjection", () => {
       NODE_ENV: "production",
       ZCODE_E2E_FS_FAULTS: rawRules,
       ZCODE_E2E_FS_FAULTS_ALLOW: "1",
-      ZCODE_ENV: "production",
+      MIKIKO_ENV: "production",
     });
     expect(explicitlyAllowedInjector.isEnabled()).toBe(true);
   });

@@ -1,25 +1,37 @@
 import { basename, join } from "node:path";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 
 import type { ApiClient, FeedbackDeviceInfo } from "@zcode/shared";
-import {
-  buildRuntimeZCodeApiUrl,
-  ZCODE_BUILD_TIME,
-  ZCODE_COMMIT,
-  ZCODE_VERSION,
-} from "@zcode/shared";
+import { MIKIKO_COMMIT, ZCODE_BUILD_TIME, ZCODE_VERSION, resolveMikikoFeedbackApiBase } from "@zcode/shared";
 import { Emitter } from "@zcode/rpc";
 import { arch, platform, release, type as osType } from "node:os";
 
 import type { ICredentialService } from "../credential/credential.js";
 import type { IOAuthService } from "../oauth/oauth.js";
 import type { FeedbackUploadProgress, IFeedbackService } from "./feedback.js";
-import { FeedbackHttpClient, FeedbackUploadCanceledError } from "./feedbackHttpClient.js";
+import {
+  MikikoFeedbackHttpClient,
+  MikikoFeedbackRequestError,
+} from "./mikikoFeedbackHttpClient.js";
+import {
+  invalidateAndReacquireMikikoFeedbackDeviceToken,
+  resolveMikikoFeedbackDeviceToken,
+} from "../conversation-share/mikikoShareDeviceToken.js";
 import { cleanupLogArchive, prepareCompactLogArchive } from "./compactLogArchive.js";
 import { getFeedbackAttachmentDir } from "../paths.js";
-import { FeedbackLocalTicketStore } from "#src/feedback/feedbackLocalTicketStore.js";
+import { FeedbackLocalTicketStore } from "./feedbackLocalTicketStore.js";
 
-const ZCODE_JWT_TOKEN_KEY = "zcodejwttoken";
+/**
+ * 本地优先的反馈服务（specs/mikiko-cloud/feedback-tickets.md，2026-10-19 切自建）。
+ *
+ * - 出网仅 agent.mikiko.ai（resolveMikikoFeedbackApiBase），鉴权为设备 token
+ *   （sha256(deviceMid) 注册换取），不再使用智谱 OAuth JWT。
+ * - 「我的反馈」一律读本地 tickets.json（换设备不同步，符合当前无统一账号的现状）；
+ *   云端工单状态/评论由 mikiko-cloud 管理后台消费。
+ * - 云端创建失败时仍写入 pending-sync 本地记录后抛错：用户看到真实失败，
+ *   历史记录留待 OAuth 迁移（FeedbackAccountSync 预留）。
+ */
 
 export interface CreateFeedbackServiceOptions {
   credentialService: ICredentialService;
@@ -27,6 +39,7 @@ export interface CreateFeedbackServiceOptions {
   apiClient: ApiClient;
   getDeviceMid?: () => string | undefined;
   apiBaseUrl?: string;
+  homeDir?: string;
   createFullLogArchive?: (
     sourceDir: string,
     options?: {
@@ -36,18 +49,29 @@ export interface CreateFeedbackServiceOptions {
   revealPath?: (path: string) => Promise<void>;
 }
 
-function resolveApiBaseUrl(explicit?: string): string {
-  return (
-    explicit?.trim() ||
-    process.env.MIKIKO_FEEDBACK_API_BASE?.trim() ||
-    buildRuntimeZCodeApiUrl(process.env, "/api/v1")
-  );
+/**
+ * OAuth 数据同步预留：当前无统一账号体系，空实现占位。未来接入统一 OAuth 后：
+ * 1) 上报记录补 userId；2) 实现 syncPendingLocalRecords —— 把本地 pending-sync /
+ *    synced 记录按 clientTicketId 对账迁移到远端账号（spec §迁移约定）。
+ */
+export interface FeedbackAccountSync {
+  readonly userId: string | null;
+  syncPendingLocalRecords(): Promise<{ migrated: number }>;
+}
+
+function noopAccountSync(): FeedbackAccountSync {
+  return {
+    userId: null,
+    async syncPendingLocalRecords() {
+      return { migrated: 0 };
+    },
+  };
 }
 
 function buildDeviceSnapshot(): FeedbackDeviceInfo {
   return {
     appVersion: ZCODE_VERSION,
-    buildCommitId: ZCODE_COMMIT,
+    buildCommitId: MIKIKO_COMMIT,
     buildTime: ZCODE_BUILD_TIME,
     nodeVersion: process.version,
     osType: osType(),
@@ -60,49 +84,34 @@ function buildDeviceSnapshot(): FeedbackDeviceInfo {
 }
 
 export function createFeedbackService(options: CreateFeedbackServiceOptions): IFeedbackService {
-  const apiBaseUrl = resolveApiBaseUrl(options.apiBaseUrl);
-  function getHostDeviceMid(): string | undefined {
-    return options.getDeviceMid?.()?.trim() || undefined;
+  const apiBaseUrl = options.apiBaseUrl?.trim() || resolveMikikoFeedbackApiBase() || "";
+  if (!apiBaseUrl) {
+    throw new Error("Mikiko feedback API base disabled (MIKIKO_FEEDBACK_API_BASE=disabled)");
   }
+  const deviceTokenOptions = {
+    apiClient: options.apiClient,
+    credentialService: options.credentialService,
+    ...(options.homeDir ? { homeDir: options.homeDir } : {}),
+  };
+  const httpClient = new MikikoFeedbackHttpClient({
+    baseUrl: apiBaseUrl,
+    apiClient: options.apiClient,
+    getDeviceToken: () => resolveMikikoFeedbackDeviceToken(deviceTokenOptions),
+    reacquireDeviceToken: () => invalidateAndReacquireMikikoFeedbackDeviceToken(deviceTokenOptions),
+  });
+  const localTicketStore = new FeedbackLocalTicketStore();
+  const accountSync = noopAccountSync();
+  const uploadProgressEmitters = new Map<string, Emitter<FeedbackUploadProgress>>();
+  const activeUploadControllers = new Map<string, AbortController>();
+  const activeCreateControllers = new Map<string, AbortController>();
 
   function requireHostDeviceMid(): string {
-    const deviceMid = getHostDeviceMid();
+    const deviceMid = options.getDeviceMid?.()?.trim();
     if (!deviceMid) {
       throw new Error("Missing feedback device_mid");
     }
     return deviceMid;
   }
-
-  async function getZcodeJwtToken(): Promise<string | undefined> {
-    return (await options.credentialService.load(ZCODE_JWT_TOKEN_KEY))?.trim() || undefined;
-  }
-
-  async function hasZcodeJwtToken(): Promise<boolean> {
-    return Boolean(await getZcodeJwtToken());
-  }
-
-  const httpClient = new FeedbackHttpClient({
-    baseUrl: apiBaseUrl,
-    apiClient: options.apiClient,
-    getAuthHeaders: async () => {
-      const headers: Record<string, string> = {};
-      const deviceMid = getHostDeviceMid();
-      // feedback 的 device_mid 必须复用宿主 deviceMid（与 provider 请求头、远控同一身份）；
-      // 不单独生成 fb_ 身份，否则同一台机器在不同系统里会被拆成两个设备。
-      if (deviceMid) {
-        headers["X-Device-Mid"] = deviceMid;
-      }
-      const jwtToken = await getZcodeJwtToken();
-      if (jwtToken) {
-        headers.Authorization = `Bearer ${jwtToken}`;
-      }
-      return headers;
-    },
-  });
-  const localTicketStore = new FeedbackLocalTicketStore();
-  const uploadProgressEmitters = new Map<string, Emitter<FeedbackUploadProgress>>();
-  const activeUploadControllers = new Map<string, AbortController>();
-  const activeCreateControllers = new Map<string, AbortController>();
 
   function getUploadProgressEmitter(id: string): Emitter<FeedbackUploadProgress> {
     const current = uploadProgressEmitters.get(id);
@@ -117,6 +126,24 @@ export function createFeedbackService(options: CreateFeedbackServiceOptions): IF
     return emitter;
   }
 
+  /** 云端创建失败时的离线兜底记录：本地 pending-sync，等 OAuth 迁移。 */
+  async function upsertPendingSyncRecord(deviceMid: string, title: string, description: string): Promise<string> {
+    const now = new Date().toISOString();
+    const localId = `local-${randomUUID()}`;
+    await localTicketStore.upsert(deviceMid, {
+      id: localId,
+      title,
+      type: "bug",
+      status: "已提交",
+      created_at: now,
+      updated_at: now,
+      // 附加字段随 detail 一起序列化进 tickets.json（additive，读取端忽略）。
+      description,
+      syncState: "pending-sync",
+    } as Parameters<typeof localTicketStore.upsert>[1]);
+    return localId;
+  }
+
   return {
     create: async (input, createOptions) => {
       const device = input.device ?? buildDeviceSnapshot();
@@ -129,18 +156,25 @@ export function createFeedbackService(options: CreateFeedbackServiceOptions): IF
         activeCreateControllers.set(operationId, controller);
       }
       try {
-        const ticket = await httpClient.create(
-          {
-            ...input,
-            device,
-          },
-          {
-            signal: controller.signal,
-          },
-        );
-        if (!(await hasZcodeJwtToken())) {
-          await localTicketStore.upsert(requireHostDeviceMid(), ticket);
+        let ticket: Awaited<ReturnType<typeof httpClient.create>>;
+        try {
+          ticket = await httpClient.create({ ...input, device }, { signal: controller.signal });
+        } catch (error) {
+          // 本地优先：云端失败仍留档（pending-sync），用户看到真实错误，历史可迁移。
+          if (!(error instanceof MikikoFeedbackRequestError) || error.status >= 500 || error.status === 0) {
+            await upsertPendingSyncRecord(
+              requireHostDeviceMid(),
+              input.title,
+              input.description,
+            ).catch(() => {});
+          }
+          throw error;
         }
+        // 成功同样无条件落本地：synced 标记 + description 供本地详情展示。
+        await localTicketStore.upsert(requireHostDeviceMid(), {
+          ...ticket,
+          syncState: "synced",
+        } as Parameters<typeof localTicketStore.upsert>[1]);
         return ticket;
       } finally {
         if (operationId && activeCreateControllers.get(operationId) === controller) {
@@ -154,19 +188,32 @@ export function createFeedbackService(options: CreateFeedbackServiceOptions): IF
       activeCreateControllers.get(key)?.abort();
     },
     list: async (query) => {
-      if (await hasZcodeJwtToken()) {
-        return httpClient.list(query);
-      }
+      // 本地优先：一律读本地（云端状态/类型分类由管理后台维护，不回读）。
       const items = await localTicketStore.list(requireHostDeviceMid(), query);
       return { items, total: items.length };
     },
-    get: (id) => httpClient.get(id),
-    comment: (id, body) => httpClient.comment(id, body),
+    get: async (id) => {
+      const summary = await localTicketStore.get(requireHostDeviceMid(), id);
+      if (!summary) {
+        throw new Error(`Feedback ticket not found locally: ${id}`);
+      }
+      return {
+        ...summary,
+        description: (summary as { description?: string }).description ?? "",
+        attachments: [],
+        comments: [],
+        events: [],
+      };
+    },
+    comment: async () => {
+      // 本地记录模式不支持追加评论；接入统一 OAuth 后由 FeedbackAccountSync 打开。
+      throw new Error("Feedback comment requires account sync (not yet available)");
+    },
     uploadAttachment: async (id, kind, file) => {
       const filename = file.filename ?? basename(file.path);
       const contentType = file.contentType ?? (kind === "image" ? "image/png" : "application/zip");
       return httpClient.uploadFile(id, kind, file.path, filename, contentType, {
-        messageId: file.messageId,
+        signal: undefined,
       });
     },
     uploadAttachmentWithProgress: async (id, kind, file, progressId) => {
@@ -183,7 +230,6 @@ export function createFeedbackService(options: CreateFeedbackServiceOptions): IF
       activeUploadControllers.set(progressId, controller);
       return httpClient
         .uploadFile(id, kind, file.path, filename, contentType, {
-          messageId: file.messageId,
           signal: controller.signal,
           onUploadProgress: (event) => {
             emitter.fire({
@@ -193,17 +239,6 @@ export function createFeedbackService(options: CreateFeedbackServiceOptions): IF
               totalBytes: event.totalBytes,
             });
           },
-        })
-        .catch((error) => {
-          if (error instanceof FeedbackUploadCanceledError) {
-            emitter.fire({
-              id: progressId,
-              phase: "canceled",
-              uploadedBytes: 0,
-              totalBytes: 0,
-            });
-          }
-          throw error;
         })
         .finally(() => {
           activeUploadControllers.delete(progressId);
@@ -223,7 +258,7 @@ export function createFeedbackService(options: CreateFeedbackServiceOptions): IF
       try {
         await writeFile(tempPath, Buffer.from(file.dataBase64, "base64"));
         return await httpClient.uploadFile(id, kind, tempPath, filename, file.contentType, {
-          messageId: file.messageId,
+          signal: undefined,
         });
       } finally {
         await rm(tempDir, { recursive: true, force: true }).catch(() => {});
@@ -273,4 +308,9 @@ export function createFeedbackService(options: CreateFeedbackServiceOptions): IF
       }
     },
   };
+}
+
+/** 暴露给未来 OAuth 接入点的同步器构造口（当前为空实现）。 */
+export function createFeedbackAccountSync(): FeedbackAccountSync {
+  return noopAccountSync();
 }

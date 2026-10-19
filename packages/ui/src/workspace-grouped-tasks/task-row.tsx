@@ -21,6 +21,7 @@ import {
   formatTaskRelativeTime,
 } from "@/lib/taskListItemPresentation.js";
 import { getTaskChangeSummary } from "@/lib/taskChangeSummary.js";
+import { getPathLeaf } from "@/lib/path.js";
 import { buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
 import { buildTaskFeedbackDescription } from "@/lib/taskFeedbackDraft.js";
 import { useTaskListItemContextActions } from "@/useTaskListItemContextActions.js";
@@ -128,6 +129,19 @@ function GroupedTaskRowComponent({
   const isWorktreeSession = useWorktreeStore((state) =>
     state.registryEntries.some((entry) => entry.worktreePath === task.workspacePath),
   );
+  // hover 分支行展示值：绑定分支为分支名，游离/未知为 null（组件内回落短 id）。
+  const branchLabel = useWorktreeStore(
+    (state) => state.branchByWorktreePath[task.workspacePath] ?? null,
+  );
+  // 2026-10-16 hover 调整：行内 workspaceLabel 仍是「repoName · 分支/短id」拼接，
+  // hover「项目」只显示纯 repoName（注册表 rootWorkspacePath 末段），分支在独立行。
+  const worktreeRootPath = useWorktreeStore((state) =>
+    state.registryEntries.find((entry) => entry.worktreePath === task.workspacePath)
+      ?.rootWorkspacePath,
+  );
+  const hoverProjectLabel = worktreeRootPath
+    ? getPathLeaf(worktreeRootPath) || workspaceLabel
+    : workspaceLabel;
   const taskTitle =
     task.title ||
     intl.formatMessage({
@@ -495,13 +509,14 @@ function GroupedTaskRowComponent({
             <TooltipTrigger asChild>
               <ContextMenuTrigger asChild>{interactiveTaskRow}</ContextMenuTrigger>
             </TooltipTrigger>
-            {/* 分组行 hover 详情卡：名称/项目/工作位置/最近时间 + 原 ±行数变更摘要。 */}
+            {/* 分组行 hover 详情卡：名称/项目/分支（worktree 会话）/工作位置/最近时间 + 原 ±行数变更摘要。 */}
             <TooltipContent side="right" align="center" sideOffset={6} className="p-2.5">
               <TaskHoverDetailsContent
                 task={task}
-                projectLabel={workspaceLabel}
+                projectLabel={hoverProjectLabel}
                 remoteSessionId={remoteSessionId}
                 isWorktree={isWorktreeSession}
+                branchLabel={branchLabel}
                 intl={intl}
                 extraLine={
                   taskChangeParts.length > 0 ? (

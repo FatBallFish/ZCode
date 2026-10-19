@@ -22,7 +22,7 @@ function createProviderForTest(options: {
     credentialService: {
       load: vi.fn(async (key: string) => options.credentials?.[key] ?? null),
     },
-    env: { ZCODE_ENV: "test" },
+    env: { MIKIKO_ENV: "test" },
   });
   const methodNames = new Set([
     "getCodingPlanResetStatus",

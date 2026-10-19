@@ -106,7 +106,7 @@ describe("resolveDefaultZCodeAgentCommand", () => {
   const originalBinaryEnv = process.env[ZCODE_AGENT_RUNTIME.binaryEnvVar];
   const originalNodeEnv = process.env.NODE_ENV;
   const originalRuntimeEnv = process.env[ZCODE_RUNTIME_ENV_KEY];
-  const originalBytecodeEnv = process.env.ZCODE_DESKTOP_AGENT_BYTECODE;
+  const originalBytecodeEnv = process.env.MIKIKO_DESKTOP_AGENT_BYTECODE;
   const originalElectronVersion = Object.getOwnPropertyDescriptor(process.versions, "electron");
   const createdDirs: string[] = [];
 
@@ -119,7 +119,7 @@ describe("resolveDefaultZCodeAgentCommand", () => {
   }
 
   beforeEach(() => {
-    delete process.env.ZCODE_DESKTOP_AGENT_BYTECODE;
+    delete process.env.MIKIKO_DESKTOP_AGENT_BYTECODE;
     // 修复原因：stdio tap 开关持久化在用户真实配置目录中。测试若直接读取该目录，
     // 本机开启抓包后会意外包装临时 Node agent，导致用例结果依赖用户环境。
     const dataBaseDir = mkdtempSync(join(tmpdir(), "zcode-agent-manager-data-"));
@@ -135,7 +135,7 @@ describe("resolveDefaultZCodeAgentCommand", () => {
     restoreEnv(ZCODE_AGENT_RUNTIME.binaryEnvVar, originalBinaryEnv);
     restoreEnv("NODE_ENV", originalNodeEnv);
     restoreEnv(ZCODE_RUNTIME_ENV_KEY, originalRuntimeEnv);
-    restoreEnv("ZCODE_DESKTOP_AGENT_BYTECODE", originalBytecodeEnv);
+    restoreEnv("MIKIKO_DESKTOP_AGENT_BYTECODE", originalBytecodeEnv);
     if (originalElectronVersion)
       Object.defineProperty(process.versions, "electron", originalElectronVersion);
     else delete process.versions.electron;
@@ -203,7 +203,7 @@ describe("resolveDefaultZCodeAgentCommand", () => {
     "字节码开关只替换 Electron 的 stdio 入口，保留存储 Worker JS 入口：electron=%s enabled=%s",
     (electron, enabled) => {
       delete process.env.MIKIKO_AGENT_SERVER_COMMAND;
-      process.env.ZCODE_DESKTOP_AGENT_BYTECODE = enabled ? "1" : "0";
+      process.env.MIKIKO_DESKTOP_AGENT_BYTECODE = enabled ? "1" : "0";
       Object.defineProperty(process.versions, "electron", {
         configurable: true,
         value: electron ? "41.0.3" : undefined,
@@ -232,7 +232,7 @@ describe("resolveDefaultZCodeAgentCommand", () => {
 
   it("字节码入口缺失时拒绝静默回退 JS", () => {
     delete process.env.MIKIKO_AGENT_SERVER_COMMAND;
-    process.env.ZCODE_DESKTOP_AGENT_BYTECODE = "1";
+    process.env.MIKIKO_DESKTOP_AGENT_BYTECODE = "1";
     Object.defineProperty(process.versions, "electron", { configurable: true, value: "41.0.3" });
     const root = mkdtempSync(join(tmpdir(), "zcode-bytecode-missing-"));
     createdDirs.push(root);

@@ -24,6 +24,7 @@ import {
   sessionControlSchema,
   sessionMetaStateSchema,
   sessionModelTransitionSchema,
+  sessionStatsStateSchema,
   sessionUsageStateSchema,
   subagentProjectionStateSchema,
   workspaceHookAdmissionStateSchema,
@@ -47,6 +48,8 @@ export const statePatchSchema = z.object({
   config: sessionConfigStateSchema.optional(),
   modelTransition: sessionModelTransitionSchema.nullable().optional(),
   usage: sessionUsageStateSchema.optional(),
+  // 会话统计（specs/ui/session-stats.md）：键级整体替换；旧桌面剥离未知键。
+  stats: sessionStatsStateSchema.optional(),
   queue: queueStateSchema.optional(),
   pendingInteractions: z.array(pendingInteractionSchema).optional(),
   pendingCommands: z.array(commandStateSummarySchema).optional(),

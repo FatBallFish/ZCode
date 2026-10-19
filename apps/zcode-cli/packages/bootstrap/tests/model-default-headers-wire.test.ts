@@ -81,7 +81,7 @@ function createFixture(
   );
   if (!provider.ok || !model.ok) throw new Error("invalid header fixture");
   const executionConfig = createRuntimeAiSdkModelExecutionConfig(
-    options.env ?? { MIKIKO_APP_VERSION: CLIENT_VERSION, ZCODE_ENV: "production" },
+    options.env ?? { MIKIKO_APP_VERSION: CLIENT_VERSION, MIKIKO_ENV: "production" },
     { sourceTitle: options.sourceTitle ?? "electron", appVersion: options.appVersion },
   );
   const adapter = createModelAdapter({ executionConfig, env: {} });

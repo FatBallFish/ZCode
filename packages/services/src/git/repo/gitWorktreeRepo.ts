@@ -18,7 +18,7 @@ export interface GitWorktreeListEntry {
   /** 工作树绝对路径（已 normalize）。 */
   path: string;
   head: string;
-  /** 形如 refs/heads/main；detached（bare/worktree add --detach）时为 null。 */
+  /** 分支名（已剥 refs/heads/ 前缀，如 main）；detached（bare/worktree add --detach）时为 null。 */
   branch: string | null;
   bare: boolean;
   detached: boolean;
@@ -91,7 +91,9 @@ export function createGitWorktreeRepo(options: {
       } else if (rawLine.startsWith("HEAD ")) {
         if (current) current.head = rawLine.slice("HEAD ".length);
       } else if (rawLine.startsWith("branch ")) {
-        if (current) current.branch = rawLine.slice("branch ".length);
+        // 2026-10-15：剥 refs/heads/ 前缀，消费方（worktreeService 分支展示）直接得分支名。
+        if (current)
+          current.branch = rawLine.slice("branch ".length).replace(/^refs\/heads\//u, "");
       } else if (rawLine === "bare") {
         if (current) current.bare = true;
       } else if (rawLine === "detached") {

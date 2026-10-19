@@ -10,7 +10,7 @@
 - 默认值：`10.0.0.100`
 - host 语义只表示机器地址，不包含协议、端口或路径
 - 需要完整 URL 的场景继续在调用处按自己的协议、端口和路径拼接
-- deps 完整镜像地址仍可用 `ZCODE_DEPS_BASE_URL` 覆盖；该变量覆盖的是完整 deps base URL，不替代 `INTRANET_MACHINE_HOST`
+- deps 完整镜像地址仍可用 `MIKIKO_DEPS_BASE_URL` 覆盖；该变量覆盖的是完整 deps base URL，不替代 `INTRANET_MACHINE_HOST`
 
 ## 覆盖范围
 

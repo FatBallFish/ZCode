@@ -28,7 +28,10 @@ export function WorktreeRowCard({
   onRemove: (force: boolean) => void;
 }) {
   const { intl } = useZCodeIntl();
-  const shortId = worktreeShortId(item.entry.id);
+  // 2026-10-15 修复：主名与徽标此前用短 id + entry.ref（创建时起点 ref 快照，永不更新），
+  // 绑定分支后仍显示游离态。改为分支优先、短 id 兜底；entry.ref 不再用于展示
+  // （specs/desktop/worktrees.md 分支展示规则）。
+  const identity = item.branch ?? worktreeShortId(item.entry.id);
   const statusLabel =
     item.diskStatus === "ready"
       ? item.dirtyFileCount !== null && item.dirtyFileCount > 0
@@ -43,13 +46,13 @@ export function WorktreeRowCard({
       <div className="flex flex-wrap items-center gap-2">
         <GitBranch className="h-3.5 w-3.5 shrink-0 text-foreground-subtle" />
         <span className="font-mono text-ui-sm text-foreground" title={item.entry.worktreePath}>
-          {shortId}
+          {identity}
         </span>
         <span className="text-ui-sm text-foreground-subtle" title={item.entry.worktreePath}>
           {item.entry.worktreePath}
         </span>
         <span className="rounded bg-surface-raised px-1.5 py-0.5 text-ui-xs text-foreground-subtle">
-          {item.entry.ref}
+          {item.branch ?? intl.formatMessage({ id: "git.head.detached" })}
           {item.headShortSha ? ` · ${item.headShortSha}` : ""}
         </span>
         <span

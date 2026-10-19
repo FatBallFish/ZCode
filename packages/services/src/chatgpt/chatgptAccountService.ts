@@ -50,8 +50,10 @@ export interface ChatGPTAccountServiceOptions {
   accountsChangedEmitter?: Emitter<ChatGPTAccountView[]>;
   logger?: ReturnType<typeof createServiceLogger>;
   readFile?: (path: string) => Promise<string>;
-  /** OAuth 端点请求注入（测试用；缺省全局 fetch）。 */
+  /** OAuth 端点请求出口：生产为 node.ts 注入的 host API 网络 transport（httpProxy/CA 生效）；测试可 mock。 */
   request?: typeof fetch;
+  /** 回调监听端口注入（测试用；生产固定 1455）。 */
+  callbackPort?: number;
 }
 
 interface PendingAuthorization {
@@ -172,6 +174,7 @@ export function createChatGPTAccountService(
       session.listener = await startChatGPTCallbackListener({
         expectedState: state,
         onCode: (code) => completeAuthorization(code, session),
+        ...(options.callbackPort != null ? { port: options.callbackPort } : {}),
       });
       pendingAuthorization = session;
       void session.listener.done
@@ -181,12 +184,26 @@ export function createChatGPTAccountService(
         .catch((error: unknown) => {
           if (pendingAuthorization !== session) return;
           pendingAuthorization = null;
+          // 回调成功页在 code→token 兑换前就已返回浏览器，「已登录」≠账号已添加；
+          // 兑换/写库失败只经本事件透出。此前这里不落任何日志，客户侧「浏览器成功、
+          // 客户端失败」无从排查（2026-10-17 案例），补 warn（只记错误元信息，不含 token）。
+          logger.warn(undefined, "chatgpt authorization failed", {
+            error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+            ...(error instanceof ChatGPTOAuthError && error.status != null
+              ? { status: error.status }
+              : {}),
+            ...(error instanceof ChatGPTOAuthError && error.errorCode
+              ? { errorCode: error.errorCode }
+              : {}),
+          });
           const message =
             error instanceof ChatGPTOAuthError && error.message === CHATGPT_CALLBACK_PORT_IN_USE
               ? "授权回调端口 1455 被占用，可能是 Codex CLI 正在运行或登录中，请关闭后重试"
-              : error instanceof ChatGPTOAuthError
-                ? error.message
-                : "授权失败，请重试";
+              : error instanceof ChatGPTOAuthError && error.classification?.reason === "network"
+                ? "网络错误：无法连接 ChatGPT 授权服务（auth.openai.com），请检查网络，或在「设置 → 常规 → HTTP 代理」配置代理后重试"
+                : error instanceof ChatGPTOAuthError
+                  ? error.message
+                  : "授权失败，请重试";
           authorizationFailedEmitter.fire({ message });
         });
       return {

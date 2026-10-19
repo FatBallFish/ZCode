@@ -20,7 +20,7 @@
 
 1. E2E 隔离 HOME 写入 BigModel OAuth 凭据，表示账号已登录。
 2. 写入 BigModel Coding Plan provider，保持未开通套餐状态。
-3. 将 `ZCODE_TEST_BASE_URL` 和 `BIGMODEL_TEST_API_BASE_URL` 指向本地 mock server。
+3. 将 `MIKIKO_TEST_BASE_URL` 和 `BIGMODEL_TEST_API_BASE_URL` 指向本地 mock server。
 4. `client/configs` 返回 BigModel 个人 Lite / Pro / Max 静态套餐。
 5. `pay/batch-preview` 返回同一批个人套餐，且每个 SKU `soldOut=true`。
 

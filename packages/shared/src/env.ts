@@ -22,7 +22,7 @@ export const ZCODE_ENV = normalizeZCodeEnv(
 
 /**
  * 身份缺省跟随后端环境（test → preview，production → production）。
- * 桌面构建通过 `ZCODE_PREVIEW_IDENTITY=1` 显式注入 preview，得到连接生产后端的 Preview 包；
+ * 桌面构建通过 `MIKIKO_PREVIEW_IDENTITY=1` 显式注入 preview，得到连接生产后端的 Preview 包；
  * 未注入 define 的 bundle（web、CLI、测试）沿用旧的单轴语义。
  */
 export function normalizeZCodeProductFlavor(
@@ -72,7 +72,7 @@ export const MIKIKO_ARMS_RUM_ENDPOINT =
 export const ZCODE_AUTO_UPDATE_ENABLED: boolean =
   typeof __ZCODE_AUTO_UPDATE_ENABLED__ !== "undefined" ? __ZCODE_AUTO_UPDATE_ENABLED__ : false;
 
-/** 将本地运行态与编译期 ZCODE_ENV 映射为 ARMS 控制台识别的上报环境标签 */
+/** 将本地运行态与编译期 MIKIKO_ENV 映射为 ARMS 控制台识别的上报环境标签 */
 export function mapZCodeEnvToArmsRumEnv(runtimeEnv: ZCodeRuntimeEnv): ArmsRumEnv {
   return runtimeEnv !== "development" && ZCODE_ENV === "production" ? "prod" : "local";
 }

@@ -80,11 +80,19 @@ export const completeProviderAccessDataSchema = z.discriminatedUnion("type", [
   completeChatGPTAccountAccessDataSchema,
 ]);
 
+/**
+ * Provider 级 token 覆盖（specs/provider/group-token-override.md）：三态——
+ * undefined 未配置（模型自身生效）/ 正整数覆盖全组模型 / null 置空恢复。
+ */
+const providerApiTokenOverrideSchema = z.number().int().positive().nullable().optional();
+
 export const completeProviderApiDataSchema = z
   .object({
     type: providerApiTypeDataSchema,
     baseUrl: nonBlankRequiredString.pipe(z.string().url()),
     headers: z.record(z.string(), z.string()).readonly().nullable().optional(),
+    contextWindow: providerApiTokenOverrideSchema,
+    maxOutputTokens: providerApiTokenOverrideSchema,
   })
   .strict();
 export const providerApiDataSchema = z

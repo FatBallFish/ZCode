@@ -5,8 +5,8 @@ import { resolveProcessProviderEndpointRoutingPort } from "../src/provider-endpo
 describe("resolveProcessProviderEndpointRoutingPort", () => {
   it("shares one process snapshot owner for the same endpoint and network policy", () => {
     const env = {
-      ZCODE_ENV: "test",
-      ZCODE_TEST_BASE_URL: "https://routing-config.example.test",
+      MIKIKO_ENV: "test",
+      MIKIKO_TEST_BASE_URL: "https://routing-config.example.test",
     };
     const network = {
       httpProxy: "http://proxy.example.test:8080",
@@ -32,7 +32,7 @@ describe("resolveProcessProviderEndpointRoutingPort", () => {
   it("isolates ports when the endpoint origin changes", () => {
     const create = (origin: string) =>
       resolveProcessProviderEndpointRoutingPort({
-        env: { ZCODE_ENV: "production", MIKIKO_BASE_URL: origin },
+        env: { MIKIKO_ENV: "production", MIKIKO_BASE_URL: origin },
         logger,
         network: {},
       });
@@ -41,8 +41,8 @@ describe("resolveProcessProviderEndpointRoutingPort", () => {
 
   it("isolates snapshots when the network policy changes", () => {
     const env = {
-      ZCODE_ENV: "test",
-      ZCODE_TEST_BASE_URL: "https://routing-config-network.example.test",
+      MIKIKO_ENV: "test",
+      MIKIKO_TEST_BASE_URL: "https://routing-config-network.example.test",
     };
     const direct = resolveProcessProviderEndpointRoutingPort({
       appVersion: "1.2.3",

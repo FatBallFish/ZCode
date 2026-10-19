@@ -6,7 +6,7 @@ type MutableEnvironment = Record<string, string | undefined>;
 const CODING_PLAN_COMMON_ENV_KEYS = [
   "MIKIKO_BASE_URL",
   "MIKIKO_ENDPOINT_ORIGIN",
-  "ZCODE_TEST_BASE_URL",
+  "MIKIKO_TEST_BASE_URL",
   "BIGMODEL_API_BASE_URL",
   "ZCODE_E2E_CODING_PLAN_MOCK_URL",
 ] as const;
@@ -59,18 +59,18 @@ export function shouldPrepareCodingPlanTeamMock(specs: readonly string[]) {
 
 export function applyCodingPlanTeamMockEnv(environment: MutableEnvironment, baseUrl: string) {
   environment[CODING_PLAN_TEAM_MOCK_BASE_URL_ENV] = baseUrl;
-  environment.ZCODE_ENV = "test";
+  environment.MIKIKO_ENV = "test";
   for (const key of CODING_PLAN_COMMON_ENV_KEYS) {
     environment[key] = baseUrl;
   }
-  environment.ZCODE_BIGMODEL_USAGE_QUOTA_URL = `${baseUrl}/api/monitor/usage/quota/limit`;
+  environment.MIKIKO_BIGMODEL_USAGE_QUOTA_URL = `${baseUrl}/api/monitor/usage/quota/limit`;
   environment.BIGMODEL_USAGE_QUOTA_URL = `${baseUrl}/api/monitor/usage/quota/limit`;
 }
 
 export function clearCodingPlanTeamMockEnv(environment: MutableEnvironment, baseUrl: string) {
   clearOwnedEnvironmentValues(environment, baseUrl, [
     ...CODING_PLAN_COMMON_ENV_KEYS,
-    "ZCODE_BIGMODEL_USAGE_QUOTA_URL",
+    "MIKIKO_BIGMODEL_USAGE_QUOTA_URL",
     "BIGMODEL_USAGE_QUOTA_URL",
   ]);
   if (environment[CODING_PLAN_TEAM_MOCK_BASE_URL_ENV] === baseUrl) {

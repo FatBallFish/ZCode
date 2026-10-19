@@ -42,7 +42,7 @@ export async function resolveBuildTimeConfig(
     armsRumEndpoint: pickValue(env, defaults, "MIKIKO_ARMS_RUM_ENDPOINT"),
     telemetryReportEndpoint: pickValue(env, defaults, "MIKIKO_TELEMETRY_REPORT_ENDPOINT"),
     autoUpdateEnabled: ENABLED_VALUES.has(
-      pickValue(env, defaults, "ZCODE_AUTO_UPDATE").toLowerCase(),
+      pickValue(env, defaults, "MIKIKO_AUTO_UPDATE").toLowerCase(),
     ),
   };
 }

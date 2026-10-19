@@ -9,7 +9,7 @@ import {
   ZCODE_APP_VERSION_ENV,
   ZCODE_BUILD_COMMIT_ID_ENV,
   ZCODE_AGENT_RUNTIME,
-  ZCODE_COMMIT,
+  MIKIKO_COMMIT,
   ZCODE_DYNAMIC_WORKFLOW_MODE_ENV,
   ZCODE_ENV,
   ZCODE_PRODUCT_FLAVOR,
@@ -44,7 +44,7 @@ const isLocalDevelopmentRuntime = !isElectronAppPackaged();
 export const desktopRuntimeEnv: ZCodeRuntimeEnv = isLocalDevelopmentRuntime
   ? "development"
   : "production";
-// 身份看编译期 flavor 而不是 ZCODE_ENV：ZCODE_PREVIEW_IDENTITY=1 的生产后端构建同样是 Preview，
+// 身份看编译期 flavor 而不是 MIKIKO_ENV：MIKIKO_PREVIEW_IDENTITY=1 的生产后端构建同样是 Preview，
 // 需要独立的应用名、Electron 数据目录和 Helper 安装子目录才能与正式版并排运行。
 export const isPreviewPackagedRuntime =
   !isLocalDevelopmentRuntime && ZCODE_PRODUCT_FLAVOR === "preview";
@@ -73,7 +73,7 @@ export const runtimeApplicationName =
 export const runtimeHomePath = readRuntimeEnvOverride("MIKIKO_DESKTOP_HOME_DIR");
 // Chromedriver 管理 Electron 时会注入临时 userData；e2e 默认路径模式下导入期不能提前读取 appData。
 export const shouldUseElectronDefaultUserDataPath = isTruthyRuntimeEnvOverride(
-  "ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA",
+  "MIKIKO_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA",
 );
 export const runtimeUserDataPath =
   readRuntimeEnvOverride("MIKIKO_DESKTOP_USER_DATA_DIR") ??
@@ -275,7 +275,7 @@ export function resolveZCodeEndpointEnvBaseOrigin(
   localEnv: LocalRuntimeEnv = {},
 ): string | undefined {
   const scopedEnvName =
-    ZCODE_ENV === "production" ? "ZCODE_PRODUCTION_BASE_URL" : "ZCODE_TEST_BASE_URL";
+    ZCODE_ENV === "production" ? "MIKIKO_PRODUCTION_BASE_URL" : "MIKIKO_TEST_BASE_URL";
   // Bugfix: main 进程临时验证更新服务时不会重新写 .env，命令行传入的 endpoint 必须优先于本地文件。
   return (
     process.env["MIKIKO_BASE_URL"]?.trim() ||
@@ -301,7 +301,7 @@ function readDefinedProcessEnv(): Record<string, string> {
 function applySelectedZCodeEnvLinks(env: Record<string, string>): Record<string, string> {
   const endpointEnv = {
     ...env,
-    ZCODE_ENV,
+    MIKIKO_ENV: ZCODE_ENV,
   };
 
   return {
@@ -573,7 +573,7 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
     [ZCODE_RUNTIME_ENV_KEY]: resolveHostProcessNodeEnv(),
     // 显式注入编译期产品身份，保证主进程与 host 的身份语义一致；地址独立解析。
     // inheritedEnv 从 .env 通用变量补齐 ZCode/ZAI 链接，未覆盖时统一使用线上默认值。
-    ZCODE_ENV,
+    MIKIKO_ENV: ZCODE_ENV,
     // Preview 与生产版共享任务、配置和凭据，但不同版本的 Helper 不能互相覆盖或触发降级保护。
     // 只隔离 computer-use 下的运行组件，不改写 MIKIKO_HOME / MIKIKO_DATA_BASE_DIR 业务数据根。
     ...(isPreviewPackagedRuntime ? { ZCODE_CUA_HELPER_INSTALL_VARIANT: "preview" } : {}),
@@ -584,7 +584,7 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
     [ZCODE_APP_VERSION_ENV]: ZCODE_VERSION,
     // Telemetry 的构建身份必须来自 Desktop 编译期元数据，不能让 Agent 在运行时读取
     // 工作树或根据安装路径猜测；否则同一产品版本的不同修复包无法在 ARMS 中区分。
-    [ZCODE_BUILD_COMMIT_ID_ENV]: ZCODE_COMMIT,
+    [ZCODE_BUILD_COMMIT_ID_ENV]: MIKIKO_COMMIT,
     ...(dataBaseDir !== homedir() ? { MIKIKO_DATA_BASE_DIR: dataBaseDir } : {}),
     ...(windowsAppInstallDir ? { [ZCODE_WINDOWS_APP_INSTALL_DIR_ENV]: windowsAppInstallDir } : {}),
     ...(bundledCuaHelperAppPath

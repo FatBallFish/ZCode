@@ -3,7 +3,8 @@
  * Mikiko 自建云端（Cloudflare Worker，spec specs/mikiko-cloud/agent-endpoint-plan.md）。
  *
  * agent.mikiko.ai 单域名：
- *  - /                                静态主页（public/index.html，介绍与下载入口）
+ *  - /                                按地域分流 → /cn/ | /en/（public/{cn,en}/index.html）
+ *  - /changelog                       语言中立更新日志入口，按地域分流 → /cn/changelog | /en/changelog
  *  - /admin                           预置配置管理页（public/admin.html，账密鉴权）
  *  - GET /api/v1/builtin-provider-config  模型预置规则 Release（客户端 revision 热更）
  *  - GET /api/v1/client/configs           自建功能配置（dynamicWorkflow 灰度、分享限流）
@@ -22,6 +23,7 @@
 
 import { handleShareRequest } from "./shares.js";
 import { handleReleasesRequest } from "./releases.js";
+import { handleFeedbackRequest, handleAdminFeedbackRequest } from "./feedback.js";
 
 const SERVICE_VERSION = "1.0.0";
 
@@ -77,6 +79,10 @@ interface Env {
   MIKIKO_CLIENT_CONFIG: KVNamespace;
   MIKIKO_SHARE: KVNamespace;
   SHARE_ARTIFACTS: R2Bucket;
+  /** Bug 上报工单库（specs/mikiko-cloud/feedback-tickets.md）。 */
+  DB: D1Database;
+  /** Bug 上报附件（日志 zip / 截图）。 */
+  FEEDBACK_ARTIFACTS: R2Bucket;
   ASSETS?: Fetcher;
   MIKIKO_ADMIN_USERNAME?: string;
   MIKIKO_ADMIN_PASSWORD?: string;
@@ -98,8 +104,11 @@ function jsonResponse(body: unknown, status = 200, headers?: Record<string, stri
 }
 
 /**
- * 根路径语言路由（2026-09-29 多语言站点）：仅中国大陆与港澳台（CN/HK/MO/TW）进 /cn，
- * 其余地区统一 /en。用户手动访问另一语言路径时不覆盖（仅根路径按地域分流一次）。
+ * 根路径与 /changelog 的语言分流（2026-09-29 多语言站点）：仅中国大陆与港澳台
+ * （CN/HK/MO/TW）进 /cn，其余地区统一 /en。用户手动访问另一语言路径时不覆盖
+ * （仅语言中立入口按地域分流一次）。/changelog 是桌面端帮助菜单写死的入口
+ * （desktopExternalLinks.ts MIKIKO_CHANGELOG_URL），语言页面只在 public/{cn,en}/
+ * 下、无根级副本，不经分流直连 assets 是 404（2026-10-15 补）。
  */
 const CN_GEO_COUNTRIES = new Set(["CN", "HK", "MO", "TW"]);
 
@@ -107,11 +116,12 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     try {
-      // 根路径按地域重定向到语言首页；无地域信息（如本地 wrangler dev）默认英文。
-      if (url.pathname === "/" && request.method === "GET") {
+      // 根路径与 /changelog 按地域重定向到对应语言页；无地域信息（如本地 wrangler dev）默认英文。
+      if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/changelog")) {
         const country =
           (request as Request & { cf?: { country?: string } }).cf?.country?.toUpperCase() ?? "";
-        const target = CN_GEO_COUNTRIES.has(country) ? "/cn/" : "/en/";
+        const languageRoot = CN_GEO_COUNTRIES.has(country) ? "/cn" : "/en";
+        const target = url.pathname === "/" ? `${languageRoot}/` : `${languageRoot}${url.pathname}`;
         return Response.redirect(new URL(target + url.search, url.origin).toString(), 308);
       }
       // /cn 与 /en 精确路径规范化到目录形式（assets 自动服务其下 index.html）。
@@ -126,6 +136,10 @@ export default {
       }
       if (url.pathname.startsWith("/api/v1/shares/")) {
         return handleShareRequest({ request, env, url, origin: url.origin });
+      }
+      // Bug 上报客户端端点（specs/mikiko-cloud/feedback-tickets.md）：设备 token 鉴权在模块内。
+      if (url.pathname.startsWith("/api/v1/feedback/")) {
+        return handleFeedbackRequest(request, env, url.pathname);
       }
       // releases 公开读 + release-notes 发布写（独立发布令牌鉴权，必须先于 admin session 分支）。
       if (
@@ -270,6 +284,10 @@ async function handleAdminLogin(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleAdminApi(request: Request, env: Env, pathname: string): Promise<Response> {
+  // Bug 上报工单管理（specs/mikiko-cloud/feedback-tickets.md）：session 门禁已在 fetch 主流程。
+  if (pathname.startsWith("/api/v1/admin/feedback/")) {
+    return handleAdminFeedbackRequest(request, env, pathname);
+  }
   if (pathname === "/api/v1/admin/builtin-config") {
     if (request.method === "GET") return handleAdminGetBuiltin(env);
     if (request.method === "PUT") return handleAdminPutBuiltin(request, env);

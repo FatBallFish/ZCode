@@ -28,7 +28,7 @@ describe("订阅快照与额度/调用 Key 独立", () => {
       });
       const provider = new BigModelUsageQuotaProvider({
         apiClient: { request },
-        env: { ZCODE_BIGMODEL_USAGE_API_KEY: "personal.secret" },
+        env: { MIKIKO_BIGMODEL_USAGE_API_KEY: "personal.secret" },
         accountRequestAuthService: {
           resolveAccessCurrent: vi.fn(),
           resolveCurrent: vi.fn(),
@@ -48,7 +48,7 @@ describe("订阅快照与额度/调用 Key 独立", () => {
     };
     const provider = new BigModelUsageQuotaProvider({
       apiClient,
-      env: { ZCODE_BIGMODEL_USAGE_API_KEY: "personal.secret" },
+      env: { MIKIKO_BIGMODEL_USAGE_API_KEY: "personal.secret" },
       accountRequestAuthService: {
         resolveAccessCurrent: vi.fn(),
         resolveCurrent: vi.fn(),

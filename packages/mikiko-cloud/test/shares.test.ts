@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import worker from "../src/worker.ts";
-import { createMemoryKv, createMemoryR2 } from "./helpers.ts";
+import { createMemoryD1, createMemoryKv, createMemoryR2 } from "./helpers.ts";
 
 function createEnv() {
   return {
@@ -9,6 +9,8 @@ function createEnv() {
     MIKIKO_CLIENT_CONFIG: createMemoryKv(),
     MIKIKO_SHARE: createMemoryKv(),
     SHARE_ARTIFACTS: createMemoryR2(),
+    DB: createMemoryD1(),
+    FEEDBACK_ARTIFACTS: createMemoryR2(),
     MIKIKO_ADMIN_USERNAME: "admin",
     MIKIKO_ADMIN_PASSWORD: "pw",
     MIKIKO_ADMIN_SESSION_SECRET: "secret",

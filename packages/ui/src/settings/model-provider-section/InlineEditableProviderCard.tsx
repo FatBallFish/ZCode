@@ -17,7 +17,11 @@ import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { Switch } from "@/components/ui/switch.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { isImeComposingKeyEvent } from "@/lib/imeComposition.js";
-import { resolvePendingProviderDraftSave, type ProviderDraftValues } from "./ProviderDraftSave.js";
+import {
+  formatProviderTokenOverrideValue,
+  resolvePendingProviderDraftSave,
+  type ProviderDraftValues,
+} from "./ProviderDraftSave.js";
 import {
   ProviderApiKeySection,
   ProviderCardHeader,
@@ -191,6 +195,13 @@ export function InlineEditableProviderCard({
     provider.config.api?.type ?? "anthropic-messages",
   );
   const [baseUrlValue, setBaseUrlValue] = useState(provider.config.api?.baseUrl ?? "");
+  // Provider 级 token 覆盖草稿（specs/provider/group-token-override.md）：空串=置空恢复模型自身配置。
+  const [contextWindowValue, setContextWindowValue] = useState(
+    formatProviderTokenOverrideValue(provider.config.api?.contextWindow),
+  );
+  const [maxOutputTokensValue, setMaxOutputTokensValue] = useState(
+    formatProviderTokenOverrideValue(provider.config.api?.maxOutputTokens),
+  );
   const [apiKeyValue, setApiKeyValue] = useState(getProviderFormApiKey(provider));
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [savingEnabled, setSavingEnabled] = useState(false);
@@ -234,6 +245,8 @@ export function InlineEditableProviderCard({
     apiFormat: provider.config.api?.type ?? "anthropic-messages",
     baseUrlValue: provider.config.api?.baseUrl ?? "",
     apiKeyValue: getProviderFormApiKey(provider),
+    contextWindowValue: formatProviderTokenOverrideValue(provider.config.api?.contextWindow),
+    maxOutputTokensValue: formatProviderTokenOverrideValue(provider.config.api?.maxOutputTokens),
   });
 
   useEffect(() => {
@@ -264,6 +277,16 @@ export function InlineEditableProviderCard({
     syncField("apiFormat", resolvedApiFormat, setApiFormat);
     syncField("baseUrlValue", resolvedBaseUrl, setBaseUrlValue);
     syncField("apiKeyValue", resolvedApiKey, setApiKeyValue);
+    syncField(
+      "contextWindowValue",
+      formatProviderTokenOverrideValue(provider.config.api?.contextWindow),
+      setContextWindowValue,
+    );
+    syncField(
+      "maxOutputTokensValue",
+      formatProviderTokenOverrideValue(provider.config.api?.maxOutputTokens),
+      setMaxOutputTokensValue,
+    );
   }, [provider]);
 
   const markDraftDirty = useCallback((field: keyof ProviderDraftValues) => {
@@ -509,6 +532,26 @@ export function InlineEditableProviderCard({
       markDraftDirty("baseUrlValue");
       draftRef.current.baseUrlValue = value;
       setBaseUrlValue(value);
+      scheduleIdleDraftSave();
+    },
+    [markDraftDirty, scheduleIdleDraftSave],
+  );
+
+  const handleContextWindowValueChange = useCallback(
+    (value: string) => {
+      markDraftDirty("contextWindowValue");
+      draftRef.current.contextWindowValue = value;
+      setContextWindowValue(value);
+      scheduleIdleDraftSave();
+    },
+    [markDraftDirty, scheduleIdleDraftSave],
+  );
+
+  const handleMaxOutputTokensValueChange = useCallback(
+    (value: string) => {
+      markDraftDirty("maxOutputTokensValue");
+      draftRef.current.maxOutputTokensValue = value;
+      setMaxOutputTokensValue(value);
       scheduleIdleDraftSave();
     },
     [markDraftDirty, scheduleIdleDraftSave],
@@ -817,8 +860,12 @@ export function InlineEditableProviderCard({
             readOnly={readOnlyEndpoints}
             apiFormat={apiFormat}
             baseUrlValue={baseUrlValue}
+            contextWindowValue={contextWindowValue}
+            maxOutputTokensValue={maxOutputTokensValue}
             onApiFormatChange={handleApiFormatChange}
             onBaseUrlChange={handleBaseUrlValueChange}
+            onContextWindowChange={handleContextWindowValueChange}
+            onMaxOutputTokensChange={handleMaxOutputTokensValueChange}
             onBaseUrlBlur={saveConnection}
             onBaseUrlKeyDown={handleTextCommitKeyDown}
             onBaseUrlCompositionStart={handleTechnicalInputCompositionStart}
@@ -848,6 +895,10 @@ export function InlineEditableProviderCard({
           providerName={getProviderFormLabel(provider)}
           providerEnabled={provider.enabled}
           providerAccess={provider.config.access}
+          groupTokenOverride={{
+            contextWindow: provider.config.api?.contextWindow ?? null,
+            maxOutputTokens: provider.config.api?.maxOutputTokens ?? null,
+          }}
           models={models}
           onTestModel={onTestModel ? handleTestModel : undefined}
           onModelCommit={handleModelCommit}

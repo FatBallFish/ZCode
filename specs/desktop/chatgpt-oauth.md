@@ -152,6 +152,22 @@ CF_COOKIE_NAMES         = ["__cf_bm","__cflb","__cfruid","__cfseq","__cfwaitingr
 - 不做官方的 1457 fallback 端口与踢旧实例逻辑（用户裁定：占用即中断）。
 - 官方的 api-key token-exchange（`urn:ietf:params:oauth:grant-type:token-exchange`）不移植（我们只用 access_token）。
 
+**网络出口与可观测性（2026-10-17 修订）**：整个登录链路的 host 侧出站请求——token
+兑换 / 刷新 / revoke（auth.openai.com）与 §5 的 wham/codex backend（chatgpt.com）——
+统一走 host API 网络 transport（`createHostApiNetworkTransport`，owner 为 node.ts 装配
+处，与 NodeApiClient 共享同一实例）：设置页「常规 → HTTP 代理」的 httpProxy /
+NoProxy / 自定义 CA 全部生效；未配置时保持直连，行为与裸 fetch 一致。原因：host 是
+独立 Node 进程，Electron Session.setProxy 与系统代理都不影响它的 `globalThis.fetch`；
+浏览器能经系统代理完成授权，host 直连 auth.openai.com 却失败，就会呈现「回调页已示
+登录成功、客户端提示添加失败」。
+
+- 回调成功页在 code→token 兑换**之前**返回（官方口径）；因此浏览器成功 ≠ 账号已添加，
+  兑换/写库失败只经 `onAuthorizationFailed` 透出。
+- 兑换/刷新的网络错误（fetch 抛错/超时）包装为 `ChatGPTOAuthError` 且分类
+  `transient/network`（与刷新既有口径一致）；授权失败（done reject）时 host 落
+  `warn` 日志（错误名/消息/HTTP 状态/错误码，不含 token），事件文案对网络错误
+  指引「设置 → 常规 → HTTP 代理」配置代理后重试。
+
 ### 4.3 添加路径二：导入 sub2api 导出文件
 
 添加 ChatGPT 账号的对话框提供两个入口：「浏览器授权」（§4.2）与「导入 sub2api 导出文件」。后者读取用户从 sub2api 面板导出的账号 Session JSON，取其中 ChatGPT OAuth 数据建立账号（**不读取 proxies 与 extra**，账号信息一律通过接口重新补全）。
@@ -206,7 +222,7 @@ renderer(添加对话框「导入 sub2api」)   ChatGPTAccountService(host)
 
 ## 5. 账号信息与模型列表（host 拉取）
 
-请求走 host ApiClient（复用 httpProxy/CA 设置）+ §7.2 身份头 + §7.3 CF cookie jar。
+请求走 host API 网络 transport（§4.2：与 OAuth 端点共用同一实例，httpProxy/CA 设置生效）+ §7.2 身份头 + §7.3 CF cookie jar。
 
 | 信息      | 端点                                                  | 说明                                                                                                                                                                                                                                                                 |
 | --------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -702,3 +718,19 @@ bundled agent CLI、desktop out 均已重建并重启 dev app。
 - **CDP 驱动经验**：Lexical 编辑器输入需 selection + `ClipboardEvent("paste")` 派发
   （`Input.insertText`/`execCommand` 均不触发 beforeinput）；模型菜单为受控
   DropdownMenu，模拟 click 不打开（源码注释已声明，走 `openRequestKey` 快捷键路径）。
+
+### 17.2 登录链路代理与可观测性修复（2026-10-17 客户案例）
+
+- 现象：浏览器授权回调页（127.0.0.1:1455）显示「已登录」，客户端提示添加失败
+  （1.1.2 / f0ca034d）。
+- 根因：回调页在 code→token 兑换前就返回成功页；而兑换/刷新/revoke 与 wham backend
+  请求当时用裸 `globalThis.fetch` 直连，既不走设置页 httpProxy 也不读系统代理——浏览器
+  经系统代理完成授权，host 直连 auth.openai.com 失败。客户日志时间线
+  （2026-10-17）：17:13:09 `startAuthorization OK` → 17:13:24 `cancelAuthorization`，
+  期间无任何服务端错误日志（失败路径零日志）。
+- 修复：node.ts 装配处对 backendClient / runtime / accountService 三处统一注入与
+  NodeApiClient 共享的 `hostApiNetworkTransport.fetch`；`exchangeChatGPTCode` 网络
+  错误包装为 `transient/network`；授权失败 catch 补 `warn` 日志；网络错误事件文案
+  指引「设置 → 常规 → HTTP 代理」。
+- 语义：受限网络客户需在设置页显式配置 HTTP 代理（或系统 TUN 模式全局接管）才能
+  完成登录；sub2api 导入（refresh）与账号 enrich 同链路自动受益。

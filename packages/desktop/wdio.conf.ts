@@ -616,8 +616,8 @@ process.env.ZCODE_E2E_RUN_ID = E2E_RUN_ID;
 process.env.MIKIKO_DATA_BASE_DIR = E2E_HOME_DIR;
 process.env.MIKIKO_DESKTOP_APPLICATION_NAME = "ZCode E2E";
 process.env.MIKIKO_DESKTOP_HOME_DIR = E2E_HOME_DIR;
-process.env.ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA = "1";
-// Bugfix: renderer E2E store bridge 只能由 WDIO 进程显式打开，避免 ZCODE_ENV=test 的产品测试环境暴露全局可变 store。
+process.env.MIKIKO_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA = "1";
+// Bugfix: renderer E2E store bridge 只能由 WDIO 进程显式打开，避免 MIKIKO_ENV=test 的产品测试环境暴露全局可变 store。
 process.env.VITE_ZCODE_E2E_STORE_BRIDGE = "1";
 // Bugfix: e2e session 由 Chromedriver 管理调试端口；禁用主进程开发态固定的 9229，
 // 避免和本机已打开的 ZCode Dev 冲突后出现空白窗口并卡在 session 创建阶段。
@@ -1047,7 +1047,7 @@ function createPnpmChildEnv() {
     // 修复原因：E2E 依赖 renderer 暴露 store bridge；只在 WDIO 构建链路显式注入，
     // 避免普通 production/test 产品构建意外暴露可变全局 store。
     VITE_ZCODE_E2E_STORE_BRIDGE: "1",
-    ZCODE_DESKTOP_AGENT_BUILD_MODE: env.ZCODE_DESKTOP_AGENT_BUILD_MODE ?? "pnpm",
+    MIKIKO_DESKTOP_AGENT_BUILD_MODE: env.MIKIKO_DESKTOP_AGENT_BUILD_MODE ?? "pnpm",
   };
 }
 
@@ -2480,7 +2480,7 @@ async function startModelContextBudgetConfigE2EMock(specs: string[] = []) {
     modelContextBudgetConfigMockServer = await startModelContextBudgetConfigMockServer(scenario);
   }
   process.env.MIKIKO_BASE_URL = modelContextBudgetConfigMockServer.baseUrl;
-  process.env.ZCODE_TEST_BASE_URL = modelContextBudgetConfigMockServer.baseUrl;
+  process.env.MIKIKO_TEST_BASE_URL = modelContextBudgetConfigMockServer.baseUrl;
   process.env.MIKIKO_ENDPOINT_ORIGIN = modelContextBudgetConfigMockServer.baseUrl;
 }
 
@@ -2491,7 +2491,7 @@ async function stopModelContextBudgetConfigE2EMock() {
   await modelContextBudgetConfigMockServer.stop();
   modelContextBudgetConfigMockServer = null;
   delete process.env.MIKIKO_BASE_URL;
-  delete process.env.ZCODE_TEST_BASE_URL;
+  delete process.env.MIKIKO_TEST_BASE_URL;
   delete process.env.MIKIKO_ENDPOINT_ORIGIN;
 }
 
@@ -4472,13 +4472,13 @@ export const config: WebdriverIO.Config = {
       INITIAL_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE ?? E2E_DEFAULT_ZCODE_BUILTIN_PROVIDER_CONFIG_FILE,
     MIKIKO_DESKTOP_APPLICATION_NAME: "ZCode E2E",
     MIKIKO_DESKTOP_HOME_DIR: E2E_HOME_DIR,
-    ZCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA: "1",
+    MIKIKO_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA: "1",
     MIKIKO_DISABLE_FIXED_REMOTE_DEBUGGING_PORT: "1",
     ZCODE_E2E_HOME_DIR: E2E_HOME_DIR,
     ZCODE_E2E_ARTIFACT_DIR: e2eReporter.artifactDir,
     ZCODE_E2E_DEFER_APP_DATA_CLEANUP: "1",
     ZCODE_E2E_RUN_ID: E2E_RUN_ID,
-    ZCODE_ENV: "test",
+    MIKIKO_ENV: "test",
     ...requestSecurityEndpointEnv(e2eProviderPresetName, upstreamE2EHttpMode),
     ...(process.env.ZCODE_TELEMETRY_PARITY_CAPTURE_PATH?.trim()
       ? {

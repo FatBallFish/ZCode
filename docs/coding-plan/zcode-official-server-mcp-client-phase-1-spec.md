@@ -243,7 +243,7 @@ stdio 形态的判定输入不同（没有 URL 可供校验，targetOrigin 由�
 
 - 正式判定只允许 `https:`，并拒绝 URL 中的 username/password；
 - 单元/集成测试通过依赖注入增加 `http://127.0.0.1:<ephemeral-port>`，本地自测通过
-  `ZCODE_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS` 显式登记 loopback origin；两者都不得放开非 loopback；
+  `MIKIKO_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS` 显式登记 loopback origin；两者都不得放开非 loopback；
 - authenticated fetch 使用 `redirect: "manual"`。第一阶段遇到 3xx 直接失败，避免 Bearer Token
   被跨 Origin redirect 带走；正式 endpoint 应配置为 canonical URL；
 - Plugin 的静态 `headers` 不得包含（大小写不敏感）任一保留头：`authorization`、
@@ -556,7 +556,7 @@ interface OfficialMcpAuthHeadersPort {
   adapter 校验，远端 runtime 只要发这个 RPC 就能取到本地 JWT 与 Coding Plan key；agent 侧
   wrapper 被改坏或被绕过时也没有兜底。等于让被审查方自己当审查者。
 
-  注意 dev 开关 `ZCODE_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS` 必须**同时**对 host 生效
+  注意 dev 开关 `MIKIKO_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS` 必须**同时**对 host 生效
   （`node.ts` 装配时传入 `env`），否则本地自测会被 host 单方面拒绝。
 
 职责分离：
@@ -942,7 +942,7 @@ fake server 收到 `initialize` / `tools/list` 并携带完整身份头，GET �
 
 - `scripts/dev-official-mcp-server.mjs`——loopback fake MCP，打印每个请求的鉴权头
   （JWT 与 Coding Plan key 脱敏，`Bigmodel-Target-Type` / organization / project 原样显示）；
-- `ZCODE_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS`——本地 dev 开关，**只**接受 http loopback
+- `MIKIKO_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS`——本地 dev 开关，**只**接受 http loopback
   （`normalizeTrustedOrigin` 的 `"loopback"` 模式会拒绝 https 与非 loopback 主机，
   避免一个环境变量就把真实 JWT 导向远端）。不设置时行为与实现前完全一致。
 
@@ -954,7 +954,7 @@ fake server 收到 `initialize` / `tools/list` 并携带完整身份头，GET �
 - 经 `dirs` 加载的 plugin marketplace 固定为 `inline`，故 pluginId 形如
   `dev-official-mcp@inline`。该后缀**不影响授权**（§5.1 移除了 marketplace 检查），
   本地自测能否通过只取决于 Origin：https 端点需等于当前 ZCode API origin，
-  http loopback 需列入 `ZCODE_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS`；
+  http loopback 需列入 `MIKIKO_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS`；
 - MCP 连接在 session 建立时一次性发起，失败后停留在 failed 不自动重连；必须**先起 fake server
   再启动 desktop**。desktop 的 MCP 状态展示存在刷新滞后（重启后才与 agent 实际状态一致），
   属既有行为，不在本阶段范围（§9.3 不改 `packages/ui`）。
@@ -1028,7 +1028,7 @@ Plugin 列表同理：`pluginManagementStore.initialize` 按 workspace 在 `useE
 
 一个**不需要服务端**的 fail-closed 场景（验证"拒绝时不泄露凭证"，比服务端故障更重要）：
 
-- `official_mcp_origin_untrusted`：不设 `ZCODE_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS` 启动，同样零请求。
+- `official_mcp_origin_untrusted`：不设 `MIKIKO_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS` 启动，同样零请求。
 
 统一判读：`grep '"officialAuthKind"' ~/.zcode/cli/log/zcode-<日期>.jsonl`。
 注意连接时故障需重启 desktop 才会重连（§13.2.1 的刷新盲区），tool-call 时故障不需要。

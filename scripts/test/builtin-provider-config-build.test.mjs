@@ -46,7 +46,7 @@ test("both environments load the decoder through a portable file URL", async () 
       }});
       const { loadBuiltinProviderConfig } = await import("./scripts/builtin-provider-config.mjs");
       for (const environment of ["production", "test"]) {
-        await loadBuiltinProviderConfig({ env: { ZCODE_ENV: environment } });
+        await loadBuiltinProviderConfig({ env: { MIKIKO_ENV: environment } });
       }
       assert.equal(calls, 2);
     `,
@@ -74,7 +74,7 @@ for (const [environment, file, revision] of [
     const result = await stageBuiltinProviderConfig({
       root,
       directory,
-      env: { ZCODE_ENV: environment, NODE_ENV: "production" },
+      env: { MIKIKO_ENV: environment, NODE_ENV: "production" },
     });
     assert.equal(result.environment, environment);
     assert.equal(result.sourcePath, resolve(root, file));
@@ -82,7 +82,7 @@ for (const [environment, file, revision] of [
       JSON.parse(await readFile(resolve(directory, "zcode-builtin.json"), "utf8")).revision,
       revision,
     );
-    const assets = await collectSeaProviderConfigAssets({ root, env: { ZCODE_ENV: environment } });
+    const assets = await collectSeaProviderConfigAssets({ root, env: { MIKIKO_ENV: environment } });
     assert.equal(assets[SEA_ZCODE_BUILTIN_PROVIDER_CONFIG_ASSET_KEY], resolve(root, file));
   });
 
@@ -99,7 +99,7 @@ for (const [environment, file, revision] of [
       cliDirectory,
       version: "1.0.0",
       sourcemap: false,
-      env: { ZCODE_ENV: environment },
+      env: { MIKIKO_ENV: environment },
     });
     assert.match(await readFile(resolve(cliDirectory, "dist/zcode.cjs"), "utf8"), /fixture CLI/);
     assert.equal(
@@ -120,9 +120,9 @@ test("environment precedence is explicit env > env files > test; NODE_ENV alone 
     await resolveBuiltinProviderBuildEnvironment({ root, env: { NODE_ENV: "production" } }),
     "test",
   );
-  await writeFile(resolve(root, ".env"), "ZCODE_ENV=production\n");
+  await writeFile(resolve(root, ".env"), "MIKIKO_ENV=production\n");
   assert.equal(await resolveBuiltinProviderBuildEnvironment({ root, env: {} }), "production");
-  await writeFile(resolve(root, ".env.production"), "ZCODE_ENV=test\n");
+  await writeFile(resolve(root, ".env.production"), "MIKIKO_ENV=test\n");
   assert.equal(
     await resolveBuiltinProviderBuildEnvironment({ root, env: { NODE_ENV: "production" } }),
     "test",
@@ -130,13 +130,13 @@ test("environment precedence is explicit env > env files > test; NODE_ENV alone 
   assert.equal(
     await resolveBuiltinProviderBuildEnvironment({
       root,
-      env: { ZCODE_ENV: " production ", NODE_ENV: "production" },
+      env: { MIKIKO_ENV: " production ", NODE_ENV: "production" },
     }),
     "production",
   );
   await assert.rejects(
-    loadBuiltinProviderConfig({ root, env: { ZCODE_ENV: "staging" } }),
-    /ZCODE_ENV/,
+    loadBuiltinProviderConfig({ root, env: { MIKIKO_ENV: "staging" } }),
+    /MIKIKO_ENV/,
   );
 });
 
@@ -153,7 +153,7 @@ test("reused JS still gets fresh config after switching environment or updating 
   ]) {
     if (revision === 203)
       await writeFile(resolve(root, testFile), JSON.stringify({ ...baseline, revision }));
-    await stageBuiltinProviderConfig({ root, directory, env: { ZCODE_ENV: environment } });
+    await stageBuiltinProviderConfig({ root, directory, env: { MIKIKO_ENV: environment } });
     assert.equal(
       JSON.parse(await readFile(resolve(directory, "zcode-builtin.json"), "utf8")).revision,
       revision,
@@ -168,13 +168,13 @@ for (const invalid of [null, "{broken", "{}", JSON.stringify({ ...baseline, conf
     if (invalid === null) await rm(resolve(root, testFile));
     else await writeFile(resolve(root, testFile), invalid);
     await assert.rejects(
-      loadBuiltinProviderConfig({ root, env: { ZCODE_ENV: "test" } }),
+      loadBuiltinProviderConfig({ root, env: { MIKIKO_ENV: "test" } }),
       /zcode-builtin.test.json/,
     );
-    await assert.rejects(collectSeaProviderConfigAssets({ root, env: { ZCODE_ENV: "test" } }));
+    await assert.rejects(collectSeaProviderConfigAssets({ root, env: { MIKIKO_ENV: "test" } }));
     assert.equal(
       JSON.parse(
-        (await loadBuiltinProviderConfig({ root, env: { ZCODE_ENV: "production" } })).content,
+        (await loadBuiltinProviderConfig({ root, env: { MIKIKO_ENV: "production" } })).content,
       ).revision,
       101,
     );
@@ -184,7 +184,7 @@ for (const invalid of [null, "{broken", "{}", JSON.stringify({ ...baseline, conf
 test("both repository configurations pass the runtime release decoder", async () => {
   for (const environment of ["test", "production"]) {
     assert.ok(
-      (await loadBuiltinProviderConfig({ root: repositoryRoot, env: { ZCODE_ENV: environment } }))
+      (await loadBuiltinProviderConfig({ root: repositoryRoot, env: { MIKIKO_ENV: environment } }))
         .content.length > 0,
     );
   }
@@ -196,7 +196,7 @@ test("Turbo and bootstrap include the out-of-workspace configuration inputs", as
   );
   for (const taskName of ["@zcode/cli#build", "build:desktop-agent"]) {
     const task = turbo.tasks[taskName];
-    assert.ok(task.env.includes("ZCODE_ENV"));
+    assert.ok(task.env.includes("MIKIKO_ENV"));
     assert.ok(task.env.includes("NODE_ENV"));
     for (const input of [
       productionFile,
@@ -216,15 +216,15 @@ test("Turbo and bootstrap include the out-of-workspace configuration inputs", as
 });
 
 test("real tsup config bundling retains helper location and embeds selected release", async (t) => {
-  const originalEnvironment = process.env.ZCODE_ENV;
+  const originalEnvironment = process.env.MIKIKO_ENV;
   t.after(() => {
-    if (originalEnvironment === undefined) delete process.env.ZCODE_ENV;
-    else process.env.ZCODE_ENV = originalEnvironment;
+    if (originalEnvironment === undefined) delete process.env.MIKIKO_ENV;
+    else process.env.MIKIKO_ENV = originalEnvironment;
   });
   // 使用 tsup 自己依赖的配置加载器，覆盖其先 bundle 配置文件再执行的真实路径。
   const { bundleRequire } = createRequire(import.meta.resolve("tsup"))("bundle-require");
   for (const environment of ["test", "production"]) {
-    process.env.ZCODE_ENV = environment;
+    process.env.MIKIKO_ENV = environment;
     const expected = await loadBuiltinProviderConfig();
     for (const packageName of ["server", "zcode-server-cli", "desktop"]) {
       const filepath = resolve(repositoryRoot, "packages", packageName, "tsup.config.ts");

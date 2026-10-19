@@ -57,7 +57,7 @@ export function applyDynamicWorkflowConfigMockEnv(
   baseUrl: string,
 ): void {
   environment.MIKIKO_BASE_URL = baseUrl;
-  environment.ZCODE_TEST_BASE_URL = baseUrl;
+  environment.MIKIKO_TEST_BASE_URL = baseUrl;
   environment.MIKIKO_ENDPOINT_ORIGIN = baseUrl;
   // 未打包 dev 档位下 Main 会把开发者 shell 里的合法 MIKIKO_DYNAMIC_WORKFLOW_MODE 透传给 Host
   // （docs/dynamic-workflow/launch.md「The local override」），那会盖掉本用例的服务端判定。
@@ -69,7 +69,7 @@ export function clearDynamicWorkflowConfigMockEnv(
   environment: Record<string, string | undefined>,
   baseUrl: string,
 ): void {
-  for (const key of ["MIKIKO_BASE_URL", "ZCODE_TEST_BASE_URL", "MIKIKO_ENDPOINT_ORIGIN"] as const) {
+  for (const key of ["MIKIKO_BASE_URL", "MIKIKO_TEST_BASE_URL", "MIKIKO_ENDPOINT_ORIGIN"] as const) {
     if (environment[key] === baseUrl) {
       delete environment[key];
     }

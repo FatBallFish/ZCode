@@ -85,3 +85,4 @@ packages/desktop/.e2e-network-capture/
 .mikiko-runtime/
 packages/mikiko-cloud/seed-builtin.json
 packages/mikiko-cloud/.admin-credentials.local
+.zcode/

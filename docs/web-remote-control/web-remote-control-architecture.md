@@ -69,7 +69,7 @@ production/default: wss://zcode.z.ai/ws
 test endpoint:       wss://zcode.z.ai/ws
 ```
 
-`ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL` 仍是最高优先级的显式调试覆盖。没有覆盖时，仅当规范化后的
+`MIKIKO_WEB_REMOTE_CONTROL_RELAY_WS_URL` 仍是最高优先级的显式调试覆盖。没有覆盖时，仅当规范化后的
 endpoint origin 为 `https://zcode.z.ai` 才使用测试 relay；production 与 localhost/custom
 endpoint 保持生产 relay，避免扩大自定义 endpoint 的既有语义。二维码页面 URL 仍由 App 版本在
 `/remote/v3` 与 `/remote/v4` 之间派生；`ZCODE_WEB_REMOTE_CONTROL_URL` 只用于显式调试覆盖。
@@ -77,7 +77,7 @@ endpoint 保持生产 relay，避免扩大自定义 endpoint 的既有语义。�
 开发时可以把手机页指向本地 web：
 
 ```bash
-ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL=wss://zcode.z.ai/ws \
+MIKIKO_WEB_REMOTE_CONTROL_RELAY_WS_URL=wss://zcode.z.ai/ws \
 ZCODE_WEB_REMOTE_CONTROL_URL=http://localhost:5173/remote \
 pnpm dev:desktop
 ```
@@ -125,8 +125,8 @@ test:
 ```
 
 v4 的 test 与 production 线上部署共用同一个 Dockerfile 和 `/remote/v4` 资源基址，但由独立 Jenkins
-Job、镜像和 Deployment 隔离。两个 Job 必须分别显式传入 `ZCODE_ENV=test` 与
-`ZCODE_ENV=production`；Dockerfile 在 builder stage 校验后交给 Vite 注入 endpoint。域名本身不会在
+Job、镜像和 Deployment 隔离。两个 Job 必须分别显式传入 `MIKIKO_ENV=test` 与
+`MIKIKO_ENV=production`；Dockerfile 在 builder stage 校验后交给 Vite 注入 endpoint。域名本身不会在
 浏览器运行时改写已经编译进 JS 的产品环境：
 
 ```text

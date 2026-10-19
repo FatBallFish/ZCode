@@ -25,7 +25,7 @@ import { join, resolve } from "node:path";
 const desktopRoot = resolve(import.meta.dirname, "..");
 const helperSourcePath = resolve(desktopRoot, "build", "dmg-install-readme.txt");
 const helperVolumeName = "安装必读.txt";
-const distRoot = resolve(desktopRoot, process.env.ZCODE_DESKTOP_DIST_DIR || "dist");
+const distRoot = resolve(desktopRoot, process.env.MIKIKO_DESKTOP_DIST_DIR || "dist");
 
 function parseArgs(argv) {
   const options = { os: "mac", arch: "arm64" };

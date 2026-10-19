@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import worker from "../src/worker.ts";
 import { resetLatestReleaseCacheForTest } from "../src/releases.ts";
-import { createMemoryKv, createMemoryR2 } from "./helpers.ts";
+import { createMemoryD1, createMemoryKv, createMemoryR2 } from "./helpers.ts";
 
 /** manifest YAML 样例（与 electron-updater latest*.yml 形状一致，含中文 releaseNotes）。 */
 function manifestYaml(version: string, fileUrl: string, notes: string): string {
@@ -108,6 +108,8 @@ function createEnv() {
     MIKIKO_CLIENT_CONFIG: createMemoryKv(),
     MIKIKO_SHARE: createMemoryKv(),
     SHARE_ARTIFACTS: createMemoryR2(),
+    DB: createMemoryD1(),
+    FEEDBACK_ARTIFACTS: createMemoryR2(),
     MIKIKO_ADMIN_USERNAME: "a",
     MIKIKO_ADMIN_PASSWORD: "b",
     MIKIKO_ADMIN_SESSION_SECRET: "c",

@@ -22,6 +22,7 @@ import {
   buildContextUsageProgressSegments,
   formatContextCacheHitRateLabel,
   formatContextUsageSummary,
+  getRenderableTaskUsage,
   formatContextUsageTokenCount,
   refreshContextUsageOnOpen,
 } from "../src/chat-input-toolbar/contextUsage.js";
@@ -1943,5 +1944,24 @@ describe("Start Plan context balance panel", () => {
         },
       }),
     ).toBe(false);
+  });
+});
+
+// 未知容量降级（docs/coding-plan-context-usage.md）：chatgpt/sub2api slug 无
+// contextWindow 元数据时 size=null——仍展示用量与明细，隐藏容量与百分比。
+describe("未知容量降级", () => {
+  it("formatContextUsageSummary 只展示用量不拼容量与百分比", () => {
+    expect(
+      formatContextUsageSummary({ locale: "en-US", percent: null, size: null, used: 150_000 }),
+    ).toBe("150K");
+  });
+
+  it("getRenderableTaskUsage 放行 used>0 且 size=null 的降级数据", () => {
+    expect(getRenderableTaskUsage({ used: 150_000, size: null })).toEqual({
+      used: 150_000,
+      size: null,
+    });
+    expect(getRenderableTaskUsage({ used: 0, size: null })).toBeNull();
+    expect(getRenderableTaskUsage({ used: 100, size: -1 })).toBeNull();
   });
 });

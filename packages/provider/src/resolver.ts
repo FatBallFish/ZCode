@@ -10,8 +10,11 @@ import type {
 import type { ConfigValidationIssue } from "./config-overlay.js";
 import {
   type ApiKeyAccessConfig,
+  LimitOptionSpecConfig,
   ModelConfig,
   ModelConfigRules,
+  ModelOptionSpecsConfig,
+  ModelPropertiesConfig,
   type ChatGPTAccountAccessConfig,
   type ZhipuAccountAccessConfig,
   type ModelId,
@@ -73,6 +76,13 @@ export function serializeRegistryProviderConfig(
       type: config.api.type,
       baseUrl: config.api.baseUrl,
       ...(config.api.headers == null ? {} : { headers: config.api.headers }),
+      // Provider 级 token 覆盖（specs/provider/group-token-override.md）：随 registry 暴露给 UI 继承展示。
+      ...(config.api.contextWindow === undefined
+        ? {}
+        : { contextWindow: config.api.contextWindow }),
+      ...(config.api.maxOutputTokens === undefined
+        ? {}
+        : { maxOutputTokens: config.api.maxOutputTokens }),
     },
     ...(config.builtinModelIds == null ? {} : { builtinModelIds: [...config.builtinModelIds] }),
     ...(config.personalModelIds == null ? {} : { personalModelIds: [...config.personalModelIds] }),
@@ -116,6 +126,35 @@ export function serializeRegistryModelConfig(
 export type RegistryConfigResult<T> =
   | { readonly ok: true; readonly config: T }
   | { readonly ok: false; readonly issues: readonly ConfigValidationIssue[] };
+
+/**
+ * Provider 级 token 覆盖（specs/provider/group-token-override.md）：
+ * `api.contextWindow` / `api.maxOutputTokens` 非 null/undefined 时覆盖模型自身值；
+ * 置空或未配置时模型自身配置生效。仅覆盖 maxOutputTokens.max，effort map 保留模型
+ * 自身定义（运行时对 map 与 max 有 min 收敛兜底）。
+ */
+function applyProviderTokenOverrides(
+  modelConfig: ModelConfig,
+  api: ProviderConfig["api"],
+): ModelConfig {
+  const contextWindow = api?.contextWindow;
+  const maxOutputTokens = api?.maxOutputTokens;
+  if (contextWindow == null && maxOutputTokens == null) {
+    return modelConfig;
+  }
+  return modelConfig.overlay(
+    new ModelConfig({
+      properties:
+        contextWindow == null ? undefined : new ModelPropertiesConfig({ contextWindow }),
+      optionSpecs:
+        maxOutputTokens == null
+          ? undefined
+          : new ModelOptionSpecsConfig({
+              maxOutputTokens: new LimitOptionSpecConfig({ max: maxOutputTokens }),
+            }),
+    }),
+  );
+}
 
 export function createRegistryProviderConfig(
   config: ProviderConfig,
@@ -285,13 +324,20 @@ export class ProviderConfigResolver {
       const providerExecutable =
         enabled && accessEntitled && accountCurrent && providerIssues.length === 0;
       const models = orderedModelIds.map((modelId): ResolvedProviderModel => {
-        const modelConfig = effectiveModelRules.resolve({
-          providerId,
-          templateId,
-          modelId,
-          apiType: config.api?.type,
-          baseUrl: config.api?.baseUrl,
-        });
+        // Provider 级 token 覆盖（specs/provider/group-token-override.md）：
+        // api.contextWindow/maxOutputTokens 非空时覆盖全组模型的同类值——在此
+        // 唯一覆盖点生效，registry 视图、模型选择器投影、运行时请求与 compact
+        // 全部读覆盖后的值，core 无需改动。
+        const modelConfig = applyProviderTokenOverrides(
+          effectiveModelRules.resolve({
+            providerId,
+            templateId,
+            modelId,
+            apiType: config.api?.type,
+            baseUrl: config.api?.baseUrl,
+          }),
+          config.api,
+        );
         const effectiveBuiltinConfig = input.zcodeBuiltinModelRules.resolve({
           providerId,
           templateId,
