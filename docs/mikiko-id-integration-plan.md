@@ -645,6 +645,13 @@ API 变更：
 | 3（A 完成后） | G.2.2 KeyCloak 凭证按需续期（getOIDCAccessToken 单飞 + invalid_grant 降级）；F 反馈账户化 + 自动迁移 | migration 0002 若未随批次 2 上则随本批 |
 | 4（A + 运维建 client 后） | E 远控 OIDC 直连（relay + 桌面 + remote.mikiko.ai） | KeyCloak 建 `mikiko_remote`；relay 先升（新端点灰度） |
 
+# 12.5 批次 2 实施记录（2026-10-20，rev4）
+
+- **ZCode 侧全量落地**：通用 loopback 监听器（chatgpt 等价重构回归通过）、`sub2apiOidcClient`、`sub2apiService` OIDC 编排（登录/取消/事件/身份接口/单飞刷新/主动续期/A.9 迁移/账密守卫）、refresh token 经 credentialService 加密存储、UI 全入口 `method` 分流（欢迎页 + 设置页）。测试：31/31 node:test（含真实 loopback 回环的编排用例与 KeyCloak/面板契约 mock），typecheck/lint/architecture 全绿。
+- **KeyCloak 线上已切换（运维完成）**：`mikiko_code` → Public + PKCE S256 强制（原已配）+ redirect 增加 `http://127.0.0.1:*`；direct grant 保持关闭；切换前配置备份于运维机（client uuid e1b89960）。`offline_access` 确认可用。
+- **端到端验证（线上 KeyCloak + 本地 mock 面板）已通过**：授权码 + PKCE → 真实登录（专用测试账号 `zcode-oidc-e2e@mikiko.ai`，凭据记于运维 .env）→ 随机端口 loopback 回调 → 真实 token 端点（id_token 的 sub/azp=email_verified/nonce 全部校验通过，offline refresh token 获取）→ token-exchange（mock）。**sub2api allowlist（A.4 前置 #3）上线后需用真实 mikiko.cc 复验 token-exchange 一段。**
+- **待办**：sub2api `token_exchange_allowed_clients` 实现并登记 `mikiko_code`（外部仓库）；桌面 E2E 用例（批次 1 遗留 + OIDC 登录场景，需应用构建窗口）。
+
 # 13. 待决策点汇总（rev3：全部裁定）
 
 1. **登出联动 KeyCloak realm**：❌ 不联动（已裁定）。
