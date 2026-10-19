@@ -7,8 +7,12 @@
  * 本脚本在 afterPack 阶段只找 Mach-O 文件（file 输出含 "Mach-O"），并行 codesign，
  * 通常 <2 分钟完成；之后 electron-builder 通过 signIgnore 跳过这两个目录。
  *
+ * 嵌套二进制不使用 --timestamp（Apple 只要求最外层签名的 secure timestamp；
+ * 嵌套时间戳请求在部分 runner 上会卡 Apple TSA 服务器导致超时——2026-10-19
+ * macos-window-bounds 二进制连续两次 120s 超时的实测结论）。
+ *
  * 用法（由 electron-builder.config.js afterPack 链调用，不单独执行）：
- *   signRuntimeExecutables(context, { identity })
+ *   await signRuntimeExecutables(context, { identity })
  * 未开启签名模式时是 no-op。
  */
 import { execFileSync } from "node:child_process";
@@ -17,7 +21,7 @@ import { join } from "node:path";
 
 const PARALLEL_LIMIT = 8;
 
-export function signRuntimeExecutables(context, options = {}) {
+export async function signRuntimeExecutables(context, options = {}) {
   if (context.electronPlatformName !== "darwin") return;
   const identity = options.identity;
   if (!identity) {
@@ -29,7 +33,7 @@ export function signRuntimeExecutables(context, options = {}) {
   const targets = ["glm", "tools", "macos-window-bounds"];
 
   const startMs = Date.now();
-  console.log(`[ci][timer] afterPack:signRuntimeExecutables start`);
+  console.log("[ci][timer] afterPack:signRuntimeExecutables start");
   const binaries = [];
   for (const dir of targets) {
     const full = join(appPath, dir);
@@ -40,56 +44,66 @@ export function signRuntimeExecutables(context, options = {}) {
     }
     collectMachO(full, binaries);
   }
-  console.log(`[afterPack][sign-runtime] ${dirList(targets)} 下找到 ${binaries.length} 个 Mach-O`);
+  console.log(
+    `[afterPack][sign-runtime] ${targets.join("/")} 下找到 ${binaries.length} 个 Mach-O`,
+  );
   if (binaries.length === 0) return;
 
   const entitlementsPath = join(import.meta.dirname, "..", "build", "entitlements.mac.inherit.plist");
   let signed = 0;
   let failed = 0;
   const queue = [...binaries];
-  const workers = Array.from({ length: Math.min(PARALLEL_LIMIT, queue.length) }, () => {
-    return new Promise((resolve) => {
-      const next = () => {
-        const file = queue.shift();
-        if (!file) return resolve();
-        try {
-          execFileSync(
-            "/usr/bin/codesign",
-            [
-              "--sign", identity,
-              "--force",
-              "--timestamp",
-              "--options", "runtime",
-              "--entitlements", entitlementsPath,
-              file,
-            ],
-            { stdio: ["ignore", "pipe", "pipe"], timeout: 120_000 },
-          );
-          signed += 1;
-        } catch (error) {
-          // 已有同身份签名且校验通过的文件跳过（--force 会重签但某些只读挂载可失败）。
+  const workers = Array.from(
+    { length: Math.min(PARALLEL_LIMIT, queue.length) },
+    () =>
+      new Promise((resolve) => {
+        const next = () => {
+          const file = queue.shift();
+          if (!file) return resolve();
           try {
-            execFileSync("/usr/bin/codesign", ["--verify", file], { stdio: "ignore", timeout: 5_000 });
+            // 嵌套二进制不带 --timestamp：Apple TSA 请求在部分 runner 上挂起；
+            // 公证只要求最外层 .app 签名带 secure timestamp。
+            execFileSync(
+              "/usr/bin/codesign",
+              [
+                "--sign", identity,
+                "--force",
+                "--options", "runtime",
+                "--entitlements", entitlementsPath,
+                file,
+              ],
+              { stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 },
+            );
             signed += 1;
-          } catch {
-            failed += 1;
-            console.error(`[afterPack][sign-runtime] 签名失败: ${file}: ${error.message?.slice(0, 200)}`);
+          } catch (error) {
+            try {
+              execFileSync("/usr/bin/codesign", ["--verify", file], {
+                stdio: "ignore",
+                timeout: 5_000,
+              });
+              signed += 1;
+            } catch {
+              failed += 1;
+              console.error(
+                `[afterPack][sign-runtime] 签名失败: ${file}: ${error.message?.slice(0, 200)}`,
+              );
+            }
           }
-        }
+          next();
+        };
         next();
-      };
-      next();
-    });
-  });
-  Promise.all(workers).then(() => {
-    console.log(
-      `[afterPack][sign-runtime] 完成：${signed} 签名 / ${failed} 失败 / ${binaries.length} 总计`,
-    );
-    console.log(`[ci][timer] afterPack:signRuntimeExecutables end duration_ms=${Date.now() - startMs}`);
-    if (failed > 0) {
-      throw new Error(`Runtime 预签名有 ${failed} 个文件失败，公证会被拒绝`);
-    }
-  });
+      }),
+  );
+  await Promise.all(workers);
+  console.log(
+    `[afterPack][sign-runtime] 完成：${signed} 签名 / ${failed} 失败 / ${binaries.length} 总计`,
+  );
+  console.log(
+    `[ci][timer] afterPack:signRuntimeExecutables end duration_ms=${Date.now() - startMs}`,
+  );
+  if (failed > 0) {
+    throw new Error(`Runtime 预签名有 ${failed} 个文件失败，公证会被拒绝`);
+  }
 }
 
 function collectMachO(dir, out) {
@@ -111,13 +125,12 @@ function collectMachO(dir, out) {
 
 function isMachOFile(path) {
   try {
-    const out = execFileSync("/usr/bin/file", ["-b", path], { encoding: "utf8", timeout: 3_000 });
+    const out = execFileSync("/usr/bin/file", ["-b", path], {
+      encoding: "utf8",
+      timeout: 3_000,
+    });
     return out.includes("Mach-O");
   } catch {
     return false;
   }
-}
-
-function dirList(dirs) {
-  return dirs.join("/");
 }
