@@ -31,9 +31,9 @@ elif [ -n "${APPLE_API_KEY_PATH:-}" ] && [ -n "${APPLE_API_KEY_ID:-}" ] && [ -n 
 elif [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
   notary_args=(--apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID")
 else
-  echo "::error::缺少公证凭据（APPLE_KEYCHAIN_PROFILE / APPLE_API_KEY_* / APPLE_ID 三选一）。" >&2
+  echo "::error::缺少公证凭据（APPLE_KEYCHAIN_PROFILE / APPLE_API_KEY_* / APPLE_ID 三选一）。已签名的 DMG 不允许跳过公证直接发布（Gatekeeper 会拦截）。" >&2
   echo "  本地推荐：xcrun notarytool store-credentials mikiko-notary --apple-id <id> --team-id <team> --password <app-specific-password>" >&2
-  exit 78
+  exit 1
 fi
 
 sign_identity="${APPLE_SIGNING_IDENTITY:-}"
