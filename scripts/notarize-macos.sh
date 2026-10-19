@@ -38,6 +38,28 @@ fi
 
 sign_identity="${APPLE_SIGNING_IDENTITY:-}"
 
+# Runtime Mach-O 预签名（signIgnore 跳过的 glm/tools/macos-window-bounds）：
+# 公证要求包内所有二进制有 Developer ID 签名。在独立 shell 里 codesign 可靠
+# （electron-builder 进程内 spawn 会 ETIMEDOUT——GitHub runner 临时 keychain 限制）。
+if [ -n "$sign_identity" ] && [ -n "${SIGN_RUNTIME_DIR:-}" ]; then
+  echo "==> [0/4] Runtime Mach-O 预签名: $SIGN_RUNTIME_DIR"
+  find "$SIGN_RUNTIME_DIR" -type d -name "mac-arm64" -o -type d -name "mac-x64" | while read -r appdir; do
+    resources="$appdir/Contents/Resources"
+    [ -d "$resources" ] || continue
+    for subdir in glm tools macos-window-bounds; do
+      [ -d "$resources/$subdir" ] || continue
+      find "$resources/$subdir" -type f -perm +111 | while read -r bin; do
+        if file -b "$bin" | grep -q "Mach-O"; then
+          echo "    签名: $bin"
+          codesign --sign "$sign_identity" --force --options runtime "$bin" \
+            || codesign --sign "$sign_identity" --force "$bin" \
+            || echo "::error::无法签名 $bin" >&2 && exit 1
+        fi
+      done
+    done
+  done
+fi
+
 for dmg in "$@"; do
   if [ ! -f "$dmg" ]; then
     echo "::error::DMG 不存在: $dmg" >&2

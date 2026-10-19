@@ -107,6 +107,7 @@ jobs:
             echo "APPLE_API_KEY_PATH=/tmp/apple-api-key.p8" >> "$GITHUB_ENV"
             export APPLE_API_KEY_PATH=/tmp/apple-api-key.p8
           fi
+          export SIGN_RUNTIME_DIR="$PWD/packages/desktop/dist"
           sh scripts/notarize-macos.sh packages/desktop/dist/*.dmg
 
       - name: Cleanup macOS signing keychain

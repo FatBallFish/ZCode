@@ -690,11 +690,9 @@ export default {
     runTimedSync("afterPack:assertPackagedCuaSharp", () => assertPackagedCuaSharp(context));
     runTimedSync("afterPack:assertPackagedCuaKoffi", () => assertPackagedCuaKoffi(context));
     runTimedSync("afterPack:assertPackagedCuaHelper", () => assertPackagedCuaHelper(context));
-    // 签名模式下快速预签名 glm/tools 的 Mach-O（signIgnore 跳过的目录），
-    // 公证要求包内所有二进制有 Developer ID 签名；深度扫描签名太慢（60min+）。
-    if (context.electronPlatformName === "darwin" && shouldEnableMacSigning) {
-      await signRuntimeExecutables(context, { identity: rawMacSigningIdentity });
-    }
+    // 签名模式下不在 afterPack 预签名——execFileSync spawn codesign 在 electron-builder
+    // 进程内对 GitHub runner 的临时 keychain 不可靠（连续 6 次运行 ETIMEDOUT）。
+    // 预签名改在 workflow 的 Notarize 步骤用独立 shell 执行（notarize-macos.sh）。
     if (actualWindowsTarget && shouldPackageComputerUseHelper) {
       await runTimedAsync("afterPack:finalizePackagedWindowsCuaHelper", () =>
         finalizePackagedWindowsCuaHelper({
