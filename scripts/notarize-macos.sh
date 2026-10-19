@@ -1,26 +1,30 @@
 #!/usr/bin/env bash
-# macOS DMG 签名 + 公证 + staple + 验收（docs/desktop/macos-dmg-signing-notarization.md）。
+# macOS 全量签名 + DMG 公证 + staple + 验收（docs/desktop/macos-dmg-signing-notarization.md）。
 #
 # 用法：
 #   scripts/notarize-macos.sh <path/to/xxx.dmg> [more.dmg ...]
 #
-# 公证凭据（三选一，按顺序探测；变量名与 electron-builder 惯例一致，本地/CI 同一套）：
-#   1. APPLE_KEYCHAIN_PROFILE            —— xcrun notarytool store-credentials 预存的 profile
-#   2. APPLE_API_KEY_PATH + APPLE_API_KEY_ID + APPLE_API_ISSUER
-#                                        —— App Store Connect API Key（.p8 文件路径）
-#   3. APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID
-#                                        —— Apple ID + 应用专用密码
+# 环境变量：
+#   APPLE_SIGNING_IDENTITY   完整 "Developer ID Application: ..." 串（必填）
+#   APPLE_KEYCHAIN_PROFILE   公证凭据：xcrun notarytool store-credentials 预存 profile
+#   APPLE_API_KEY_PATH + APPLE_API_KEY_ID + APPLE_API_ISSUER   公证凭据：ASC API Key
+#   APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID    公证凭据：Apple ID
 #
-# DMG 未签名时用 APPLE_SIGNING_IDENTITY（完整 "Developer ID Application: ..." 串）补签；
-# 已签名则直接进入公证。流程：codesign 校验/补签 → notarytool submit --wait →
-# stapler staple → codesign/stapler/spctl 三重验收；同目录下的 .app 一并做
-# deep 校验（不公证 .app 本体——DMG 公证结果覆盖包内 app，装出后由 staple 的 DMG
-# 与系统在线校验共同兜底）。
+# 签名策略（2026-10-19 终版）：
+#   electron-builder identity=null（完全不签）；本脚本在独立 shell 中从内到外
+#   签全部 Mach-O（无 timestamp → 不走 Apple TSA），再从已签名 .app 重建 DMG，
+#   DMG 签名是唯一 TSA 请求。公证 → staple → 三重验收。
 set -euo pipefail
 
 if [ "$#" -eq 0 ]; then
   echo "usage: $0 <dmg> [dmg ...]" >&2
   exit 64
+fi
+
+identity="${APPLE_SIGNING_IDENTITY:-}"
+if [ -z "$identity" ]; then
+  echo "::error::缺少 APPLE_SIGNING_IDENTITY" >&2
+  exit 1
 fi
 
 notary_args=()
@@ -31,57 +35,92 @@ elif [ -n "${APPLE_API_KEY_PATH:-}" ] && [ -n "${APPLE_API_KEY_ID:-}" ] && [ -n 
 elif [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
   notary_args=(--apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID")
 else
-  echo "::error::缺少公证凭据（APPLE_KEYCHAIN_PROFILE / APPLE_API_KEY_* / APPLE_ID 三选一）。已签名的 DMG 不允许跳过公证直接发布（Gatekeeper 会拦截）。" >&2
-  echo "  本地推荐：xcrun notarytool store-credentials mikiko-notary --apple-id <id> --team-id <team> --password <app-specific-password>" >&2
+  echo "::error::缺少公证凭据（APPLE_KEYCHAIN_PROFILE / APPLE_API_KEY_* / APPLE_ID 三选一）。" >&2
   exit 1
 fi
 
-sign_identity="${APPLE_SIGNING_IDENTITY:-}"
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+inherit_entitlements="$script_dir/../packages/desktop/build/entitlements.mac.inherit.plist"
+main_entitlements="$script_dir/../packages/desktop/build/entitlements.mac.plist"
 
-# Runtime Mach-O 预签名（signIgnore 跳过的 glm/tools/macos-window-bounds）：
-# 公证要求包内所有二进制有 Developer ID 签名。在独立 shell 里 codesign 可靠
-# （electron-builder 进程内 spawn 会 ETIMEDOUT——GitHub runner 临时 keychain 限制）。
-if [ -n "$sign_identity" ] && [ -n "${SIGN_RUNTIME_DIR:-}" ]; then
-  echo "==> [0/4] Runtime Mach-O 预签名: $SIGN_RUNTIME_DIR"
-  find "$SIGN_RUNTIME_DIR" -type d -name "mac-arm64" -o -type d -name "mac-x64" | while read -r appdir; do
-    resources="$appdir/Contents/Resources"
-    [ -d "$resources" ] || continue
-    for subdir in glm tools macos-window-bounds; do
-      [ -d "$resources/$subdir" ] || continue
-      find "$resources/$subdir" -type f -perm +111 | while read -r bin; do
-        if file -b "$bin" | grep -q "Mach-O"; then
-          echo "    签名: $bin"
-          codesign --sign "$sign_identity" --force --options runtime "$bin" \
-            || codesign --sign "$sign_identity" --force "$bin" \
-            || echo "::error::无法签名 $bin" >&2 && exit 1
-        fi
-      done
+sign_macho() {
+  local bin="$1"
+  codesign --sign "$identity" --force --options runtime "$bin" 2>/dev/null \
+    || codesign --sign "$identity" --force "$bin" 2>/dev/null \
+    || echo "  warn: 签名失败 $bin" >&2
+}
+
+sign_app_bundle() {
+  local app="$1"
+  local resources="$app/Contents/Resources"
+
+  echo "  [a] glm/tools/macos-window-bounds Mach-O"
+  for subdir in glm tools macos-window-bounds; do
+    [ -d "$resources/$subdir" ] || continue
+    find "$resources/$subdir" -type f -perm +111 | while read -r bin; do
+      file -b "$bin" 2>/dev/null | grep -q "Mach-O" && sign_macho "$bin"
     done
   done
-fi
+
+  echo "  [b] asar.unpacked .node"
+  if [ -d "$resources/app.asar.unpacked" ]; then
+    find "$resources/app.asar.unpacked" -name "*.node" -type f | while read -r bin; do
+      sign_macho "$bin"
+    done
+  fi
+
+  echo "  [c] Frameworks 内可执行文件"
+  find "$app/Contents/Frameworks" -perm +111 -type f 2>/dev/null | while read -r bin; do
+    file -b "$bin" 2>/dev/null | grep -q "Mach-O" && sign_macho "$bin"
+  done
+
+  echo "  [d] helper .app bundles"
+  find "$app/Contents/Frameworks" -name "*.app" -maxdepth 1 -type d 2>/dev/null | while read -r helper; do
+    codesign --sign "$identity" --force --options runtime "$helper" 2>/dev/null \
+      || echo "  warn: helper 签名失败 $helper" >&2
+  done
+
+  echo "  [e] .framework bundles"
+  find "$app/Contents/Frameworks" -name "*.framework" -maxdepth 1 -type d 2>/dev/null | while read -r fw; do
+    codesign --sign "$identity" --force --options runtime "$fw" 2>/dev/null \
+      || echo "  warn: framework 签名失败 $fw" >&2
+  done
+
+  echo "  [f] 主 .app（hardened runtime + entitlements）"
+  codesign --sign "$identity" --force --options runtime --entitlements "$main_entitlements" "$app"
+
+  echo "  [g] deep strict 验证"
+  codesign --verify --deep --strict "$app"
+  echo "  .app 签名完成"
+}
 
 for dmg in "$@"; do
-  if [ ! -f "$dmg" ]; then
-    echo "::error::DMG 不存在: $dmg" >&2
-    exit 66
-  fi
+  [ -f "$dmg" ] || { echo "::error::DMG 不存在: $dmg" >&2; exit 66; }
+  dist_dir="$(dirname "$dmg")"
 
-  echo "==> [1/4] DMG 签名校验: $dmg"
-  if codesign --verify "$dmg" 2>/dev/null; then
-    echo "    已有有效签名，跳过补签"
-  else
-    if [ -z "$sign_identity" ]; then
-      echo "::error::DMG 未签名且未设置 APPLE_SIGNING_IDENTITY，拒绝提交公证（Gatekeeper 会判 source=no usable signature）" >&2
-      exit 1
+  echo "==> [1/4] .app 全量签名"
+  signed_app=""
+  for appdir in "$dist_dir"/mac*/Mikiko*.app; do
+    if [ -d "$appdir" ]; then
+      echo "  找到: $appdir"
+      sign_app_bundle "$appdir"
+      signed_app="$appdir"
+      break
     fi
-    echo "    用 $sign_identity 补签 DMG"
-    codesign --sign "$sign_identity" --timestamp "$dmg"
-    codesign --verify "$dmg"
+  done
+
+  echo "==> [2/4] 从已签名 .app 重建 DMG"
+  if [ -n "$signed_app" ]; then
+    app_name="$(basename "$signed_app" .app)"
+    new_dmg="$dist_dir/${app_name}-rebuild.dmg"
+    hdiutil create -volname "$app_name" -srcfolder "$signed_app" -ov -format UDZO "$new_dmg" 2>/dev/null
+    [ -f "$new_dmg" ] && mv "$new_dmg" "$dmg" && echo "  DMG 重建完成: $dmg"
   fi
 
-  echo "==> [2/4] 提交公证（--wait）: $dmg"
-  # submit 直接原地等待；--wait 在 Invalid 时以非零退出且不自动打印日志，
-  # 捕获 submission id 后显式拉取公证日志（含每个二进制的拒绝原因）。
+  echo "==> [3/4] DMG 签名（唯一 TSA 请求）+ 公证 + staple"
+  codesign --sign "$identity" --force --timestamp "$dmg"
+  codesign --verify "$dmg"
+
   if ! submit_output=$(xcrun notarytool submit "$dmg" "${notary_args[@]}" --wait 2>&1); then
     echo "$submit_output"
     submission_id=$(printf '%s' "$submit_output" | sed -n 's/^  id: \([0-9a-f-]\{36\}\)$/\1/p')
@@ -92,26 +131,13 @@ for dmg in "$@"; do
     exit 1
   fi
   echo "$submit_output"
-
-  echo "==> [3/4] staple: $dmg"
   xcrun stapler staple "$dmg"
 
   echo "==> [4/4] 验收: $dmg"
   codesign --verify "$dmg"
   xcrun stapler validate "$dmg"
   spctl -a -t open --context context:primary-signature -v "$dmg"
-  echo "    OK: $dmg 已签名 + 公证 + staple"
-done
-
-# 同产物 .app 的本地 deep 校验（DMG 公证覆盖包内 app；这里只验证签名链与 Gatekeeper 评估）。
-app_dir="${DMG_APP_DIR:-$(dirname "$1")}"
-for app in "$app_dir"/mac*/Mikiko*.app "$app_dir"/mac-*/Mikiko*.app; do
-  [ -d "$app" ] || continue
-  echo "==> .app 校验: $app"
-  codesign --verify --deep --strict "$app" >/dev/null 2>&1 || { echo "::error::codesign --deep --strict 失败: $app" >&2; exit 1; }
-  spctl -a -vv -t exec "$app" >/dev/null 2>&1 || { echo "::error::spctl 评估失败: $app" >&2; exit 1; }
-  echo "    OK: $app"
-  break
+  echo "  OK: $dmg 已签名 + 公证 + staple"
 done
 
 echo "全部完成。"

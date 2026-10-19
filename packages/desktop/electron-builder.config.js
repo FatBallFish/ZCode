@@ -853,31 +853,17 @@ export default {
       // 的设备选择器列表恒为空（实测 Chrome 有蓝牙隐私权限则正常）。
       NSBluetoothAlwaysUsageDescription: `${desktopProductIdentity.productName} needs Bluetooth access to list nearby devices when a website you open in the embedded browser requests one.`,
     },
-    // 预签名脚本走的是原生 codesign，要求完整的 "Developer ID Application: ..." 身份串；
-    // 但 electron-builder 的 mac.identity 在 26.x 下会拒绝带此前缀的名字。
-    // 这里仅对 electron-builder 侧做前缀归一化，避免本地预签名和最终 .app 签名互相打架。
-    // z-code 之前只有本地未签名打包配置，CI 即使注入了证书变量，
-    // electron-builder 也不会自动切到 hardened runtime / entitlement 这套发布参数。
-    // 这里显式收拢到环境开关，保证本地开发不被签名配置绑死，CI 发布时再按需打开。
-    identity: shouldEnableMacSigning ? macSigningIdentity : null,
-    // macOS 产物采用“build 阶段签名 + 独立公证阶段”的两段式流水线。
-    // 如果这里不显式关闭 electron-builder 内置 notarize，它会在 build 阶段读取 Apple 凭据后直接尝试公证，
-    // 并强制要求 APPLE_APP_SPECIFIC_PASSWORD，导致 build 还没产出 DMG 就提前失败。
+    // 2026-10-19 终版方案：electron-builder 完全不签（identity=null），全部签名
+    // 移到 workflow 的 Notarize 步骤用独立 shell 完成。原因：
+    // 1. electron-builder 对 .app 内每个 Mach-O 都走 Apple TSA（--timestamp），
+    //    TSA 慢时 37 个二进制 × 30s+ = 实测 60-135 分钟超时（Run2-10 连续验证）。
+    // 2. afterPack 里 spawn codesign 对 GitHub runner 临时 keychain 不可靠（ETIMEDOUT）。
+    // 3. 独立 shell 里 codesign 不带 --timestamp 可秒签全部 Mach-O；
+    //    公证只要求 DMG 最外层带 secure timestamp（notarize-macos.sh 单独处理）。
+    identity: null,
     notarize: false,
-    hardenedRuntime: shouldEnableMacSigning,
+    hardenedRuntime: false,
     gatekeeperAssess: false,
-    entitlements: "build/entitlements.mac.plist",
-    entitlementsInherit: "build/entitlements.mac.inherit.plist",
-    // 签名分层（2026-10-19 定稿）：glm/tools 下的 Mach-O 在 afterPack 阶段由
-    // signRuntimeExecutables 快速预签名（find + codesign 并行，只签真正的 Mach-O，
-    // 不做 electron-builder 的全量深度扫描——后者在本包的 glm node_modules 树上
-    // 要 60+ 分钟，实测超时）。signIgnore 跳过这两个已预签名目录 + cua-helper
-    // （独立 CUA gate 预签名+staple，重签会失效），公证看到的所有二进制均有签名。
-    signIgnore: [
-      "[/\\\\]Contents[/\\\\]Resources[/\\\\]cua-helper([/\\\\]|$)",
-      "[/\\\\]Contents[/\\\\]Resources[/\\\\]glm([/\\\\]|$)",
-      "[/\\\\]Contents[/\\\\]Resources[/\\\\]tools([/\\\\]|$)",
-    ],
   },
   win: {
     target: ["nsis"],
