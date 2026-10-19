@@ -1,146 +1,97 @@
 #!/usr/bin/env node
-/**
- * Runtime 可执行文件快速预签名（specs/desktop/macos-signing.md）。
- *
- * 背景：electron-builder 移除 signIgnore 后会对 .app 全量深度扫描签名，在本包
- * Contents/Resources/glm 的 node_modules 树上实测超过 60 分钟（GitHub runner 超时）。
- * 本脚本在 afterPack 阶段只找 Mach-O 文件（file 输出含 "Mach-O"），并行 codesign，
- * 通常 <2 分钟完成；之后 electron-builder 通过 signIgnore 跳过这两个目录。
- *
- * 嵌套二进制不使用 --timestamp（Apple 只要求最外层签名的 secure timestamp；
- * 嵌套时间戳请求在部分 runner 上会卡 Apple TSA 服务器导致超时——2026-10-19
- * macos-window-bounds 二进制连续两次 120s 超时的实测结论）。
- *
- * 用法（由 electron-builder.config.js afterPack 链调用，不单独执行）：
- *   await signRuntimeExecutables(context, { identity })
- * 未开启签名模式时是 no-op。
- */
-import { execFileSync } from "node:child_process";
-import { readdirSync, statSync } from "node:fs";
+/** glm/tools 的 Mach-O 在主 App 封印和 DMG/ZIP 封装前签名；见 specs/desktop/macos-signing.md。 */
+import { execFile } from "node:child_process";
+import { open, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
-const PARALLEL_LIMIT = 8;
+const execFileAsync = promisify(execFile);
+const MACH_O_MAGIC = new Set([
+  "feedface",
+  "cefaedfe",
+  "feedfacf",
+  "cffaedfe",
+  "cafebabe",
+  "bebafeca",
+  "cafebabf",
+  "bfbafeca",
+]);
 
-export async function signRuntimeExecutables(context, options = {}) {
-  if (context.electronPlatformName !== "darwin") return;
-  const identity = options.identity;
-  if (!identity) {
-    console.log("[afterPack][sign-runtime] 未提供签名身份，跳过 runtime 预签名");
-    return;
-  }
-  const appName = context.packager?.appInfo?.productFilename ?? "Mikiko";
-  const appPath = join(context.appOutDir, `${appName}.app`, "Contents", "Resources");
-  const targets = ["glm", "tools", "macos-window-bounds"];
-
-  const startMs = Date.now();
-  console.log("[ci][timer] afterPack:signRuntimeExecutables start");
-  const binaries = [];
-  for (const dir of targets) {
-    const full = join(appPath, dir);
-    try {
-      statSync(full);
-    } catch {
-      continue;
-    }
-    collectMachO(full, binaries);
-  }
-  console.log(
-    `[afterPack][sign-runtime] ${targets.join("/")} 下找到 ${binaries.length} 个 Mach-O`,
-  );
-  if (binaries.length === 0) return;
-
-  const entitlementsPath = join(import.meta.dirname, "..", "build", "entitlements.mac.inherit.plist");
-  let signed = 0;
-  let failed = 0;
-  const queue = [...binaries];
-  const workers = Array.from(
-    { length: Math.min(PARALLEL_LIMIT, queue.length) },
-    () =>
-      new Promise((resolve) => {
-        const next = () => {
-          const file = queue.shift();
-          if (!file) return resolve();
-          try {
-            execFileSync(
-              "/usr/bin/codesign",
-              [
-                "--sign", identity,
-                "--force",
-                "--options", "runtime",
-                "--entitlements", entitlementsPath,
-                file,
-              ],
-              { stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 },
-            );
-            signed += 1;
-          } catch {
-            // 完整签名失败（如 entitlements 对 linker-signed 通用二进制挂起）：
-            // 降级为不带 entitlements 的基础 Developer ID 签名，公证仍接受。
-            try {
-              execFileSync(
-                "/usr/bin/codesign",
-                ["--sign", identity, "--force", file],
-                { stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 },
-              );
-              signed += 1;
-              console.warn(`[afterPack][sign-runtime] 降级签名（无 entitlements）: ${file}`);
-            } catch (error) {
-              try {
-                execFileSync("/usr/bin/codesign", ["--verify", file], {
-                  stdio: "ignore",
-                  timeout: 5_000,
-                });
-                signed += 1;
-              } catch {
-                failed += 1;
-                console.error(
-                  `[afterPack][sign-runtime] 签名失败: ${file}: ${error.message?.slice(0, 200)}`,
-                );
-              }
-            }
-          }
-          next();
-        };
-        next();
-      }),
-  );
-  await Promise.all(workers);
-  console.log(
-    `[afterPack][sign-runtime] 完成：${signed} 签名 / ${failed} 失败 / ${binaries.length} 总计`,
-  );
-  console.log(
-    `[ci][timer] afterPack:signRuntimeExecutables end duration_ms=${Date.now() - startMs}`,
-  );
-  if (failed > 0) {
-    throw new Error(`Runtime 预签名有 ${failed} 个文件失败，公证会被拒绝`);
-  }
-}
-
-function collectMachO(dir, out) {
+async function collectMachO(directory, binaries, optional = false) {
   let entries;
   try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return;
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    if (optional && error.code === "ENOENT") return;
+    throw error;
   }
-  for (const entry of entries) {
-    const path = join(dir, entry.name);
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const path = join(directory, entry.name);
     if (entry.isDirectory()) {
-      collectMachO(path, out);
-    } else if (entry.isFile() && isMachOFile(path)) {
-      out.push(path);
+      await collectMachO(path, binaries);
+    } else if (entry.isFile()) {
+      // .node 不一定有执行位；只读文件头，不对每个 JS/JSON 启动 file 子进程，也不跟随符号链接。
+      const file = await open(path, "r");
+      try {
+        const header = Buffer.alloc(4);
+        const { bytesRead } = await file.read(header, 0, 4, 0);
+        if (bytesRead === 4 && MACH_O_MAGIC.has(header.toString("hex"))) binaries.push(path);
+      } finally {
+        await file.close();
+      }
     }
   }
 }
 
-function isMachOFile(path) {
-  try {
-    const out = execFileSync("/usr/bin/file", ["-b", path], {
-      encoding: "utf8",
-      timeout: 3_000,
-    });
-    return out.includes("Mach-O");
-  } catch {
-    return false;
+export async function signRuntimeExecutables(context, options = {}) {
+  if (context.electronPlatformName !== "darwin" || !options.identity) return;
+  const appName = context.packager?.appInfo?.productFilename ?? "Mikiko";
+  const resources = join(context.appOutDir, `${appName}.app`, "Contents", "Resources");
+  const binaries = [];
+  for (const target of ["glm", "tools"]) {
+    await collectMachO(join(resources, target), binaries, true);
   }
+
+  const run = options.execFileImpl ?? execFileAsync;
+  const keychain = options.keychain ?? process.env.CSC_KEYCHAIN;
+  const entitlements = join(import.meta.dirname, "..", "build", "entitlements.mac.inherit.plist");
+  let nextIndex = 0;
+  let failure;
+  console.log(`[afterPack][sign-runtime] Mach-O count=${binaries.length}`);
+  // 原实现的 Promise 包裹 execFileSync 仍然串行；真实异步子进程才能保持有界并发。
+  // 钥匙链错误不能通过去掉 timestamp/runtime 或接受旧 ad-hoc 签名来降级掩盖。
+  const workers = Array.from({ length: Math.min(4, binaries.length) }, async () => {
+    while (!failure && nextIndex < binaries.length) {
+      const file = binaries[nextIndex++];
+      const startedAt = Date.now();
+      console.log(`[afterPack][sign-runtime] start file=${file}`);
+      try {
+        await run(
+          "/usr/bin/codesign",
+          [
+            "--sign",
+            options.identity,
+            "--force",
+            "--timestamp",
+            "--options",
+            "runtime",
+            "--entitlements",
+            entitlements,
+            ...(keychain ? ["--keychain", keychain] : []),
+            file,
+          ],
+          { timeout: 120_000, killSignal: "SIGKILL" },
+        );
+        console.log(
+          `[afterPack][sign-runtime] signed file=${file} duration_ms=${Date.now() - startedAt}`,
+        );
+      } catch (error) {
+        failure ??= new Error(`Runtime signing failed: ${file}: ${error.stderr || error.message}`, {
+          cause: error,
+        });
+      }
+    }
+  });
+  await Promise.all(workers);
+  if (failure) throw failure;
 }

@@ -79,16 +79,24 @@ jobs:
           fi
           KEYCHAIN=build-mac-sign.keychain-db
           security create-keychain -p "" "$KEYCHAIN"
+          # 默认 300 秒锁定早于首次 codesign（日志为 341~504 秒），会等待无头 runner 的解锁交互。
+          # 让钥匙链在整个 150 分钟 job 中保持可用，而不是继续增加打包超时。
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
           security default-keychain -s "$KEYCHAIN"
           security unlock-keychain -p "" "$KEYCHAIN"
           printf '%s' "$MAC_SIGNING_P12_BASE64" | base64 --decode > /tmp/mac-sign.p12
           security import /tmp/mac-sign.p12 -k "$KEYCHAIN" -P "$MAC_SIGNING_P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -k "" "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "" "$KEYCHAIN" > /dev/null
+          security show-keychain-info "$KEYCHAIN"
           rm -f /tmp/mac-sign.p12
           echo "APPLE_SIGNING_IDENTITY=$MAC_SIGNING_IDENTITY" >> "$GITHUB_ENV"
           echo "MIKIKO_ENABLE_MAC_SIGN=1" >> "$GITHUB_ENV"
+          echo "CSC_KEYCHAIN=$HOME/Library/Keychains/$KEYCHAIN" >> "$GITHUB_ENV"
 
       - name: Bundle desktop installers
+        timeout-minutes: 35
+        env:
+          DEBUG: "electron-osx-sign*"
         run: pnpm bundle:desktop -- --os ${{ matrix.target }} --arch ${{ matrix.arch }}
 
       - name: Notarize macOS DMG
@@ -107,8 +115,28 @@ jobs:
             echo "APPLE_API_KEY_PATH=/tmp/apple-api-key.p8" >> "$GITHUB_ENV"
             export APPLE_API_KEY_PATH=/tmp/apple-api-key.p8
           fi
-          export SIGN_RUNTIME_DIR="$PWD/packages/desktop/dist"
-          sh scripts/notarize-macos.sh packages/desktop/dist/*.dmg
+          bash scripts/notarize-macos.sh packages/desktop/dist/*.dmg
+
+      - name: Diagnose macOS signing failure
+        if: failure() && runner.os == 'macOS'
+        run: |
+          if [ -n "${CSC_KEYCHAIN:-}" ]; then
+            security show-keychain-info "$CSC_KEYCHAIN" || true
+          fi
+          for pid in $(pgrep -x codesign || true); do
+            sample "$pid" 2 -file "$RUNNER_TEMP/codesign-$pid.sample.txt" || true
+          done
+
+      - name: Upload macOS signing diagnostics
+        if: failure() && runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: signing-diagnostics-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/codesign-*.sample.txt
+            packages/desktop/dist/builder-debug.yml
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Cleanup macOS signing keychain
         if: always() && runner.os == 'macOS'

@@ -22,7 +22,10 @@ import {
   resolveDesktopProductIdentity,
 } from "./scripts/desktop-product-identity.mjs";
 import { createWindowsPowerShellSecurityArgs } from "./scripts/powershell-command.mjs";
-import { isSharpRequiredByComputerUse, verifyStagedSharp } from "./scripts/sharp-package-assets.mjs";
+import {
+  isSharpRequiredByComputerUse,
+  verifyStagedSharp,
+} from "./scripts/sharp-package-assets.mjs";
 import { isRealComputerUseProducerInstalled } from "./scripts/computer-use-producer.mjs";
 import { verifyStagedKoffi } from "./scripts/koffi-package-assets.mjs";
 import {
@@ -39,6 +42,7 @@ import {
   patchNsisInstallSectionFile,
   restoreNsisInstallSectionFileSync,
 } from "./scripts/patch-nsis-install-section.mjs";
+import { signRuntimeExecutables } from "./scripts/sign-runtime-executables.mjs";
 
 const buildMetadata = getBuildMetadata();
 const targetPlatform = getTargetPlatform();
@@ -689,9 +693,13 @@ export default {
     runTimedSync("afterPack:assertPackagedCuaSharp", () => assertPackagedCuaSharp(context));
     runTimedSync("afterPack:assertPackagedCuaKoffi", () => assertPackagedCuaKoffi(context));
     runTimedSync("afterPack:assertPackagedCuaHelper", () => assertPackagedCuaHelper(context));
-    // 签名模式下不在 afterPack 预签名——execFileSync spawn codesign 在 electron-builder
-    // 进程内对 GitHub runner 的临时 keychain 不可靠（连续 6 次运行 ETIMEDOUT）。
-    // 预签名改在 workflow 的 Notarize 步骤用独立 shell 执行（notarize-macos.sh）。
+    // CI 挂起与临时钥匙链默认 300 秒锁定吻合；不能通过封装后补签或跳过安全时间戳规避。
+    // 先完成全部资源改写，再签被 signIgnore 跳过的原生文件，之后 builder 封印主 App 并出包。
+    if (shouldEnableMacSigning) {
+      await runTimedAsync("afterPack:signRuntimeExecutables", () =>
+        signRuntimeExecutables(context, { identity: rawMacSigningIdentity }),
+      );
+    }
     if (actualWindowsTarget && shouldPackageComputerUseHelper) {
       await runTimedAsync("afterPack:finalizePackagedWindowsCuaHelper", () =>
         finalizePackagedWindowsCuaHelper({
@@ -853,17 +861,20 @@ export default {
       // 的设备选择器列表恒为空（实测 Chrome 有蓝牙隐私权限则正常）。
       NSBluetoothAlwaysUsageDescription: `${desktopProductIdentity.productName} needs Bluetooth access to list nearby devices when a website you open in the embedded browser requests one.`,
     },
-    // 2026-10-19 终版方案：electron-builder 完全不签（identity=null），全部签名
-    // 移到 workflow 的 Notarize 步骤用独立 shell 完成。原因：
-    // 1. electron-builder 对 .app 内每个 Mach-O 都走 Apple TSA（--timestamp），
-    //    TSA 慢时 37 个二进制 × 30s+ = 实测 60-135 分钟超时（Run2-10 连续验证）。
-    // 2. afterPack 里 spawn codesign 对 GitHub runner 临时 keychain 不可靠（ETIMEDOUT）。
-    // 3. 独立 shell 里 codesign 不带 --timestamp 可秒签全部 Mach-O；
-    //    公证只要求 DMG 最外层带 secure timestamp（notarize-macos.sh 单独处理）。
-    identity: null,
+    // Apple 公证要求嵌套代码也有 Developer ID、安全时间戳和 hardened runtime。
+    // 由 builder 在 DMG/ZIP 封装前签主 App，公证阶段不再改写封装输入。
+    identity: shouldEnableMacSigning ? macSigningIdentity : null,
     notarize: false,
-    hardenedRuntime: false,
+    hardenedRuntime: shouldEnableMacSigning,
     gatekeeperAssess: false,
+    entitlements: "build/entitlements.mac.plist",
+    entitlementsInherit: "build/entitlements.mac.inherit.plist",
+    // glm/tools 已由 afterPack 签名；独立 CUA Helper 保留现有签名边界。
+    signIgnore: [
+      "[/\\\\]Contents[/\\\\]Resources[/\\\\]cua-helper([/\\\\]|$)",
+      "[/\\\\]Contents[/\\\\]Resources[/\\\\]glm([/\\\\]|$)",
+      "[/\\\\]Contents[/\\\\]Resources[/\\\\]tools([/\\\\]|$)",
+    ],
   },
   win: {
     target: ["nsis"],

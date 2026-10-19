@@ -6,7 +6,8 @@ macOS release DMG 是用户从浏览器下载后直接交给 Gatekeeper 评估�
 
 ## 目标
 
-- `ZCode.app` 继续由 electron-builder 使用 Developer ID Application 签名。
+- 当前桌面产物 `Mikiko.app` 由 electron-builder 使用 Developer ID Application 签名；
+  `glm/tools` 的 Mach-O 在 afterPack 中预签名，主 App 封印及 DMG/ZIP 封装前完成。
 - 最终 DMG 在提交 Apple notarization 前必须单独执行 Developer ID `codesign`。
 - DMG 公证完成并去掉 `.unnotarized` 后，必须通过 `codesign`、`stapler validate` 和 `spctl -t open` 验收。
 - 最终 `ZCode.app` 及其包内 Helper、安装后的用户级 Helper 必须分别通过 `codesign --verify --deep --strict` 和 `spctl -a -vv -t exec` 验收；两个 Helper 还必须通过本地 `xcrun stapler validate`，确认签名未被重新覆盖后 staple 仍对应最终 bundle。
@@ -14,12 +15,21 @@ macOS release DMG 是用户从浏览器下载后直接交给 Gatekeeper 评估�
 
 ## CI 流程
 
-1. `build:macos:*` 导入 Developer ID Application p12 到临时 keychain。
-2. `electron-builder` 打包并签 `ZCode.app`，产出 `ZCode-<version>-mac-<arch>.dmg`。
-3. `ci-collect-artifacts` 将 DMG 收集为 `*.unnotarized.dmg`。
-4. `scripts/notarize-macos.sh` 对 `*.unnotarized.dmg` 执行 DMG 签名、公证、staple、重命名和验收。
-5. `scripts/notarize-macos.sh` 在严格 release 中还会通过 `MIKIKO_MACOS_RELEASE_APP_PATH` 或 `MIKIKO_DESKTOP_DIST_DIR` 定位打包出的 `ZCode.app`，复用 `scripts/doctor-macos-release-app.sh` 验收主 app；找不到 app 路径时 fail-closed。CUA/Helper release gate 额外设置 `ZCODE_CUA_REQUIRE_HELPER=1`，并显式验收最终 app 内 `Contents/Resources/cua-helper/ZCode Computer Use.app`；缺失时 fail-closed。
-6. `scripts/upload-oss.sh` 正式发布时只接受已完成上述流程的 `*.dmg`。
+1. `.github/workflows/release-desktop.yml` 创建临时 keychain，显式设置 21600 秒超时，
+   解锁并导入 Developer ID p12；通过 `CSC_KEYCHAIN` 指定签名钥匙链，job 结束时清理。
+   默认的 300 秒锁定会早于 CI 首次签名，是 2026-10-19 签名挂起的主要排查依据。
+2. `pnpm bundle:desktop -- --os mac --arch <arm64|x64>` 整理资源，预签 `glm/tools`
+   原生文件，再由 builder 签 Electron/主 App，生成 DMG、ZIP 和更新清单。所有代码
+   都需要安全时间戳和 hardened runtime；不能仅给最外层 DMG 添加时间戳。
+3. `bash scripts/notarize-macos.sh packages/desktop/dist/*.dmg` 校验/补签最终 DMG，
+   提交 Apple 并检查 JSON `status=Accepted`，之后 staple 和验收。该阶段不再重签 App
+   或重建 DMG，避免 App、ZIP 和镜像内容不一致。
+4. staple 会改变 DMG 字节；`refresh-macos-artifact-metadata.mjs` 更新对应清单哈希、
+   大小和已存在的 DMG blockmap，保留 ZIP 内容与哈希。公证脚本验收所有现存架构 App。
+5. 只有成功的 build job 才上传 installers；正式 tag 流程再发布 GitHub Release 和更新 feed。
+   手动 `mac-only=true` 只验证两个 Mac 架构，不发布 release/feed。
+
+行为规则与回归场景见 `specs/desktop/macos-signing.md`。
 
 ## Computer Use Helper 的独立签名与架构约束
 
