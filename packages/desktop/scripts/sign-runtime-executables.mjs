@@ -63,7 +63,7 @@ export function signRuntimeExecutables(context, options = {}) {
               "--entitlements", entitlementsPath,
               file,
             ],
-            { stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 },
+            { stdio: ["ignore", "pipe", "pipe"], timeout: 120_000 },
           );
           signed += 1;
         } catch (error) {
