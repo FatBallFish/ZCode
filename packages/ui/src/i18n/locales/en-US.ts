@@ -3309,8 +3309,7 @@ const enUS: Record<string, string> = {
   "settings.modelProvider.relaySub2apiDesc": "Connect a self-hosted Sub2API site",
   "login.sub2api.mikikocc": "Continue with MikikoCC",
   "login.sub2api.sub2api": "Continue with Sub2api",
-  "login.sub2api.mikikocc.hint":
-    "Sign in with your MikikoCC account to manage API keys, balance, and subscriptions.",
+  "login.sub2api.mikikocc.hint": "Sign in to MikikoCC with Mikiko ID to manage API keys and view balance and subscriptions.",
   "login.sub2api.sub2api.hint": "Enter a Sub2API site URL, verify it, then sign in.",
   "settings.modelProvider.relayTitle": "Relay",
   "settings.modelProvider.templateGroup.relay": "Relay",
@@ -3328,6 +3327,9 @@ const enUS: Record<string, string> = {
     "If the site enforces a captcha, paste an API key directly instead.",
   "settings.sub2api.login.success": "Signed in, synced {count} keys",
   "settings.sub2api.login.failed": "Sign-in failed",
+  "settings.sub2api.login.oidc.submit": "Sign in with Mikiko ID",
+  "settings.sub2api.login.oidc.waiting": "Complete Mikiko ID sign-in in your browser…",
+  "settings.sub2api.login.oidc.failed": "Mikiko ID sign-in failed, please retry",
   "settings.sub2api.login.syncFailed":
     "Signed in, but model list sync failed and will retry automatically; you can also sync manually later in Settings → Model Providers",
   "settings.sub2api.login.captchaBlocked":

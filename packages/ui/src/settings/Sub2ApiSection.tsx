@@ -543,6 +543,7 @@ export function Sub2ApiSection({
                       siteId={selectedSite.siteId}
                       panelBaseUrl={selectedSite.panelBaseUrl}
                       onLoggedIn={() => void refreshSiteData(selectedSite)}
+                      method={selectedSite.kind === "mikikocc" ? "oidc" : "password"}
                     />
                   )}
                 </div>

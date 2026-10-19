@@ -93,6 +93,7 @@ export function WelcomeSub2ApiLogin({ variant, onCancel, onLoggedIn }: WelcomeSu
             panelBaseUrl={site.panelBaseUrl}
             onLoggedIn={handleLoggedIn}
             onCancel={onCancel}
+            method="oidc"
           />
         )}
       </div>
@@ -118,6 +119,7 @@ export function WelcomeSub2ApiLogin({ variant, onCancel, onLoggedIn }: WelcomeSu
           panelBaseUrl={siteUrl}
           onLoggedIn={handleLoggedIn}
           onCancel={onCancel}
+          method="password"
         />
       ) : (
         <div className="flex items-center gap-2">

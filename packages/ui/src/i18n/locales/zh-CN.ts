@@ -3105,7 +3105,7 @@ const zhCN: Record<string, string> = {
   "settings.modelProvider.relaySub2apiDesc": "连接自建 Sub2API 站点（填写 BaseURL）",
   "login.sub2api.mikikocc": "通过 MikikoCC 登录",
   "login.sub2api.sub2api": "通过 Sub2api 登录",
-  "login.sub2api.mikikocc.hint": "使用 MikikoCC 账号登录，即可管理 API 密钥、查看余额与订阅。",
+  "login.sub2api.mikikocc.hint": "使用 Mikiko ID 登录 MikikoCC，即可管理 API 密钥、查看余额与订阅。",
   "login.sub2api.sub2api.hint": "输入 Sub2API 站点地址，验证通过后登录。",
   "settings.modelProvider.relayTitle": "中转站",
   "settings.modelProvider.templateGroup.relay": "中转站",
@@ -3122,6 +3122,9 @@ const zhCN: Record<string, string> = {
   "settings.sub2api.login.hint": "站点开启人机验证时无法密码登录，请直接粘贴 API Key。",
   "settings.sub2api.login.success": "登录成功，已同步 {count} 个密钥",
   "settings.sub2api.login.failed": "登录失败",
+  "settings.sub2api.login.oidc.submit": "使用 Mikiko ID 登录",
+  "settings.sub2api.login.oidc.waiting": "在浏览器中完成 Mikiko ID 登录…",
+  "settings.sub2api.login.oidc.failed": "Mikiko ID 登录失败，请重试",
   "settings.sub2api.login.syncFailed":
     "已登录，但模型列表同步失败，将自动重试；也可稍后在「设置 → 模型设置」手动同步",
   "settings.sub2api.login.captchaBlocked":
