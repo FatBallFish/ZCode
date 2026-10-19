@@ -1,3 +1,6 @@
+/* eslint-disable max-lines -- 长名截断 + tooltip（2026-10-20）补齐后超出 400 行上限：
+ * 三种工作位置形态（本地/新建/现有）的选择器与只读 chip 共享同一份 draftLocation
+ * 状态语义，拆文件会把展示规则（分支优先/短 id 兜底/截断）散落到多处。 */
 /**
  * 草稿态「工作位置」chip（specs/desktop/worktrees.md）。
  *
@@ -23,6 +26,7 @@ import type { GitRepositorySummary } from "@zcode/shared";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.js";
+import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { cn } from "@/components/lib/utils.js";
 import { useServices } from "@/hooks/useServices.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
@@ -112,30 +116,47 @@ export function DraftWorkLocation({
     // worktree workspace 草稿：两枚只读 chip。身份 chip 与选择器同名（分支优先、
     // 短 id 兜底）；HEAD chip 展示当前分支，游离态才显示「游离 HEAD · 短id」。
     // 2026-10-15 修复：此前硬编码「游离 HEAD」，工作树绑定分支后仍显示游离态。
+    // 2026-10-20：长分支名/工作树名截断展示（max-w + truncate），hover tooltip 看全名——
+    // 此前长名无宽度约束会把 chip 撑破容器、「现有工作树」标签被挤成竖排。
     const currentBranch = branchByWorktreePath[currentWorktreeEntry.worktreePath] ?? null;
     const identity = currentBranch ?? worktreeShortId(currentWorktreeEntry.id);
     return (
-      <div className={cn("flex items-center gap-1", className)}>
-        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-ui-sm text-foreground-secondary">
-          <GitBranch className="h-3.5 w-3.5 text-foreground-subtle" />
-          {intl.formatMessage({ id: "chat.workLocation.existingWorktree" })}
-          <span className="font-mono text-ui-xs text-foreground-subtle">{identity}</span>
-        </span>
-        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-ui-sm text-foreground-subtle">
-          {currentBranch ? (
-            <>
-              <GitBranch className="h-3.5 w-3.5 text-foreground-subtle" />
-              <span className="font-mono text-ui-xs">{currentBranch}</span>
-            </>
-          ) : (
-            <>
-              {intl.formatMessage({ id: "git.head.detached" })}
-              <span className="font-mono text-ui-xs">
-                · {worktreeShortId(currentWorktreeEntry.id)}
-              </span>
-            </>
-          )}
-        </span>
+      <div className={cn("flex min-w-0 items-center gap-1", className)}>
+        <ControlHintTooltip title={identity} side="bottom">
+          <span className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-ui-sm text-foreground-secondary">
+            <GitBranch className="h-3.5 w-3.5 shrink-0 text-foreground-subtle" />
+            <span className="shrink-0 whitespace-nowrap">
+              {intl.formatMessage({ id: "chat.workLocation.existingWorktree" })}
+            </span>
+            <span className="min-w-0 max-w-[16rem] truncate font-mono text-ui-xs text-foreground-subtle">
+              {identity}
+            </span>
+          </span>
+        </ControlHintTooltip>
+        <ControlHintTooltip
+          title={currentBranch ?? worktreeShortId(currentWorktreeEntry.id)}
+          side="bottom"
+        >
+          <span className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-ui-sm text-foreground-subtle">
+            {currentBranch ? (
+              <>
+                <GitBranch className="h-3.5 w-3.5 shrink-0 text-foreground-subtle" />
+                <span className="min-w-0 max-w-[16rem] truncate font-mono text-ui-xs">
+                  {currentBranch}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="shrink-0 whitespace-nowrap">
+                  {intl.formatMessage({ id: "git.head.detached" })}
+                </span>
+                <span className="min-w-0 truncate font-mono text-ui-xs">
+                  · {worktreeShortId(currentWorktreeEntry.id)}
+                </span>
+              </>
+            )}
+          </span>
+        </ControlHintTooltip>
       </div>
     );
   }
@@ -149,7 +170,7 @@ export function DraftWorkLocation({
     : null;
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("flex min-w-0 items-center gap-1", className)}>
       <LocationSelector
         rootKey={rootKey}
         mode={location.mode}
@@ -167,21 +188,30 @@ export function DraftWorkLocation({
           onSelect={(ref) => setDraftLocation(rootKey, { mode: "new-worktree", ref })}
         />
       ) : (
-        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-ui-sm text-foreground-subtle">
-          {selectedWorktreeBranch ? (
-            <>
-              <GitBranch className="h-3.5 w-3.5 text-foreground-subtle" />
-              <span className="font-mono text-ui-xs">{selectedWorktreeBranch}</span>
-            </>
-          ) : (
-            <>
-              {intl.formatMessage({ id: "git.head.detached" })}
-              <span className="font-mono text-ui-xs">
-                · {location.worktreePath ? worktreeShortId(location.worktreePath) : ""}
-              </span>
-            </>
-          )}
-        </span>
+        <ControlHintTooltip
+          title={selectedWorktreeBranch ?? (location.worktreePath ?? "")}
+          side="bottom"
+        >
+          <span className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-ui-sm text-foreground-subtle">
+            {selectedWorktreeBranch ? (
+              <>
+                <GitBranch className="h-3.5 w-3.5 shrink-0 text-foreground-subtle" />
+                <span className="min-w-0 max-w-[16rem] truncate font-mono text-ui-xs">
+                  {selectedWorktreeBranch}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="shrink-0 whitespace-nowrap">
+                  {intl.formatMessage({ id: "git.head.detached" })}
+                </span>
+                <span className="min-w-0 truncate font-mono text-ui-xs">
+                  · {location.worktreePath ? worktreeShortId(location.worktreePath) : ""}
+                </span>
+              </>
+            )}
+          </span>
+        </ControlHintTooltip>
       )}
     </div>
   );
@@ -368,17 +398,33 @@ function RefPicker({
     ? selectedRef
     : intl.formatMessage({ id: "chat.workLocation.remoteDefault" });
 
+  const trigger = (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-7 min-w-0 max-w-full gap-1.5 px-2 font-mono text-ui-sm"
+    >
+      <GitBranch className="h-3.5 w-3.5 shrink-0 text-foreground-subtle" />
+      <span className="shrink-0 whitespace-nowrap font-sans text-foreground-subtle">
+        {intl.formatMessage({ id: "chat.workLocation.refPrefix" })}
+      </span>
+      {/* 基线分支名可能很长（如 fatballfish/rnd-xxx-20261015），截断展示 + tooltip 全名，
+          否则触发器会把草稿行撑破导致错位。 */}
+      <span className="min-w-0 max-w-[16rem] truncate">{triggerLabel}</span>
+      <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+    </Button>
+  );
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 font-mono text-ui-sm">
-          <GitBranch className="h-3.5 w-3.5 shrink-0 text-foreground-subtle" />
-          <span className="font-sans text-foreground-subtle">
-            {intl.formatMessage({ id: "chat.workLocation.refPrefix" })}
-          </span>
-          {triggerLabel}
-          <ChevronDown className="h-3 w-3 opacity-60" />
-        </Button>
+        {selectedRef ? (
+          <ControlHintTooltip title={selectedRef} side="bottom">
+            {trigger}
+          </ControlHintTooltip>
+        ) : (
+          trigger
+        )}
       </PopoverTrigger>
       <PopoverContent side="top" avoidCollisions={false} className="w-64 p-1">
         {(branches?.length ?? 0) > 0 ? (
