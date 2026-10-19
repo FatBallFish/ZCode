@@ -125,6 +125,7 @@ export default defineConfig({
             "packages/desktop/test/windowChrome/desktopWindowTitleBarOverlay.test.ts",
             "packages/desktop/test/windowChrome/desktopWindowTitleBarOverlay.test.ts",
             "packages/mikiko-cloud/test/releases.test.ts",
+            "packages/mikiko-cloud/test/feedbackAccount.test.ts",
             "packages/mikiko-cloud/test/shares.test.ts",
             "packages/mikiko-cloud/test/worker.test.ts",
             "packages/relay-server/test/e2e-rpc-pipeline.test.ts",

@@ -51,6 +51,8 @@ export interface MikikoFeedbackHttpClientOptions {
   /** 401 自愈：清缓存重注册后重试一次。 */
   reacquireDeviceToken: () => Promise<string | null>;
   getDeviceMid?: () => string | undefined;
+  /** Mikiko ID（KeyCloak）access token 源（F.2 账户化）：可用时创建/查询/评论走账号通道。 */
+  getAccountToken?: () => Promise<string | null>;
 }
 
 interface FeedbackEnvelope<T> {
@@ -72,10 +74,14 @@ export class MikikoFeedbackHttpClient {
       signal?: AbortSignal;
     },
     allowRetry = true,
+    tokenMode: "device" | "account" = "device",
   ): Promise<Response> {
-    const token = await this.options.getDeviceToken();
     const headers: Record<string, string> = { ...init.headers };
-    if (token) headers.authorization = `Bearer ${token}`;
+    const token =
+      tokenMode === "account" && this.options.getAccountToken
+        ? ((await this.options.getAccountToken()) ?? "")
+        : await this.options.getDeviceToken();
+    if (token && !headers.authorization) headers.authorization = `Bearer ${token}`;
     const response = await this.options.apiClient.request(`${this.options.baseUrl}${path}`, {
       method: init.method,
       headers,
@@ -84,10 +90,10 @@ export class MikikoFeedbackHttpClient {
       credentials: "omit",
       timeoutMs: init.timeoutMs ?? REQUEST_TIMEOUT_MS,
     });
-    if (response.status === 401 && allowRetry) {
+    if (response.status === 401 && allowRetry && tokenMode === "device") {
       const refreshed = await this.options.reacquireDeviceToken();
       if (refreshed && refreshed !== token) {
-        return this.authedRequest(path, init, false);
+        return this.authedRequest(path, init, false, "device");
       }
     }
     if (!response.ok) {
@@ -125,12 +131,24 @@ export class MikikoFeedbackHttpClient {
       locale: input.locale,
       ...(options?.clientTicketId ? { clientTicketId: options.clientTicketId } : {}),
     };
-    const response = await this.authedRequest("/feedback/tickets", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-      ...(options?.signal === undefined ? {} : { signal: options.signal }),
-    });
+    const kind = input.type === "feature" ? "feature" : "bug";
+    const accountToken = this.options.getAccountToken ? await this.options.getAccountToken() : null;
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (accountToken) {
+      // 账号通道（F.2）：OIDC 登录态上报挂 owner；无账号时回落设备 token（匿名）。
+      headers.authorization = `Bearer ${accountToken}`;
+    }
+    const response = await this.authedRequest(
+      "/feedback/tickets",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ ...body, kind }),
+        ...(options?.signal === undefined ? {} : { signal: options.signal }),
+      },
+      true,
+      accountToken ? "account" : "device",
+    );
     const envelope = (await response.json()) as FeedbackEnvelope<{ ticketId?: unknown; status?: unknown }>;
     assertEnvelopeOk(envelope);
     const ticketId = envelope.data?.ticketId;
@@ -166,6 +184,79 @@ export class MikikoFeedbackHttpClient {
       ],
       lark_record_id: null,
     };
+  }
+
+  /** 账号通道：我的反馈（F.2）。 */
+  async listMine(query?: { page?: number; pageSize?: number; status?: string }): Promise<{
+    items: MikikoRemoteTicket[];
+    total: number;
+  }> {
+    const params = new URLSearchParams();
+    if (query?.page) params.set("page", String(query.page));
+    if (query?.pageSize) params.set("pageSize", String(query.pageSize));
+    if (query?.status) params.set("status", query.status);
+    const suffix = params.size > 0 ? `?${params.toString()}` : "";
+    const response = await this.authedRequest(
+      `/feedback/tickets/mine${suffix}`,
+      { method: "GET", headers: {} },
+      true,
+      "account",
+    );
+    const envelope = (await response.json()) as FeedbackEnvelope<{
+      items?: MikikoRemoteTicket[];
+      total?: number;
+    }>;
+    assertEnvelopeOk(envelope);
+    return { items: envelope.data?.items ?? [], total: envelope.data?.total ?? 0 };
+  }
+
+  /** 账号通道：本地历史工单幂等迁移（认领匿名记录 + 补建缺失记录）。 */
+  async migrate(
+    records: MikikoMigrateRecord[],
+  ): Promise<{ migrated: number; skipped: number }> {
+    const response = await this.authedRequest(
+      "/feedback/tickets/migrate",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ records }),
+      },
+      true,
+      "account",
+    );
+    const envelope = (await response.json()) as FeedbackEnvelope<{ migrated?: number; skipped?: number }>;
+    assertEnvelopeOk(envelope);
+    return { migrated: envelope.data?.migrated ?? 0, skipped: envelope.data?.skipped ?? 0 };
+  }
+
+  /** 账号通道：本人工单详情（工单+评论+附件）。 */
+  async getOwnDetail(ticketId: string): Promise<MikikoRemoteTicketDetail> {
+    const response = await this.authedRequest(
+      `/feedback/tickets/${encodeURIComponent(ticketId)}`,
+      { method: "GET", headers: {} },
+      true,
+      "account",
+    );
+    const envelope = (await response.json()) as FeedbackEnvelope<MikikoRemoteTicketDetail>;
+    assertEnvelopeOk(envelope);
+    return envelope.data as MikikoRemoteTicketDetail;
+  }
+
+  /** 账号通道：本人追加评论。 */
+  async addOwnComment(ticketId: string, body: string): Promise<{ commentId: string }> {
+    const response = await this.authedRequest(
+      `/feedback/tickets/${encodeURIComponent(ticketId)}/comments`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ body }),
+      },
+      true,
+      "account",
+    );
+    const envelope = (await response.json()) as FeedbackEnvelope<{ commentId?: string }>;
+    assertEnvelopeOk(envelope);
+    return { commentId: envelope.data?.commentId ?? "" };
   }
 
   async uploadFile(
@@ -227,6 +318,42 @@ export class MikikoFeedbackHttpClient {
       created_at: now,
     };
   }
+}
+
+/** mikiko-cloud serializeTicket 形状（F.2 账号端点）。 */
+export interface MikikoRemoteTicket {
+  id: string;
+  clientTicketId: string | null;
+  kind: string;
+  ownerEmail: string | null;
+  title: string;
+  description: string;
+  contact: string | null;
+  status: string;
+  type: string | null;
+  fixVersion: string | null;
+  assignee: string | null;
+  attachmentCount: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface MikikoRemoteTicketDetail {
+  ticket: MikikoRemoteTicket;
+  comments: Array<{ id: string; author: string; body: string; createdAt: number }>;
+  attachments: Array<{ id: string; kind: string; fileName: string; contentType: string; size: number }>;
+}
+
+export interface MikikoMigrateRecord {
+  clientTicketId: string;
+  title: string;
+  description: string;
+  contact?: string;
+  environment?: Record<string, unknown>;
+  appVersion?: string;
+  platform?: string;
+  locale?: string;
+  createdAt: number;
 }
 
 function assertEnvelopeOk(envelope: FeedbackEnvelope<unknown>): void {

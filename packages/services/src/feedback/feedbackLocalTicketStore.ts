@@ -54,6 +54,14 @@ export class FeedbackLocalTicketStore {
     await this.write({ tickets: [next, ...rest].slice(0, 200) });
   }
 
+  /** 账号迁移成功后整体清档（F.2.2）：查询改走远端，本地不再保留双源记录。 */
+  async clearAll(deviceMid: string): Promise<void> {
+    const file = await this.read();
+    const rest = file.tickets.filter((ticket) => ticket.deviceMid !== deviceMid);
+    if (rest.length === file.tickets.length) return;
+    await this.write({ tickets: rest });
+  }
+
   private async read(): Promise<FeedbackTicketStoreFile> {
     try {
       const text = await readFile(this.filePath, "utf8");

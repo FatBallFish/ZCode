@@ -31,6 +31,11 @@ export interface IFeedbackService {
   list(query?: FeedbackListQuery): Promise<FeedbackListResult>;
   get(id: string): Promise<FeedbackTicketDetail>;
   comment(id: string, body: string): Promise<FeedbackComment>;
+  /**
+   * F.2 账户化：把本地反馈档案（synced + pending-sync）幂等迁移到当前 Mikiko 账号
+   * 并清空本地存档。由 node.ts 在 Mikiko ID 登录完成后自动触发。
+   */
+  syncAccountRecords(): Promise<{ migrated: number }>;
   uploadAttachment(
     id: string,
     kind: FeedbackAttachmentKind,

@@ -2768,6 +2768,8 @@ export function createLocalServices(options: {
         apiClient,
         credentialService,
         oauthService,
+        // F.2 账户化：反馈上报/查询/评论在 MikikoCC Mikiko ID 登录后走账号通道。
+        getMikikoIdAccessToken: async () => (await mikikoIdAccessTokenRef.current?.()) ?? null,
       }),
     )
     .register(IPromptAttachmentTransferService, createLocalPromptAttachmentTransferService());
@@ -2785,29 +2787,43 @@ export function createLocalServices(options: {
   // Helper 懒启动：不预热——Helper 由 SDK 首次 CUA 调用拉起（spawn env 注入
   // 稳定 socket），或用户显式授权流（restartHelper）拉起。启动即零 Helper 常驻。
 
+  // sub2api 服务在其后创建；反馈服务经该 ref 延迟取得 Mikiko ID token 源（避免构造顺序依赖）。
+  const mikikoIdAccessTokenRef: { current: (() => Promise<string | null>) | null } = {
+    current: null,
+  };
   accountRequestAuthServices.set(services, accountRequestAuthService);
   offPeakRequestAuthBuilders.set(services, buildOffPeakRequestAuthForTicket);
 
   providerRuntimes.set(services, providerRuntime);
   providerProvisioningSources.set(services, providerProvisioningSource);
   providerProvisioningTriggerDisposers.set(services, providerProvisioningDisposers);
+  const sub2ApiService = createSub2ApiService({
+    providerSettingsService: providerRuntime.providerSettings,
+    // KeyCloak offline refresh token 加密存储（方案 §13.7：不允许明文落 sub2api.json）。
+    credentialStore: {
+      load: (key) => credentialService.load(key),
+      save: (key, value) => credentialService.save(key, value),
+      delete: (key) => credentialService.delete(key),
+    },
+    // OIDC 出站请求走 host 网络 transport：设置页 httpProxy/CA 对授权链路生效。
+    request: hostApiNetworkTransport.fetch,
+  });
+  // F.2：反馈的账号 token 源 + Mikiko ID 登录后自动迁移本地反馈档案到账号。
+  // feedbackService 变量在上方链式 register 中创建于 IFeedbackService 注册处，这里
+  // 通过 accessor 取回（node.ts 内已有 accessor 映射）。
+  mikikoIdAccessTokenRef.current = () => sub2ApiService.getOIDCAccessToken("mikikocc");
+  sub2ApiService.onOIDCLoginCompleted(() => {
+    void services
+      .get(IFeedbackService)
+      .syncAccountRecords()
+      .catch(() => {
+        // 迁移失败不阻断登录；本地档案保留，下次登录自动重试。
+      });
+  });
   services
     .register(IProviderSettingsService, providerRuntime.providerSettings)
     .register(IModelSelectionService, providerRuntime.modelSelection)
-    .register(
-      ISub2ApiService,
-      createSub2ApiService({
-        providerSettingsService: providerRuntime.providerSettings,
-        // KeyCloak offline refresh token 加密存储（方案 §13.7：不允许明文落 sub2api.json）。
-        credentialStore: {
-          load: (key) => credentialService.load(key),
-          save: (key, value) => credentialService.save(key, value),
-          delete: (key) => credentialService.delete(key),
-        },
-        // OIDC 出站请求走 host 网络 transport：设置页 httpProxy/CA 对授权链路生效。
-        request: hostApiNetworkTransport.fetch,
-      }),
-    );
+    .register(ISub2ApiService, sub2ApiService);
   if (isDesktopAttachedRemote || options.providerProvisioningTargetEnabled === true) {
     services.register(
       IProviderProvisioningTargetService,
