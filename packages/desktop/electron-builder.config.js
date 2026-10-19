@@ -865,17 +865,12 @@ export default {
     gatekeeperAssess: false,
     entitlements: "build/entitlements.mac.plist",
     entitlementsInherit: "build/entitlements.mac.inherit.plist",
-    // runtime 可执行文件已在打包前的独立预签名阶段完成签名，
-    // electron-builder 在签主 app 时若继续深度扫描这些目录，会显著拉长 macOS codesign 时长。
-    // 这里按“任意前缀 + Contents/Resources”匹配绝对路径，避免 ^Contents/... 在 CI 中无法命中。
-    // 命中后可跳过已预签名目录的重复签名/遍历，同时保留主 app 与框架签名。
-    // CUA Helper 在独立 job 中已完成 Developer ID 签名和 notarization staple；
-    // electron-builder 若再次签名嵌套 Helper 会改变 CDHash，使最终用户包中的 staple 失效。
-    signIgnore: [
-      "[/\\\\]Contents[/\\\\]Resources[/\\\\]cua-helper([/\\\\]|$)",
-      "[/\\\\]Contents[/\\\\]Resources[/\\\\]glm([/\\\\]|$)",
-      "[/\\\\]Contents[/\\\\]Resources[/\\\\]tools([/\\\\]|$)",
-    ],
+    // 修复原因（2026-10-19 CI 公证 Invalid）：旧 GitLab 流水线有独立的"runtime 预签名
+    // job"，本仓库已无该阶段；glm/tools 下的 Mach-O（rg/ugrep/bfs/koffi.node 等）若跳过
+    // 签名，公证服务会以未签名二进制拒绝整个包。现仅跳过 cua-helper（若存在，它由
+    // 独立 CUA release gate 预签名+staple，重签会使 staple 失效）；glm/tools 交回
+    // electron-builder 默认深度签名。签名耗时增加是正确成本。
+    signIgnore: ["[/\\\\]Contents[/\\\\]Resources[/\\\\]cua-helper([/\\\\]|$)"],
   },
   win: {
     target: ["nsis"],

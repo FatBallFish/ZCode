@@ -58,8 +58,18 @@ for dmg in "$@"; do
   fi
 
   echo "==> [2/4] 提交公证（--wait）: $dmg"
-  # submit 直接原地等待；失败时打印完整 JSON 便于排查（含 DevID 与日志引用）。
-  xcrun notarytool submit "$dmg" "${notary_args[@]}" --wait
+  # submit 直接原地等待；--wait 在 Invalid 时以非零退出且不自动打印日志，
+  # 捕获 submission id 后显式拉取公证日志（含每个二进制的拒绝原因）。
+  if ! submit_output=$(xcrun notarytool submit "$dmg" "${notary_args[@]}" --wait 2>&1); then
+    echo "$submit_output"
+    submission_id=$(printf '%s' "$submit_output" | sed -n 's/^  id: \([0-9a-f-]\{36\}\)$/\1/p')
+    if [ -n "$submission_id" ]; then
+      echo "==> 公证日志 ($submission_id):"
+      xcrun notarytool log "$submission_id" "${notary_args[@]}" || true
+    fi
+    exit 1
+  fi
+  echo "$submit_output"
 
   echo "==> [3/4] staple: $dmg"
   xcrun stapler staple "$dmg"
