@@ -151,12 +151,19 @@ export function useSettingsSync(params: { workspacePath?: string; workspaceIdent
   );
   const runningImportRef = useRef(0);
   const [state, setState] = useState<SettingsSyncUiState>(createInitialState);
+  // 意图抢占计数（2026-10-20 修复）：首启引导（三步引导勾选导入）收尾时 reopen("manual")
+  // 与挂载 effect 的 firstRun 空检测并发——firstRun 的「空结果自动关闭 + markHandled」是
+  // 迟到链，会把刚被 manual 打开的迁移向导立刻关掉（客户反馈：首启勾选导入不弹窗，
+  // 从设置页重走才正常）。manual 计数自增后，任何在途 firstRun 检测的提交整体作废。
+  const manualIntentRef = useRef(0);
 
   const loadDiscovery = useCallback(
     async (intent: LoadDiscoveryIntent = "firstRun") => {
       if (!params.workspacePath) {
         return;
       }
+      const manualIntentAtStart = manualIntentRef.current;
+      const preempted = () => manualIntentRef.current !== manualIntentAtStart;
 
       setState((current) => ({
         ...current,
@@ -169,6 +176,7 @@ export function useSettingsSync(params: { workspacePath?: string; workspaceIdent
           workspacePath: params.workspacePath,
           workspaceIdentity: params.workspaceIdentity,
         });
+        if (preempted()) return;
         const discovery = normalizeDiscovery(rawDiscovery);
         if (discovery.agents.length === 0) {
           if (intent === "manual") {
@@ -192,11 +200,15 @@ export function useSettingsSync(params: { workspacePath?: string; workspaceIdent
           }
           // 去掉三方 agent 迁移后，首启检测会返回空结果。
           // 空结果不应打开一个没有可操作项的 onboarding 弹窗，应直接标记为已处理。
-          await settingsSyncService.markFirstRunPromptHandled();
-          setState(createInitialState());
-          logger.info("[settings-sync] discovery empty, prompt handled", {
-            workspacePath: params.workspacePath,
-          });
+          // 被 manual 抢占时不得标记（用户正在迁移向导中，首启提示的关闭消费交给向导 close）。
+          if (!preempted()) {
+            await settingsSyncService.markFirstRunPromptHandled();
+            if (preempted()) return;
+            setState(createInitialState());
+            logger.info("[settings-sync] discovery empty, prompt handled", {
+              workspacePath: params.workspacePath,
+            });
+          }
           return;
         }
         const selectedKeys = buildDefaultSelectedKeys(discovery);
@@ -217,6 +229,7 @@ export function useSettingsSync(params: { workspacePath?: string; workspaceIdent
           selectedCount: selectedKeys.length,
         });
       } catch (error) {
+        if (preempted()) return;
         const message = normalizeError(error);
         logger.error("[settings-sync] discovery failed", {
           workspacePath: params.workspacePath,
@@ -312,11 +325,15 @@ export function useSettingsSync(params: { workspacePath?: string; workspaceIdent
   }, [params.workspacePath, settingsSyncService]);
 
   const reopen = useCallback(() => {
+    // manual 意图自增：作废所有在途 firstRun 检测的迟到提交（见 manualIntentRef 注释）。
+    manualIntentRef.current += 1;
     setState((current) => {
-      if (!current.discovery && !current.loading && params.workspacePath) {
+      if (!current.discovery && params.workspacePath) {
         // 设置页里的“重新打开 onboarding”可能发生在首启提示已处理之后。
         // 这时本地状态已经回到初始态；如果只把 open 设成 true，用户会看到一个没有 discovery 数据的空弹窗。
         // 这里在缺少数据时主动补一次检测，保证从设置页进入仍然能拿到完整可迁移内容。
+        // 2026-10-20：去掉 !current.loading 前置——loading 中说明 firstRun 检测在途，
+        // 它已被本次 manual 计数抢占作废，必须由 manual 检测接管收尾（否则 loading 悬挂）。
         void loadDiscovery("manual");
       }
       return { ...current, open: true };

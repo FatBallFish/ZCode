@@ -76,6 +76,7 @@ repo 扫描（head 解析：cwd/标题/时间）
 - **数量上限（2026-10-12）**：设置迁移页增加「不限数量（扫描全部）」开关（复用 onboarding 的
   `UNLIMITED_SCAN_LIMIT_INPUT` 语义，扫描不传 limit）；数字输入框（1–500）保留为默认路径。
   此前设置页只能填数字、清空输入静默回退 100，用户「选了不限仍只有 100 条」的反馈即源于此。
+- **首启迁移弹窗意图抢占（2026-10-20 修复）**：首启三步引导勾选导入后 `requestOnboardingDialog("migration")` 与 `useSettingsSync` 挂载 effect 的 firstRun 空检测并发——firstRun 迟到的「空结果自动关闭 + markFirstRunPromptHandled」会把刚被 `reopen()` 打开的迁移向导立刻关掉（客户反馈：首启勾选导入不弹迁移窗，从设置-引导重走才正常，因为彼时 promptState.handled 已为 true 无竞态链）。修复：manual 意图计数抢占，在途 firstRun 检测的所有提交（含 markHandled）在 manual 自增后作废；`reopen` 在 firstRun loading 中也接管检测收尾（不悬挂 loading）。回归：`packages/ui/test/useSettingsSync.test.ts`。
 
 ## 验收
 
