@@ -50,20 +50,28 @@ function isAncestor(base, tip) {
 // 当前 Mac 包走无证书模式发布，Release 里必须附带清除隔离标记的命令；
 // 待启用 Developer ID 签名与公证后，删除本段与 DMG 注入逻辑一并对齐。
 // 人工覆盖文件同样追加本段：安装指引属于发布必备内容，不依赖手写文件记得带。
-const MAC_INSTALL_SECTION = [
-  "## 💻 Mac 安装说明",
-  "",
-  "Mac 安装包暂未做 Apple 开发者签名与公证，首次打开可能被系统拦截",
-  "（提示「无法验证开发者」或「文件已损坏」）。请先把 **Mikiko** 拖入 **Applications** 文件夹，",
-  "然后打开「终端」执行以下命令清除隔离标记，再从 Applications 启动：",
-  "",
-  "```bash",
-  "xattr -rc /Applications/Mikiko.app",
-  "```",
-  "",
-  "若提示权限不足，请改用：`sudo xattr -rc /Applications/Mikiko.app`（需输入开机密码）。",
-  "该命令只移除下载文件附带的隔离标记，不修改系统设置。DMG 内也附有同名说明文件「安装必读.txt」。",
-].join("\n");
+const MAC_INSTALL_SECTION =
+  process.env.MIKIKO_RELEASE_NOTARIZED === "1"
+    ? [
+        "## 💻 Mac 安装说明",
+        "",
+        "Mac 安装包已完成 Apple Developer ID 签名与公证。打开 DMG 后将 **Mikiko** 拖入 **Applications**；",
+        "使用 ZIP 时，解压后将 **Mikiko.app** 拖入 **Applications**。Apple Silicon 选择 arm64，Intel Mac 选择 x64。",
+      ].join("\n")
+    : [
+        "## 💻 Mac 安装说明",
+        "",
+        "Mac 安装包暂未做 Apple 开发者签名与公证，首次打开可能被系统拦截",
+        "（提示「无法验证开发者」或「文件已损坏」）。请先把 **Mikiko** 拖入 **Applications** 文件夹，",
+        "然后打开「终端」执行以下命令清除隔离标记，再从 Applications 启动：",
+        "",
+        "```bash",
+        "xattr -rc /Applications/Mikiko.app",
+        "```",
+        "",
+        "若提示权限不足，请改用：`sudo xattr -rc /Applications/Mikiko.app`（需输入开机密码）。",
+        "该命令只移除下载文件附带的隔离标记，不修改系统设置。DMG 内也附有同名说明文件「安装必读.txt」。",
+      ].join("\n");
 
 // 人工覆盖文件优先：文案完全用户向，原样输出（自动追加 Mac 安装说明）。
 const scriptDir = dirname(fileURLToPath(import.meta.url));

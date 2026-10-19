@@ -15,6 +15,10 @@ macOS release DMG 是用户从浏览器下载后直接交给 Gatekeeper 评估�
 
 ## CI 流程
 
+从 v1.1.3 起，正式发布已拆分为构建归档、公证和后处理。实际恢复命令、30 天 artifact 保留期及各类失败是否需要重打，见 [发布恢复指南](release-recovery.md)。`scripts/notarize-macos.sh` 保留给一次性本地操作，正式 Actions 使用可恢复状态机。
+
+以下描述签名与验收规则；正式 job 编排以恢复指南及 workflow 为准。
+
 1. `.github/workflows/release-desktop.yml` 创建临时 keychain，显式设置 21600 秒超时，
    解锁并导入 Developer ID p12；通过 `CSC_KEYCHAIN` 指定签名钥匙链，job 结束时清理。
    默认的 300 秒锁定会早于 CI 首次签名，是 2026-10-19 签名挂起的主要排查依据。

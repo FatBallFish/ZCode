@@ -2,10 +2,10 @@ name: Release Desktop Installers
 
 # 推送 v* 版本 tag 触发：三端四架构打包（mac arm64/x64、win x64、linux x64），
 # 汇总产物并按历史 Commit 生成 Notes（Features/BugFix/Optimize）发布 GitHub Release。
-# Mac 签名&公证（可选，2026-10-19 接入）：配置 secrets.MAC_SIGNING_P12_BASE64 /
+# Mac 正式签名&公证：配置 secrets.MAC_SIGNING_P12_BASE64 /
 #   MAC_SIGNING_P12_PASSWORD / MAC_SIGNING_IDENTITY 后自动启用 Developer ID 签名，
-#   打包后经 scripts/notarize-macos.sh 公证+staple+验收；未配置则保持无证书模式
-#   （bundle 自动注入 DMG「清除隔离标记」辅助脚本，specs/desktop/dmg-installer.md）。
+#   build 先归档签名原包；独立 notarize job 保存提交ID、限时等待、staple并验收。
+#   source-run-id 可复用原始包和提交ID，跳过全部编译；见 docs/desktop/release-recovery.md。
 #   公证凭据三选一：APPLE_ID+APPLE_APP_SPECIFIC_PASSWORD+APPLE_TEAM_ID 或
 #   APPLE_API_KEY_BASE64+APPLE_API_KEY_ID+APPLE_API_ISSUER 或 APPLE_KEYCHAIN_PROFILE。
 #   开了签名但缺公证凭据时 fail-closed（签名未公证的 DMG 会被 Gatekeeper 拦截，比无签名更糟）。
@@ -24,11 +24,46 @@ on:
         type: boolean
         default: false
 
+      source-run-id:
+        description: "恢复原始构建 run ID（不重新编译或提交已有公证）"
+        type: string
+        default: ""
+      release-tag:
+        description: "恢复时的原版本 tag，例如 v1.1.3；正常 tag 构建留空"
+        type: string
+        default: ""
+
+concurrency:
+  group: desktop-release-${{ inputs.release-tag || github.ref_name }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
+  actions: read
 
 jobs:
+  identity:
+    name: validate release identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      source: ${{ steps.identity.outputs.source }}
+      tag: ${{ steps.identity.outputs.tag }}
+    steps:
+      - name: Resolve release identity
+        id: identity
+        env:
+          SOURCE: ${{ inputs.source-run-id || github.run_id }}
+          TAG: ${{ inputs.release-tag || github.ref_name }}
+        run: |
+          [[ "$SOURCE" =~ ^[0-9]+$ ]] || exit 1
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "正式构建或恢复必须指定版本 tag"; exit 1; }
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: identity
+    if: ${{ !inputs.source-run-id }}
     name: bundle ${{ matrix.target }}-${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 150
@@ -99,23 +134,29 @@ jobs:
           DEBUG: "electron-osx-sign*"
         run: pnpm bundle:desktop -- --os ${{ matrix.target }} --arch ${{ matrix.arch }}
 
-      - name: Notarize macOS DMG
-        # 签名开启后必须公证：fail-closed，避免产出发不出去的“已签名未公证”安装包。
-        if: runner.os == 'macOS' && env.MIKIKO_ENABLE_MAC_SIGN == '1'
+      - name: Archive original signed macOS bundle
+        if: runner.os == 'macOS'
         env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          NOTARY_ARCH: ${{ matrix.arch }}
         run: |
-          if [ -n "$APPLE_API_KEY_BASE64" ]; then
-            printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > /tmp/apple-api-key.p8
-            echo "APPLE_API_KEY_PATH=/tmp/apple-api-key.p8" >> "$GITHUB_ENV"
-            export APPLE_API_KEY_PATH=/tmp/apple-api-key.p8
-          fi
-          bash scripts/notarize-macos.sh packages/desktop/dist/*.dmg
+          test "$MIKIKO_ENABLE_MAC_SIGN" = "1" || { echo "正式 Mac 发布要求签名配置"; exit 1; }
+          # dmg-builder 未启用 dmg.sign 时不会签镜像；必须在记录不可变哈希前补齐 DMG 签名。
+          for dmg in packages/desktop/dist/*.dmg; do
+            codesign --force --sign "$APPLE_SIGNING_IDENTITY" --keychain "$CSC_KEYCHAIN" --timestamp "$dmg"
+            codesign --verify "$dmg"
+          done
+          node packages/desktop/scripts/macos-notarization.mjs prepare packages/desktop/dist
+          COPYFILE_DISABLE=1 tar -czf "signed-mac-${NOTARY_ARCH}.tar.gz" -C packages/desktop/dist .
+
+      - name: Save original signed macOS bundle before notarization
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-mac-${{ matrix.arch }}
+          path: signed-mac-${{ matrix.arch }}.tar.gz
+          retention-days: 30
+          if-no-files-found: error
+          overwrite: true
 
       - name: Diagnose macOS signing failure
         if: failure() && runner.os == 'macOS'
@@ -136,7 +177,7 @@ jobs:
             ${{ runner.temp }}/codesign-*.sample.txt
             packages/desktop/dist/builder-debug.yml
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 30
 
       - name: Cleanup macOS signing keychain
         if: always() && runner.os == 'macOS'
@@ -145,6 +186,7 @@ jobs:
           security delete-keychain build-mac-sign.keychain-db || true
 
       - name: Upload installers
+        if: runner.os != 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: installers-${{ matrix.target }}-${{ matrix.arch }}
@@ -160,10 +202,128 @@ jobs:
             packages/desktop/dist/*.blockmap
             packages/desktop/dist/latest*.yml
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
+          overwrite: true
+
+  notarize:
+    name: notarize mac-${{ matrix.arch }}
+    needs: [identity, build]
+    if: ${{ always() && needs.identity.result == 'success' && (needs.build.result == 'success' || (inputs.source-run-id && needs.build.result == 'skipped')) }}
+    runs-on: macos-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    env:
+      SOURCE_RUN_ID: ${{ needs.identity.outputs.source }}
+      RELEASE_TAG: ${{ needs.identity.outputs.tag }}
+      NOTARY_ARCH: ${{ matrix.arch }}
+      GH_TOKEN: ${{ github.token }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - name: Install post-processing dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Validate original build identity
+        id: source
+        run: node .github/scripts/release-artifacts.mjs validate "$SOURCE_RUN_ID"
+      - name: Download original signed bundle
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.identity.outputs.source }}
+          name: signed-mac-${{ matrix.arch }}
+          path: original-bundle
+      - name: Restore original signed bundle and latest submission state
+        run: |
+          mkdir -p packages/desktop/dist
+          tar -xzf "original-bundle/signed-mac-${NOTARY_ARCH}.tar.gz" -C packages/desktop/dist
+          node .github/scripts/release-artifacts.mjs restore-state "$SOURCE_RUN_ID" "$NOTARY_ARCH" notary-state
+          if [ -n "$APPLE_API_KEY_BASE64" ]; then
+            printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/notary-api.p8"
+            echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/notary-api.p8" >> "$GITHUB_ENV"
+          fi
+      - name: Prepare upload intent
+        id: intent
+        env:
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+        run: node packages/desktop/scripts/macos-notarization.mjs intent packages/desktop/dist notary-state
+      - name: Persist upload intent before contacting Apple
+        uses: actions/upload-artifact@v4
+        with:
+          name: notary-state-${{ needs.identity.outputs.source }}-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}-intent
+          path: notary-state/
+          retention-days: 30
+          if-no-files-found: error
+          overwrite: true
+      - name: Submit once or recover existing submission
+        id: submit
+        env:
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+          ALLOW_NEW_SUBMISSION: ${{ steps.intent.outputs.fresh }}
+        run: node packages/desktop/scripts/macos-notarization.mjs submit packages/desktop/dist notary-state
+      - name: Persist submission immediately before waiting
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: notary-state-${{ needs.identity.outputs.source }}-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}-submitted
+          path: notary-state/
+          retention-days: 30
+          if-no-files-found: ignore
+          overwrite: true
+      - name: Wait on existing submission for at most 20 minutes
+        id: wait
+        env:
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+        run: node packages/desktop/scripts/macos-notarization.mjs wait packages/desktop/dist notary-state
+      - name: Persist result for another runner
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: notary-state-${{ needs.identity.outputs.source }}-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}-waited
+          path: notary-state/
+          retention-days: 30
+          if-no-files-found: ignore
+          overwrite: true
+      - name: Finalize and verify DMG and ZIP
+        if: steps.wait.outputs.ready == 'true'
+        env:
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+        run: node packages/desktop/scripts/macos-notarization.mjs finalize packages/desktop/dist notary-state
+      - name: Require notarization Accepted
+        if: steps.wait.outputs.ready != 'true'
+        run: |
+          echo "Apple 尚未 Accepted 或查询失败。恢复原始 run $SOURCE_RUN_ID，切勿重新构建/提交。"
+          echo "gh workflow run release-desktop.yml --ref custom_main -f source-run-id=$SOURCE_RUN_ID -f release-tag=$RELEASE_TAG"
+          exit 1
+      - name: Upload verified installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-mac-${{ matrix.arch }}
+          path: |
+            packages/desktop/dist/*.dmg
+            packages/desktop/dist/*.zip
+            packages/desktop/dist/*.blockmap
+            packages/desktop/dist/latest-mac.yml
+            packages/desktop/dist/release-verification.json
+          retention-days: 30
+          if-no-files-found: error
+          overwrite: true
 
   relay:
-    if: ${{ !inputs.mac-only }}
+    needs: identity
+    if: ${{ !inputs.mac-only && !inputs.source-run-id }}
     name: package relay deploy kits
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -221,7 +381,7 @@ jobs:
           name: relay-server-deploy
           path: relay-artifacts/server/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
 
       - name: Upload cloudflare-mode kit
         uses: actions/upload-artifact@v4
@@ -229,12 +389,12 @@ jobs:
           name: relay-cloudflare-deploy
           path: relay-artifacts/cloudflare/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
 
   release:
-    if: ${{ !inputs.mac-only }}
+    if: ${{ always() && !inputs.mac-only && needs.identity.result == 'success' && needs.notarize.result == 'success' && (needs.relay.result == 'success' || (inputs.source-run-id && needs.relay.result == 'skipped')) }}
     name: publish release
-    needs: [build, relay]
+    needs: [identity, build, relay, notarize]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -243,55 +403,51 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download all installers
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: installers-*
-          merge-multiple: true
+      - name: Download original platform kits and verified Mac installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.identity.outputs.tag }}
+          MAC_RUN_ID: ${{ github.run_id }}
+          SOURCE_RUN_ID: ${{ needs.identity.outputs.source }}
+        run: node .github/scripts/release-artifacts.mjs download-release "$SOURCE_RUN_ID" unused artifacts
 
-      - name: Download relay deploy kits
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: relay-*-deploy
-          merge-multiple: false
-
-      - name: Zip relay deploy kits
-        # 目录形态产物先打包成 zip 再挂到 Release，下载即用（与部署文档的 unzip 步骤对应）。
+      - name: Assemble release assets
         run: |
-          cd artifacts
-          for dir in relay-server-deploy relay-cloudflare-deploy; do
-            if [ -d "$dir" ]; then
-              zip -r "$dir.zip" "$dir"
-              rm -rf "$dir"
-            fi
+          mkdir -p release-assets
+          for dir in artifacts/installers-*; do
+            find "$dir" -maxdepth 1 -type f ! -name 'release-verification.json' -exec cp {} release-assets/ \;
+          done
+          for arch in arm64 x64; do
+            cp "artifacts/installers-mac-$arch/release-verification.json" "release-assets/notarization-mac-$arch.json"
+          done
+          for kit in relay-server-deploy relay-cloudflare-deploy; do
+            (cd "artifacts/$kit" && zip -r "../../release-assets/$kit.zip" .)
           done
 
       - name: Generate release notes
+        env:
+          RELEASE_TAG: ${{ needs.identity.outputs.tag }}
+          MIKIKO_RELEASE_NOTARIZED: "1"
         run: |
-          node .github/scripts/generate-release-notes.mjs "${GITHUB_REF_NAME}" > release-notes.md
+          node .github/scripts/generate-release-notes.mjs "$RELEASE_TAG" > release-notes.md
           cat release-notes.md
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.identity.outputs.tag }}
         run: |
-          # 重打 tag 重发时先清掉旧 Release 与资产（tag 保留，指向本次触发提交），保证发布内容幂等。
-          if gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            echo "删除已存在的 Release ${GITHUB_REF_NAME}，重新发布"
-            gh release delete "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --yes
+          # 上传中断后只重传资产，不删除已有 Release 或移动 tag。
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "${RELEASE_TAG#v}" --notes-file release-notes.md
           fi
-          gh release create "${GITHUB_REF_NAME}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --title "${GITHUB_REF_NAME#v}" \
-            --notes-file release-notes.md \
-            artifacts/*
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber release-assets/*
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --notes-file release-notes.md
 
   publish-update-feed:
     if: ${{ !inputs.mac-only }}
     name: publish update feed (R2)
-    needs: release
+    needs: [identity, release]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -303,27 +459,27 @@ jobs:
         with:
           node-version: 24.14.0
 
-      - name: Download installers
-        uses: actions/download-artifact@v4
-        with:
-          path: packages/desktop/dist
-          pattern: installers-*
-          # 不合并（2026-09-29 per-arch manifest）：各架构的 latest*.yml 同名，
-          # merge 会互相覆盖只剩一份；按 installers-{target}-{arch}/ 子目录保留，
-          # 由 publish 脚本归档为 latest-mac-{arm64,x64}.yml / latest-arm64.yml 等。
-          merge-multiple: false
+      - name: Download verified installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.identity.outputs.tag }}
+          MAC_RUN_ID: ${{ github.run_id }}
+          SOURCE_RUN_ID: ${{ needs.identity.outputs.source }}
+        run: node .github/scripts/release-artifacts.mjs download-release "$SOURCE_RUN_ID" unused packages/desktop/dist
 
       - name: Export release notes
         # 更新日志与 GitHub Release 正文同源（release job 先行生成）；注入 latest*.yml 的
         # releaseNotesByLocale，客户端「发现更新」弹窗与安装后说明展示自建日志。
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.identity.outputs.tag }}
         run: |
-          gh release view "${GITHUB_REF_NAME}" --json body -q .body > release-notes.md
+          gh release view "$RELEASE_TAG" --json body -q .body > release-notes.md
           echo "release notes: $(wc -c < release-notes.md) bytes"
 
       - name: Publish manifests and installers
         env:
+          RELEASE_TAG: ${{ needs.identity.outputs.tag }}
           UPDATE_PUBLISH_TOKEN: ${{ secrets.UPDATE_PUBLISH_TOKEN }}
           # 与 Worker 侧 wrangler secret 同名（MIKIKO_RELEASE_PUBLISH_TOKEN），避免两套名字。
           MIKIKO_RELEASE_PUBLISH_TOKEN: ${{ secrets.MIKIKO_RELEASE_PUBLISH_TOKEN }}
@@ -333,5 +489,5 @@ jobs:
             exit 78
           fi
           node scripts/publish-update-feed.mjs \
-            --dist packages/desktop/dist --version "${GITHUB_REF_NAME#v}" --channel stable \
+            --dist packages/desktop/dist --version "${RELEASE_TAG#v}" --channel stable \
             --release-notes release-notes.md
