@@ -60,17 +60,6 @@ export async function signRuntimeExecutables(context, options = {}) {
         const next = () => {
           const file = queue.shift();
           if (!file) return resolve();
-          // linker-signed 通用二进制（ad hoc）先剥离旧签名——codesign --force
-          // 在部分 runner 上对带 adhoc 签名的 fat binary 挂起（2026-10-19 连续
-          // 三次 30s/120s ETIMEDOUT 实测；剥离后重签秒过）。
-          try {
-            execFileSync("/usr/bin/codesign", ["--remove-signature", file], {
-              stdio: "ignore",
-              timeout: 10_000,
-            });
-          } catch {
-            // 没有（或剥不掉）旧签名时直接尝试签名。
-          }
           try {
             execFileSync(
               "/usr/bin/codesign",
