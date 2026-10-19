@@ -21,6 +21,7 @@ export const TID_LOGIN_API_KEY_INPUT = "login-api-key-input";
 export const TID_LOGIN_API_KEY_CONTINUE_BUTTON = "login-api-key-continue-button";
 /** API Key 登录取消按钮 */
 export const TID_LOGIN_API_KEY_CANCEL_BUTTON = "login-api-key-cancel-button";
+export const TID_SUB2API_OIDC_LOGIN_BUTTON = "sub2api-oidc-login-button";
 /** API Key 登录暂时跳过按钮 */
 export const TID_LOGIN_API_KEY_SKIP_BUTTON = "login-api-key-skip-button";
 /** API Key 登录错误提示 */

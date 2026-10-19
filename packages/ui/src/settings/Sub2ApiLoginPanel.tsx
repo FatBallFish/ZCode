@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Sub2ApiSiteState } from "@zcode/services";
 import { ISub2ApiService } from "@zcode/services";
+import { TID_SUB2API_OIDC_LOGIN_BUTTON } from "@zcode/shared";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { toast } from "@/components/ui/toast.js";
@@ -123,7 +124,12 @@ function MikikoOidcLoginPanel({
         </div>
       ) : (
         <div className="flex items-center gap-2">
-          <Button size="sm" disabled={busy} onClick={() => void start()}>
+          <Button
+            size="sm"
+            disabled={busy}
+            data-testid={TID_SUB2API_OIDC_LOGIN_BUTTON}
+            onClick={() => void start()}
+          >
             {intl.formatMessage({ id: "settings.sub2api.login.oidc.submit" })}
           </Button>
           {onCancel && (
