@@ -35,6 +35,7 @@ import {
   parseAsarListWithPackState,
 } from "./scripts/desktop-native-package-policy.mjs";
 import { replaceAppAsarFromStaging } from "./scripts/app-asar-repack.mjs";
+import { signRuntimeExecutables } from "./scripts/sign-runtime-executables.mjs";
 import {
   patchNsisInstallSectionFile,
   restoreNsisInstallSectionFileSync,
@@ -689,6 +690,11 @@ export default {
     runTimedSync("afterPack:assertPackagedCuaSharp", () => assertPackagedCuaSharp(context));
     runTimedSync("afterPack:assertPackagedCuaKoffi", () => assertPackagedCuaKoffi(context));
     runTimedSync("afterPack:assertPackagedCuaHelper", () => assertPackagedCuaHelper(context));
+    // 签名模式下快速预签名 glm/tools 的 Mach-O（signIgnore 跳过的目录），
+    // 公证要求包内所有二进制有 Developer ID 签名；深度扫描签名太慢（60min+）。
+    if (context.electronPlatformName === "darwin" && shouldEnableMacSigning) {
+      await signRuntimeExecutables(context, { identity: rawMacSigningIdentity });
+    }
     if (actualWindowsTarget && shouldPackageComputerUseHelper) {
       await runTimedAsync("afterPack:finalizePackagedWindowsCuaHelper", () =>
         finalizePackagedWindowsCuaHelper({
@@ -865,12 +871,16 @@ export default {
     gatekeeperAssess: false,
     entitlements: "build/entitlements.mac.plist",
     entitlementsInherit: "build/entitlements.mac.inherit.plist",
-    // 修复原因（2026-10-19 CI 公证 Invalid）：旧 GitLab 流水线有独立的"runtime 预签名
-    // job"，本仓库已无该阶段；glm/tools 下的 Mach-O（rg/ugrep/bfs/koffi.node 等）若跳过
-    // 签名，公证服务会以未签名二进制拒绝整个包。现仅跳过 cua-helper（若存在，它由
-    // 独立 CUA release gate 预签名+staple，重签会使 staple 失效）；glm/tools 交回
-    // electron-builder 默认深度签名。签名耗时增加是正确成本。
-    signIgnore: ["[/\\\\]Contents[/\\\\]Resources[/\\\\]cua-helper([/\\\\]|$)"],
+    // 签名分层（2026-10-19 定稿）：glm/tools 下的 Mach-O 在 afterPack 阶段由
+    // signRuntimeExecutables 快速预签名（find + codesign 并行，只签真正的 Mach-O，
+    // 不做 electron-builder 的全量深度扫描——后者在本包的 glm node_modules 树上
+    // 要 60+ 分钟，实测超时）。signIgnore 跳过这两个已预签名目录 + cua-helper
+    // （独立 CUA gate 预签名+staple，重签会失效），公证看到的所有二进制均有签名。
+    signIgnore: [
+      "[/\\\\]Contents[/\\\\]Resources[/\\\\]cua-helper([/\\\\]|$)",
+      "[/\\\\]Contents[/\\\\]Resources[/\\\\]glm([/\\\\]|$)",
+      "[/\\\\]Contents[/\\\\]Resources[/\\\\]tools([/\\\\]|$)",
+    ],
   },
   win: {
     target: ["nsis"],
