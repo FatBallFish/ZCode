@@ -94,7 +94,7 @@ jobs:
           echo "CSC_KEYCHAIN=$HOME/Library/Keychains/$KEYCHAIN" >> "$GITHUB_ENV"
 
       - name: Bundle desktop installers
-        timeout-minutes: 35
+        timeout-minutes: ${{ matrix.target == 'mac' && 35 || 150 }}
         env:
           DEBUG: "electron-osx-sign*"
         run: pnpm bundle:desktop -- --os ${{ matrix.target }} --arch ${{ matrix.arch }}
