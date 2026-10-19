@@ -182,9 +182,8 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
     await setTheme("zai-light");
     await openMenu();
     const labels = await menuLabels();
+    // 2026-10-20：产品文档/用户社群隐藏、提交漏洞彻底移除（Mikiko 自实现前不外链智谱）。
     expect(labels).toEqual([
-      "Product docs",
-      "User community",
       "Report an issue",
       "Request a feature",
       "Export logs",
@@ -292,9 +291,8 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
     await $(`[data-testid="${TID_SETTINGS_PAGE}"]`).waitForDisplayed();
     await openMenu();
     const labels = await menuLabels();
+    // 2026-10-20：产品文档/用户社群隐藏、提交漏洞彻底移除（Mikiko 自实现前不外链智谱）。
     expect(labels).toEqual([
-      "产品文档",
-      "用户社群",
       "问题上报",
       "给产品提需求",
       "导出日志",

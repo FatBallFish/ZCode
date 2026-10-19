@@ -1266,7 +1266,7 @@ export function createHomeOnlyWebRemoteControlServices(): RootServices {
       RootServices["codingPlanSubscriptionService"]
     >("codingPlanSubscriptionService"),
     clientConfigService: createEmptyHomeOnlyService<RootServices["clientConfigService"]>({
-      getSnapshot: async () => ({ pluginStoreOrder: null, zsrcUrl: null }),
+      getSnapshot: async () => ({ pluginStoreOrder: null }),
     }),
     // 手机 Web 未连接 shared-host attachment 时禁止直连 scenes HTTP；返回空配置保持首页可用。
     clientScenesService: createEmptyHomeOnlyService<RootServices["clientScenesService"]>({

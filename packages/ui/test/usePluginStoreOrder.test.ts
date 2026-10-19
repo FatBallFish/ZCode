@@ -19,7 +19,7 @@ describe("usePluginStoreOrder", () => {
     const { result } = renderHook(usePluginStoreOrder);
     expect(result.current.order).toBeNull();
     await act(async () => {
-      pending.resolve({ zsrcUrl: null, pluginStoreOrder: config });
+      pending.resolve({ pluginStoreOrder: config });
     });
     expect(result.current.order).toEqual(config);
     context.service.getSnapshot.mockRejectedValueOnce(new Error("offline"));
@@ -47,7 +47,7 @@ describe("usePluginStoreOrder", () => {
       await result.current.refresh(true);
     });
     await act(async () => {
-      pending.resolve({ zsrcUrl: null, pluginStoreOrder: { code: { categoryOrder: ["other"] } } });
+      pending.resolve({ pluginStoreOrder: { code: { categoryOrder: ["other"] } } });
     });
     expect(result.current.order).toEqual(config);
   });
@@ -70,11 +70,11 @@ describe("usePluginStoreOrder", () => {
     rerender();
     expect(result.current.order).toBeNull();
     await act(async () => {
-      old.resolve({ zsrcUrl: null, pluginStoreOrder: config });
+      old.resolve({ pluginStoreOrder: config });
     });
     expect(result.current.order).toBeNull();
     await act(async () => {
-      next.resolve({ zsrcUrl: null, pluginStoreOrder: { code: { categoryOrder: ["other"] } } });
+      next.resolve({ pluginStoreOrder: { code: { categoryOrder: ["other"] } } });
     });
     expect(result.current.order).toEqual({ code: { categoryOrder: ["other"] } });
   });
@@ -96,7 +96,7 @@ it("关闭的 Picker 不读配置，关闭后的迟到请求不能发布，重�
   expect(context.service.getSnapshot).toHaveBeenCalledTimes(1);
   rerender({ enabled: false });
   await act(async () => {
-    pending.resolve({ zsrcUrl: null, pluginStoreOrder: { code: {} } });
+    pending.resolve({ pluginStoreOrder: { code: {} } });
   });
   expect(result.current.order).toBeNull();
   rerender({ enabled: true });

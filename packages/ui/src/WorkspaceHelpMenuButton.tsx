@@ -6,15 +6,12 @@ import {
 } from "@zcode/shared";
 import {
   ActivityIcon,
-  BookOpenIcon,
   CircleHelpIcon,
   DownloadIcon,
   LightbulbIcon,
   InfoIcon,
   MessageSquareIcon,
-  UsersIcon,
   RefreshCwIcon,
-  ShieldAlertIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge.js";
 import { Button } from "@/components/ui/button.js";
@@ -30,7 +27,6 @@ import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { useFeedbackStore, FEEDBACK_ENTRY_ENABLED } from "@/feedback/feedbackStore.js";
 import { useDesktopUpdateMenu } from "@/hooks/useDesktopUpdateMenu.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
-import { useVulnerabilityReportUrl } from "@/hooks/useVulnerabilityReportUrl.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { createHelpMenuActionHandlers } from "@/lib/helpMenuActions.js";
 
@@ -48,8 +44,6 @@ export function WorkspaceHelpMenuButton({
   const { intl } = useZCodeIntl();
   const platform = usePlatform();
   const [open, setOpen] = useState(false);
-  const { url: vulnerabilityReportUrl, loading: vulnerabilityReportLoading } =
-    useVulnerabilityReportUrl(open);
   const updateMenu = useDesktopUpdateMenu(isDesktop);
   const openFeedbackSubmit = useFeedbackStore((state) => state.openSubmit);
   const openFeatureRequest = useFeedbackStore((state) => state.openFeatureRequest);
@@ -59,9 +53,6 @@ export function WorkspaceHelpMenuButton({
     intl,
     openSubmit: openFeedbackSubmit,
   });
-  const handleOpenCommunity = () => {
-    void platform.openCommunity();
-  };
   const handleOpenResourceManager = () => {
     void platform.executeDesktopCommand(DesktopCommandIds.OpenResourceManager);
   };
@@ -95,14 +86,11 @@ export function WorkspaceHelpMenuButton({
         align="end"
         className="min-w-0 w-max [&_[data-slot=dropdown-menu-item]]:pr-6"
       >
-        <DropdownMenuItem onSelect={helpMenuActions.openProductDocs}>
-          <BookOpenIcon className="size-4" />
-          {intl.formatMessage({ id: "workspaceHeader.help.docs" })}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleOpenCommunity}>
-          <UsersIcon className="size-4" />
-          {intl.formatMessage({ id: "workspaceHeader.help.community" })}
-        </DropdownMenuItem>
+        {/* 「产品文档」「用户社群」暂时隐藏（2026-10-20 裁定）：链接指向智谱官方站点，
+            未在 Mikiko 侧自实现；后续改为自实现链接后恢复（i18n key 与
+            helpMenuActions.openProductDocs / platform.openCommunity 实现保留）。 */}
+        {/* 「提交漏洞」已彻底移除（2026-10-20 裁定）：外链为智谱官方漏洞页（clientConfig
+            zsrcUrl），Mikiko 侧无对应实现。 */}
         {/* 反馈功能暂时关闭（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）：
             FEEDBACK_ENTRY_ENABLED 恢复为 true 时放回下方两个菜单项。 */}
         {FEEDBACK_ENTRY_ENABLED ? (
@@ -111,20 +99,6 @@ export function WorkspaceHelpMenuButton({
               <MessageSquareIcon className="size-4" />
               {intl.formatMessage({ id: "workspaceHeader.help.issueReport" })}
             </DropdownMenuItem>
-            {(vulnerabilityReportLoading || vulnerabilityReportUrl) && (
-              <DropdownMenuItem
-                disabled={vulnerabilityReportLoading}
-                aria-busy={vulnerabilityReportLoading}
-                onSelect={
-                  vulnerabilityReportUrl
-                    ? () => platform.openExternal(vulnerabilityReportUrl)
-                    : undefined
-                }
-              >
-                <ShieldAlertIcon className="size-4" />
-                {intl.formatMessage({ id: "workspaceHeader.help.reportVulnerability" })}
-              </DropdownMenuItem>
-            )}
             <DropdownMenuItem onSelect={openFeatureRequest}>
               <LightbulbIcon className="size-4" />
               {intl.formatMessage({ id: "workspaceHeader.help.productRequest" })}

@@ -14,8 +14,6 @@ vi.mock("@/i18n/IntlProvider.js", () => ({
 }));
 
 const captured = vi.hoisted(() => ({
-  zsrcUrl: null as string | null,
-  loading: false,
   openExternal: vi.fn(),
   exportLogs: vi.fn(async () => ({ success: true })),
   toast: vi.fn(() => 7),
@@ -102,10 +100,6 @@ vi.mock("@/hooks/usePlatform.js", () => ({
   }),
 }));
 
-vi.mock("@/hooks/useVulnerabilityReportUrl.js", () => ({
-  useVulnerabilityReportUrl: () => ({ url: captured.zsrcUrl, loading: captured.loading }),
-}));
-
 describe("WorkspaceHelpMenuButton", () => {
   async function render(isDesktop: boolean | undefined) {
     captured.menuItems = [];
@@ -117,49 +111,16 @@ describe("WorkspaceHelpMenuButton", () => {
     return renderToStaticMarkup(createElement(WorkspaceHelpMenuButton, { isDesktop }));
   }
 
-  it("桌面和 Web 的漏洞入口紧跟问题上报，打开配置地址；缺失时隐藏", async () => {
-    for (const desktop of [true, false]) {
-      captured.zsrcUrl = "https://security.example.test/report";
-      captured.openExternal.mockClear();
-      try {
-        await render(desktop);
-        const index = captured.menuItems.findIndex(
-          (item) => item.label === "workspaceHeader.help.reportVulnerability",
-        );
-        expect(index).toBeGreaterThan(0);
-        expect(captured.menuItems[index - 1]?.label).toBe("workspaceHeader.help.issueReport");
-        await captured.menuItems[index]?.onSelect?.();
-        expect(captured.openExternal).toHaveBeenCalledExactlyOnceWith(captured.zsrcUrl);
-      } finally {
-        captured.zsrcUrl = null;
-      }
+  it("提交漏洞入口已彻底移除（2026-10-20 裁定）：任何端都不渲染", async () => {
+    for (const desktop of [true, false, undefined]) {
       expect(await render(desktop)).not.toContain("workspaceHeader.help.reportVulnerability");
-    }
-  });
-
-  it("冷缓存加载项不可触发外链，有效配置到达时保留原位置与文案", async () => {
-    captured.loading = true;
-    captured.openExternal.mockClear();
-    try {
-      await render(true);
-      const before = captured.menuItems.map((item) => item.label);
-      const item = captured.menuItems.find(
-        (item) => item.label === "workspaceHeader.help.reportVulnerability",
-      );
-      expect(item).toMatchObject({ disabled: true, onSelect: undefined });
-      captured.loading = false;
-      captured.zsrcUrl = "https://security.example.test/report";
-      await render(true);
-      expect(captured.menuItems.map((item) => item.label)).toEqual(before);
       expect(
-        captured.menuItems.find((item) => item.label === "workspaceHeader.help.reportVulnerability")
-          ?.disabled,
+        captured.menuItems.some(
+          (item) => item.label === "workspaceHeader.help.reportVulnerability",
+        ),
       ).toBe(false);
-      expect(captured.openExternal).not.toHaveBeenCalled();
-    } finally {
-      captured.loading = false;
-      captured.zsrcUrl = null;
     }
+    expect(captured.openExternal).not.toHaveBeenCalled();
   });
 
   it("桌面端渲染资源管理器项，点击走 OpenResourceManager 命令", async () => {
@@ -264,8 +225,6 @@ describe("WorkspaceHelpMenuButton", () => {
     for (const desktop of [true, false]) {
       const html = await render(desktop);
       expect(captured.menuItems.map((item) => item.label)).toEqual([
-        "workspaceHeader.help.docs",
-        "workspaceHeader.help.community",
         "workspaceHeader.help.issueReport",
         "workspaceHeader.help.productRequest",
         ...(desktop
@@ -281,16 +240,14 @@ describe("WorkspaceHelpMenuButton", () => {
     }
   });
 
-  it("桌面端与 Web 端都保留原有帮助项", async () => {
+  it("桌面端与 Web 端保留反馈两项；产品文档与用户社群暂隐藏（2026-10-20 裁定）", async () => {
     for (const isDesktop of [true, false]) {
       const html = await render(isDesktop);
-      for (const id of [
-        "workspaceHeader.help.issueReport",
-        "workspaceHeader.help.productRequest",
-        "workspaceHeader.help.community",
-        "workspaceHeader.help.docs",
-      ]) {
+      for (const id of ["workspaceHeader.help.issueReport", "workspaceHeader.help.productRequest"]) {
         expect(html).toContain(id);
+      }
+      for (const hidden of ["workspaceHeader.help.community", "workspaceHeader.help.docs"]) {
+        expect(html).not.toContain(hidden);
       }
     }
   });
