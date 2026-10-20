@@ -43,11 +43,11 @@ export interface McpToolUiCsp {
 }
 
 /**
- * 资源级 `_meta["zcode/csp"]`：宿主缺省按规范块（只有 'self' 'unsafe-inline'），不放行 `'unsafe-eval'` /
+ * 资源级 `_meta["mikiko/csp"]`：宿主缺省按规范块（只有 'self' 'unsafe-inline'），不放行 `'unsafe-eval'` /
  * `'wasm-unsafe-eval'`；需要 eval / WebAssembly 的资源在这里显式声明。宿主经
- * `hostCapabilities.experimental["zcode/csp"].flags` 宣告支持的键。
+ * `hostCapabilities.experimental["mikiko/csp"].flags` 宣告支持的键。
  */
-export const MCP_APPS_CSP_RELAXATION_META_KEY = "zcode/csp";
+export const MCP_APPS_CSP_RELAXATION_META_KEY = "mikiko/csp";
 export const MCP_APPS_CSP_RELAXATION_FLAGS = ["unsafeEval", "wasmUnsafeEval"] as const;
 export type McpAppCspRelaxationFlag = (typeof MCP_APPS_CSP_RELAXATION_FLAGS)[number];
 export type McpAppCspRelaxations = Partial<Record<McpAppCspRelaxationFlag, boolean>>;
@@ -185,6 +185,8 @@ export interface PluginSandboxPlatformPort {
   supportsRetainedMove?: boolean;
   /** 仅宿主操作可用；Main 校验 owner/代次后复制当前页面内容。 */
   copyImage?(input: PluginSandboxCaptureRequest): Promise<void>;
+  /** 只为指定代际的 MCP guest 保持可逆后台执行；不改变窗口或其他页面的节流。 */
+  setExecutionActive?(sandboxId: string, initId: number, active: boolean): Promise<void>;
   /** 宿主窗口 webContents id；prepareSandbox 用它作为 owner，main 在 will-attach 时校验。 */
   getOwnerWebContentsId(): Promise<number>;
   /**
@@ -233,7 +235,7 @@ export interface PluginSandboxRegisterRequestPayload {
   html: string;
   /** 有效 CSP：资源级优先，工具级兜底（host plugin-ui-bridge 已合并）。 */
   csp?: McpToolUiCsp;
-  /** 资源级 `_meta["zcode/csp"]` 声明的放宽项。 */
+  /** 资源级 `_meta["mikiko/csp"]` 声明的放宽项。 */
   cspRelaxations?: McpAppCspRelaxations;
   /** 资源声明的浏览器权限；main 据此放宽 Permissions-Policy 与 iframe allow，并把权限请求交给闸门。 */
   permissions?: McpAppsResourcePermission[];

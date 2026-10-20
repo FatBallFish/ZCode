@@ -12,13 +12,11 @@
  * 上下文。内置浏览器 guest 也在本窗口挂载（webviewTag 已开，attachGuest 以本窗口为
  * owner）。仅 automations 主视图这类主窗口专属页面继续经 sessionWindowPanelBridge 转发。
  */
-/* eslint-disable max-lines -- 会话窗口是 App 装配的「单会话切片」：面板状态机/Git/记忆桥/
-   截图面的 wiring 与布局在同文件收口，避免跨文件传递 30+ 个零散 prop。 */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LucideProvider } from "lucide-react";
 import type { RefObject } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import type { IServiceAccessor } from "@zcode/services";
+import type { IServiceAccessor } from "@/session-window/contract.js";
 import type { GitChangeSourceId, IPlatformService } from "@zcode/shared";
 import { getPathLeaf, toFileUrl } from "@/lib/path.js";
 import { AppWallpaperLayer } from "@/theme-skins/AppWallpaperLayer.js";
@@ -30,9 +28,7 @@ import { TabStoreProvider } from "@/store/TabStoreProvider.js";
 import { DiffsWorkerPoolProvider } from "@/root/DiffsWorkerPoolProvider.js";
 import { AssistantCodeCommentFeatureProvider } from "@/AssistantCodeCommentFeatureProvider.js";
 import { CodingPlanUpgradeDialogProvider } from "@/settings/CodingPlanUpgradeDialogProvider.js";
-import { RewardsProvider } from "@/rewards/RewardsProvider.js";
 import { RequestSecurityHost } from "@/request-security-edition/index.js";
-import { MarketingTouchProvider } from "@/components/marketing-touch/MarketingTouchProvider.js";
 import { V4WorkspaceChatArea } from "@/v4/V4WorkspaceChatArea.js";
 import { useTheme } from "@/useTheme.js";
 import { WorkspaceHeader } from "@/WorkspaceHeader.js";
@@ -101,20 +97,16 @@ export function SessionWindowRoot({
                       V4ComposerToolbar 等处抛 must-be-used-within-Provider（实测）。 */}
                   <AssistantCodeCommentFeatureProvider enabled>
                     <CodingPlanUpgradeDialogProvider>
-                      <RewardsProvider desktop>
-                        <RequestSecurityHost />
-                        <MarketingTouchProvider desktop>
-                          <SessionWindowBody
-                            services={services}
-                            platform={platform}
-                            workspacePath={workspacePath}
-                            workspaceIdentity={workspaceIdentity}
-                            sessionId={sessionId}
-                            isMacDesktop={isMacDesktop}
-                            isWindowsDesktop={isWindowsDesktop}
-                          />
-                        </MarketingTouchProvider>
-                      </RewardsProvider>
+                      <RequestSecurityHost />
+                      <SessionWindowBody
+                        services={services}
+                        platform={platform}
+                        workspacePath={workspacePath}
+                        workspaceIdentity={workspaceIdentity}
+                        sessionId={sessionId}
+                        isMacDesktop={isMacDesktop}
+                        isWindowsDesktop={isWindowsDesktop}
+                      />
                     </CodingPlanUpgradeDialogProvider>
                   </AssistantCodeCommentFeatureProvider>
                 </DiffsWorkerPoolProvider>
@@ -209,6 +201,9 @@ function SessionWindowBody({
     handleToggleGit,
     handleOpenWhiteboard,
     handleOpenDeveloperTools,
+    handleOpenNewSidePaneTab,
+    handleOpenFileManager,
+    handleNavigateFileManager,
     handleOpenTerminalTab,
     handleOpenSubagentSession,
     handleOpenBackgroundBash,
@@ -573,6 +568,9 @@ function SessionWindowBody({
                 onOpenBrowserPermissionSettings={handleOpenBrowserPermissionSettings}
                 onOpenWhiteboard={handleOpenWhiteboard}
                 onOpenDeveloperTools={handleOpenDeveloperTools}
+                onOpenNewTab={handleOpenNewSidePaneTab}
+                onOpenFileManager={handleOpenFileManager}
+                onNavigateFileManager={handleNavigateFileManager}
                 onOpenTerminalTab={handleOpenTerminalTab}
                 onOpenReviewTab={handleToggleGit}
                 onOpenSelectionSideConversation={handleOpenSelectionSideConversationLauncher}

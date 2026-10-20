@@ -3,18 +3,6 @@ import { describe, expect, it } from "vitest";
 import type { ITheme } from "@xterm/xterm";
 import { restrictInheritedTerminalTheme } from "@/terminal/terminalTheme.js";
 
-function readCssBlock(selector: string): string {
-  const styles = readFileSync("packages/ui/src/styles.css", "utf8");
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = styles.match(new RegExp(`${escapedSelector}\\s*\\{([\\s\\S]*?)\\n\\}`));
-  return match?.[1] ?? "";
-}
-
-function readCssToken(block: string, token: string): string | undefined {
-  const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return block.match(new RegExp(`${escapedToken}:\\s*([^;]+);`))?.[1]?.trim();
-}
-
 describe("terminalTheme", () => {
   it("keeps app-controlled readable colors out of inherited profile colors", () => {
     const inherited = restrictInheritedTerminalTheme({
@@ -54,3 +42,19 @@ describe("terminalTheme", () => {
     );
   });
 });
+
+function readCssBlock(selector: string): string {
+  const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
+  const start = css.indexOf(`${selector} {`);
+  if (start < 0) throw new Error(`Missing CSS block: ${selector}`);
+  return css.slice(start, css.indexOf("}", start));
+}
+function readCssToken(block: string, token: string): string | undefined {
+  return block
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.startsWith(`${token}:`))
+    ?.slice(token.length + 1)
+    .trim()
+    .replace(/;$/, "");
+}

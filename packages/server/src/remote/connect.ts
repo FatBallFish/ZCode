@@ -212,7 +212,7 @@ async function connectRemoteUnchecked(
 
   // Forward stderr for debugging
   stream.stderr.on("data", (chunk: Buffer) => {
-    // 远端 zcode-server 的服务日志走 stderr，直接写 host stderr 时可能被结构化日志中继吞掉。
+    // 远端 mikiko-server 的服务日志走 stderr，直接写 host stderr 时可能被结构化日志中继吞掉。
     // 这里转成 host 的 console 日志，让 remote sqlite 初始化/锁冲突日志能稳定出现在连接日志面板和启动终端。
     console.log(`[remote] ${chunk.toString().trimEnd()}`);
   });
@@ -384,7 +384,7 @@ function buildRemoteServerCommand(
 ): string {
   const envParts = [
     `${SERVICE_AUTHORITY_MODE_ENV}="desktop-attached-remote"`,
-    'ZCODE_SERVER_RUNTIME_ROOT="$HOME/.mikiko/server"',
+    'MIKIKO_SERVER_RUNTIME_ROOT="$HOME/.mikiko/server"',
   ];
   for (const [key, value] of Object.entries(
     pickRemoteRuntimeEnv(options?.remoteRuntimeEnv ?? {}),
@@ -410,5 +410,5 @@ function buildRemoteServerCommand(
       );
     }
   }
-  return `${envParts.join(" ")} ~/.mikiko/server/node ~/.mikiko/server/zcode-server.cjs`;
+  return `${envParts.join(" ")} ~/.mikiko/server/node ~/.mikiko/server/mikiko-server.cjs`;
 }

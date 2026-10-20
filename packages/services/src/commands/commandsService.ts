@@ -46,6 +46,7 @@ const ENABLE_OVERRIDE_KEY = "enable";
 const HOME_PREFIX = "~/";
 const ZCODE_OFFICIAL_PLUGIN_MARKETPLACE = "zcode-plugins-official";
 const ZCODE_INLINE_PLUGIN_MARKETPLACE = "inline";
+const MIKIKO_PLUGIN_MANIFEST_PATH = join(".mikiko-plugin", "plugin.json");
 const ZCODE_PLUGIN_MANIFEST_PATH = join(".zcode-plugin", "plugin.json");
 const CLAUDE_PLUGIN_MANIFEST_PATH = join(".claude-plugin", "plugin.json");
 const CODEX_PLUGIN_MANIFEST_PATH = join(".codex-plugin", "plugin.json");
@@ -316,6 +317,7 @@ async function readPluginManifest(rootPath: string): Promise<PluginManifestSumma
 
 async function findPluginManifestPath(rootPath: string): Promise<string | null> {
   for (const manifestPath of [
+    join(rootPath, MIKIKO_PLUGIN_MANIFEST_PATH),
     join(rootPath, ZCODE_PLUGIN_MANIFEST_PATH),
     join(rootPath, CLAUDE_PLUGIN_MANIFEST_PATH),
     join(rootPath, CODEX_PLUGIN_MANIFEST_PATH),

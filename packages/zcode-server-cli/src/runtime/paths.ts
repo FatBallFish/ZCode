@@ -13,16 +13,26 @@ export interface ServerLayout {
   readonly componentsCacheDir: string;
   readonly stableBinDir: string;
   readonly statusFile: string;
+  readonly ingressTokenFile: string;
   readonly lockFile: string;
   readonly controlEndpoint: string;
   readonly serviceDir: string;
   readonly uninstalledFile: string;
   readonly updateTransactionFile: string;
+  readonly updateLockFile: string;
 }
 
 export function getDefaultServerDataRoot(): string {
   const configured = process.env.MIKIKO_DATA_BASE_DIR?.trim();
   return join(configured || homedir(), ".mikiko", "server");
+}
+
+/** 仅用于已安装旧品牌元数据的读取准入；调用方必须先取 canonical 路径。 */
+export function isMikikoServerRootPath(serverRoot: string): boolean {
+  return (
+    basename(serverRoot).toLowerCase() === "server" &&
+    basename(dirname(serverRoot)).toLowerCase() === ".mikiko"
+  );
 }
 
 export function resolveServerLayout(serverRoot = getDefaultServerDataRoot()): ServerLayout {
@@ -39,18 +49,22 @@ export function resolveServerLayout(serverRoot = getDefaultServerDataRoot()): Se
     componentsCacheDir: join(root, "cache", "components"),
     stableBinDir: join(root, "bin"),
     statusFile: join(runDir, "status.json"),
+    ingressTokenFile: join(runDir, "ingress-token"),
     lockFile: join(runDir, "server.lock"),
     controlEndpoint:
       process.platform === "win32"
-        ? `\\\\.\\pipe\\zcode-server-${stablePathId(root)}`
+        ? `\\\\.\\pipe\\mikiko-server-${stablePathId(root)}`
         : join(runDir, "control.sock"),
     serviceDir: join(root, "service"),
     uninstalledFile: join(root, "uninstalled.json"),
     updateTransactionFile: join(root, "update-transaction.json"),
+    updateLockFile: join(runDir, "update.lock"),
   };
 }
 
-export async function resolveCanonicalServerRoot(serverRoot = getDefaultServerDataRoot()): Promise<string> {
+export async function resolveCanonicalServerRoot(
+  serverRoot = getDefaultServerDataRoot(),
+): Promise<string> {
   // 安装前 server root 可能尚不存在；向上找到最近的存在祖先做 realpath，再拼回缺失段，
   // 这样既能收敛已有符号链接，也不会因为 ENOENT 让首次安装失效。
   let candidate = assertServerDataRoot(serverRoot);
@@ -69,7 +83,9 @@ export async function resolveCanonicalServerRoot(serverRoot = getDefaultServerDa
   }
 }
 
-export async function resolveCanonicalServerLayout(serverRoot = getDefaultServerDataRoot()): Promise<ServerLayout> {
+export async function resolveCanonicalServerLayout(
+  serverRoot = getDefaultServerDataRoot(),
+): Promise<ServerLayout> {
   return resolveServerLayout(await resolveCanonicalServerRoot(serverRoot));
 }
 
@@ -106,7 +122,10 @@ export interface UninstallTargetValidation {
   canonicalPath?: string;
 }
 
-export function validateUninstallTarget(serverRoot: string, target: string): UninstallTargetValidation {
+export function validateUninstallTarget(
+  serverRoot: string,
+  target: string,
+): UninstallTargetValidation {
   if (!isAbsolute(target)) {
     return { ok: false, reason: "non-absolute" };
   }
@@ -134,5 +153,5 @@ export function assertServerDataRoot(serverRoot: string): string {
 }
 
 export function serverDataRootFromBase(baseDir: string): string {
-  return join(resolve(baseDir), ".zcode", "server");
+  return join(resolve(baseDir), ".mikiko", "server");
 }

@@ -196,7 +196,7 @@ describe("desktopOAuthDeepLink workspace open routing", () => {
     expect(electronMocks.showMessageBoxSync).toHaveBeenCalledWith(
       expect.objectContaining({
         buttons: ["Open folder", "Cancel"],
-        title: "Open external ZCode link?",
+        title: "Open external Mikiko link?",
       }),
     );
     expect(logger.warn).toHaveBeenCalledWith(

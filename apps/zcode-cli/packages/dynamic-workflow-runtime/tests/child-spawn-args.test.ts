@@ -2,7 +2,7 @@
  * 沙箱子进程的 **spawn 策略**契约（`RunWorkflowOptions.childSpawn`）。
  *
  * 2026-09-09 追记（docs/dynamic-workflow/launch.md）之后，payload 不再过命令行：harness 先把
- * 入口文件写到 `<cwd>/.zcode/workflow-runs/<runId>.mjs`，argv 只剩路径。
+ * 入口文件写到 `<cwd>/.mikiko/workflow-runs/<runId>.mjs`，argv 只剩路径。
  *   - 缺省策略：`node --max-old-space-size=… <entry>`（没有 `--input-type` / `--eval`）；
  *   - SEA（bug 根因见同一 spec 的「SEA 子命令」）：SEA 单文件二进制**不解释 Node CLI 旗标**，
  *     故 harness 允许调用方（bootstrap，只在 SEA 下）改用 `childSpawn.argsPrefix`：
@@ -59,7 +59,9 @@ async function tempRoot(prefix: string): Promise<string> {
 async function runOnce(extra: Partial<Parameters<typeof runWorkflowScript>[0]> = {}) {
   const cwd = await tempRoot("dwf-spawn-args-cwd-");
   const journal = new InMemoryJournalStore();
-  const driver = new AutoDriver(journal, { asks: { "ask#1": () => ({ type: "text", finalText: "hi" }) } });
+  const driver = new AutoDriver(journal, {
+    asks: { "ask#1": () => ({ type: "text", finalText: "hi" }) },
+  });
   const settlement = await runWorkflowScript({
     scriptText: SCRIPT,
     runId: "run",
@@ -126,8 +128,13 @@ describe("sandbox child spawn strategy", () => {
     const args = spawnCalls[0]!.args;
 
     // 命令行上只有旗标与路径——payload 与子进程源码都不在这里（Windows 32,767 字符上限）。
-    expect(args).toEqual(["--max-old-space-size=256", join(cwd, ".zcode", "workflow-runs", "run.mjs")]);
-    await expect(readEntryPayload(args[1]!)).resolves.toMatchObject({ lowered: expect.any(String) });
+    expect(args).toEqual([
+      "--max-old-space-size=256",
+      join(cwd, ".mikiko", "workflow-runs", "run.mjs"),
+    ]);
+    await expect(readEntryPayload(args[1]!)).resolves.toMatchObject({
+      lowered: expect.any(String),
+    });
     expect(spawnCalls[0]!.options.env).toMatchObject({ ELECTRON_RUN_AS_NODE: "1" });
     expect(spawnCalls[0]!.options.cwd).toBe(cwd);
   });
@@ -136,7 +143,7 @@ describe("sandbox child spawn strategy", () => {
     // 只有 `args` 过界——沙箱脚本要读它。其余 run 元数据（lineage 指针、工具调用 id、父会话、
     // 展示名、以及 launch 那一整块：发起锚点与子代理模型）全是宿主事实。把它们写进入口文件
     // 只会让一份 run 级事实多出一个永远不会被读的副本，而那个副本还会随入口文件留在项目的
-    // .zcode 目录里。launch 里的 `subagentModel` 尤其如此：模型面整个在宿主侧（子进程只把
+    // .mikiko 目录里。launch 里的 `subagentModel` 尤其如此：模型面整个在宿主侧（子进程只把
     // ask 经桥递回来），子进程知道跑在哪个模型上既无用处，也没有任何代码路径会去读。
     //
     // 五个都真的传下去，否则「不在 payload 里」是一句废话。
@@ -150,7 +157,7 @@ describe("sandbox child spawn strategy", () => {
     });
 
     expect(settlement).toEqual({ status: "completed", artifact: "hi" });
-    const payload = await readEntryPayload(join(cwd, ".zcode", "workflow-runs", "run.mjs"));
+    const payload = await readEntryPayload(join(cwd, ".mikiko", "workflow-runs", "run.mjs"));
     // 过界的那一个还在：这条断言让「全都没过界」不能靠一个空 payload 蒙混过去。
     expect(payload.args).toEqual({ topic: "release" });
     for (const field of ["launch", "resumedFrom", "toolCallId", "parentSessionId", "name"]) {
@@ -173,7 +180,7 @@ describe("sandbox child spawn strategy", () => {
     expect(settlement).toEqual({ status: "completed", artifact: "hi" });
     expect(spawnCalls).toHaveLength(1);
     const args = spawnCalls[0]!.args;
-    expect(args).toEqual([standIn, join(cwd, ".zcode", "workflow-runs", "run.mjs")]);
+    expect(args).toEqual([standIn, join(cwd, ".mikiko", "workflow-runs", "run.mjs")]);
     // 一个旗标都不许漏出去——SEA 主程序会把它们当未知参数而报错退出。
     expect(args.some((arg) => arg.startsWith("--"))).toBe(false);
     // 堆上限只能随 payload 走（argsPrefix 路上没有旗标可传），由入口文件 best-effort 施加。

@@ -1,10 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import {
-  TID_CHAT_ERROR_DETAILS_BUTTON,
-  TID_CHAT_ERROR_HOOK_ICON,
-  type IPlatformService,
-} from "@zcode/shared";
+import { type IPlatformService } from "@zcode/shared";
+import { TID_CHAT_ERROR_DETAILS_BUTTON, TID_CHAT_ERROR_HOOK_ICON } from "@zcode/shared/test-ids";
 import { describe, expect, it, vi } from "vitest";
 import { ChatErrorBanner } from "@/ChatErrorBanner.js";
 import { PlatformProvider } from "@/hooks/usePlatform.js";
@@ -14,8 +11,11 @@ vi.mock("@/hooks/useServices.js", () => ({
   useOptionalServices: () => null,
   useServices: () => ({
     modelSelectionService: { read: async () => null },
-    zcodeSessionService: {}, zcodeTaskService: {}, usageStatsService: {},
-    conversationShareService: {}, highspeedCardService: {},
+    zcodeSessionService: {},
+    zcodeTaskService: {},
+    usageStatsService: {},
+    conversationShareService: {},
+    highspeedCardService: {},
   }),
   ServiceProvider: ({ children }: { children: unknown }) => children,
 }));

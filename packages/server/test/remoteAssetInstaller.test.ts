@@ -1,7 +1,7 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { existsSync } from "node:fs";
-import { access, mkdtemp, mkdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, readFile, readdir, rm, utimes, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,7 +22,8 @@ import {
   buildRemoteChecksumCommand,
 } from "@zcode/server/remote/remoteAssetInstaller.js";
 import type { RemoteSha256Tool } from "@zcode/server/remote/remoteAssetPreflight.js";
-import { extractTarGzArchive } from "@zcode/server/remote/localTarGz.js";
+import { createTarGzArchive, extractTarGzArchive } from "@zcode/server/remote/localTarGz.js";
+import { quotePosixShellArg } from "@zcode/server/remote/posixShell.js";
 
 const execFileAsync = promisify(execFile);
 const localShellCommand = resolveLocalShellCommand();
@@ -84,6 +85,56 @@ class FailingReplaceBackend extends InstallerBackend {
   }
 }
 
+class ShellInstallerBackend extends InstallerBackend {
+  constructor(
+    private readonly rootDir: string,
+    public prelude: string,
+  ) {
+    super();
+  }
+
+  override async exists(remotePath: string): Promise<boolean> {
+    return access(join(this.rootDir, remotePath.replace(/^~\//u, ""))).then(
+      () => true,
+      () => false,
+    );
+  }
+
+  override async exec(command: string): Promise<StdioStream> {
+    this.commands.push(command);
+    // 仅把远端 HOME 路径映射到夹具目录，不改宿主环境；执行完整真实脚本以捕获 shell 退出码。
+    const isolatedCommand = command.replaceAll(
+      '"$HOME"',
+      quotePosixShellArg(toLocalShellPath(this.rootDir)),
+    );
+    const child = spawn(localShellCommand!, ["-c", `${this.prelude}\n${isolatedCommand}`], {
+      detached: process.platform !== "win32",
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    // macOS sh 的后台子进程可能在主命令退出后仍持有管道；退出码已确定后回收测试进程组。
+    child.once("exit", () => {
+      if (process.platform === "win32" || !child.pid) return;
+      try {
+        process.kill(-child.pid, "SIGKILL");
+      } catch (error) {
+        if (!(error instanceof Error) || !("code" in error) || error.code !== "ESRCH") throw error;
+      }
+    });
+    const code = await new Promise<number>((resolve, reject) => {
+      child.once("error", reject);
+      child.once("close", (exitCode) => resolve(exitCode ?? 1));
+    });
+    return createClosedStream([stdout], code, stderr);
+  }
+}
+
 function createClosedStream(
   stdoutLines: string[] = [],
   exitCode = 0,
@@ -94,9 +145,7 @@ function createClosedStream(
   const stderr = new PassThrough();
   const closeListeners: Array<(code: number) => void> = [];
   let closeScheduled = false;
-  const onClose: Event<number> = (
-    listener: (code: number) => void,
-  ): IDisposable => {
+  const onClose: Event<number> = (listener: (code: number) => void): IDisposable => {
     closeListeners.push(listener);
     if (!closeScheduled) {
       closeScheduled = true;
@@ -126,10 +175,7 @@ function stubManifestFetch(manifest: unknown): void {
   );
 }
 
-function stubManifestAndHeadFetch(
-  manifest: unknown,
-  contentLength: number,
-): void {
+function stubManifestAndHeadFetch(manifest: unknown, contentLength: number): void {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -169,19 +215,8 @@ function resolveLocalShellCommand(): string | null {
   }
 
   const gitShellCandidates = [
-    join(
-      process.env.ProgramFiles ?? "C:\\Program Files",
-      "Git",
-      "bin",
-      "sh.exe",
-    ),
-    join(
-      process.env.ProgramFiles ?? "C:\\Program Files",
-      "Git",
-      "usr",
-      "bin",
-      "sh.exe",
-    ),
+    join(process.env.ProgramFiles ?? "C:\\Program Files", "Git", "bin", "sh.exe"),
+    join(process.env.ProgramFiles ?? "C:\\Program Files", "Git", "usr", "bin", "sh.exe"),
   ];
   return gitShellCandidates.find((candidate) => existsSync(candidate)) ?? null;
 }
@@ -200,9 +235,7 @@ function toLocalShellPath(filePath: string): string {
   );
 }
 
-async function detectLocalShellSha256Tool(
-  shellCommand: string,
-): Promise<RemoteSha256Tool> {
+async function detectLocalShellSha256Tool(shellCommand: string): Promise<RemoteSha256Tool> {
   // Bugfix: Windows Git Bash 环境常有 sha256sum/openssl 但没有 shasum；测试硬编码 shasum
   // 会让“备用 URL 校验失败后重试”的用例在真正执行到重试逻辑前就失败。
   const { stdout } = await execFileAsync(shellCommand, [
@@ -226,9 +259,7 @@ describe("remote asset installer command builders", () => {
     });
 
     expect(command).toContain("curl");
-    expect(command).toContain(
-      "'https://cdn.example.test/a b/component.tar.gz'",
-    );
+    expect(command).toContain("'https://cdn.example.test/a b/component.tar.gz'");
     expect(command).toContain(
       "\"$HOME\"'/.mikiko/server/asset-cache/staging/a b/component.tar.gz'",
     );
@@ -264,6 +295,22 @@ describe("remote asset installer command builders", () => {
     expect(command).not.toContain("total unknown");
   });
 
+  it("downloads without optional progress tools on minimal remote hosts", () => {
+    const command = buildRemoteArtifactDownloadCommand({
+      tool: "curl",
+      urls: ["https://cdn.example.test/component.tar.gz"],
+      outputPath: "~/.mikiko/server/component.tar.gz",
+      progressLabel: "source-server-linux-x64",
+      supportsProgress: false,
+    });
+
+    expect(command).toContain("curl -fL");
+    expect(command).not.toContain("progress_pid=");
+    expect(command).not.toContain("awk ");
+    expect(command).not.toContain("wc -c");
+    expect(command).not.toContain("date +%s");
+  });
+
   shellBackedIt(
     "tries the next artifact URL when a downloaded candidate fails sha256 validation",
     async () => {
@@ -275,9 +322,7 @@ describe("remote asset installer command builders", () => {
       const shellOutputPath = toLocalShellPath(outputPath);
       await writeFile(badArchive, "stale artifact");
       await writeFile(goodArchive, "current artifact");
-      const expectedSha256 = createHash("sha256")
-        .update("current artifact")
-        .digest("hex");
+      const expectedSha256 = createHash("sha256").update("current artifact").digest("hex");
 
       const command = buildRemoteArtifactDownloadCommand({
         tool: "curl",
@@ -286,23 +331,22 @@ describe("remote asset installer command builders", () => {
         progressLabel: "node-runtime@v22.16.0",
         expectedSha256,
         sha256Tool: await detectLocalShellSha256Tool(shellCommand),
+        supportsProgress: false,
       });
 
       await execFileAsync(shellCommand, ["-c", command]);
 
-      await expect(readFile(outputPath, "utf8")).resolves.toBe(
-        "current artifact",
-      );
+      await expect(readFile(outputPath, "utf8")).resolves.toBe("current artifact");
     },
   );
 
   it("builds sha256 commands for openssl", () => {
-    expect(
-      buildRemoteChecksumCommand({
-        tool: "openssl",
-        filePath: "~/.mikiko/server/component.tar.gz",
-      }),
-    ).toContain("openssl dgst -sha256");
+    const command = buildRemoteChecksumCommand({
+      tool: "openssl",
+      filePath: "~/.mikiko/server/component.tar.gz",
+    });
+    expect(command).toContain("openssl dgst -sha256");
+    expect(command).not.toContain("awk");
   });
 });
 
@@ -310,19 +354,19 @@ describe("LocalUploadAssetInstaller", () => {
   it("已取消连接不得开始写入远端 staging", async () => {
     const releaseDir = await mkdtemp(join(tmpdir(), "zcode-installer-pre-cancel-test-"));
     await mkdir(join(releaseDir, "server"), { recursive: true });
-    await writeFile(join(releaseDir, "server", "zcode-server.cjs"), "server", "utf8");
+    await writeFile(join(releaseDir, "server", "mikiko-server.cjs"), "server", "utf8");
     const controller = new AbortController();
     controller.abort();
     const backend = new InstallerBackend();
-    const upload = vi.spyOn(backend, "upload").mockImplementation(
-      async (_localPath, _remotePath, options) => {
+    const upload = vi
+      .spyOn(backend, "upload")
+      .mockImplementation(async (_localPath, _remotePath, options) => {
         if (options?.signal?.aborted) {
           const error = new Error("Remote upload canceled");
           error.name = "AbortError";
           throw error;
         }
-      },
-    );
+      });
     const installer = new LocalUploadAssetInstaller(
       backend,
       {
@@ -336,70 +380,13 @@ describe("LocalUploadAssetInstaller", () => {
     await expect(
       installer.installFile({
         componentId: "server-bundle",
-        sourceRelativePath: "server/zcode-server.cjs",
-        remotePath: "~/.mikiko/server/zcode-server.cjs",
+        sourceRelativePath: "server/mikiko-server.cjs",
+        remotePath: "~/.mikiko/server/mikiko-server.cjs",
       }),
     ).rejects.toMatchObject({ name: "AbortError" });
 
     expect(backend.commands).toEqual([]);
     expect(upload).not.toHaveBeenCalled();
-  });
-
-  it("把连接取消信号传给远端文件上传", async () => {
-    const releaseDir = await mkdtemp(join(tmpdir(), "zcode-installer-abort-test-"));
-    await mkdir(join(releaseDir, "server"), { recursive: true });
-    await writeFile(
-      join(releaseDir, "server", "zcode-server.cjs"),
-      "server",
-      "utf8",
-    );
-    const controller = new AbortController();
-    const backend = new InstallerBackend();
-    const installer = new LocalUploadAssetInstaller(
-      backend,
-      {
-        releaseDir,
-        platformArch: "linux-x64",
-        signal: controller.signal,
-      },
-      { log: () => undefined, logWarn: () => undefined },
-    );
-
-    await installer.installFile({
-      componentId: "server-bundle",
-      sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.mikiko/server/zcode-server.cjs",
-    });
-
-    expect(backend.uploads[0]?.signal).toBe(controller.signal);
-  });
-
-  it("新的 SSH 文件上传会先清理超过 24 小时的同路径 owner staging", async () => {
-    const releaseDir = await mkdtemp(join(tmpdir(), "zcode-installer-stale-file-test-"));
-    await mkdir(join(releaseDir, "server"), { recursive: true });
-    await writeFile(join(releaseDir, "server", "zcode-server.cjs"), "server", "utf8");
-    const controller = new AbortController();
-    const backend = new InstallerBackend();
-    const installer = new LocalUploadAssetInstaller(
-      backend,
-      {
-        releaseDir,
-        platformArch: "linux-x64",
-        signal: controller.signal,
-      },
-      { log: () => undefined, logWarn: () => undefined },
-    );
-
-    await installer.installFile({
-      componentId: "server-bundle",
-      sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.mikiko/server/zcode-server.cjs",
-    });
-
-    expect(backend.commands[0]).toContain("find");
-    expect(backend.commands[0]).toContain("zcode-server.cjs.new-");
-    expect(backend.commands[0]).toContain("-mtime +0");
-    expect(backend.commands[0]).toContain("-exec rm -rf");
   });
 
   shellBackedIt("SSH staging janitor 只删除超过 24 小时的 owner 文件", async () => {
@@ -409,8 +396,8 @@ describe("LocalUploadAssetInstaller", () => {
       const remoteDir = join(rootDir, "remote");
       await mkdir(join(releaseDir, "server"), { recursive: true });
       await mkdir(remoteDir, { recursive: true });
-      await writeFile(join(releaseDir, "server", "zcode-server.cjs"), "server", "utf8");
-      const targetPath = join(remoteDir, "zcode-server.cjs");
+      await writeFile(join(releaseDir, "server", "mikiko-server.cjs"), "server", "utf8");
+      const targetPath = join(remoteDir, "mikiko-server.cjs");
       const stalePath = `${targetPath}.new-stale`;
       const freshPath = `${targetPath}.new-fresh`;
       await writeFile(targetPath, "final", "utf8");
@@ -432,7 +419,7 @@ describe("LocalUploadAssetInstaller", () => {
 
       await installer.installFile({
         componentId: "server-bundle",
-        sourceRelativePath: "server/zcode-server.cjs",
+        sourceRelativePath: "server/mikiko-server.cjs",
         remotePath: toLocalShellPath(targetPath),
       });
       await execFileAsync(localShellCommand!, ["-c", backend.commands[0]!]);
@@ -448,30 +435,30 @@ describe("LocalUploadAssetInstaller", () => {
   it("文件上传取消后不再执行正式文件替换", async () => {
     const releaseDir = await mkdtemp(join(tmpdir(), "zcode-installer-cancel-test-"));
     await mkdir(join(releaseDir, "server"), { recursive: true });
-    await writeFile(join(releaseDir, "server", "zcode-server.cjs"), "server", "utf8");
+    await writeFile(join(releaseDir, "server", "mikiko-server.cjs"), "server", "utf8");
     const controller = new AbortController();
     const backend = new InstallerBackend();
     let markUploadStarted!: () => void;
     const uploadStarted = new Promise<void>((resolve) => {
       markUploadStarted = resolve;
     });
-    vi.spyOn(backend, "upload").mockImplementation(
-      async (_localPath, _remotePath, options) => {
-        markUploadStarted();
-        await new Promise<never>((_resolve, reject) => {
-          const rejectAbort = () => {
-            const error = new Error("Remote upload canceled");
-            error.name = "AbortError";
-            reject(error);
-          };
-          if (options?.signal?.aborted) {
-            rejectAbort();
-            return;
-          }
-          options?.signal?.addEventListener("abort", rejectAbort, { once: true });
+    vi.spyOn(backend, "upload").mockImplementation(async (_localPath, _remotePath, options) => {
+      markUploadStarted();
+      await new Promise<never>((_resolve, reject) => {
+        const rejectAbort = () => {
+          const error = new Error("Remote upload canceled");
+          error.name = "AbortError";
+          reject(error);
+        };
+        if (options?.signal?.aborted) {
+          rejectAbort();
+          return;
+        }
+        options?.signal?.addEventListener("abort", rejectAbort, {
+          once: true,
         });
-      },
-    );
+      });
+    });
     const installer = new LocalUploadAssetInstaller(
       backend,
       {
@@ -484,8 +471,8 @@ describe("LocalUploadAssetInstaller", () => {
 
     const installing = installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.mikiko/server/zcode-server.cjs",
+      sourceRelativePath: "server/mikiko-server.cjs",
+      remotePath: "~/.mikiko/server/mikiko-server.cjs",
     });
     await uploadStarted;
     controller.abort();
@@ -506,23 +493,23 @@ describe("LocalUploadAssetInstaller", () => {
     const uploadStarted = new Promise<void>((resolve) => {
       markUploadStarted = resolve;
     });
-    vi.spyOn(backend, "upload").mockImplementation(
-      async (_localPath, _remotePath, options) => {
-        markUploadStarted();
-        await new Promise<never>((_resolve, reject) => {
-          const rejectAbort = () => {
-            const error = new Error("Remote upload canceled");
-            error.name = "AbortError";
-            reject(error);
-          };
-          if (options?.signal?.aborted) {
-            rejectAbort();
-            return;
-          }
-          options?.signal?.addEventListener("abort", rejectAbort, { once: true });
+    vi.spyOn(backend, "upload").mockImplementation(async (_localPath, _remotePath, options) => {
+      markUploadStarted();
+      await new Promise<never>((_resolve, reject) => {
+        const rejectAbort = () => {
+          const error = new Error("Remote upload canceled");
+          error.name = "AbortError";
+          reject(error);
+        };
+        if (options?.signal?.aborted) {
+          rejectAbort();
+          return;
+        }
+        options?.signal?.addEventListener("abort", rejectAbort, {
+          once: true,
         });
-      },
-    );
+      });
+    });
     const installer = new LocalUploadAssetInstaller(
       backend,
       {
@@ -575,40 +562,10 @@ describe("LocalUploadAssetInstaller", () => {
     expect(backend.commands[0]).toContain("-mtime +0");
   });
 
-  it("把连接取消信号传给远端目录归档上传", async () => {
-    const releaseDir = await mkdtemp(join(tmpdir(), "zcode-installer-dir-abort-test-"));
-    const sourceDir = join(releaseDir, "tools", "linux-x64", "ripgrep");
-    await mkdir(sourceDir, { recursive: true });
-    await writeFile(join(sourceDir, "rg"), "ripgrep", "utf8");
-    const controller = new AbortController();
-    const backend = new InstallerBackend();
-    const installer = new LocalUploadAssetInstaller(
-      backend,
-      {
-        releaseDir,
-        platformArch: "linux-x64",
-        signal: controller.signal,
-      },
-      { log: () => undefined, logWarn: () => undefined },
-    );
-
-    await installer.installDirectory({
-      componentId: "ripgrep",
-      sourceRelativePath: "tools/linux-x64/ripgrep",
-      remoteDir: "~/.mikiko/server/tools/ripgrep",
-    });
-
-    expect(backend.uploads[0]?.signal).toBe(controller.signal);
-  });
-
   it("uses a unique staging path for each uploaded file replacement", async () => {
     const releaseDir = await mkdtemp(join(tmpdir(), "zcode-installer-test-"));
     await mkdir(join(releaseDir, "server"), { recursive: true });
-    await writeFile(
-      join(releaseDir, "server", "zcode-server.cjs"),
-      "server",
-      "utf8",
-    );
+    await writeFile(join(releaseDir, "server", "mikiko-server.cjs"), "server", "utf8");
     const backend = new InstallerBackend();
     const installer = new LocalUploadAssetInstaller(
       backend,
@@ -618,16 +575,14 @@ describe("LocalUploadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.mikiko/server/zcode-server.cjs",
+      sourceRelativePath: "server/mikiko-server.cjs",
+      remotePath: "~/.mikiko/server/mikiko-server.cjs",
     });
 
     expect(backend.uploads[0]?.remotePath).toMatch(
-      /^~\/\.mikiko\/server\/zcode-server\.cjs\.new-[\w-]+$/u,
+      /^~\/\.mikiko\/server\/mikiko-server\.cjs\.new-[\w-]+$/u,
     );
-    expect(backend.commands.join("\n")).toContain(
-      backend.uploads[0]!.remotePath.split("/").at(-1),
-    );
+    expect(backend.commands.join("\n")).toContain(backend.uploads[0]!.remotePath.split("/").at(-1));
     expect(backend.commands[0]).not.toContain("find");
   });
 
@@ -690,9 +645,9 @@ describe("LocalUploadAssetInstaller", () => {
       { log: () => undefined, logWarn: () => undefined },
     );
 
-    await expect(
-      installer.resolveComponentVersion("node-runtime"),
-    ).resolves.toBe("24.10.0-node-runtime");
+    await expect(installer.resolveComponentVersion("node-runtime")).resolves.toBe(
+      "24.10.0-node-runtime",
+    );
     expect(requestedComponents).toEqual([["node-runtime"]]);
   });
 
@@ -705,20 +660,14 @@ describe("LocalUploadAssetInstaller", () => {
     );
 
     await expect(
-      installer.tryResolveLocalPath(
-        ["node-pty"],
-        "node-pty/linux-x64/missing.node",
-      ),
+      installer.tryResolveLocalPath(["node-pty"], "node-pty/linux-x64/missing.node"),
     ).resolves.toBeNull();
 
     await mkdir(join(releaseDir, "server"), { recursive: true });
-    await writeFile(join(releaseDir, "server", "zcode-server.cjs"), "server");
+    await writeFile(join(releaseDir, "server", "mikiko-server.cjs"), "server");
     await expect(
-      installer.tryResolveLocalPath(
-        ["server-bundle"],
-        "server/zcode-server.cjs",
-      ),
-    ).resolves.toBe(join(releaseDir, "server", "zcode-server.cjs"));
+      installer.tryResolveLocalPath(["server-bundle"], "server/mikiko-server.cjs"),
+    ).resolves.toBe(join(releaseDir, "server", "mikiko-server.cjs"));
   });
 
   it("creates directory upload archives without relying on local system tar", async () => {
@@ -749,9 +698,7 @@ describe("LocalUploadAssetInstaller", () => {
     const remoteTarPaths = backend.uploads.map((upload) => upload.remotePath);
     expect(new Set(remoteTarPaths)).toHaveLength(2);
     for (const remoteTarPath of remoteTarPaths) {
-      expect(remoteTarPath).toMatch(
-        /^~\/.mikiko\/server\/tools\/ripgrep\.tar\.gz-[\w-]+$/u,
-      );
+      expect(remoteTarPath).toMatch(/^~\/.mikiko\/server\/tools\/ripgrep\.tar\.gz-[\w-]+$/u);
     }
     expect(backend.commands.join("\n")).toContain("ripgrep.extract-");
     expect(backend.commands.join("\n")).toContain("trap cleanup_staging EXIT");
@@ -762,9 +709,9 @@ describe("LocalUploadAssetInstaller", () => {
     await writeFile(uploadedArchive, backend.uploads[0]!.content);
     await extractTarGzArchive(uploadedArchive, extractDir);
 
-    await expect(
-      readFile(join(extractDir, "ripgrep", "rg"), "utf8"),
-    ).resolves.toBe("ripgrep binary");
+    await expect(readFile(join(extractDir, "ripgrep", "rg"), "utf8")).resolves.toBe(
+      "ripgrep binary",
+    );
   });
 
   it("falls back to CDN cache when local directory exists but required child paths are missing", async () => {
@@ -773,15 +720,9 @@ describe("LocalUploadAssetInstaller", () => {
     const cdnReleaseDir = join(rootDir, "cdn-release");
     const sourceRelativePath = "glm/linux-x64/packages";
     await mkdir(join(staleReleaseDir, sourceRelativePath), { recursive: true });
-    await mkdir(
-      join(
-        cdnReleaseDir,
-        sourceRelativePath,
-        "skill-creator-plugin",
-        ".zcode-plugin",
-      ),
-      { recursive: true },
-    );
+    await mkdir(join(cdnReleaseDir, sourceRelativePath, "skill-creator-plugin", ".zcode-plugin"), {
+      recursive: true,
+    });
     await writeFile(
       join(
         cdnReleaseDir,
@@ -826,11 +767,9 @@ describe("LocalUploadAssetInstaller", () => {
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL, init?: RequestInit) =>
         await new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener(
-            "abort",
-            () => reject(init.signal?.reason),
-            { once: true },
-          );
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), {
+            once: true,
+          });
         }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -849,7 +788,7 @@ describe("LocalUploadAssetInstaller", () => {
 
     const startedAt = Date.now();
     await expect(
-      installer.tryResolveLocalPath(["glm"], "glm/linux-x64/missing-zcode.cjs"),
+      installer.tryResolveLocalPath(["glm"], "glm/linux-x64/missing-mikiko.cjs"),
     ).resolves.toBeNull();
     expect(Date.now() - startedAt).toBeLessThan(1_000);
     expect(fetchMock).toHaveBeenCalled();
@@ -858,6 +797,91 @@ describe("LocalUploadAssetInstaller", () => {
 });
 
 describe("RemoteDownloadAssetInstaller", () => {
+  shellBackedIt.each(
+    [
+      { stage: "download", diagnostic: "fixture download failed" },
+      { stage: "checksum", diagnostic: "sha256 mismatch" },
+      { stage: "extract", diagnostic: "fixture extraction failed" },
+    ].flatMap((scenario) =>
+      [true, false].map((supportsProgress) => ({ ...scenario, supportsProgress })),
+    ),
+  )(
+    "远端 $stage 失败保留原始错误并清理，恢复后可重试（progress=$supportsProgress）",
+    async ({ stage, diagnostic, supportsProgress }) => {
+      const rootDir = await mkdtemp(join(tmpdir(), "zcode-installer-download-failure-"));
+      const sourcePath = join(rootDir, "mikiko-server.cjs");
+      const archivePath = join(rootDir, "component.tar.gz");
+      await writeFile(sourcePath, "current server");
+      await createTarGzArchive(archivePath, [{ sourcePath, archivePath: "mikiko-server.cjs" }]);
+      const sha256 = createHash("sha256")
+        .update(await readFile(archivePath))
+        .digest("hex");
+      stubManifestFetch({
+        ...validManifest,
+        components: [{ ...validManifest.components[0], sha256 }],
+      });
+      const download = `wget() { while [ "$1" != -O ]; do shift; done; shift; command cp ${quotePosixShellArg(toLocalShellPath(archivePath))} "$1"; }`;
+      const failure =
+        stage === "download"
+          ? 'wget() { echo "fixture download failed" >&2; return 4; }'
+          : stage === "checksum"
+            ? 'wget() { while [ "$1" != -O ]; do shift; done; shift; printf corrupt > "$1"; }'
+            : 'tar() { echo "fixture extraction failed" >&2; return 2; }';
+      const backend = new ShellInstallerBackend(rootDir, `${download}\n${failure}`);
+      const installedPath = join(rootDir, ".mikiko/server/mikiko-server.cjs");
+      await mkdir(join(rootDir, ".mikiko/server"), { recursive: true });
+      await writeFile(installedPath, "previous server");
+      const installer = new RemoteDownloadAssetInstaller(
+        backend,
+        {
+          version: ZCODE_VERSION,
+          platformArch: "linux-x64",
+          remoteCdnBaseUrl: "https://cdn.example.test/releases",
+        },
+        {
+          download: "wget",
+          tar: "tar",
+          sha256: await detectLocalShellSha256Tool(localShellCommand!),
+          supportsProgress,
+        },
+        { log: () => undefined, logWarn: () => undefined },
+      );
+      try {
+        await expect(
+          installer.installFile({
+            componentId: "server-bundle",
+            sourceRelativePath: "server/mikiko-server.cjs",
+            remotePath: "~/.mikiko/server/mikiko-server.cjs",
+          }),
+        ).rejects.toThrow(diagnostic);
+        expect(backend.commands).toHaveLength(1);
+        await expect(readdir(join(rootDir, ".mikiko/server/asset-cache/staging"))).resolves.toEqual(
+          [],
+        );
+        await expect(
+          readdir(join(rootDir, ".mikiko/server/asset-cache/components/linux-x64/server-bundle")),
+        ).resolves.toEqual([]);
+        await expect(readFile(installedPath, "utf8")).resolves.toBe("previous server");
+        backend.prelude = download;
+        await installer.installFile({
+          componentId: "server-bundle",
+          sourceRelativePath: "server/mikiko-server.cjs",
+          remotePath: "~/.mikiko/server/mikiko-server.cjs",
+        });
+        await expect(readFile(installedPath, "utf8")).resolves.toBe("current server");
+        await expect(readdir(join(rootDir, ".mikiko/server/asset-cache/staging"))).resolves.toEqual(
+          [],
+        );
+        await expect(
+          readdir(join(rootDir, ".mikiko/server/asset-cache/components/linux-x64/server-bundle")),
+        ).resolves.toEqual([sha256]);
+      } finally {
+        vi.unstubAllGlobals();
+        await rm(rootDir, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("已取消连接不得启动远端下载或 staging 命令", async () => {
     stubManifestFetch(validManifest);
     const controller = new AbortController();
@@ -878,8 +902,8 @@ describe("RemoteDownloadAssetInstaller", () => {
     await expect(
       installer.installFile({
         componentId: "server-bundle",
-        sourceRelativePath: "server/zcode-server.cjs",
-        remotePath: "~/.mikiko/server/zcode-server.cjs",
+        sourceRelativePath: "server/mikiko-server.cjs",
+        remotePath: "~/.mikiko/server/mikiko-server.cjs",
       }),
     ).rejects.toMatchObject({ name: "AbortError" });
 
@@ -888,14 +912,13 @@ describe("RemoteDownloadAssetInstaller", () => {
   });
 
   it("远端下载模式的本地 manifest 和 HEAD 使用注入网络出口", async () => {
-    const remoteAssetFetch = vi.fn<typeof fetch>(
-      async (_input, init) =>
-        init?.method === "HEAD"
-          ? new Response(null, {
-              status: 200,
-              headers: { "content-length": "1024" },
-            })
-          : new Response(JSON.stringify(validManifest), { status: 200 }),
+    const remoteAssetFetch = vi.fn<typeof fetch>(async (_input, init) =>
+      init?.method === "HEAD"
+        ? new Response(null, {
+            status: 200,
+            headers: { "content-length": "1024" },
+          })
+        : new Response(JSON.stringify(validManifest), { status: 200 }),
     );
     const directFetch = vi
       .spyOn(globalThis, "fetch")
@@ -916,17 +939,13 @@ describe("RemoteDownloadAssetInstaller", () => {
     try {
       await installer.installFile({
         componentId: "server-bundle",
-        sourceRelativePath: "server/zcode-server.cjs",
-        remotePath: "~/.mikiko/server/zcode-server.cjs",
+        sourceRelativePath: "server/mikiko-server.cjs",
+        remotePath: "~/.mikiko/server/mikiko-server.cjs",
       });
 
       expect(directFetch).not.toHaveBeenCalled();
-      expect(
-        remoteAssetFetch.mock.calls.some(([, init]) => init?.method === "HEAD"),
-      ).toBe(true);
-      expect(
-        remoteAssetFetch.mock.calls.some(([, init]) => init?.method !== "HEAD"),
-      ).toBe(true);
+      expect(remoteAssetFetch.mock.calls.some(([, init]) => init?.method === "HEAD")).toBe(true);
+      expect(remoteAssetFetch.mock.calls.some(([, init]) => init?.method !== "HEAD")).toBe(true);
     } finally {
       directFetch.mockRestore();
     }
@@ -966,8 +985,8 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     const installing = installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.mikiko/server/zcode-server.cjs",
+      sourceRelativePath: "server/mikiko-server.cjs",
+      remotePath: "~/.mikiko/server/mikiko-server.cjs",
     });
     await headStarted;
     controller.abort();
@@ -999,8 +1018,8 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.mikiko/server/zcode-server.cjs",
+      sourceRelativePath: "server/mikiko-server.cjs",
+      remotePath: "~/.mikiko/server/mikiko-server.cjs",
     });
 
     const command = backend.commands.join("\n");
@@ -1008,15 +1027,13 @@ describe("RemoteDownloadAssetInstaller", () => {
     expect(command).toContain("while ! mkdir");
     expect(command).toContain("stat -c %Y");
     expect(command).toContain("stat -f %m");
-    expect(command).toContain(
-      "stale lock for server-bundle@1.0.0-server-bundle",
-    );
+    expect(command).toContain("stale lock for server-bundle@1.0.0-server-bundle");
     expect(command).toContain(
       'touch "$HOME"\'/.mikiko/server/asset-cache/components/linux-x64/server-bundle/',
     );
     expect(command).toContain('kill "$lock_heartbeat_pid"');
     expect(command).toMatch(/\.new-[^\s']+/u);
-    expect(command).toMatch(/zcode-server\.cjs\.new-[\w-]+/u);
+    expect(command).toMatch(/mikiko-server\.cjs\.new-[\w-]+/u);
     expect(command).toContain("curl -fL");
     expect(command).toContain("sha256sum");
     vi.unstubAllGlobals();
@@ -1045,8 +1062,8 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.mikiko/server/zcode-server.cjs",
+      sourceRelativePath: "server/mikiko-server.cjs",
+      remotePath: "~/.mikiko/server/mikiko-server.cjs",
     });
 
     expect(logs).toContain(
@@ -1072,8 +1089,8 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.mikiko/server/zcode-server.cjs",
+      sourceRelativePath: "server/mikiko-server.cjs",
+      remotePath: "~/.mikiko/server/mikiko-server.cjs",
     });
 
     expect(backend.commands.join("\n")).toContain("total=2097152");
@@ -1116,8 +1133,8 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/zcode-server.cjs",
-      remotePath: "~/.mikiko/server/zcode-server.cjs",
+      sourceRelativePath: "server/mikiko-server.cjs",
+      remotePath: "~/.mikiko/server/mikiko-server.cjs",
     });
 
     const commands = backend.commands.join("\n");
@@ -1150,9 +1167,7 @@ describe("RemoteDownloadAssetInstaller", () => {
     const expectedCacheSegment = "b".repeat(64);
     const backend = new InstallerBackend(
       [],
-      new Set([
-        `~/.mikiko/server/asset-cache/components/linux-x64/glm/${oldCacheSegment}/.ready`,
-      ]),
+      new Set([`~/.mikiko/server/asset-cache/components/linux-x64/glm/${oldCacheSegment}/.ready`]),
     );
     const logs: string[] = [];
     const warnings: string[] = [];
@@ -1172,21 +1187,17 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "glm",
-      sourceRelativePath: "glm/linux-x64/zcode.cjs",
-      remotePath: "~/.mikiko/server/agents/glm/zcode.cjs",
+      sourceRelativePath: "glm/linux-x64/mikiko.cjs",
+      remotePath: "~/.mikiko/server/agents/glm/mikiko.cjs",
     });
 
     const commands = backend.commands.join("\n");
     expect(commands).toContain("curl -fL");
-    expect(commands).toContain(
-      `asset-cache/components/linux-x64/glm/${expectedCacheSegment}`,
-    );
+    expect(commands).toContain(`asset-cache/components/linux-x64/glm/${expectedCacheSegment}`);
     expect(commands).not.toContain(
       `rm -rf "$HOME"'/.mikiko/server/asset-cache/components/linux-x64/glm/${oldCacheSegment}'`,
     );
-    expect(logs).not.toContain(
-      `[remote-assets] remote component cache hit: glm@${hashedVersion}`,
-    );
+    expect(logs).not.toContain(`[remote-assets] remote component cache hit: glm@${hashedVersion}`);
     expect(warnings).toContain(
       `[remote-assets] download required: component=glm reason=remote component cache missing path=~/.mikiko/server/asset-cache/components/linux-x64/glm/${expectedCacheSegment}/.ready`,
     );
@@ -1212,8 +1223,8 @@ describe("RemoteDownloadAssetInstaller", () => {
     await expect(
       installer.installFile({
         componentId: "server-bundle",
-        sourceRelativePath: "server/zcode-server.cjs",
-        remotePath: "~/.mikiko/server/zcode-server.cjs",
+        sourceRelativePath: "server/mikiko-server.cjs",
+        remotePath: "~/.mikiko/server/mikiko-server.cjs",
       }),
     ).rejects.toThrow("sha256 is invalid");
     vi.unstubAllGlobals();

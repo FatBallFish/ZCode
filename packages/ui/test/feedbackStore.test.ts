@@ -17,25 +17,26 @@ describe("feedback store", () => {
     resetFeedbackStore();
   });
 
-  it("入口关闭期间：互斥对话框与新建表单行为全部 no-op（FEEDBACK_ENTRY_ENABLED=false）", () => {
-    // custom 反馈暂时关闭（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.4）：
-    // openSubmit/openFeatureRequest/openSubmissionJob 均直接 return，状态恒为关闭。
-    // 恢复开关时，把本用例改回上游互斥/新建表单/按 jobId 打开三组断言。
+  it("self-hosted feedback keeps product-request and issue dialogs mutually exclusive", () => {
     useFeedbackStore.getState().openFeatureRequest();
-    expect(useFeedbackStore.getState()).toMatchObject({
-      open: false,
-      featureRequestOpen: false,
-    });
-
+    expect(useFeedbackStore.getState()).toMatchObject({ open: false, featureRequestOpen: true });
     useFeedbackStore.getState().openSubmit({ includeLogs: true });
     expect(useFeedbackStore.getState()).toMatchObject({
-      open: false,
+      open: true,
       featureRequestOpen: false,
-      submitDraft: null,
+      submitDraft: { includeLogs: true },
       submissionJobId: null,
     });
+  });
 
+  it("new issue drafts detach an earlier background submission", () => {
     useFeedbackStore.getState().openSubmissionJob("feedback-job-a");
-    expect(useFeedbackStore.getState().submissionJobId).toBe(null);
+    expect(useFeedbackStore.getState().submissionJobId).toBe("feedback-job-a");
+    useFeedbackStore.getState().openSubmit();
+    expect(useFeedbackStore.getState()).toMatchObject({
+      submissionJobId: null,
+      submitDraft: null,
+      tab: "submit",
+    });
   });
 });

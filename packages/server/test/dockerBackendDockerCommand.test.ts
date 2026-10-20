@@ -60,6 +60,9 @@ function resolveDockerExecStdout(args: string[]): string {
   if (shellCommand === "uname -m") {
     return "arm64\n";
   }
+  if (shellCommand.includes("ingress-token")) {
+    return "test-ingress-token\n";
+  }
   if (shellCommand.includes("/proc/sys/kernel/ostype")) {
     return "Linux\n";
   }
@@ -99,22 +102,48 @@ describe("DockerBackend docker command resolution", () => {
     mocks.spawn.mockImplementation(() => createSpawnChild());
   });
 
+  it.each(["", " ", "-it", "--privileged", "bad name", "bad/name", "bad\nname"])(
+    "直接执行与 home 文件读取在调用 CLI 前拒绝非法容器引用 %j",
+    async (container) => {
+      const backend = new DockerBackend({ kind: "docker", container });
+      await expect(backend.exec("printf ok")).rejects.toThrow("Invalid Docker container reference");
+      await expect(backend.readFile("~/.mikiko/ingress-token")).rejects.toThrow(
+        "Invalid Docker container reference",
+      );
+      expect(mocks.spawn).not.toHaveBeenCalled();
+      expect(mocks.execFile).not.toHaveBeenCalled();
+      expect(mocks.listDockerContainers).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["dev_1.test-name", "a".repeat(64), "abc123", " zcode-dev "])(
+    "直接路径接受名称和 ID 且不增加 CLI 往返：%j",
+    async (container) => {
+      const backend = new DockerBackend({ kind: "docker", container });
+      await backend.exec("printf ok");
+      await backend.readFile("~/.mikiko/ingress-token");
+      expect(mocks.spawn).toHaveBeenCalledOnce();
+      expect(mocks.execFile).toHaveBeenCalledOnce();
+      expect(mocks.spawn.mock.calls[0]![1][2]).toBe(container.trim());
+      expect(mocks.execFile.mock.calls[0]![1][2]).toBe(container.trim());
+      expect(mocks.listDockerContainers).not.toHaveBeenCalled();
+    },
+  );
+
   it("exec 链路中的 docker exec 使用解析后的 Docker CLI", async () => {
     const backend = createBackend();
 
     await backend.exec("printf ok");
 
-    expect(mocks.execFile).toHaveBeenCalledWith(
-      RESOLVED_DOCKER_COMMAND,
-      ["exec", "-i", "zcode-dev", "sh", "-lc", "printf %s ~"],
-      expect.any(Object),
-      expect.any(Function),
-    );
+    expect(mocks.execFile).not.toHaveBeenCalled();
     expect(mocks.spawn).toHaveBeenCalledWith(
       RESOLVED_DOCKER_COMMAND,
       ["exec", "-i", "zcode-dev", "sh", "-lc", "printf ok"],
       expect.any(Object),
     );
+    await backend.exec("printf again");
+    expect(mocks.isDockerAvailable).not.toHaveBeenCalled();
+    expect(mocks.listDockerContainers).not.toHaveBeenCalled();
   });
 
   it("无进度上传也应由容器用户流式写入，避免 docker cp 文件所有权错配", async () => {
@@ -126,11 +155,11 @@ describe("DockerBackend docker command resolution", () => {
     });
     const backend = createBackend();
 
-    await backend.upload(fileURLToPath(import.meta.url), "~/.zcode/server/server.tgz");
+    await backend.upload(fileURLToPath(import.meta.url), "~/.mikiko/server/server.tgz");
 
     expect(mocks.spawn).toHaveBeenCalledWith(
       RESOLVED_DOCKER_COMMAND,
-      ["exec", "-i", "zcode-dev", "sh", "-lc", "cat > '/root/.zcode/server/server.tgz'"],
+      ["exec", "-i", "zcode-dev", "sh", "-lc", "cat > '/root/.mikiko/server/server.tgz'"],
       expect.any(Object),
     );
     expect(mocks.execFile.mock.calls.some((call) => (call[1] as string[])[0] === "cp")).toBe(false);
@@ -161,6 +190,24 @@ describe("DockerBackend docker command resolution", () => {
     );
   });
 
+  it("直接读取 home 相对文件时不预跑 Docker 可用性、容器列表或 home 探测", async () => {
+    const backend = createBackend();
+
+    await expect(backend.readFile("~/.mikiko/server/run/ingress-token")).resolves.toBe(
+      "test-ingress-token\n",
+    );
+
+    expect(mocks.isDockerAvailable).not.toHaveBeenCalled();
+    expect(mocks.listDockerContainers).not.toHaveBeenCalled();
+    expect(mocks.execFile).toHaveBeenCalledTimes(1);
+    expect(mocks.execFile).toHaveBeenCalledWith(
+      RESOLVED_DOCKER_COMMAND,
+      ["exec", "-i", "zcode-dev", "sh", "-lc", "cat \"$HOME\"/'.mikiko/server/run/ingress-token'"],
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
+
   it("带 progress 选项时改走 exec 流式上传并上报字节", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "docker-upload-progress-"));
     const localPath = join(tempDir, "attachment.bin");
@@ -174,13 +221,13 @@ describe("DockerBackend docker command resolution", () => {
     const backend = createBackend();
     const progress: Array<{ uploadedBytes: number; totalBytes: number }> = [];
 
-    await backend.upload(localPath, "~/.zcode/tmp/attachment.bin", {
+    await backend.upload(localPath, "~/.mikiko/tmp/attachment.bin", {
       onProgress: (event) => progress.push(event),
     });
 
     expect(mocks.spawn).toHaveBeenCalledWith(
       RESOLVED_DOCKER_COMMAND,
-      ["exec", "-i", "zcode-dev", "sh", "-lc", "cat > '/root/.zcode/tmp/attachment.bin'"],
+      ["exec", "-i", "zcode-dev", "sh", "-lc", "cat > '/root/.mikiko/tmp/attachment.bin'"],
       expect.any(Object),
     );
     expect(progress.at(-1)).toEqual({

@@ -1,3 +1,4 @@
+import { findPluginManifestPath, PLUGIN_MANIFEST_RELATIVE_PATHS } from "@zcode/adapters/plugins";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -40,6 +41,7 @@ const SEED_LOCK_TOTAL_BUDGET_MS = 15_000;
 
 const includedTopLevelPaths = new Set([
   ".mcp.json",
+  ".mikiko-plugin",
   ".zcode-plugin",
   "README.md",
   // 官方内容插件新增 agents 后，filesystem seed 的顶层白名单未同步，目录被静默裁掉。
@@ -132,12 +134,19 @@ function seedBundledOfficialPlugins(input: {
       withOfficialPluginSeedLock(
         targetRoot,
         () => {
+          const manifestFile = findSeedManifestFile(plugin);
+          if (!manifestFile)
+            throw new Error(`Bundled plugin manifest is missing: ${plugin.definition.name}`);
+          const sourceManifestContents = readSeedFileBytes(source, plugin, manifestFile).toString(
+            "utf8",
+          );
           // 桌面会并发预热多个 workspace Agent；复制插件资源时，
           // 多进程会互删 target 并在 Windows rename 时触发 EPERM。拿锁后必须二次检查，
           // 让等待者直接复用首个进程已经提交的完整缓存。
           if (isSeedCurrent(targetRoot, plugin)) {
             cleanupLegacySeedBackup(targetRoot, retryBudget);
             const manifestWritten = tryWriteOfficialPluginRuntimeManifest({
+              sourceManifestContents,
               pluginName: plugin.definition.name,
               retryBudget,
               rootPath: targetRoot,
@@ -169,6 +178,7 @@ function seedBundledOfficialPlugins(input: {
             );
             replaceSeedRoot(temporaryRoot, targetRoot, plugin, retryBudget);
             writeOfficialPluginRuntimeManifest({
+              sourceManifestContents,
               pluginName: plugin.definition.name,
               retryBudget,
               rootPath: targetRoot,
@@ -213,6 +223,7 @@ function seedBundledOfficialPlugins(input: {
 }
 
 function tryWriteOfficialPluginRuntimeManifest(input: {
+  sourceManifestContents: string;
   pluginName: string;
   retryBudget: OfficialPluginCacheRetryBudget;
   rootPath: string;
@@ -348,7 +359,7 @@ function resolveFilesystemPluginRoot(definition: OfficialPluginDefinition): stri
   for (const baseDir of candidateBaseDirs()) {
     for (const relativePath of definition.rootCandidates) {
       const rootPath = resolve(baseDir, relativePath);
-      if (existsSync(join(rootPath, ".zcode-plugin", "plugin.json"))) return rootPath;
+      if (findPluginManifestPath(rootPath)) return rootPath;
     }
   }
   return undefined;
@@ -432,12 +443,22 @@ function writeOfficialMarketplace(storageRoot: string, source: OfficialPluginSee
   });
 }
 
+function findSeedManifestFile(
+  plugin: OfficialPluginSeedPluginSource,
+): OfficialPluginSeedFile | undefined {
+  for (const path of PLUGIN_MANIFEST_RELATIVE_PATHS) {
+    const file = plugin.files.find((candidate) => candidate.path === path);
+    if (file) return file;
+  }
+  return undefined;
+}
+
 /** 从 seed 文件集中读插件 plugin.json 的 description；读取/解析失败按 undefined 降级。 */
 function readSeedPluginDescription(
   source: OfficialPluginSeedSource,
   plugin: OfficialPluginSeedPluginSource,
 ): string | undefined {
-  const manifestFile = plugin.files.find((file) => file.path === ".zcode-plugin/plugin.json");
+  const manifestFile = findSeedManifestFile(plugin);
   if (!manifestFile) return undefined;
   try {
     const parsed = JSON.parse(readSeedFileBytes(source, plugin, manifestFile).toString("utf8")) as {
@@ -470,9 +491,9 @@ function isSeedCurrent(targetRoot: string, plugin: OfficialPluginSeedPluginSourc
  */
 function isSeedUsable(targetRoot: string, definition: OfficialPluginDefinition): boolean {
   try {
-    const manifest = JSON.parse(
-      readFileSync(join(targetRoot, ".zcode-plugin", "plugin.json"), "utf8"),
-    ) as { name?: unknown };
+    const manifest = JSON.parse(readFileSync(findPluginManifestPath(targetRoot) ?? "", "utf8")) as {
+      name?: unknown;
+    };
     if (manifest.name !== definition.name) return false;
   } catch {
     return false;

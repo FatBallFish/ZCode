@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { build, createServer } from "vite";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 
 import { createPdfJsDocumentOptions } from "@/lib/pdfJsAssets.js";
-import { listPdfJsCMapAssets, resolvePdfJsCMapsDirectory } from "../vite/pdfJsCMapsPlugin.js";
+import {
+  pdfJsCMapsPlugin,
+  listPdfJsCMapAssets,
+  resolvePdfJsCMapsDirectory,
+} from "../vite/pdfJsCMapsPlugin.js";
 
 const REPORTLAB_STSONG_PDF_BASE64 =
   "JVBERi0xLjQKJZOMi54gUmVwb3J0TGFiIEdlbmVyYXRlZCBQREYgZG9jdW1lbnQgKG9wZW5zb3VyY2UpCjEgMCBvYmoKPDwKL0YxIDIgMCBSIC9GMiAzIDAgUgo+PgplbmRvYmoKMiAwIG9iago8PAovQmFzZUZvbnQgL0hlbHZldGljYSAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyAvTmFtZSAvRjEgL1N1YnR5cGUgL1R5cGUxIC9UeXBlIC9Gb250Cj4+CmVuZG9iagozIDAgb2JqCjw8Ci9CYXNlRm9udCAvU1RTb25nLUxpZ2h0IC9EZXNjZW5kYW50Rm9udHMgWyA8PAovQmFzZUZvbnQgL1NUU29uZy1MaWdodCAvQ0lEU3lzdGVtSW5mbyA8PAovT3JkZXJpbmcgKEdCMSkgL1JlZ2lzdHJ5IChBZG9iZSkgL1N1cHBsZW1lbnQgMAo+PiAvRFcgMTAwMCAvRm9udERlc2NyaXB0b3IgPDwKL0FzY2VudCA3NTIgL0NhcEhlaWdodCA3MzcgL0Rlc2NlbnQgLTI3MSAvRmxhZ3MgNiAvRm9udEJCb3ggWyAtMjUgLTI1NCAxMDAwIDg4MCBdIC9Gb250TmFtZSAvU1RTb25nU3RkLUxpZ2h0IAogIC9JdGFsaWNBbmdsZSAwIC9MZWFkaW5nIDE0OCAvTWF4V2lkdGggMTAwMCAvTWlzc2luZ1dpZHRoIDUwMCAvU3RlbUggOTEgL1N0ZW1WIDU4IAogIC9UeXBlIC9Gb250RGVzY3JpcHRvciAvWEhlaWdodCA1NTMKPj4gL1N1YnR5cGUgL0NJREZvbnRUeXBlMCAvVHlwZSAvRm9udCAKICAvVyBbIDEgWyAyMDcgMjcwIDM0MiA0NjcgNDYyIDc5NyA3MTAgMjM5IDM3NCBdIDEwIFsgMzc0IDQyMyA2MDUgMjM4IDM3NSAyMzggMzM0IDQ2MiBdIDE4IDI2IDQ2MiAyNyAyOCAyMzggCiAgMjkgMzEgNjA1IDMyIFsgMzQ0IDc0OCA2ODQgNTYwIDY5NSA3MzkgNTYzIDUxMSA3MjkgNzkzIAogIDMxOCAzMTIgNjY2IDUyNiA4OTYgNzU4IDc3MiA1NDQgNzcyIDYyOCAKICA0NjUgNjA3IDc1MyA3MTEgOTcyIDY0NyA2MjAgNjA3IDM3NCAzMzMgCiAgMzc0IDYwNiA1MDAgMjM5IDQxNyA1MDMgNDI3IDUyOSA0MTUgMjY0IAogIDQ0NCA1MTggMjQxIDIzMCA0OTUgMjI4IDc5MyA1MjcgNTI0IF0gODEgWyA1MjQgNTA0IDMzOCAzMzYgMjc3IDUxNyA0NTAgNjUyIDQ2NiA0NTIgCiAgNDA3IDM3MCAyNTggMzcwIDYwNSBdIF0KPj4gXSAvRW5jb2RpbmcgL1VuaUdCLVVDUzItSCAvTmFtZSAvRjIgL1N1YnR5cGUgL1R5cGUwIC9UeXBlIC9Gb250Cj4+CmVuZG9iago0IDAgb2JqCjw8Ci9Db250ZW50cyA4IDAgUiAvTWVkaWFCb3ggWyAwIDAgNTk1LjI3NTYgODQxLjg4OTggXSAvUGFyZW50IDcgMCBSIC9SZXNvdXJjZXMgPDwKL0ZvbnQgMSAwIFIgL1Byb2NTZXQgWyAvUERGIC9UZXh0IC9JbWFnZUIgL0ltYWdlQyAvSW1hZ2VJIF0KPj4gL1JvdGF0ZSAwIC9UcmFucyA8PAoKPj4gCiAgL1R5cGUgL1BhZ2UKPj4KZW5kb2JqCjUgMCBvYmoKPDwKL1BhZ2VNb2RlIC9Vc2VOb25lIC9QYWdlcyA3IDAgUiAvVHlwZSAvQ2F0YWxvZwo+PgplbmRvYmoKNiAwIG9iago8PAovQXV0aG9yIChaLmFpKSAvQ3JlYXRpb25EYXRlIChEOjIwMjYwNzI4MTUzNDE4KzA4JzAwJykgL0NyZWF0b3IgKFouYWkpIC9LZXl3b3JkcyAoKSAvTW9kRGF0ZSAoRDoyMDI2MDcyODE1MzQxOCswOCcwMCcpIC9Qcm9kdWNlciAoUmVwb3J0TGFiIFBERiBMaWJyYXJ5IC0gXChvcGVuc291cmNlXCkpIAogIC9TdWJqZWN0IChIZWxsbyBXb3JsZCBpbiBFbmdsaXNoLCBDaGluZXNlLCBhbmQgU3BhbmlzaCkgL1RpdGxlIChIZWxsbywgV29ybGQhIC0gVGhyZWUgTGFuZ3VhZ2VzKSAvVHJhcHBlZCAvRmFsc2UKPj4KZW5kb2JqCjcgMCBvYmoKPDwKL0NvdW50IDEgL0tpZHMgWyA0IDAgUiBdIC9UeXBlIC9QYWdlcwo+PgplbmRvYmoKOCAwIG9iago8PAovRmlsdGVyIFsgL0FTQ0lJODVEZWNvZGUgL0ZsYXRlRGVjb2RlIF0gL0xlbmd0aCAzMjYKPj4Kc3RyZWFtCkdhdCVdOWhXQWgmO0taTCgjdURnXT9dYmVFWUt1ZFBfdVtmS2ZyTzM1RW5tOy9OcnNmU1lXKSpkTlVHI1lXTTs5XVlkQm0+aCZKViRLKilDcj9EPjcjVi4jTDFrWzw6NmhaZW04YTM+R2VyZzcnVihlaWdoVyQ/IWo0dWIrIWhIIm9WZVYoOjJhaVc3Y1djTyRnX3ByXSZkSUNgM2thdUAiXGI0MmVPK1NcR0gmNmNMJSMtJSVSdGsoSFs0YmJqQDtsJWFnWl5PJGE6PEJBUVxYNyc1bmRgbVYoU1JGPitYY1VJNW4xWiJQJTxeIT1CZkVyODpOKC9gZidvXzpnOFRASVJcNUtkLlQ4PyhvZik7LD5xUVw0PUdeJDBSaUlrSUokPDJUZWxlMjQvUkBMMUxtPkxtJ3VyTEstaGFGNCsiLzpPL34+ZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgOQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwNjEgMDAwMDAgbiAKMDAwMDAwMDEwMiAwMDAwMCBuIAowMDAwMDAwMjA5IDAwMDAwIG4gCjAwMDAwMDExNDIgMDAwMDAgbiAKMDAwMDAwMTM0NSAwMDAwMCBuIAowMDAwMDAxNDEzIDAwMDAwIG4gCjAwMDAwMDE3MjAgMDAwMDAgbiAKMDAwMDAwMTc3OSAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9JRCAKWzw4ZmQxN2JhMWMwMzE1YTNhNGEwN2MxNTE0YzM3OTRkZT48OGZkMTdiYTFjMDMxNWEzYTRhMDdjMTUxNGMzNzk0ZGU+XQolIFJlcG9ydExhYiBnZW5lcmF0ZWQgUERGIGRvY3VtZW50IC0tIGRpZ2VzdCAob3BlbnNvdXJjZSkKCi9JbmZvIDYgMCBSCi9Sb290IDUgMCBSCi9TaXplIDkKPj4Kc3RhcnR4cmVmCjIxOTUKJSVFT0YK";
@@ -48,4 +56,62 @@ describe("PDF.js CMap support", () => {
       await document.destroy();
     }
   });
+});
+
+it("starts the actual Vite 8 dev server and serves CMaps without build-only emitFile calls", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "mikiko-cmap-serve-")));
+  const messages: string[] = [];
+  const logger = {
+    info: () => {},
+    warn: (message: string) => messages.push(message),
+    warnOnce: (message: string) => messages.push(message),
+    error: (message: string) => messages.push(message),
+    clearScreen: () => {},
+    hasErrorLogged: () => false,
+    hasWarned: false,
+  };
+  const server = await createServer({
+    configFile: false,
+    root,
+    plugins: [pdfJsCMapsPlugin()],
+    customLogger: logger,
+    server: { host: "127.0.0.1", port: 0, strictPort: false },
+  });
+  try {
+    await server.listen();
+    const base = server.resolvedUrls?.local[0];
+    expect(base).toBeTruthy();
+    const response = await fetch(new URL("pdfjs/cmaps/UniGB-UCS2-H.bcmap", base));
+    expect(response.status).toBe(200);
+    expect((await response.arrayBuffer()).byteLength).toBeGreaterThan(100);
+    expect(messages.join("\n")).not.toContain("emitFile");
+  } finally {
+    await server.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it("emits packed CMaps from the actual Vite production build", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "mikiko-cmap-build-")));
+  try {
+    await writeFile(
+      join(root, "index.html"),
+      "<!doctype html><html><body>PDF CMap build fixture</body></html>",
+    );
+    const result = await build({
+      configFile: false,
+      root,
+      plugins: [pdfJsCMapsPlugin()],
+      logLevel: "silent",
+      build: { write: false, minify: false },
+    });
+    const bundles = Array.isArray(result) ? result : [result];
+    const names = bundles.flatMap((bundle) =>
+      "output" in bundle ? bundle.output.map((asset) => asset.fileName) : [],
+    );
+    expect(names).toContain("pdfjs/cmaps/UniGB-UCS2-H.bcmap");
+    expect(names.filter((name) => name.endsWith(".bcmap")).length).toBeGreaterThan(150);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

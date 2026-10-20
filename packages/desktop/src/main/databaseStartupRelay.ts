@@ -82,8 +82,8 @@ function createControlHandler(
 ): (event: Electron.IpcMainEvent, raw: unknown) => void {
   return (event, raw) => {
     if (
-      event.sender.isDestroyed() ||
-      ![...record.forwards].some((win) => win.webContents === event.sender)
+      ![...record.forwards].some((win) => win.webContents === event.sender) ||
+      event.sender.isDestroyed()
     ) {
       return;
     }
@@ -144,7 +144,11 @@ function ensureRecord(child: UtilityProcess, startupId: string): DatabaseStartup
     };
     childRelayRecords.set(child, record);
     hostStartupIds.set(child, startupId);
-    child.once("exit", () => markExited(record!));
+    child.once("exit", () => {
+      // 退出后不能再用旧 Host 的 ready 身份开放新端口；已有窗口仍可读取失败快照。
+      hostStartupIds.delete(child);
+      markExited(record!);
+    });
   }
   return record;
 }
@@ -194,8 +198,7 @@ export function bindDatabaseStartupRelay(
     record.controls.delete(control);
     ipcMain.removeListener(InternalChannels.DatabaseStartupControl, control);
     record.forwards.delete(win);
-    hostStartupIds.delete(child);
-    childRelayRecords.delete(child);
+    // 主窗口关闭时附着的会话窗可能仍存活，Host relay 只能由实际进程退出撤销。
     if (windowBindings.get(win) === dispose) windowBindings.delete(win);
   };
   windowBindings.set(win, dispose);

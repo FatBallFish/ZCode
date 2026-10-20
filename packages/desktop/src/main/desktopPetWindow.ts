@@ -1,4 +1,4 @@
-/* eslint-disable max-lines -- 2026-10-12 增加 desktopPetScale 大小调节（倍率归一/存活窗口即时
+/* 2026-10-12 增加 desktopPetScale 大小调节（倍率归一/存活窗口即时
    resize/气泡跟随），宠物窗口生命周期与协议注册保持单文件收口，避免拆散唯一所有者。 */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -139,7 +139,7 @@ export interface DesktopPetManager {
   /** agent 运行态联动（只读订阅；无会话摘要时的兜底输入）。 */
   setAgentRunning(running: boolean): void;
   /** 会话状态摘要（多 host 合并后）：驱动气泡显隐/内容与宠物状态优先级映射。 */
-  setSessionSummaries(payload: PetSessionBubblePayload): void;
+  setSessionSummaries(payload: Omit<PetSessionBubblePayload, "theme">): void;
   /** 判断窗口是否归宠物管理：辅助窗不能被主窗口协调器当主窗复用。 */
   ownsWindow(win: BrowserWindow): boolean;
   destroy(): void;
@@ -172,7 +172,7 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
   const resizeLiveWindow = () => {
     if (!petWindow || petWindow.isDestroyed()) return;
     petWindow.setSize(windowSize.width, windowSize.height);
-    const [x, y] = petWindow.getPosition();
+    const { x, y } = petWindow.getBounds();
     const clamped = clampIntoWorkArea({ x, y }, windowSize);
     petWindow.setPosition(clamped.x, clamped.y, false);
     persistPositionSoon();
@@ -189,6 +189,7 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
 
   // 会话摘要驱动（specs/desktop/desktop-pet.md 会话状态气泡）：摘要优先、运行计数兜底。
   let sessionSummaries: PetSessionBubblePayload = {
+    theme: deps.getTheme(),
     rows: [],
     overflowCount: 0,
   };
@@ -235,7 +236,7 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
     positionSaveTimer = setTimeout(() => {
       positionSaveTimer = undefined;
       if (!petWindow || petWindow.isDestroyed()) return;
-      const [x, y] = petWindow.getPosition();
+      const { x, y } = petWindow.getBounds();
       deps.savePosition(clampIntoWorkArea({ x, y }, windowSize));
     }, 800);
   };
@@ -311,7 +312,6 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
       roundedCorners: false,
       // 桌面宠物是全桌面陪伴物：不跟随 Space/虚拟桌面切换会表现为「启用后看不到宠物」
       // （E2E 实测多显示器 + 多 Space 下窗口在别的 Space 存活，用户当前 Space 不可见）。
-      visibleOnAllWorkspaces: true,
       show: false,
       webPreferences: {
         preload: deps.petPreloadPath,
@@ -319,6 +319,8 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
         nodeIntegration: false,
       },
     });
+    // Electron 41 无此构造选项；通过正式 API 设置跨 Space 可见。
+    petWindow.setVisibleOnAllWorkspaces(true);
     petWindow.setAlwaysOnTop(true, "screen-saver");
     const position = clampIntoWorkArea(
       settings.position ?? defaultBottomRightPosition(windowSize),
@@ -356,7 +358,7 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
       if (width === windowSize.width && height === windowSize.height) return;
       petWindow.setSize(windowSize.width, windowSize.height);
       // 尺寸被系统建议矩形改过时位置也可能被牵动；重新夹取并持久化。
-      const [x, y] = petWindow.getPosition();
+      const { x, y } = petWindow.getBounds();
       const clamped = clampIntoWorkArea({ x: x ?? 0, y: y ?? 0 }, windowSize);
       petWindow.setPosition(clamped.x, clamped.y, false);
       persistPositionSoon();
@@ -514,7 +516,7 @@ export function createDesktopPetManager(deps: DesktopPetManagerDeps): DesktopPet
       refreshDerivedState();
     },
     setSessionSummaries(payload) {
-      sessionSummaries = filterSummaries(payload);
+      sessionSummaries = filterSummaries({ ...payload, theme: deps.getTheme() });
       refreshDerivedState();
     },
     ownsWindow(target) {

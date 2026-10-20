@@ -1,7 +1,7 @@
 import {
   BIGMODEL_PROVIDER_ID,
   BUILTIN_MODEL_PROVIDER_IDS,
-  DEFAULT_ZCODE_ENDPOINT_ORIGIN,
+  CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN,
   isTrustedCodingPlanWebviewOrigin,
   isZaiCodingPlanProviderId,
   normalizeZCodeEndpointOrigin,
@@ -97,7 +97,7 @@ export function resolveCodingPlanEmbeddedOrigin({
   const normalizedEndpointOrigin = normalizeZCodeEndpointOrigin(endpointOrigin);
   return isTrustedCodingPlanWebviewOrigin(normalizedEndpointOrigin, { e2eStoreBridgeEnabled })
     ? normalizedEndpointOrigin
-    : DEFAULT_ZCODE_ENDPOINT_ORIGIN;
+    : CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN;
 }
 
 export function buildCodingPlanEmbeddedWebviewUrl({

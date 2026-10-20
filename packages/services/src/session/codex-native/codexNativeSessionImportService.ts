@@ -173,17 +173,15 @@ export async function importCodexNativeSessions(params: {
           },
         },
       });
-      const syncedMeta = await params.taskIndexRepo.syncTaskMeta({
-        meta: {
-          ...meta,
-          migrationSource: "codex",
-          workspaceIdentity: targetWorkspaceIdentity ?? meta.workspaceIdentity,
-        },
+      // 上游收敛后 CLI 是会话事实唯一写者；导入只补展示信息并恢复组织态，不能整行覆盖事实。
+      const syncedMeta = await params.taskIndexRepo.updateTaskPresentation({
+        ...meta,
+        workspaceIdentity: targetWorkspaceIdentity ?? meta.workspaceIdentity,
+        presentation: { migrationSource: "codex" },
         searchableText: buildSearchableTextFromMessages(sessionFile.messages),
-        // 已导入会话被删除/归档后再次导入，不能继承旧行隐藏状态（与 Claude 导入同理）。
-        archived: false,
-        deleted: false,
       });
+      if (!syncedMeta) throw new Error("CLI import did not persist session facts");
+      await params.taskIndexRepo.updateTaskState({ ...syncedMeta, patch: { archived: false } });
       params.onTaskImported(syncedMeta);
 
       result.imported.push({

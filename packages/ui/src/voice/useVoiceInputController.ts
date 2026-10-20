@@ -1,5 +1,3 @@
-/* eslint-disable max-lines -- 控制器是 renderer 侧采集/会话/整理/回填四段生命周期的单一所有者
-   （specs/desktop/voice-input.md §4），拆分会把 latest ref 闭包共享的时序状态散射到多个模块。 */
 /**
  * 语音输入控制器（App 级单例挂载）—— specs/desktop/voice-input.md §4 事件顺序。
  * 负责：麦克风采集（getUserMedia + AudioWorklet 16kHz mono Int16 分帧）、
@@ -619,6 +617,5 @@ export function useVoiceInputController(options: VoiceInputControllerOptions): v
       cancel();
     };
     // begin/finish/cancel 均经 latest ref 取依赖，绑定只做一次。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }

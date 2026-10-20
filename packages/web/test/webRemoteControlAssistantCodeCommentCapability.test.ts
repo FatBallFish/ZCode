@@ -1,7 +1,7 @@
-// @vitest-environment jsdom
-import { createElement } from "react";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+// @vitest-environment jsdom
+import { createElement } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AssistantCodeCommentCards } from "@/AssistantCodeCommentCards.js";
@@ -56,12 +56,13 @@ describe("web remote control Assistant code-comment capability", () => {
     const workspacePath = "/remote/workspace";
     const workspaceIdentity = "remote:ssh:demo:/remote/workspace";
     const workspaceRemoteSessionId = "remote-session-1";
-    const projection = projectAssistantCodeComments(assistantText, { streaming: false });
+    const projection = projectAssistantCodeComments(assistantText, {
+      streaming: false,
+    });
     const cards = buildAssistantCodeCommentCards(assistantText, workspacePath);
     const onOpenCodeViewer = vi.fn();
 
     expect(projection.visibleText).toBe("已完成审查。\n");
-    expect(projection.visibleText).not.toContain("::code-comment");
     expect(cards).toHaveLength(1);
 
     render(

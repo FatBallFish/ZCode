@@ -136,8 +136,6 @@ export const BotChannelSection = memo(function BotChannelSection({
         <BotsDialog
           open={botsDialogOpen}
           onOpenChange={setBotsDialogOpen}
-          workspacePath={workspacePath}
-          workspaceIdentity={workspaceIdentity}
           entryProvider={botEntryProvider}
         />
       ) : null}

@@ -8,8 +8,8 @@ import {
   TID_OAUTH_LOGIN_BUTTON,
   TID_SUB2API_OIDC_LOGIN_BUTTON,
   TID_TASK_SETTINGS_BUTTON,
-  testId,
-} from "@zcode/shared";
+} from "@zcode/shared/test-ids";
+import { testId } from "@zcode/shared/test-ids";
 import { clearAppData, clickTestIdByDom, waitForTestIdByDom } from "./helpers/desktop-app.js";
 
 /**
@@ -51,7 +51,9 @@ async function driveKeyCloakLogin(authorizeUrl: string): Promise<void> {
   if (!formAction) {
     throw new Error(`KeyCloak 登录页解析失败: HTTP ${loginPage.status}`);
   }
-  const hidden = [...html.matchAll(/<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]*)"/g)]
+  const hidden = [
+    ...html.matchAll(/<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]*)"/g),
+  ]
     .map((match) => `${match[1] ?? ""}=${encodeURIComponent(match[2] ?? "")}`)
     .join("&");
   const body = new URLSearchParams({
@@ -68,7 +70,9 @@ async function driveKeyCloakLogin(authorizeUrl: string): Promise<void> {
   applyCookies(submitted);
   const location = submitted.headers.get("location") ?? "";
   if (!location.startsWith("http://127.0.0.1:")) {
-    throw new Error(`KeyCloak 登录未跳回 loopback：${location.slice(0, 80) || `HTTP ${submitted.status}`}`);
+    throw new Error(
+      `KeyCloak 登录未跳回 loopback：${location.slice(0, 80) || `HTTP ${submitted.status}`}`,
+    );
   }
   const callback = await fetch(location);
   if (callback.status !== 200) {

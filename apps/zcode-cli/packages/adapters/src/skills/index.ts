@@ -28,6 +28,7 @@ const SAFE_FRONTMATTER_KEYS = new Set([
 const DEFAULT_MAX_SKILL_BYTES = 100_000;
 const MAX_PLUGIN_MANIFEST_SEARCH_DEPTH = 5;
 const PLUGIN_MANIFEST_RELATIVE_PATHS = [
+  ".mikiko-plugin/plugin.json",
   ".zcode-plugin/plugin.json",
   ".claude-plugin/plugin.json",
   ".codex-plugin/plugin.json",
@@ -223,6 +224,7 @@ export class NodeSkillAdapter implements SkillPort {
       description,
       whenToUse: parseScalar(parsed.values.when_to_use),
       ...pluginAlias,
+      ...(root.namespace ? { qualifiedName: `${root.namespace}/${name}` } : {}),
       path,
       directory: dirname(path),
       rootPath: root.path,
@@ -370,10 +372,7 @@ function readBlockScalar(
     line.trim().length === 0 ? "" : line.slice(indent ?? 0),
   );
   return {
-    value:
-      style === "folded"
-        ? foldBlockScalarLines(contentLines)
-        : contentLines.join("\n").trim(),
+    value: style === "folded" ? foldBlockScalarLines(contentLines) : contentLines.join("\n").trim(),
     nextIndex: index,
   };
 }

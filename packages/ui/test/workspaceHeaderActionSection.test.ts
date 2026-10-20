@@ -172,6 +172,7 @@ describe("WorkspaceHeaderActionSection", () => {
     expect(renderSection({})).toContain("conversationShare.trigger");
     expect(renderSection({ remoteTarget: { kind: "ssh" } })).toContain("conversationShare.trigger");
     expect(renderSection({ isWebRemoteControl: true })).not.toContain("conversationShare.trigger");
+    expect(renderSection({ isDesktop: false })).not.toContain("conversationShare.trigger");
     expect(renderSection({ remoteTarget: { kind: "server" } })).not.toContain(
       "conversationShare.trigger",
     );
@@ -215,8 +216,8 @@ describe("WorkspaceHeaderActionSection", () => {
     expect(html).toContain("workspaceHeader.help.menu");
     expect(html).toContain("workspaceHeader.help.issueReport");
     expect(html).toContain("workspaceHeader.help.productRequest");
-    expect(html).toContain("workspaceHeader.help.community");
-    expect(html).toContain("workspaceHeader.help.docs");
+    expect(html).not.toContain("workspaceHeader.help.community");
+    expect(html).not.toContain("workspaceHeader.help.docs");
     expect(html).not.toContain("titleBar.menu.help.exportLogs");
     expect(html).toContain("terminal.toggle");
     expect(html).toContain("sidePane.expand");
@@ -265,7 +266,7 @@ describe("WorkspaceHeaderActionSection", () => {
     expect(html).toContain("sidePane.expand");
   });
 
-  it("routes help menu items to feedback, community, and docs entries", async () => {
+  it("routes self-hosted feedback and keeps unavailable product links hidden", async () => {
     capturedHeaderHelp.menuItems = [];
     capturedHeaderHelp.openSubmit.mockClear();
     capturedHeaderHelp.openFeatureRequest.mockClear();
@@ -287,11 +288,9 @@ describe("WorkspaceHeaderActionSection", () => {
       }),
     );
 
-    expect(capturedHeaderHelp.menuItems).toHaveLength(4);
-    await capturedHeaderHelp.menuItems[2]?.onSelect?.();
+    expect(capturedHeaderHelp.menuItems).toHaveLength(2);
     capturedHeaderHelp.menuItems[1]?.onSelect?.();
-    capturedHeaderHelp.menuItems[0]?.onSelect?.();
-    capturedHeaderHelp.menuItems[3]?.onSelect?.();
+    await capturedHeaderHelp.menuItems[0]?.onSelect?.();
 
     expect(capturedHeaderHelp.captureWindowScreenshot).not.toHaveBeenCalled();
     expect(capturedHeaderHelp.openSubmit).toHaveBeenNthCalledWith(
@@ -303,38 +302,9 @@ describe("WorkspaceHeaderActionSection", () => {
       }),
     );
     expect(capturedHeaderHelp.openFeatureRequest).toHaveBeenCalledTimes(1);
-    expect(capturedHeaderHelp.openCommunity).toHaveBeenCalledTimes(1);
-    expect(capturedHeaderHelp.openExternal).toHaveBeenCalledWith("https://zcode.z.ai/docs");
+    expect(capturedHeaderHelp.openCommunity).not.toHaveBeenCalled();
+    expect(capturedHeaderHelp.openExternal).not.toHaveBeenCalled();
     expect(capturedHeaderHelp.exportLogs).not.toHaveBeenCalled();
-  });
-
-  it("opens issue report without screenshots when window screenshot fails", async () => {
-    capturedHeaderHelp.menuItems = [];
-    capturedHeaderHelp.openSubmit.mockClear();
-    capturedHeaderHelp.captureWindowScreenshot.mockReset();
-    capturedHeaderHelp.captureWindowScreenshot.mockRejectedValue(new Error("capture failed"));
-    const { WorkspaceHeaderActionSection } =
-      await import("@/WorkspaceHeaderSections/WorkspaceHeaderActionSection.js");
-
-    renderToStaticMarkup(
-      withSettingsServices(WorkspaceHeaderActionSection, {
-        workspaceAbsPath: "/workspace",
-        isTerminalOpen: false,
-        isSidePaneOpen: false,
-        onToggleTerminal: vi.fn(),
-        onToggleSidePane: vi.fn(),
-      }),
-    );
-
-    await capturedHeaderHelp.menuItems[2]?.onSelect?.();
-
-    expect(capturedHeaderHelp.openSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "bug",
-        includeLogs: true,
-        screenshots: [],
-      }),
-    );
   });
 
   it("passes SSH remote context to the editor button group", async () => {

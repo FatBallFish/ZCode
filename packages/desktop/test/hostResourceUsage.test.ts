@@ -50,7 +50,7 @@ describe("hostResourceUsage", () => {
           pid: 100,
           category: "base",
           groupKey: "cli",
-          name: "zcode-agent-glm-demo",
+          name: "mikiko-agent-glm-demo",
         }),
         expect.objectContaining({
           pid: 120,

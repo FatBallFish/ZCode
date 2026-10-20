@@ -102,11 +102,17 @@ export function normalizeMcpAppResourcePermissions(value: unknown): McpAppsResou
 }
 
 /**
- * 资源级 `_meta["zcode/csp"]`：只认 `MCP_APPS_CSP_RELAXATION_FLAGS` 里的布尔键，未知键与非布尔值丢弃；
+ * 资源级 `_meta["mikiko/csp"]`：只认 `MCP_APPS_CSP_RELAXATION_FLAGS` 里的布尔键，未知键与非布尔值丢弃；
  * 没有任何为 true 的键返回 null（false 等于不声明）。
  */
 export function normalizeMcpAppCspRelaxations(meta: unknown): McpAppCspRelaxations | null {
-  const root = asRecord(asRecord(meta)?.[MCP_APPS_CSP_RELAXATION_META_KEY]);
+  const record = asRecord(meta);
+  // 新声明优先且不合并旧权限；旧插件只读兼容，避免旧 key 把显式关闭的权限重新放开。
+  const key =
+    record && Object.hasOwn(record, MCP_APPS_CSP_RELAXATION_META_KEY)
+      ? MCP_APPS_CSP_RELAXATION_META_KEY
+      : "zcode/csp";
+  const root = asRecord(record?.[key]);
   if (!root) return null;
   const result: McpAppCspRelaxations = {};
   for (const flag of MCP_APPS_CSP_RELAXATION_FLAGS) {

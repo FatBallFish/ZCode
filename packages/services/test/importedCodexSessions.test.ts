@@ -292,7 +292,7 @@ test("codex repo scans CODEX_HOME and imports via codex pipeline", async (t) => 
   });
   assert.equal(workspaceFiltered.length, 0);
 
-  const taskIndexRepo = new TaskIndexRepo(join(dataDir, "tasks.sqlite"));
+  const taskIndexRepo = new TaskIndexRepo(undefined, undefined, join(dataDir, "tasks.sqlite"));
   t.after(() => {
     taskIndexRepo.close();
   });
@@ -302,6 +302,7 @@ test("codex repo scans CODEX_HOME and imports via codex pipeline", async (t) => 
     sessionIds: [sessionId, emptySessionId, "rollout-does-not-exist"],
     createImportedSession: async (source) => {
       const sessionFile = buildImportedCodexTaskFile(source);
+      await taskIndexRepo.applyCliFacts({ meta: sessionFile.meta });
       return sessionFile.meta;
     },
     onTaskImported: (meta) => {
@@ -385,7 +386,7 @@ test("codex import skips sessions continued in app and repairs stale ones", asyn
     }
   });
 
-  const taskIndexRepo = new TaskIndexRepo(join(dataDir, "tasks.sqlite"));
+  const taskIndexRepo = new TaskIndexRepo(undefined, undefined, join(dataDir, "tasks.sqlite"));
   t.after(() => {
     taskIndexRepo.close();
   });
@@ -409,7 +410,11 @@ test("codex import skips sessions continued in app and repairs stale ones", asyn
   const result = await importCodexNativeSessions({
     taskIndexRepo,
     sessionIds: [continuedId, staleId],
-    createImportedSession: async (source) => buildImportedCodexTaskFile(source).meta,
+    createImportedSession: async (source) => {
+      const meta = buildImportedCodexTaskFile(source).meta;
+      await taskIndexRepo.applyCliFacts({ meta });
+      return meta;
+    },
     onTaskImported: () => {},
     getExistingTaskMeta: async ({ taskId }) => {
       if (taskId === continuedTaskId) return continuedMeta;

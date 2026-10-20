@@ -358,30 +358,24 @@ describe("SSHBackend", () => {
       password: "secret",
     });
 
+    const executedCommands: string[] = [];
+    const rawProbeCommand =
+      "printf 'platform='; uname -s; printf 'arch='; uname -m; printf 'kernel='; " +
+      "if [ -r /proc/sys/kernel/ostype ]; then cat /proc/sys/kernel/ostype; else printf '\\n'; fi";
     const fakeClient = {
       exec: (
         command: string,
         callback: (error: Error | null, channel: FakeExecChannel) => void,
       ) => {
+        executedCommands.push(command);
+        expectSSHExecCommand(command, rawProbeCommand);
         const channel = new FakeExecChannel();
         callback(null, channel);
-
-        if (command === `/bin/sh -c ${quotePosixShellArgForTest("uname -s")}`) {
-          emitExecResult(channel, {
-            stdout: "Darwin\n",
-            exitCode: 0,
-            exitBeforeData: true,
-          });
-          return;
-        }
-        if (command === `/bin/sh -c ${quotePosixShellArgForTest("uname -m")}`) {
-          emitExecResult(channel, {
-            stdout: "arm64\n",
-            exitCode: 0,
-          });
-          return;
-        }
-        emitExecResult(channel, { stdout: "", exitCode: 0 });
+        emitExecResult(channel, {
+          stdout: "platform=Darwin\narch=arm64\nkernel=\n",
+          exitCode: 0,
+          exitBeforeData: true,
+        });
       },
     };
 
@@ -396,6 +390,7 @@ describe("SSHBackend", () => {
       platform: "darwin",
       arch: "arm64",
     });
+    expect(executedCommands).toHaveLength(1);
   });
 
   it("exec 成功完成时不应输出无意义的完成日志", async () => {
@@ -581,7 +576,7 @@ describe("SSHBackend", () => {
         }
 
         if (
-          command === `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.zcode/server'")}`
+          command === `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.mikiko/server'")}`
         ) {
           const channel = new FakeExecChannel();
           callback(null, channel);
@@ -591,7 +586,7 @@ describe("SSHBackend", () => {
 
         if (
           command ===
-          `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.zcode/server' && cat > '/root/.zcode/server/node.new'")}`
+          `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.mikiko/server' && cat > '/root/.mikiko/server/node.new'")}`
         ) {
           callback(
             null,
@@ -631,14 +626,14 @@ describe("SSHBackend", () => {
     mutableBackend.connected = true;
 
     await expect(
-      backend.upload(localFilePath, "~/.zcode/server/node.new"),
+      backend.upload(localFilePath, "~/.mikiko/server/node.new"),
     ).resolves.toBeUndefined();
     await expect(
-      backend.upload(localFilePath, "~/.zcode/server/node.new", {
+      backend.upload(localFilePath, "~/.mikiko/server/node.new", {
         onProgress: (event) => secondUploadProgress.push(event),
       }),
     ).resolves.toBeUndefined();
-    expect(attemptedSftpPaths).toEqual(["/root/.zcode/server/node.new"]);
+    expect(attemptedSftpPaths).toEqual(["/root/.mikiko/server/node.new"]);
     expect(execUploadedContents).toEqual([localContent, localContent]);
     expect(secondUploadProgress.at(-1)).toEqual({
       uploadedBytes: Buffer.byteLength(localContent),
@@ -647,14 +642,14 @@ describe("SSHBackend", () => {
     const abortedUpload = new AbortController();
     abortedUpload.abort();
     await expect(
-      backend.upload(localFilePath, "~/.zcode/server/node.new", {
+      backend.upload(localFilePath, "~/.mikiko/server/node.new", {
         signal: abortedUpload.signal,
       }),
     ).rejects.toThrow("Remote upload canceled");
     expect(execUploadedContents).toEqual([localContent, localContent]);
     expect(
       executedCommands.includes(
-        `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.zcode/server' && cat > '/root/.zcode/server/node.new'")}`,
+        `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.mikiko/server' && cat > '/root/.mikiko/server/node.new'")}`,
       ),
     ).toBe(true);
   });
@@ -685,7 +680,7 @@ describe("SSHBackend", () => {
           return;
         }
         if (
-          command === `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.zcode/server'")}`
+          command === `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.mikiko/server'")}`
         ) {
           const channel = new FakeExecChannel();
           callback(null, channel);
@@ -694,7 +689,7 @@ describe("SSHBackend", () => {
         }
         if (
           command ===
-          `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.zcode/server' && cat > '/root/.zcode/server/node.new'")}`
+          `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.mikiko/server' && cat > '/root/.mikiko/server/node.new'")}`
         ) {
           callback(
             null,
@@ -721,10 +716,10 @@ describe("SSHBackend", () => {
 
     try {
       await expect(
-        backend.upload(localFilePath, "~/.zcode/server/node.new"),
+        backend.upload(localFilePath, "~/.mikiko/server/node.new"),
       ).resolves.toBeUndefined();
       await expect(
-        backend.upload(localFilePath, "~/.zcode/server/node.new"),
+        backend.upload(localFilePath, "~/.mikiko/server/node.new"),
       ).resolves.toBeUndefined();
 
       expect(sftpAttempts).toBe(1);
@@ -765,7 +760,7 @@ describe("SSHBackend", () => {
           return;
         }
         if (
-          command === `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.zcode/server'")}`
+          command === `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.mikiko/server'")}`
         ) {
           emitExecResult(channel, { exitCode: 0 });
           return;
@@ -796,10 +791,10 @@ describe("SSHBackend", () => {
     mutableBackend.connected = true;
 
     try {
-      await expect(backend.upload(localFilePath, "~/.zcode/server/node.new")).rejects.toThrow();
+      await expect(backend.upload(localFilePath, "~/.mikiko/server/node.new")).rejects.toThrow();
       await writeFile(localFilePath, "second", "utf8");
       await expect(
-        backend.upload(localFilePath, "~/.zcode/server/node.new"),
+        backend.upload(localFilePath, "~/.mikiko/server/node.new"),
       ).resolves.toBeUndefined();
 
       expect(sftpAttempts).toBe(2);
@@ -838,7 +833,7 @@ describe("SSHBackend", () => {
         }
 
         if (
-          command === `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.zcode/server'")}`
+          command === `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.mikiko/server'")}`
         ) {
           emitExecResult(channel, { exitCode: 0 });
           return;
@@ -857,7 +852,7 @@ describe("SSHBackend", () => {
       ) => {
         callback(null, {
           createWriteStream: (remotePath) => {
-            expect(remotePath).toBe("/root/.zcode/server/node.new");
+            expect(remotePath).toBe("/root/.mikiko/server/node.new");
             return new SuccessfulSftpWriteStream();
           },
           end: () => {},
@@ -875,7 +870,7 @@ describe("SSHBackend", () => {
     try {
       const progress: Array<{ uploadedBytes: number; totalBytes: number }> = [];
       await expect(
-        backend.upload(localFilePath, "~/.zcode/server/node.new", {
+        backend.upload(localFilePath, "~/.mikiko/server/node.new", {
           onProgress: (event) => progress.push(event),
         }),
       ).resolves.toBeUndefined();
@@ -928,7 +923,7 @@ describe("SSHBackend", () => {
         }
 
         if (
-          command === `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.zcode/server'")}`
+          command === `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.mikiko/server'")}`
         ) {
           const channel = new FakeExecChannel();
           callback(null, channel);
@@ -938,7 +933,7 @@ describe("SSHBackend", () => {
 
         if (
           command ===
-          `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.zcode/server' && cat > '/root/.zcode/server/node.new'")}`
+          `/bin/sh -c ${quotePosixShellArgForTest("mkdir -p '/root/.mikiko/server' && cat > '/root/.mikiko/server/node.new'")}`
         ) {
           callback(null, new FakeUploadExecChannel((_content) => {}));
           return;
@@ -971,7 +966,7 @@ describe("SSHBackend", () => {
 
     try {
       await expect(
-        backend.upload(localFilePath, "~/.zcode/server/node.new"),
+        backend.upload(localFilePath, "~/.mikiko/server/node.new"),
       ).resolves.toBeUndefined();
       const warnLines = consoleWarnSpy.mock.calls.map((call) => String(call[0] ?? ""));
       const logLines = consoleLogSpy.mock.calls.map((call) => String(call[0] ?? ""));

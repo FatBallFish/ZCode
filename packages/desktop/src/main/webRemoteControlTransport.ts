@@ -1,4 +1,4 @@
-/* eslint-disable max-lines -- 外部 relay transport 需要集中维护握手、配对、心跳和重连状态机。 */
+/* 外部 relay transport 需要集中维护握手、配对、心跳和重连状态机。 */
 import { WebSocket, type RawData } from "ws";
 import { createHash } from "node:crypto";
 import {
@@ -219,11 +219,11 @@ export class WebRemoteControlDeviceTransport {
   }
 
   measurePayloadBytes(payload: WebRemoteControlAppPayload): number {
-    return this.payloadSerializer.prepare(payload).bytes;
+    return this.payloadSerializer.prepare(payload, Date.now()).bytes;
   }
 
   sendPayloadResult(payload: WebRemoteControlAppPayload): WebRemoteControlPayloadSendResult {
-    const prepared = this.payloadSerializer.prepare(payload);
+    const prepared = this.payloadSerializer.prepare(payload, Date.now());
     if (this.payloadSerializer.isOversize(prepared)) {
       return {
         kind: "oversize",
@@ -279,8 +279,7 @@ export class WebRemoteControlDeviceTransport {
       if (socket !== this.socket) {
         return;
       }
-      const negotiatedExtensions =
-        typeof socket.extensions === "string" ? socket.extensions : "";
+      const negotiatedExtensions = typeof socket.extensions === "string" ? socket.extensions : "";
       this.options.logger.info("[web-remote-control] external relay negotiated extensions", {
         perMessageDeflate: negotiatedExtensions.includes("permessage-deflate"),
         extensions: negotiatedExtensions || undefined,
@@ -306,7 +305,9 @@ export class WebRemoteControlDeviceTransport {
       if (socket !== this.socket) {
         return;
       }
-      if (estimateRawDataBytes(raw) > WEB_REMOTE_CONTROL_RPC_TRANSPORT_LIMITS.maxPhysicalFrameBytes) {
+      if (
+        estimateRawDataBytes(raw) > WEB_REMOTE_CONTROL_RPC_TRANSPORT_LIMITS.maxPhysicalFrameBytes
+      ) {
         this.options.logger.warn("[web-remote-control] oversize external relay message dropped", {
           bytes: estimateRawDataBytes(raw),
           maxBytes: WEB_REMOTE_CONTROL_RPC_TRANSPORT_LIMITS.maxPhysicalFrameBytes,

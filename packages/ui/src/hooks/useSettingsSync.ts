@@ -479,7 +479,6 @@ export function useSettingsSync(params: { workspacePath?: string; workspaceIdent
 
         if (selections.some((selection) => selection.category === "skills")) {
           await invalidateDeferredDraftSessionForSkillChange({
-            zcodeSessionService,
             workspacePath: params.workspacePath,
             workspaceIdentity: params.workspaceIdentity,
             reason: "settings-sync-skill-import",

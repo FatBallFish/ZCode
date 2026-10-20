@@ -6,7 +6,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { LoaderIcon, MicIcon, XIcon } from "lucide-react";
-import { TID_V4_COMPOSER } from "@zcode/shared";
+import { TID_V4_COMPOSER } from "@zcode/shared/test-ids";
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
 import { usePlatform } from "@/hooks/usePlatform.jsx";
@@ -188,7 +188,10 @@ export const VoiceInputOverlay = memo(function VoiceInputOverlay() {
           >
             <div className="flex items-center gap-3">
               {phase === "finishing" ? (
-                <LoaderIcon className="size-4 shrink-0 animate-spin text-foreground-subtle" aria-hidden />
+                <LoaderIcon
+                  className="size-4 shrink-0 animate-spin text-foreground-subtle"
+                  aria-hidden
+                />
               ) : (
                 <MicIcon
                   className={cn(

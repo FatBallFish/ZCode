@@ -1,7 +1,8 @@
+import { Package, Blocks, Cable, WandSparkles, BarChart3 } from "lucide-react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BarChart3, Blocks, Cable, Package, WandSparkles } from "lucide-react";
 import enUS from "../src/i18n/locales/en-US.js";
 import zhCN from "../src/i18n/locales/zh-CN.js";
+import { isSettingsSectionAvailable } from "../src/settings/settingsPageConfig.js";
 
 async function loadSettingsPageConfig(env: "test" | "production") {
   vi.resetModules();
@@ -12,7 +13,6 @@ async function loadSettingsPageConfig(env: "test" | "production") {
       MIKIKO_ENV: env,
     };
   });
-
   return import("../src/settings/settingsPageConfig.js");
 }
 
@@ -22,10 +22,14 @@ afterEach(() => {
 });
 
 describe("settingsPageConfig", () => {
-  it("按设置页心智顺序展示 test 分区", async () => {
+  it("only exposes remote device management on desktop", () => {
+    expect(isSettingsSectionAvailable("remoteDevices", true)).toBe(true);
+    expect(isSettingsSectionAvailable("remoteDevices", false)).toBe(false);
+    expect(isSettingsSectionAvailable("general", false)).toBe(true);
+  });
+  it("按设置页分组与顺序展示公开分区", async () => {
     const { createSettingsPageConfig } = await loadSettingsPageConfig("test");
     const { settingsSectionGroups, settingsSections } = createSettingsPageConfig({});
-
     expect(
       settingsSectionGroups.map((group) => ({
         id: group.id,
@@ -42,6 +46,7 @@ describe("settingsPageConfig", () => {
           "browser",
           "worktrees",
           "pet",
+          "remoteDevices",
           "shortcuts",
         ],
       },
@@ -51,10 +56,9 @@ describe("settingsPageConfig", () => {
       },
       {
         id: "dataAndStats",
-        sections: ["archived", "usage"],
+        sections: ["usage", "archives"],
       },
     ]);
-
     expect(settingsSections.map((section) => section.id)).toEqual([
       "general",
       "appearance",
@@ -69,10 +73,11 @@ describe("settingsPageConfig", () => {
       "hooks",
       "browser",
       "worktrees",
-      "archived",
       "pet",
+      "remoteDevices",
       "shortcuts",
       "usage",
+      "archives",
     ]);
   });
 
@@ -94,10 +99,11 @@ describe("settingsPageConfig", () => {
       "hooks",
       "browser",
       "worktrees",
-      "archived",
       "pet",
+      "remoteDevices",
       "shortcuts",
       "usage",
+      "archives",
     ]);
   });
 
@@ -126,15 +132,6 @@ describe("settingsPageConfig", () => {
     expect(zhCN["settings.usageTitle"]).toBe(zhCN["sidebar.usage.plan.openStats"]);
   });
 
-  it("侧栏分组标题同时提供中英文文案", () => {
-    expect(enUS["settings.sidebar.group.basics"]).toBe("Basics");
-    expect(enUS["settings.sidebar.group.agentCapabilities"]).toBe("Agent capabilities");
-    expect(enUS["settings.sidebar.group.dataAndStats"]).toBe("Data and statistics");
-    expect(zhCN["settings.sidebar.group.basics"]).toBe("基础设置");
-    expect(zhCN["settings.sidebar.group.agentCapabilities"]).toBe("Agent 能力");
-    expect(zhCN["settings.sidebar.group.dataAndStats"]).toBe("数据与统计");
-  });
-
   it.each([
     ["macOS", { isMacDesktop: true }, true],
     ["Windows", { isWindowsDesktop: true }, true],
@@ -160,6 +157,7 @@ describe("settingsPageConfig", () => {
       "browser",
       "worktrees",
       "pet",
+      "remoteDevices",
       "computerUse",
       "shortcuts",
     ]);

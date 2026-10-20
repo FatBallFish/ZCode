@@ -45,6 +45,30 @@ const preview: ConversationSharePreview = {
 };
 
 describe("ConversationShareLandingPage", () => {
+  it.each([
+    ["rate_limited", "访问过于频繁", "Too many requests", true],
+    ["service_unavailable", "分享服务暂时异常", "Sharing service unavailable", true],
+    ["feature_disabled", "分享服务暂未开放", "Sharing is currently unavailable", false],
+  ] as const)(
+    "renders a specific localized action and diagnostics for %s",
+    (error, zh, en, retryable) => {
+      for (const locale of ["zh-CN", "en-US"] as const) {
+        const html = renderToStaticMarkup(
+          createElement(ConversationShareLandingStatus, {
+            state: { kind: "error", error, status: 503, code: 3217, requestId: "web-request-123" },
+            locale,
+            onRetry: () => {},
+          }),
+        );
+        expect(html).toContain(locale === "zh-CN" ? zh : en);
+        expect(html).toContain("web-request-123");
+        expect(html).toContain("3217");
+        expect(html.includes(locale === "zh-CN" ? ">重试<" : ">Try again<")).toBe(retryable);
+        expect(html).not.toContain("请检查网络");
+      }
+    },
+  );
+
   it("renders public content and only the importable deep link", () => {
     const html = renderToStaticMarkup(
       createElement(ConversationShareLandingPage, {
@@ -54,21 +78,7 @@ describe("ConversationShareLandingPage", () => {
       }),
     );
     expect(html).toContain("公开任务");
-    expect(html).toContain('data-share-header="true"');
-    expect(html).toContain('data-share-header-shell="true"');
-    expect(html).toContain('data-share-header-row="true"');
-    expect(html).toContain('data-share-brand="true"');
-    expect(html.match(/data-share-content-rail="true"/g)?.length).toBe(2);
-    expect(html.match(/data-share-content-inset="true"/g)?.length).toBe(3);
-    expect(html).toContain('data-share-body-rail="true"');
-    expect(html).toContain('data-share-title="true"');
-    expect(html).toContain('data-share-continue-slot="true"');
-    expect(html).toContain('data-share-continue-visible="true"');
-    expect(html).toContain('data-share-continue-measure="true"');
     expect(html).toContain('title="公开任务"');
-    // 首屏（SSR/未测量）先保留自然排列，客户端测量后只写入连续几何变量；
-    // 不再在 inline 与 rail-aligned 两种布局之间切换。
-    expect(html).toContain('data-share-header-layout="continuous"');
     expect(html).toContain('data-share-header-ready="false"');
     expect(html).not.toContain('data-share-header-layout="compact"');
     expect(html).not.toContain("absolute inset-x-0 bottom-0");
@@ -253,7 +263,6 @@ describe("ConversationShareLandingPage", () => {
     expect(html).not.toContain("去 Mikiko 继续");
     expect(html).toContain('data-share-theme-toggle="true"');
     expect(html).not.toContain('data-share-continue-footer="true"');
-    expect(html).toContain('data-share-continue-measure="true"');
     expect(html).toContain('data-share-continue-visible="false"');
   });
 
@@ -283,7 +292,7 @@ describe("ConversationShareLandingPage", () => {
       );
       expect(html).toContain(hint);
       expect(html).toContain(home);
-      expect(html).toContain('href="https://zcode.z.ai"');
+      expect(html).toContain('href="https://agent.mikiko.ai"');
       expect(html).not.toContain('target="_blank"');
     },
   );

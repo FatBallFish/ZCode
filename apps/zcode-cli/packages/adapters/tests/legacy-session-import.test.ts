@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,14 +23,14 @@ function countRows(db: DatabaseSync, sql: string): number {
 
 test("旧库惰性回迁：miss 触发导入、行齐、幂等；未命中与禁用保持 null", async (t) => {
   const base = await mkdtemp(join(tmpdir(), "legacy-session-"));
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await rm(base, { recursive: true, force: true });
   });
 
   // 旧库：同一套迁移建 schema，再以原始 SQL 写入 v1.0.6 形态的会话行
   //（回迁只搬行，不依赖旧库由哪个版本的写入器产生）。
   const legacyPath = join(base, "legacy", "db.sqlite");
-  const legacyBootstrap = new SqliteSessionStore({ dbPath: legacyPath, legacyDbPath: null });
+  const legacyBootstrap = await SqliteSessionStore.open({ dbPath: legacyPath, legacyDbPath: null });
   legacyBootstrap.close();
   const legacy = new DatabaseSync(legacyPath);
   legacy.exec(
@@ -53,7 +53,7 @@ test("旧库惰性回迁：miss 触发导入、行齐、幂等；未命中与禁
 
   // 新库：resume miss → 回迁 → 命中。
   const mainPath = join(base, "main", "db.sqlite");
-  const store = new SqliteSessionStore({ dbPath: mainPath, legacyDbPath: legacyPath });
+  const store = await SqliteSessionStore.open({ dbPath: mainPath, legacyDbPath: legacyPath });
   const session = await store.getSession(SESSION_ID);
   assert.ok(session, "miss 后应从旧库回迁并命中");
   assert.equal(session.title, "旧会话");
@@ -61,35 +61,47 @@ test("旧库惰性回迁：miss 触发导入、行齐、幂等；未命中与禁
 
   // 会话作用域各表行均已搬运。
   const main = new DatabaseSync(mainPath, { readOnly: true });
-  assert.equal(countRows(main, `select count(*) as c from message where session_id = '${SESSION_ID}'`), 1);
-  assert.equal(countRows(main, `select count(*) as c from part where session_id = '${SESSION_ID}'`), 1);
-  assert.equal(countRows(main, `select count(*) as c from todo where session_id = '${SESSION_ID}'`), 1);
+  assert.equal(
+    countRows(main, `select count(*) as c from message where session_id = '${SESSION_ID}'`),
+    1,
+  );
+  assert.equal(
+    countRows(main, `select count(*) as c from part where session_id = '${SESSION_ID}'`),
+    1,
+  );
+  assert.equal(
+    countRows(main, `select count(*) as c from todo where session_id = '${SESSION_ID}'`),
+    1,
+  );
   main.close();
 
   // 幂等：重复 getSession 不产生重复行；未命中 id 返回 null。
   await store.getSession(SESSION_ID);
   const again = new DatabaseSync(mainPath, { readOnly: true });
-  assert.equal(countRows(again, `select count(*) as c from message where session_id = '${SESSION_ID}'`), 1);
+  assert.equal(
+    countRows(again, `select count(*) as c from message where session_id = '${SESSION_ID}'`),
+    1,
+  );
   again.close();
   assert.equal(await store.getSession("sess_never_existed" as SessionId), null);
   store.close();
 
   // 禁用回迁（显式 null，测试隔离）：miss 保持 notFound 语义。
   const plainPath = join(base, "plain", "db.sqlite");
-  const plain = new SqliteSessionStore({ dbPath: plainPath, legacyDbPath: null });
+  const plain = await SqliteSessionStore.open({ dbPath: plainPath, legacyDbPath: null });
   assert.equal(await plain.getSession(SESSION_ID), null);
   plain.close();
 });
 
 test("旧库路径可经 MIKIKO_LEGACY_SESSION_DB 覆盖；指向当前库文件时自动禁用", async (t) => {
   const base = await mkdtemp(join(tmpdir(), "legacy-session-env-"));
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await rm(base, { recursive: true, force: true });
     delete process.env.MIKIKO_LEGACY_SESSION_DB;
   });
 
   const legacyPath = join(base, "legacy", "db.sqlite");
-  const legacyBootstrap = new SqliteSessionStore({ dbPath: legacyPath, legacyDbPath: null });
+  const legacyBootstrap = await SqliteSessionStore.open({ dbPath: legacyPath, legacyDbPath: null });
   legacyBootstrap.close();
   const legacy = new DatabaseSync(legacyPath);
   legacy.exec(
@@ -100,7 +112,7 @@ test("旧库路径可经 MIKIKO_LEGACY_SESSION_DB 覆盖；指向当前库文件
 
   process.env.MIKIKO_LEGACY_SESSION_DB = legacyPath;
   const mainPath = join(base, "main", "db.sqlite");
-  const store = new SqliteSessionStore({ dbPath: mainPath });
+  const store = await SqliteSessionStore.open({ dbPath: mainPath });
   const session = await store.getSession("sess_env" as SessionId);
   assert.ok(session, "env 指定的旧库应生效");
   assert.equal(session.title, "env 会话");
@@ -109,10 +121,10 @@ test("旧库路径可经 MIKIKO_LEGACY_SESSION_DB 覆盖；指向当前库文件
 
   // 旧库路径 == 当前库路径时禁用（避免自己读自己造成无意义回迁）。
   const samePath = join(base, "same", "db.sqlite");
-  const bootstrap = new SqliteSessionStore({ dbPath: samePath, legacyDbPath: null });
+  const bootstrap = await SqliteSessionStore.open({ dbPath: samePath, legacyDbPath: null });
   bootstrap.close();
   process.env.MIKIKO_LEGACY_SESSION_DB = samePath;
-  const same = new SqliteSessionStore({ dbPath: samePath });
+  const same = await SqliteSessionStore.open({ dbPath: samePath });
   assert.equal(await same.getSession("sess_anybody" as SessionId), null);
   same.close();
   delete process.env.MIKIKO_LEGACY_SESSION_DB;

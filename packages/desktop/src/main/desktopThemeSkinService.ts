@@ -115,7 +115,7 @@ export function createThemeSkinService(deps: ThemeSkinServiceDeps): ThemeSkinSer
         light: parsed.data.light,
         dark: parsed.data.dark,
         ...(parsed.data.wallpaper
-          ? { wallpaper: parsed.data.wallpaper as ThemeSkinWallpaper }
+          ? { wallpaper: parsed.data.wallpaper as NonNullable<ThemeSkinRecord["wallpaper"]> }
           : {}),
       };
       return record;

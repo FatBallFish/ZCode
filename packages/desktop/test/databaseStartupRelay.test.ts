@@ -9,6 +9,7 @@ vi.mock("../src/main/databaseStartupTelemetry.js", () => ({
 }));
 import {
   bindDatabaseStartupRelay,
+  attachDatabaseStartupRelayWindow,
   onLocalDatabaseStartupReady,
   getDatabaseStartupPortPayload,
 } from "../src/main/databaseStartupRelay.js";
@@ -123,4 +124,38 @@ it("replaces the previous Host binding and never replays ready after exit", () =
   next.receive({ ...ready, startupId: "new-host", sequence: 1 });
   expect(win.webContents.send).toHaveBeenCalledTimes(1);
   win.emit("closed");
+});
+
+it("主窗口关闭不撤销仍供独立会话窗口共享的Host启动身份", () => {
+  const window = () =>
+    Object.assign(new EventEmitter(), {
+      isDestroyed: () => false,
+      webContents: { isDestroyed: () => false, send: vi.fn() },
+    });
+  const main = window();
+  const session = window();
+  const child = Object.assign(new EventEmitter(), { postMessage: vi.fn() });
+  const relay = bindDatabaseStartupRelay(main as never, child as never, "shared-host");
+  expect(attachDatabaseStartupRelayWindow(session as never, child as never)).toEqual({
+    startupId: "shared-host",
+  });
+  main.emit("closed");
+  expect(getDatabaseStartupPortPayload(child as never)).toEqual({
+    databaseStartupId: "shared-host",
+  });
+  relay.receive({
+    schemaVersion: 1,
+    startupId: "shared-host",
+    attemptId: "attempt",
+    sequence: 1,
+    phase: "ready",
+    startedAt: 1,
+    updatedAt: 1,
+    disk: [],
+  });
+  expect(session.webContents.send).toHaveBeenCalledOnce();
+  expect(main.webContents.send).not.toHaveBeenCalled();
+  child.emit("exit", 0);
+  expect(getDatabaseStartupPortPayload(child as never)).toBeUndefined();
+  session.emit("closed");
 });

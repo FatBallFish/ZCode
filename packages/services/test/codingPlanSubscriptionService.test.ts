@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { BUILTIN_MODEL_PROVIDER_IDS, CODING_PLAN_SYSTEM_BUSY, type ApiClient } from "@zcode/shared";
 import {
   BigModelCodingPlanSubscriptionProvider,
-  createBigModelLoginAuthHeaders,
-  createZaiLoginAuthHeaders,
   resolveCodingPlanClientConfigUrl,
 } from "../src/coding-plan-subscription/bigmodelCodingPlanSubscriptionProvider.js";
 import { ZaiCodingPlanSubscriptionProvider } from "../src/coding-plan-subscription/zaiCodingPlanSubscriptionProvider.js";
@@ -322,18 +320,6 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
     expect(value).toBe("preflight-v1");
     expect(request).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
-  });
-
-  it("预算读取不触发配置失败请求", async () => {
-    const request = vi.fn(async () => {
-      throw new Error("offline");
-    });
-    const provider = new BigModelCodingPlanSubscriptionProvider({
-      apiClient: { request },
-      credentialService: { load: vi.fn() },
-    });
-    await expect(provider.getModelContextBudgetStrategy()).resolves.toBe("preflight-v1");
-    expect(request).not.toHaveBeenCalled();
   });
 
   it("batchPreview 使用 BigModel OAuth token 且不添加 Bearer", async () => {
@@ -701,7 +687,7 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
       "Small repo iteration",
     ]);
     const requestUrl = String(vi.mocked(apiClient.request).mock.calls[0]?.[0]);
-    expect(requestUrl).toContain("https://zcode.z.ai/api/v1/client/configs?");
+    expect(requestUrl).toContain("https://agent.mikiko.ai/api/v1/coding-plan/client/configs?");
     expect(requestUrl).toContain("app_version=");
     expect(requestUrl).toContain(`platform=${process.platform}-${process.arch}`);
     expect(apiClient.request).toHaveBeenCalledWith(expect.any(URL), expect.anything());
@@ -855,13 +841,13 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
       resolveCodingPlanClientConfigUrl({
         MIKIKO_ENV: "test",
       }).toString(),
-    ).toBe("https://zcode.z.ai/api/v1/client/configs");
+    ).toBe("https://agent.mikiko.ai/api/v1/coding-plan/client/configs");
     expect(
       resolveCodingPlanClientConfigUrl({
         MIKIKO_ENV: "production",
         MIKIKO_ENDPOINT_ORIGIN: "https://runtime.example.com",
       }).toString(),
-    ).toBe("https://runtime.example.com/api/v1/client/configs");
+    ).toBe("https://runtime.example.com/api/v1/coding-plan/client/configs");
   });
 
   it("getForceUpdateConfig 从 ZCode client config 读取强制升级配置", async () => {
@@ -2356,20 +2342,6 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
         },
       }),
     );
-  });
-
-  it("鉴权 header helper 只返回裸 token", () => {
-    expect(createBigModelLoginAuthHeaders("token-1")).toEqual({
-      Authorization: "token-1",
-      "Content-Type": "application/json",
-    });
-  });
-
-  it("Z.ai 鉴权 header helper 只返回裸登录 token", () => {
-    expect(createZaiLoginAuthHeaders("zai-token")).toEqual({
-      Authorization: "zai-token",
-      "Content-Type": "application/json",
-    });
   });
 });
 

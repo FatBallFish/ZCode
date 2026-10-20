@@ -10,7 +10,7 @@
  * （specs/desktop/worktrees.md；曾用 pane 挂载 effect 投递，重挂载会重复建会话，已移除）。
  */
 import { create } from "zustand";
-import type { IWorktreeService } from "@zcode/services";
+import type { IWorktreeService } from "@/worktree-state/contract.js";
 import type { WorktreeRegistryEntry } from "@zcode/shared";
 import { getPathLeaf } from "@/lib/path.js";
 
@@ -54,6 +54,7 @@ export function formatWorktreeWorkspaceLabel(worktreePath: string, rootPath: str
 
 interface WorktreeStoreState {
   registryEntries: WorktreeRegistryEntry[];
+  diskStatusByWorktreePath: Record<string, string>;
   /** worktreePath（normalize 前，服务端原样路径）→ 当前分支名；游离/缺失为 null。 */
   branchByWorktreePath: Record<string, string | null>;
   registryLoadedAt: number | null;
@@ -78,6 +79,7 @@ function resolveWorktreeEntryForPath(path: string): WorktreeRegistryEntry | unde
 
 export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
   registryEntries: [],
+  diskStatusByWorktreePath: {},
   branchByWorktreePath: {},
   registryLoadedAt: null,
   registryLoading: false,
@@ -100,11 +102,13 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
       // 此前只保留 entry 导致绑定分支后 UI 无数据可展示。
       const entries: WorktreeRegistryEntry[] = [];
       const branches: Record<string, string | null> = {};
+      const diskStatuses: Record<string, string> = {};
       if (result) {
         for (const group of result.groups) {
           for (const item of group.worktrees) {
             entries.push(item.entry);
             branches[item.entry.worktreePath] = item.branch;
+            diskStatuses[item.entry.worktreePath] = item.diskStatus;
           }
         }
       }
@@ -112,6 +116,7 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
       branchCache = new Map(Object.entries(branches));
       set({
         registryEntries: entries,
+        diskStatusByWorktreePath: diskStatuses,
         branchByWorktreePath: branches,
         registryLoadedAt: Date.now(),
         registryLoading: false,

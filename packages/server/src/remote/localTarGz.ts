@@ -213,8 +213,8 @@ function createTarHeader(options: {
   }
   writeTarString(header, "ustar", 257, 6);
   writeTarString(header, "00", 263, 2);
-  writeTarString(header, "zcode", 265, 32);
-  writeTarString(header, "zcode", 297, 32);
+  writeTarString(header, "mikiko", 265, 32);
+  writeTarString(header, "mikiko", 297, 32);
   writeTarString(header, prefix, 345, 155);
 
   let checksum = 0;

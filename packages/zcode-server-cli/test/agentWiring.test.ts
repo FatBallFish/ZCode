@@ -7,19 +7,21 @@ import { createReleaseAgentWiring, resolveBundledAgentWiring } from "../src/runt
 const temporaryDirs: string[] = [];
 
 async function makeTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "zcode-server-agent-wiring-"));
+  const dir = await mkdtemp(join(tmpdir(), "mikiko-server-agent-wiring-"));
   temporaryDirs.push(dir);
   return dir;
 }
 
 afterEach(async () => {
-  await Promise.all(temporaryDirs.splice(0).map((dir) => rm(dir, { force: true, recursive: true })));
+  await Promise.all(
+    temporaryDirs.splice(0).map((dir) => rm(dir, { force: true, recursive: true })),
+  );
 });
 
 describe("resolveBundledAgentWiring", () => {
-  it("returns wiring for a bundled zcode.cjs next to the entry", async () => {
+  it("returns wiring for a bundled mikiko.cjs next to the entry", async () => {
     const entryDir = await makeTempDir();
-    const bundlePath = join(entryDir, "zcode.cjs");
+    const bundlePath = join(entryDir, "mikiko.cjs");
     await writeFile(bundlePath, "// bundle\n", "utf8");
 
     const wiring = await resolveBundledAgentWiring(entryDir, {});
@@ -34,7 +36,7 @@ describe("resolveBundledAgentWiring", () => {
 
   it("keeps an explicit MIKIKO_AGENT_SERVER_COMMAND untouched", async () => {
     const entryDir = await makeTempDir();
-    await writeFile(join(entryDir, "zcode.cjs"), "// bundle\n", "utf8");
+    await writeFile(join(entryDir, "mikiko.cjs"), "// bundle\n", "utf8");
 
     const wiring = await resolveBundledAgentWiring(entryDir, {
       MIKIKO_AGENT_SERVER_COMMAND: "/custom/agent",
@@ -42,7 +44,7 @@ describe("resolveBundledAgentWiring", () => {
     expect(wiring).toBeNull();
   });
 
-  it("returns null when no bundled zcode.cjs exists (dev workspace)", async () => {
+  it("returns null when no bundled mikiko.cjs exists (dev workspace)", async () => {
     const entryDir = await makeTempDir();
     expect(await resolveBundledAgentWiring(entryDir, {})).toBeNull();
   });
@@ -53,17 +55,27 @@ describe("resolveBundledAgentWiring", () => {
 
     expect(createReleaseAgentWiring(oldRuntime, join(oldRuntime, "node"), {})).toEqual({
       MIKIKO_AGENT_SERVER_COMMAND: join(oldRuntime, "node"),
-      MIKIKO_AGENT_SERVER_ARGS_JSON: JSON.stringify([join(oldRuntime, "zcode.cjs"), "app-server", "--stdio"]),
+      MIKIKO_AGENT_SERVER_ARGS_JSON: JSON.stringify([
+        join(oldRuntime, "mikiko.cjs"),
+        "app-server",
+        "--stdio",
+      ]),
     });
     expect(createReleaseAgentWiring(newRuntime, join(newRuntime, "node"), {})).toEqual({
       MIKIKO_AGENT_SERVER_COMMAND: join(newRuntime, "node"),
-      MIKIKO_AGENT_SERVER_ARGS_JSON: JSON.stringify([join(newRuntime, "zcode.cjs"), "app-server", "--stdio"]),
+      MIKIKO_AGENT_SERVER_ARGS_JSON: JSON.stringify([
+        join(newRuntime, "mikiko.cjs"),
+        "app-server",
+        "--stdio",
+      ]),
     });
   });
 
   it("does not replace an explicit agent command while computing release wiring", () => {
-    expect(createReleaseAgentWiring("/release/runtime", "/release/runtime/node", {
-      MIKIKO_AGENT_SERVER_COMMAND: "/custom/agent",
-    })).toBeNull();
+    expect(
+      createReleaseAgentWiring("/release/runtime", "/release/runtime/node", {
+        MIKIKO_AGENT_SERVER_COMMAND: "/custom/agent",
+      }),
+    ).toBeNull();
   });
 });

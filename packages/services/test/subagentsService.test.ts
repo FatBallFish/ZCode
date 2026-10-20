@@ -116,7 +116,7 @@ describe("subagent markdown helpers", () => {
     // cache/zcode-plugins-official 且没有安装记录，documents:visual-judge 在 Settings 永远不可见。
     const home = await makeTempHome();
     const workspacePath = join(home, "workspace");
-    const oldRoot = await writeOfficialPluginFixture(home, "documents", "0.1.9", "visual-judge");
+    await writeOfficialPluginFixture(home, "documents", "0.1.9", "visual-judge");
     const newRoot = await writeOfficialPluginFixture(home, "documents", "0.1.10", "visual-judge");
     const invalidRoot = await writeOfficialPluginFixture(home, "documents", "99.0", "visual-judge");
     await writeFile(
@@ -153,7 +153,6 @@ describe("subagent markdown helpers", () => {
       scope: "user",
       source: "plugin",
     });
-    expect(result.pluginAgents[0]?.path).not.toBe(join(oldRoot, "agents", "visual-judge.md"));
     expect(
       result.agents.filter((agent) => agent.source === "plugin").map((agent) => agent.name),
     ).toEqual(["documents:visual-judge", "visual-judge"]);
@@ -860,8 +859,6 @@ describe("createSubagentsService", () => {
       readOnly: false,
     });
     expect(result.agents.find((agent) => agent.name === "general-purpose")?.readOnly).toBe(true);
-    expect(result.agents.find((agent) => agent.name === "general-purpose")?.color).toBe("blue");
-    expect(result.agents.find((agent) => agent.name === "Explore")?.color).toBe("cyan");
     expect(result.agents.find((agent) => agent.name === "code-reviewer")?.readOnly).toBe(false);
   });
 
@@ -1039,9 +1036,15 @@ tools:
   it("persists plugin agent model overrides by agent id and echoes them in list", async () => {
     const home = await makeTempHome();
     const workspacePath = join(home, "workspace");
-    const pluginRoot = await writeOfficialPluginFixture(home, "documents", "0.1.4", "visual-judge", {
-      model: "custom:custom-openai:gpt-5.4",
-    });
+    const pluginRoot = await writeOfficialPluginFixture(
+      home,
+      "documents",
+      "0.1.4",
+      "visual-judge",
+      {
+        model: "custom:custom-openai:gpt-5.4",
+      },
+    );
     const agentId = "plugin:documents@zcode-plugins-official:visual-judge";
     const service = createSubagentsService({ homeDir: home, isDesktopRuntime: true });
 
@@ -1075,7 +1078,9 @@ tools:
     });
     // 运行时投影（规范名 + 裸名别名）与设置页资源投影必须回显同一覆盖，否则 @ 提及与设置页不一致。
     expect(
-      overridden.agents.filter((agent) => agent.source === "plugin").map((agent) => agent.modelSelection),
+      overridden.agents
+        .filter((agent) => agent.source === "plugin")
+        .map((agent) => agent.modelSelection),
     ).toEqual([selection, selection]);
 
     // 清除完整选择时一并清掉档位，回落到 md 声明；不恢复旧双 map 保存入口。

@@ -1,5 +1,6 @@
+import { NODE_UNIT_TEST_FILES } from "./scripts/node-unit-test-files.mjs";
 import { resolve } from "node:path";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 const processLifecycleTests = [
   "packages/services/test/processTreeTerminator.test.ts",
@@ -10,6 +11,14 @@ const processLifecycleTests = [
 ];
 const forkIsolatedTests = [
   ...processLifecycleTests,
+  "packages/desktop/test/webRemoteControlLegacyTransport.test.ts",
+  "packages/web/test/webRemoteControlLegacyTransport.test.ts",
+  // 真实显示进程树和独立配置读者都在 5 秒内等待启动；并发调度延迟曾触发截止。
+  // 放入串行组保留真实进程和原时限，避免把启动排队误判为资源隔离或读锁失败。
+  "packages/desktop/test/r3RemoteProcess.test.ts",
+  "packages/provider-node/test/personal-config-read-lock.test.ts",
+  // 原生 fs.watch 集成在批量并发时曾等不到通知；串行验证真实接线，去重逻辑由受控事件单测覆盖。
+  "packages/services/src/gen-ui/adapters/stateStorage.test.ts",
   // electron-builder 下载 NSIS 时把进程 stdio 传给子进程，不能使用 threads 的虚拟 stdio。
   "packages/desktop/test/windowsInstallerCompile.test.ts",
   "packages/desktop/test/cdnPreloadScript.test.ts",
@@ -19,8 +28,16 @@ const forkIsolatedTests = [
   "packages/desktop/test/migrateStableFeedScript.test.ts",
   "packages/desktop/test/pluginE2EAdmissionScripts.test.ts",
   "packages/desktop/test/uploadOssScript.test.ts",
+  // 发布脚本会启动真实 Node/工具子进程，批量 threads 下曾打穿 30s；沿用发布类串行隔离。
+  "packages/desktop/test/notarizeMacosScript.test.ts",
+  "packages/desktop/test/publishReleaseScript.test.ts",
+  // 选源集成测试连续启动 Git、Bash 和 Node；并发启动排队会打穿 30s，沿用发布类串行隔离。
+  "packages/web/test/remoteFrontendBuildSource.test.ts",
+  // Sharp 闭包装配后要启动真实 Node 加载原生库；并行热启动曾触发其 15s 子进程限时。
+  "packages/desktop/test/dev-cua-plugin-runtime.test.ts",
   // 全量并发时真实心跳与嵌套构建会被调度延迟打穿；单独运行均通过，沿用串行组保留原时限。
   "packages/desktop/test/webRemoteControlTransport.test.ts",
+  "packages/web/test/webRemoteControlTransport.test.ts",
   "packages/provider-node/test/builtin-provider-build.test.ts",
   "packages/provider-node/test/builtin-provider-test-config-sync.test.ts",
   "packages/server/test/remoteDeploy.test.ts",
@@ -67,6 +84,13 @@ export default defineConfig({
   },
   test: {
     setupFiles: ["./vitest.setup.ts"],
+    // 官方 affected 图不额外追踪 setupFiles；公共 setup 必须触发全量选择，再由入口跳过 UT 并成功退出。
+    forceRerunTriggers: [
+      ...configDefaults.forceRerunTriggers,
+      // 默认配置 glob 的尾部 /** 在当前版本不能匹配部分配置文件，补充文件模式。
+      "**/{vitest,vite}.config.*",
+      "**/vitest.setup.ts",
+    ],
     // 修复原因：全量 run 的 stdout 会把**通过**测试里的 console 输出一并转发——services 层
     // 用 createServiceLogger 的用例在绿态下也要刷几千行多行日志，全量输出因此膨胀到
     // ~3.3MB，超过 CI/工作流门禁对单条命令 256KB 的 stdout 上限，导致门禁整条命令被判
@@ -92,70 +116,9 @@ export default defineConfig({
           // node:test 风格的自有测试由各包 `pnpm test`（node --test）执行；
           // vitest 收集不到用例会把整文件判失败，这里从 vitest 入口排除。
           exclude: [
-            "packages/desktop/test/desktop-pet/petAnimator.test.ts",
-            "packages/desktop/test/desktop-pet/petAnimator.test.ts",
-            "packages/desktop/test/desktop-pet/petManifest.test.ts",
-            "packages/desktop/test/desktop-pet/petManifest.test.ts",
-            "packages/desktop/test/desktop-pet/petMarketService.test.ts",
-            "packages/desktop/test/desktop-pet/petMarketService.test.ts",
-            "packages/desktop/test/desktop-pet/petSessionStatus.test.ts",
-            "packages/desktop/test/desktop-pet/petSessionStatus.test.ts",
-            "packages/desktop/test/external-cdp/externalCdpSettings.test.ts",
-            "packages/desktop/test/external-cdp/externalCdpSettings.test.ts",
-            "packages/desktop/test/external-cdp/finderWorkflow.test.ts",
-            "packages/desktop/test/external-cdp/finderWorkflow.test.ts",
-            "packages/desktop/test/open-with/fileOpenAppConfig.test.ts",
-            "packages/desktop/test/open-with/fileOpenAppConfig.test.ts",
-            "packages/desktop/test/remoteControl/deviceCredentials.test.ts",
-            "packages/desktop/test/remoteControl/deviceCredentials.test.ts",
-            "packages/desktop/test/remoteControl/fileConfig.test.ts",
-            "packages/desktop/test/remoteControl/fileConfig.test.ts",
-            "packages/desktop/test/remoteControl/macWindowSurfaces.test.ts",
-            "packages/desktop/test/remoteControl/macWindowSurfaces.test.ts",
-            "packages/desktop/test/remoteControl/rtcController.test.ts",
-            "packages/desktop/test/remoteControl/rtcController.test.ts",
-            "packages/desktop/test/remoteControl/service.test.ts",
-            "packages/desktop/test/remoteControl/service.test.ts",
-            "packages/desktop/test/remoteControl/streamPump.test.ts",
-            "packages/desktop/test/remoteControl/streamPump.test.ts",
-            "packages/desktop/test/voice/desktopVoiceService.test.ts",
-            "packages/desktop/test/voice/desktopVoiceService.test.ts",
-            "packages/desktop/test/voice/voiceMicPermission.test.ts",
-            "packages/desktop/test/voice/voiceMicPermission.test.ts",
-            "packages/desktop/test/windowChrome/desktopWindowTitleBarOverlay.test.ts",
-            "packages/desktop/test/windowChrome/desktopWindowTitleBarOverlay.test.ts",
-            "packages/mikiko-cloud/test/releases.test.ts",
-            "packages/mikiko-cloud/test/feedbackAccount.test.ts",
-            "packages/mikiko-cloud/test/shares.test.ts",
-            "packages/mikiko-cloud/test/worker.test.ts",
-            "packages/relay-server/test/e2e-rpc-pipeline.test.ts",
-            "packages/relay-server/test/rateLimit.test.ts",
-            "packages/relay-server/test/server.e2e.test.ts",
-            "packages/relay-server/test/state.test.ts",
-            "packages/relay-server/test/tickets.test.ts",
-            "packages/relay-server/test/tolerantParse.test.ts",
-            "packages/services/test/chatgptAccount.test.ts",
-            "packages/services/test/dataDirIsolation.test.ts",
-            "packages/services/test/importedCodexSessions.test.ts",
-            "packages/services/test/mikikoBuiltinRemoteConfig.test.ts",
-            "packages/services/test/mikikoClientConfigService.test.ts",
-            "packages/services/test/mikikoCloudE2E.test.ts",
-            "packages/services/test/mikikoShareDeviceToken.test.ts",
-            "packages/services/test/sub2apiBalanceBroadcast.test.ts",
-            "packages/services/test/sub2apiConfigWriteRace.test.ts",
-            "packages/services/test/sub2apiLoginSyncAndTokenPersist.test.ts",
-            "packages/services/test/sub2apiOidcClient.test.ts",
-            "packages/services/test/sub2apiOidcLogin.test.ts",
-            "packages/services/test/sub2apiLogout.test.ts",
-            "packages/services/test/sub2apiModelRecommendation.test.ts",
-            "packages/services/test/worktreeService.test.ts",
-            "packages/shared/test/chatgpt-oauth.test.ts",
-            "packages/shared/test/chatgpt-usage.test.ts",
-            "packages/shared/test/voice.test.ts",
-            "packages/ui/test/modelProviderTargetResolution.test.ts",
-            "packages/ui/test/voiceTranscript.test.ts",
-            "packages/update-service/test/worker.test.ts",
             "packages/desktop/test/e2e/**",
+            "packages/zcode-cua/**",
+            ...NODE_UNIT_TEST_FILES,
             ...forkIsolatedTests,
           ],
           include: [
@@ -185,6 +148,7 @@ export default defineConfig({
           sequence: { groupOrder: 1 },
         },
       },
+      "packages/zcode-cua/vitest.config.ts",
     ],
     coverage: {
       provider: "v8",

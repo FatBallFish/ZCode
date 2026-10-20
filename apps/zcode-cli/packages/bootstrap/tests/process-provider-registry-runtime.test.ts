@@ -10,7 +10,7 @@ import {
 } from "@zcode/provider";
 import { zcodeProviderUpdateAccountConfigParamsSchema } from "@zcode/shared";
 import {
-  ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
+  MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
   ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV,
   ZCODE_BUILTIN_RELEASE_SCHEMA_VERSION,
   createNodeModelSelectionFacade,
@@ -41,7 +41,7 @@ afterEach(async () => {
 });
 
 describe("process provider registry runtime", () => {
-  it("Standalone 长生命周期下载 URL Release 后跟进 Registry；Managed Worker 不下载", async () => {
+  it("Standalone 直取自建 Release 后跟进 Registry；Managed Worker 不下载", async () => {
     const root = await temporaryDirectory();
     const builtin = JSON.parse(
       await readFile(
@@ -60,13 +60,7 @@ describe("process provider registry runtime", () => {
     });
     const request = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       expect(init?.headers).toBeUndefined();
-      if (String(url).includes("/api/v1/client/configs?"))
-        return new Response(
-          JSON.stringify({
-            code: 0,
-            data: { configs: { builtin_provider_config_json: "https://cdn.example.com/new.json" } },
-          }),
-        );
+      expect(String(url)).toBe("https://agent.mikiko.ai/api/v1/builtin-provider-config");
       await wait;
       return new Response(JSON.stringify(builtin));
     });
@@ -74,7 +68,7 @@ describe("process provider registry runtime", () => {
       env: { MIKIKO_DATA_BASE_DIR: root },
     });
     const env = {
-      [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: active,
+      [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: active,
       [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: join(root, "personal.json"),
       MIKIKO_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE: bundled,
     };
@@ -87,7 +81,7 @@ describe("process provider registry runtime", () => {
     });
     const old = runtime.runtime.registryService.getSnapshot()!;
     try {
-      await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
       expect(runtime.runtime.registryService.getSnapshot()).toBe(old);
       releaseDownload();
       await vi.waitFor(() =>
@@ -102,7 +96,7 @@ describe("process provider registry runtime", () => {
       const worker = await startProcessProviderRegistryRuntime(env);
       try {
         expect(worker.snapshot.config.zcodeBuiltinRevision).toBe(next.config.zcodeBuiltinRevision);
-        expect(request).toHaveBeenCalledTimes(2);
+        expect(request).toHaveBeenCalledTimes(1);
       } finally {
         worker.dispose();
       }
@@ -126,7 +120,7 @@ describe("process provider registry runtime", () => {
     });
     const runtime = await startProcessProviderRegistryRuntime(
       {
-        [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: filePath,
+        [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: filePath,
         [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: join(root, "personal.json"),
       },
       { standalone: { credentialStore, legacyCliUserConfigFilePath: join(root, "absent.json") } },
@@ -149,7 +143,7 @@ describe("process provider registry runtime", () => {
   it("真实 Built-in 下完整状态跨协议往返；仅切 current 即更新 Worker 的有效选择", async () => {
     const root = await temporaryDirectory();
     const runtime = await startProcessProviderRegistryRuntime({
-      [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: fileURLToPath(
+      [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: fileURLToPath(
         new URL("../../../../../config/provider/zcode-builtin.json", import.meta.url),
       ),
       [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: join(root, "personal.json"),
@@ -288,7 +282,7 @@ describe("process provider registry runtime", () => {
     );
     await writeFile(personalFilePath, "{not-json");
     const started = await startProcessProviderRegistryRuntime({
-      [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
+      [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
       [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: personalFilePath,
     });
     try {
@@ -391,7 +385,7 @@ describe("process provider registry runtime", () => {
     );
 
     const started = await startProcessProviderRegistryRuntime({
-      [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
+      [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
       [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: personalFilePath,
     });
 
@@ -514,7 +508,7 @@ describe("process provider registry runtime", () => {
 
     const started = await startProcessProviderRegistryRuntime(
       {
-        [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
+        [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
         [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: personalFilePath,
       },
       { standalone: { credentialStore } },
@@ -620,7 +614,7 @@ describe("process provider registry runtime", () => {
 
     const started = await startProcessProviderRegistryRuntime(
       {
-        [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
+        [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
         [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: personalFilePath,
       },
       { standalone: { credentialStore, onAccountInitializationError } },
@@ -670,7 +664,7 @@ describe("process provider registry runtime", () => {
       "utf8",
     );
     const env = {
-      [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
+      [MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: zcodeBuiltinFilePath,
       [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: personalFilePath,
     };
 

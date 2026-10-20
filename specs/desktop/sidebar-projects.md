@@ -56,3 +56,9 @@
 4. 右键项目行任意位置打开菜单，动作与更多菜单一致（不含远程同步子菜单）。
 5. 移除已置顶项目后置冠键被清理；所有项目置顶时「项目」分区不再渲染空态文案
    （仍有项目存在，只是全部置顶）。
+
+## Mikiko 上游 3.16.2 集成验收（2026-10-20）
+
+采用新的 ProjectTree / project-sidebar 作为组织态唯一投影。保留工作树真实 workspaceIdentity/cwd、根项目聚合、路径菜单、置顶项目层级、归档和拖出开窗；投影不得变更运行时归属。独立窗口附着已有 Host，面板仍在各窗口本地渲染；未读按 task identity 去重，不引入第二份事实。手机远控继续自建服务，禁止装配 Relay V2；新增可见配置和路径使用 Mikiko。验收同时覆盖桌面 continuous 与手机 replayable 恢复，主/独立窗切换与关闭不改变共享会话运行时。
+
+刷新恢复只有 workspace 选择桶时仍展示当前任务；窗口级 lastActiveTaskSelection 建立后按完整 workspace identity+taskId 投影，防止根项目与工作树旧桶双高亮。远端断连徽标同时覆盖普通/时间线行；手机禁用桌面 hover/focus 的合成状态切换。未读点统一现行 icon-blue 语义 token。

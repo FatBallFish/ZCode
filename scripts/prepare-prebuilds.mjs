@@ -247,6 +247,7 @@ const remoteBundledSkillPack = {
 };
 const remoteOfficialPluginTopLevelPaths = new Set([
   ".mcp.json",
+  ".mikiko-plugin",
   ".zcode-plugin",
   "README.md",
   // 生产远程预构建有独立顶层白名单，遗漏 agents 会在上传前永久裁掉子代理。
@@ -278,10 +279,10 @@ const remoteOfficialPluginRequiredPaths = [
   "packages/zcode-cua-plugin/.zcode-plugin/plugin.json",
   "packages/image-search-plugin/.zcode-plugin/plugin.json",
   "packages/image-search-plugin/.mcp.json",
-  "packages/documents-plugin/.zcode-plugin/plugin.json",
-  "packages/pdf-plugin/.zcode-plugin/plugin.json",
-  "packages/presentations-plugin/.zcode-plugin/plugin.json",
-  "packages/spreadsheets-plugin/.zcode-plugin/plugin.json",
+  "packages/documents-plugin/.mikiko-plugin/plugin.json",
+  "packages/pdf-plugin/.mikiko-plugin/plugin.json",
+  "packages/presentations-plugin/.mikiko-plugin/plugin.json",
+  "packages/spreadsheets-plugin/.mikiko-plugin/plugin.json",
   "packages/ios-simulator-plugin/.zcode-plugin/plugin.json",
   "packages/restore-legacy-sessions-plugin/.zcode-plugin/plugin.json",
   "packages/skill-creator-plugin/.zcode-plugin/plugin.json",
@@ -608,8 +609,10 @@ function assertRemoteOfficialPluginRuntime(plugin) {
 function stageRemoteOfficialPlugins(glmDir) {
   for (const plugin of remoteOfficialPluginPackages) {
     const sourceRoot = join(rootDir, plugin.relativePath);
-    const manifestPath = join(sourceRoot, ".zcode-plugin", "plugin.json");
-    if (!existsSync(manifestPath)) {
+    const manifestPath = [".mikiko-plugin", ".zcode-plugin"]
+      .map((directory) => join(sourceRoot, directory, "plugin.json"))
+      .find((path) => existsSync(path));
+    if (!manifestPath || !existsSync(manifestPath)) {
       throw new Error(
         `[prepare-prebuilds] missing remote official plugin manifest: ${manifestPath}`,
       );

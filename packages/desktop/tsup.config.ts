@@ -45,7 +45,8 @@ function loadEnvFiles(): Record<string, string> {
   // 真实环境变量优先级最高
   if (process.env.MIKIKO_ENV) vars.MIKIKO_ENV = process.env.MIKIKO_ENV;
   if (process.env.MIKIKO_BASE_URL) vars.MIKIKO_BASE_URL = process.env.MIKIKO_BASE_URL;
-  if (process.env.VITE_MIKIKO_BASE_URL) vars.VITE_MIKIKO_BASE_URL = process.env.VITE_MIKIKO_BASE_URL;
+  if (process.env.VITE_MIKIKO_BASE_URL)
+    vars.VITE_MIKIKO_BASE_URL = process.env.VITE_MIKIKO_BASE_URL;
   // OAuth origin/client_id 由 host runtime 读取；这里保留覆盖入口，方便开发构建时观察统一 env 来源。
   if (process.env.ZAI_OAUTH_CLIENT_ID) vars.ZAI_OAUTH_CLIENT_ID = process.env.ZAI_OAUTH_CLIENT_ID;
   if (process.env.ZAI_OAUTH_ORIGIN) vars.ZAI_OAUTH_ORIGIN = process.env.ZAI_OAUTH_ORIGIN;
@@ -103,7 +104,7 @@ export function resolveBuildPackagedAgentTelemetryEnv(
   const endpoint = runtimeEnv.MIKIKO_PACKAGED_AGENT_OTEL_ENDPOINT?.trim();
   const headers = runtimeEnv.MIKIKO_PACKAGED_AGENT_OTEL_HEADERS?.trim();
   const serviceName =
-    runtimeEnv.MIKIKO_PACKAGED_AGENT_OTEL_SERVICE_NAME?.trim() || "zcode-cli-agent";
+    runtimeEnv.MIKIKO_PACKAGED_AGENT_OTEL_SERVICE_NAME?.trim() || "mikiko-cli-agent";
 
   if (!endpoint && !headers) {
     if (
@@ -192,6 +193,7 @@ const desktopTsupBundleSecurityOptions = resolveDesktopTsupBundleSecurityOptions
 function createSharedDefines() {
   return {
     __ZCODE_VERSION__: JSON.stringify(buildMetadata.appVersion),
+    __ZCODE_MIN_COMPATIBLE_VERSION__: JSON.stringify(buildMetadata.minCompatibleVersion),
     __ZCODE_COMMIT__: JSON.stringify(buildMetadata.buildCommitId),
     __ZCODE_BUILD_TIME__: JSON.stringify(buildMetadata.buildTime),
     __ZCODE_ENV__: JSON.stringify(zcodeEnv),
@@ -255,6 +257,8 @@ export default defineConfig([
     outDir: "out",
     format: "esm",
     platform: "node",
+    // node:sqlite 只有带前缀的内置入口；tsup 去掉 node: 会错误加载第三方 sqlite 包。
+    removeNodeProtocol: false,
     target: "node22",
     // undici 如果被 main ESM bundle 直接内联，运行时会落到它内部的 CommonJS require("assert")，
     // Electron 加载 main 产物时会报 Dynamic require of "assert" is not supported。
@@ -306,6 +310,8 @@ export default defineConfig([
     outDir: "out",
     format: "cjs",
     platform: "node",
+    // node:sqlite 只有带前缀的内置入口；tsup 去掉 node: 会错误加载第三方 sqlite 包。
+    removeNodeProtocol: false,
     target: "node22",
     external: ["electron"],
     noExternal: ["@zcode/shared"],
@@ -345,11 +351,13 @@ export default defineConfig([
     name: "host",
     entry: {
       "host/index": "src/host/index.ts",
-      "host/tasksStorageWorker": "src/host/tasksStorageWorker.ts",
+      "host/tasksStorageWorker": "src/host/database-startup/tasksStorageWorker.ts",
     },
     outDir: "out",
     format: "esm",
     platform: "node",
+    // node:sqlite 只有带前缀的内置入口；tsup 去掉 node: 会错误加载第三方 sqlite 包。
+    removeNodeProtocol: false,
     target: "node22",
     // host 与 main 共用同一套 services 图，继续内联 undici 会在 Electron ESM runtime 里触发同样的 dynamic require 崩溃。
     // 这里同样保留为外部依赖，避免 desktop 开发态和打包态 host 进程启动失败。
@@ -380,6 +388,8 @@ export default defineConfig([
     outDir: "out",
     format: "esm",
     platform: "node",
+    // node:sqlite 只有带前缀的内置入口；tsup 去掉 node: 会错误加载第三方 sqlite 包。
+    removeNodeProtocol: false,
     target: "node22",
     // 与 host 同构：常驻 cron scheduler 进程复用 @zcode/services（tasks-index + cron），
     // 同样保留 undici 等为外部依赖，避免 Electron ESM runtime 的 dynamic require 崩溃。

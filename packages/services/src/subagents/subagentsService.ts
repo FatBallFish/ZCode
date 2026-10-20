@@ -85,6 +85,7 @@ interface PluginAgentDiscovery {
 
 const BUILT_IN_AGENT_NAMES = new Set(["general-purpose", "Explore"]);
 const PLUGIN_MANIFEST_PATHS = [
+  join(".mikiko-plugin", "plugin.json"),
   join(".zcode-plugin", "plugin.json"),
   join(".claude-plugin", "plugin.json"),
   join(".codex-plugin", "plugin.json"),

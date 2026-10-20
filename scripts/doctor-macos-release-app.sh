@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-APP_PATH="${1:-${MIKIKO_MACOS_RELEASE_APP_PATH:-/Applications/ZCode.app}}"
-ZCODE_HOME_DIR="${ZCODE_HOME:-${HOME:+$HOME/.zcode}}"
+APP_PATH="${1:-${MIKIKO_MACOS_RELEASE_APP_PATH:-/Applications/Mikiko.app}}"
+MIKIKO_HOME_DIR="${MIKIKO_HOME:-${HOME:+$HOME/.mikiko}}"
 CUA_HELPER_INSTALL_VARIANT="${ZCODE_CUA_HELPER_INSTALL_VARIANT:-}"
 # 安装包身份与后端环境分轴：MIKIKO_PREVIEW_IDENTITY=1 让生产后端的构建仍是 ZCode Preview。
 # 只认 "1"，与 CI workflow / release 门的精确比较同一套语义（其它拼写由 resolve_zcode_env 拒绝）。
@@ -20,8 +20,8 @@ fi
 CUA_HELPER_INSTALL_SUBDIR="${CUA_HELPER_INSTALL_VARIANT:+$CUA_HELPER_INSTALL_VARIANT/}"
 # Shell cannot import producer TS constants. macosReleaseAppDoctor.test.ts locks these literals to
 # @zcode/zcode-cua/broker/helperConstants so a future producer rename fails loudly.
-ZCODE_HOME_HELPER_APP_PATH="${ZCODE_HOME_DIR:+$ZCODE_HOME_DIR/computer-use/${CUA_HELPER_INSTALL_SUBDIR}ZCode Computer Use.app}"
-HELPER_APP_PATH="${ZCODE_CUA_HELPER_APP_PATH:-$ZCODE_HOME_HELPER_APP_PATH}"
+MIKIKO_HOME_HELPER_APP_PATH="${MIKIKO_HOME_DIR:+$MIKIKO_HOME_DIR/computer-use/${CUA_HELPER_INSTALL_SUBDIR}ZCode Computer Use.app}"
+HELPER_APP_PATH="${ZCODE_CUA_HELPER_APP_PATH:-$MIKIKO_HOME_HELPER_APP_PATH}"
 APP_BUNDLE_NAME="$(basename "$APP_PATH")"
 APP_DISPLAY_NAME="${APP_BUNDLE_NAME%.app}"
 APP_EXECUTABLE_NAME="${MIKIKO_APP_EXECUTABLE_NAME:-$APP_DISPLAY_NAME}"
@@ -35,10 +35,10 @@ fi
 if [ "${APP_PATH:-}" = "--help" ] || [ "${APP_PATH:-}" = "-h" ]; then
   cat <<'USAGE'
 Usage:
-  bash scripts/doctor-macos-release-app.sh /Applications/ZCode.app
-  ZCODE_CUA_REQUIRE_HELPER=1 bash scripts/doctor-macos-release-app.sh /Applications/ZCode.app
-  ZCODE_CUA_HELPER_APP_PATH=/path/to/ZCode\ Computer\ Use.app ZCODE_CUA_REQUIRE_HELPER=1 bash scripts/doctor-macos-release-app.sh /Applications/ZCode.app
-  MIKIKO_MACOS_RELEASE_APP_PATH=/Applications/ZCode.app pnpm run doctor:macos-release
+  bash scripts/doctor-macos-release-app.sh /Applications/Mikiko.app
+  ZCODE_CUA_REQUIRE_HELPER=1 bash scripts/doctor-macos-release-app.sh /Applications/Mikiko.app
+  ZCODE_CUA_HELPER_APP_PATH=/path/to/ZCode\ Computer\ Use.app ZCODE_CUA_REQUIRE_HELPER=1 bash scripts/doctor-macos-release-app.sh /Applications/Mikiko.app
+  MIKIKO_MACOS_RELEASE_APP_PATH=/Applications/Mikiko.app pnpm run doctor:macos-release
 
 Always validates the installed macOS release app with:
   codesign --verify --deep --strict <app>
@@ -50,7 +50,7 @@ same codesign/spctl checks and a local notarization staple check.
 
 Helper lookup order:
   1. ZCODE_CUA_HELPER_APP_PATH (CI passes the Helper bundled inside ZCode.app)
-  2. ${ZCODE_HOME:-$HOME/.zcode}/computer-use/<optional variant>/ZCode Computer Use.app
+  2. ${MIKIKO_HOME:-$HOME/.mikiko}/computer-use/<optional variant>/ZCode Computer Use.app
 
 CI release acceptance validates the copy actually shipped at
 ZCode.app/Contents/Resources/cua-helper/ZCode Computer Use.app. Post-install checks
@@ -72,7 +72,7 @@ assert_bundle_dir() {
   local label="$1"
   local bundle_path="$2"
   if [ -z "$bundle_path" ]; then
-    echo "[macos-release-doctor] ${label} missing: <no product helper path; set ZCODE_HOME or HOME>" >&2
+    echo "[macos-release-doctor] ${label} missing: <no product helper path; set MIKIKO_HOME or HOME>" >&2
     exit 1
   fi
   if [ ! -d "$bundle_path" ]; then
@@ -108,7 +108,7 @@ run_quiet_validation() {
   local label="$1"
   shift
   local output_file
-  output_file="$(mktemp "${TMPDIR:-/tmp}/zcode-macos-release-doctor.XXXXXX")"
+  output_file="$(mktemp "${TMPDIR:-/tmp}/mikiko-macos-release-doctor.XXXXXX")"
   if "$@" >"$output_file" 2>&1; then
     rm -f "$output_file"
     return 0

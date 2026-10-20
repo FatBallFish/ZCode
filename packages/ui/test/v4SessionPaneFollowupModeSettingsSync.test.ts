@@ -17,7 +17,11 @@ import {
 } from "@/lib/selectionSideChatRuntime.js";
 
 vi.mock("@/store/TabStoreProvider.js", async (importOriginal) => {
-  const api = { getState: () => ({ tabs: [], activeTabId: null }), setState: () => {}, subscribe: () => () => {} };
+  const api = {
+    getState: () => ({ tabs: [], activeTabId: null }),
+    setState: () => {},
+    subscribe: () => () => {},
+  };
   return {
     ...(await importOriginal<typeof import("@/store/TabStoreProvider.js")>()),
     useTabStoreApi: () => api,
@@ -107,6 +111,7 @@ vi.mock("@/hooks/useSettingService.js", () => ({
 }));
 
 vi.mock("@/hooks/useServices.js", () => ({
+  useComposerClientNamespace: () => "desktop",
   useOptionalServices: () => null,
   useServices: () => servicesMock,
 }));

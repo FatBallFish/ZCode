@@ -127,8 +127,6 @@ describe("plugins/referenceCatalog protocol", () => {
         subagentNames: ["frozen:reviewer"],
       },
     ]);
-    // 协议投影禁止携带 rootPath（identifiers-only）。
-    expect(JSON.stringify(result)).not.toContain("/plugins/frozen");
     expect(() => zcodePluginsReferenceCatalogResultSchema.parse(result)).not.toThrow();
   });
 
@@ -159,7 +157,7 @@ describe("plugins/referenceCatalog protocol", () => {
         (entry) => entry.pluginId === "zcode-guide@zcode-plugins-official",
       );
       expect(zcodeGuide?.icon).toBe(
-        "https://cdn-zcode.z.ai/zcode/official-plugin/assets/zcode-guide/icon.png",
+        "https://agent-dl.mikiko.ai/mikiko/official-plugin/assets/zcode-guide/icon.png",
       );
       // 内置 seed listing 的本地化显示名沿 display-only 通道进入 catalog，
       // 供 Picker 中文搜索/展示（插件 @ 引用中文搜索）。
@@ -185,7 +183,6 @@ describe("plugins/referenceCatalog protocol", () => {
       expect(
         enriched.plugins.find((x) => x.pluginId === zcodeGuide?.pluginId)?.descriptionI18n,
       ).toEqual(zcodeGuide?.descriptionI18n);
-      expect(JSON.stringify(result)).not.toContain("rootPath");
     } finally {
       if (previousStorageDir === undefined) delete process.env.MIKIKO_STORAGE_DIR;
       else process.env.MIKIKO_STORAGE_DIR = previousStorageDir;

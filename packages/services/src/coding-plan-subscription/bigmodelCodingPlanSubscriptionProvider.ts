@@ -87,7 +87,7 @@ import {
 
 const BIGMODEL_CODING_PLAN_API_PREFIX = "/api/biz";
 const ZAI_CODING_PLAN_PAY_API_PREFIX = "/api/pay";
-const ZCODE_CLIENT_CONFIG_API_PREFIX = "/api/v1/client/configs";
+const ZCODE_CLIENT_CONFIG_API_PREFIX = "/api/v1/coding-plan/client/configs";
 const REQUEST_TIMEOUT_MS = 15_000;
 const CLIENT_CONFIG_CACHE_TTL_MS = 60 * 60 * 1000;
 const CODING_PLAN_ZAI_OVERSEAS_PAYMENT_REQUIRED = "coding_plan_zai_overseas_payment_required";

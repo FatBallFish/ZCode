@@ -155,7 +155,7 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     });
 
     expect(feedbackUrl).toBe("https://remote.example.com/feedback");
-  }, 15_000);
+  });
 
   it("远端不可用时回退到本地 JSON", async () => {
     const logger = {
@@ -288,7 +288,7 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     const { executeDesktopCommand } = await import("../src/main/desktopCommandHandlers.js");
     const { shell } = await import("electron");
     const commandOptions = createCommandOptions({
-      settings: { zcodeEndpointOrigin: "https://zcode.z.ai" },
+      settings: { zcodeEndpointOrigin: "https://agent.mikiko.ai" },
     });
 
     await executeDesktopCommand({
@@ -323,7 +323,7 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     });
 
     expect(sessionFromPartitionMock).toHaveBeenCalledWith("persist:zcode-coding-plan");
-    expect(sessionFromPartitionMock).toHaveBeenCalledWith("persist:zcode-rewards");
+    expect(sessionFromPartitionMock).toHaveBeenCalledWith("persist:mikiko-rewards");
     expect(codingPlanPartitionSession.clearStorageData).toHaveBeenCalledTimes(2);
     expect(commandOptions.logger.info).toHaveBeenCalledWith(
       "[coding-plan-webview] cleared persistent partition storage",
@@ -340,7 +340,7 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
       command: DesktopCommandIds.SetZCodeEndpointTest,
     });
     expect(commandOptions.settingService.update).toHaveBeenLastCalledWith({
-      zcodeEndpointOrigin: "https://zcode.z.ai",
+      zcodeEndpointOrigin: "https://agent.mikiko.ai",
     });
 
     await executeDesktopCommand({
@@ -542,9 +542,8 @@ function createZoomWindow(initialZoomFactor: number) {
 
 // custom 登记制：beforeEach 有 resetModules，登记必须与被测模块同一动态实例。
 async function registerOverlayWindow(win: object): Promise<void> {
-  const { registerNativeWindowsTitleBarOverlay } = await import(
-    "../src/main/desktopWindowTitleBarOverlay.js"
-  );
+  const { registerNativeWindowsTitleBarOverlay } =
+    await import("../src/main/desktopWindowTitleBarOverlay.js");
   registerNativeWindowsTitleBarOverlay(win);
 }
 

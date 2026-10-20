@@ -1,7 +1,21 @@
-import { statSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import type { PluginDiagnostic, PluginManifest } from "@zcode/contracts";
+import type { PluginCandidate, LoadedPlugin } from "./types.js";
+import { readFileSync, statSync } from "node:fs";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const PLUGIN_SOURCE_CLEANUP_RETRY_DELAYS_MS = [0, 25, 100] as const;
+
+export const PLUGIN_MANIFEST_RELATIVE_PATHS = [
+  ".mikiko-plugin/plugin.json",
+  ".zcode-plugin/plugin.json",
+  ".claude-plugin/plugin.json",
+  ".codex-plugin/plugin.json",
+] as const;
+
+/** 新产品目录优先，历史插件只读兼容；所有发现入口共用同一优先级。 */
+export function findPluginManifestPath(rootPath: string): string | undefined {
+  return PLUGIN_MANIFEST_RELATIVE_PATHS.map((path) => join(rootPath, path)).find(fileExists);
+}
 
 export function resolveInside(rootPath: string, rawPath: string): string | null {
   if (isAbsolute(rawPath)) return null;
@@ -102,4 +116,66 @@ export function appendPluginSourceCleanupError(
 
 export function throwIfAborted(options: { signal?: AbortSignal } | undefined): void {
   if (options?.signal?.aborted) throw new Error("Plugin operation cancelled");
+}
+
+const DEFAULT_VERSION = "0.0.0";
+const PLUGIN_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,127}$/;
+
+export function loadPlugin(
+  candidate: PluginCandidate,
+  diagnostics: PluginDiagnostic[],
+): LoadedPlugin | null {
+  if (!directoryExists(candidate.rootPath)) {
+    diagnostics.push({
+      code: "plugin_root_not_found",
+      message: `Plugin root does not exist: ${candidate.rootPath}`,
+      path: candidate.rootPath,
+      severity: "warning",
+    });
+    return null;
+  }
+
+  const manifestPath = findPluginManifestPath(candidate.rootPath);
+  if (!manifestPath) {
+    diagnostics.push({
+      code: "plugin_manifest_not_found",
+      message: `Plugin manifest not found: ${candidate.rootPath}`,
+      path: candidate.rootPath,
+      severity: "error",
+    });
+    return null;
+  }
+
+  const manifest = readManifest(manifestPath, diagnostics);
+  if (!manifest) return null;
+  return {
+    id: `${manifest.name}@${candidate.marketplace}`,
+    manifest,
+    manifestPath,
+    marketplace: candidate.marketplace,
+    rootPath: candidate.rootPath,
+    source: candidate.source,
+  };
+}
+
+function readManifest(path: string, diagnostics: PluginDiagnostic[]): PluginManifest | null {
+  try {
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
+    if (!isRecord(parsed)) throw new Error("Manifest must be a JSON object");
+    const name = typeof parsed.name === "string" ? parsed.name.trim() : "";
+    if (!PLUGIN_NAME_PATTERN.test(name)) throw new Error(`Invalid plugin name: ${name}`);
+    return {
+      ...parsed,
+      name,
+      version: typeof parsed.version === "string" ? parsed.version : DEFAULT_VERSION,
+    } as PluginManifest;
+  } catch (error) {
+    diagnostics.push({
+      code: "plugin_manifest_invalid",
+      message: error instanceof Error ? error.message : `Invalid plugin manifest: ${path}`,
+      path,
+      severity: "error",
+    });
+    return null;
+  }
 }

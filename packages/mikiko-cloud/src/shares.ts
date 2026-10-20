@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- 分享协议的服务端实现（路由、设备注册、限流、四阶段发布与公开读）必须共享同一份 KV 记录形状与错误码表，拆分会引入多条状态写入路径。 */
 /**
  * Mikiko 自建对话分享（spec specs/mikiko-cloud/agent-endpoint-plan.md §4.3）。
  *

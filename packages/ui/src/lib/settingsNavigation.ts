@@ -10,11 +10,13 @@ export type SettingsSectionId =
   | "modelProvider"
   | "chatgpt"
   | "sub2api"
+  | "remoteDevices"
   | "memory"
   | "plugin"
   | "mcp"
   | "skill"
   | "plugins"
+  | "archives"
   | "usage"
   | "subagents"
   | "commands"
@@ -36,6 +38,8 @@ const SETTINGS_SECTION_INTENT_KEY = "zcode-settings-section-intent",
   SETTINGS_PLUGIN_TAB_INTENT_KEY = "zcode-settings-plugin-tab-intent",
   SETTINGS_PLUGIN_ORIGIN_INTENT_KEY = "zcode-settings-plugin-origin-intent",
   SETTINGS_PLUGIN_SCOPE_KEY_INTENT_KEY = "zcode-settings-plugin-scope-key-intent";
+const SETTINGS_SOURCE_SERVER_ID_INTENT_KEY = "mikiko-settings-source-server-id-intent";
+const SETTINGS_SOURCE_SERVER_DETAILS_INTENT_KEY = "mikiko-settings-source-server-details-intent";
 const SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY = "zcode-settings-model-provider-id-intent";
 const SETTINGS_SUB2API_SITE_INTENT_KEY = "zcode-settings-sub2api-site-intent";
 const SETTINGS_SECTION_INTENT_EVENT = "zcode:settings-section-intent",
@@ -62,6 +66,8 @@ export interface SettingsSectionIntentEventDetail {
   usageTab?: SettingsUsageTabTarget;
   modelProviderId?: string;
   sub2apiSiteId?: string;
+  sourceServerId?: string;
+  sourceServerDetails?: boolean;
 }
 
 /**
@@ -82,11 +88,15 @@ function isSettingsSectionId(value: string): value is SettingsSectionId {
     value === "browser" ||
     value === "pet" ||
     value === "modelProvider" ||
+    value === "chatgpt" ||
+    value === "sub2api" ||
+    value === "remoteDevices" ||
     value === "memory" ||
     value === "plugin" ||
     value === "mcp" ||
     value === "skill" ||
     value === "plugins" ||
+    value === "archives" ||
     value === "usage" ||
     value === "subagents" ||
     value === "commands" ||
@@ -110,6 +120,8 @@ export function resolveSettingsSection(
   fallbackSection: SettingsSectionId = "general",
 ): SettingsSectionId {
   if (section === "plugins") return "plugin";
+  // 二开旧归档入口迁入上游 Archive owner，不能继续维护第二份列表。
+  if (section === "archived") return "archives";
   return isSettingsSectionEnabled(section) ? section : fallbackSection;
 }
 
@@ -144,6 +156,10 @@ export function readLastSettingsSectionPreference(
       storage.setItem(SETTINGS_LAST_SECTION_STORAGE_KEY, "plugin");
       setPendingPluginTab("plugins");
       return "plugin";
+    }
+    if (raw === "archived") {
+      storage.setItem(SETTINGS_LAST_SECTION_STORAGE_KEY, "archives");
+      return "archives";
     }
     if (raw === "skills") {
       storage.setItem(SETTINGS_LAST_SECTION_STORAGE_KEY, "skill");
@@ -240,6 +256,8 @@ export function setPendingSettingsSectionIntent(
     pluginScopeKey?: string;
     modelProviderId?: string;
     sub2apiSiteId?: string;
+    sourceServerId?: string;
+    sourceServerDetails?: boolean;
     usageTab?: SettingsUsageTabTarget;
   } = {},
 ): void {
@@ -268,6 +286,23 @@ export function setPendingSettingsSectionIntent(
     if (options.usageTab) {
       window.sessionStorage.setItem(SETTINGS_USAGE_TAB_INTENT_KEY, options.usageTab);
     }
+    if (section === "remoteDevices" && options.sourceServerId?.trim()) {
+      window.sessionStorage.setItem(
+        SETTINGS_SOURCE_SERVER_ID_INTENT_KEY,
+        options.sourceServerId.trim(),
+      );
+    } else {
+      window.sessionStorage.removeItem(SETTINGS_SOURCE_SERVER_ID_INTENT_KEY);
+    }
+    if (
+      section === "remoteDevices" &&
+      options.sourceServerId?.trim() &&
+      options.sourceServerDetails
+    ) {
+      window.sessionStorage.setItem(SETTINGS_SOURCE_SERVER_DETAILS_INTENT_KEY, "true");
+    } else {
+      window.sessionStorage.removeItem(SETTINGS_SOURCE_SERVER_DETAILS_INTENT_KEY);
+    }
     if (options.modelProviderId) {
       window.sessionStorage.setItem(SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY, options.modelProviderId);
     } else {
@@ -294,6 +329,12 @@ export function setPendingSettingsSectionIntent(
         usageTab: options.usageTab,
         modelProviderId: options.modelProviderId,
         sub2apiSiteId: options.sub2apiSiteId,
+        ...(section === "remoteDevices" && options.sourceServerId?.trim()
+          ? {
+              sourceServerId: options.sourceServerId.trim(),
+              ...(options.sourceServerDetails ? { sourceServerDetails: true } : {}),
+            }
+          : {}),
       },
     }),
   );
@@ -306,6 +347,8 @@ function clearPendingSettingsSectionIntent(): void {
 
   try {
     window.sessionStorage.removeItem(SETTINGS_SECTION_INTENT_KEY);
+    window.sessionStorage.removeItem(SETTINGS_SOURCE_SERVER_ID_INTENT_KEY);
+    window.sessionStorage.removeItem(SETTINGS_SOURCE_SERVER_DETAILS_INTENT_KEY);
     window.sessionStorage.removeItem(SETTINGS_USAGE_TAB_INTENT_KEY);
     window.sessionStorage.removeItem(SETTINGS_MODEL_PROVIDER_ID_INTENT_KEY);
     window.sessionStorage.removeItem(SETTINGS_SUB2API_SITE_INTENT_KEY);
@@ -330,6 +373,9 @@ export function consumePendingSettingsSection(
       window.sessionStorage.removeItem(SETTINGS_SECTION_INTENT_KEY);
     }
 
+    if (raw === "archived") {
+      return "archives";
+    }
     if (raw === "skills") {
       // 旧 Skills 使用复数 id；迁移到当前独立 skill 分区。
       return "skill";
@@ -515,4 +561,27 @@ export function addPendingSettingsSectionListener(
   return () => {
     window.removeEventListener(SETTINGS_SECTION_INTENT_EVENT, handleIntent);
   };
+}
+
+/** 设置页先消费分区，再消费卡片目标；已挂载页面由同一导航事件直接接收。 */
+export function consumePendingSettingsSourceServerId(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const id = window.sessionStorage.getItem(SETTINGS_SOURCE_SERVER_ID_INTENT_KEY);
+    window.sessionStorage.removeItem(SETTINGS_SOURCE_SERVER_ID_INTENT_KEY);
+    return id?.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function consumePendingSettingsSourceServerDetails(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const details = window.sessionStorage.getItem(SETTINGS_SOURCE_SERVER_DETAILS_INTENT_KEY);
+    window.sessionStorage.removeItem(SETTINGS_SOURCE_SERVER_DETAILS_INTENT_KEY);
+    return details === "true";
+  } catch {
+    return false;
+  }
 }

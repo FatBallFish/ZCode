@@ -85,7 +85,7 @@ describe("zcodeEndpoint", () => {
       origin: "http://localhost:3030",
       apiBaseUrl: "http://localhost:3030/api/v1",
       remoteUrl: "http://localhost:3030/remote/v3",
-      webRemoteCallbackUrl: "http://localhost:3030/web-remote/callback",
+      webRemoteCallbackUrl: "http://localhost:3030/remote/v4",
       webShareCallbackUrl: "http://localhost:3030/cn/share/callback",
       relayWsUrl: "ws://localhost:3030/ws",
       zcodePlanOpenAiBaseUrl: "http://localhost:3030/api/v1/zcode-plan",
@@ -149,12 +149,12 @@ describe("zcodeEndpoint", () => {
     ).toBe("https://zcode.z.ai/api/v1/zcode-plan/anthropic");
   });
 
-  it("uses the test relay only for the standard test endpoint", () => {
+  it("uses the self-hosted relay and local legacy transport overrides", () => {
     expect(
       resolveWebRemoteControlRelayWsUrl({
         endpointOrigin: TEST_ZCODE_ENDPOINT_ORIGIN,
       }),
-    ).toBe("wss://zcode.z.ai/ws");
+    ).toBe("wss://ws.mikiko.ai");
     expect(
       resolveWebRemoteControlRelayWsUrl({
         endpointOrigin: DEFAULT_ZCODE_ENDPOINT_ORIGIN,
@@ -164,7 +164,7 @@ describe("zcodeEndpoint", () => {
       resolveWebRemoteControlRelayWsUrl({
         endpointOrigin: "http://localhost:3030",
       }),
-    ).toBe(DEFAULT_WEB_REMOTE_CONTROL_RELAY_WS_URL);
+    ).toBe("ws://localhost:3030/ws");
   });
 
   it("allows an explicit web remote control relay url override", () => {
@@ -222,8 +222,8 @@ describe("zcodeEndpoint", () => {
   });
 
   it("builds product endpoint URLs from the selected environment", () => {
-    expect(buildRuntimeZCodeApiUrl({ MIKIKO_ENV: "test" }, "/api/v1/oauth/token")).toBe(
-      "https://zcode.z.ai/api/v1/oauth/token",
+    expect(buildRuntimeZCodeApiUrl({ MIKIKO_ENV: "test" }, "/api/v1/client/configs")).toBe(
+      "https://agent.mikiko.ai/api/v1/client/configs",
     );
     expect(buildRuntimeZaiOAuthUrl({ MIKIKO_ENV: "test" }, "/api/oauth/authorize")).toBe(
       "https://chat.z.ai/api/oauth/authorize",
@@ -231,9 +231,7 @@ describe("zcodeEndpoint", () => {
     expect(buildRuntimeZaiBusinessUrl({ MIKIKO_ENV: "test" }, "/api/auth/z/login")).toBe(
       "https://api.z.ai/api/auth/z/login",
     );
-    expect(buildBigModelApiUrl({ MIKIKO_ENV: "test" }, "/login")).toBe(
-      "https://bigmodel.cn/login",
-    );
+    expect(buildBigModelApiUrl({ MIKIKO_ENV: "test" }, "/login")).toBe("https://bigmodel.cn/login");
   });
 
   it("keeps environment-scoped endpoint overrides centralized", () => {

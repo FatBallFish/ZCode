@@ -1,11 +1,10 @@
-/* eslint-disable max-lines -- Worker 单文件入口路由全部云端端点（spec specs/mikiko-cloud/agent-endpoint-plan.md）；拆分会破坏 wrangler 部署映射。 */
 /**
  * Mikiko 自建云端（Cloudflare Worker，spec specs/mikiko-cloud/agent-endpoint-plan.md）。
  *
  * agent.mikiko.ai 单域名：
  *  - /                                按地域分流 → /cn/ | /en/（public/{cn,en}/index.html）
  *  - /changelog                       语言中立更新日志入口，按地域分流 → /cn/changelog | /en/changelog
- *  - /admin                           预置配置管理页（public/admin.html，账密鉴权）
+ *  - /admin                           预置配置管理 SPA（public/admin/index.html，账密鉴权）
  *  - GET /api/v1/builtin-provider-config  模型预置规则 Release（客户端 revision 热更）
  *  - GET /api/v1/client/configs           自建功能配置（dynamicWorkflow 灰度、分享限流）
  *  - POST /api/v1/admin/login 等           管理端点（session cookie 鉴权）
@@ -136,38 +135,40 @@ export default {
       if (url.pathname === "/healthz") {
         return jsonResponse({ ok: true, version: SERVICE_VERSION });
       }
-      // ── zcode.z.ai 代理（2026-10-20 远控页面 CORS 修复）──
-  // 远控连接后 renderer 在手机浏览器中运行，直接 fetch zcode.z.ai 被浏览器 CORS 拦截。
-  // Worker 代理此端点并以 * CORS 返回，renderer 的 CodingPlan/订阅请求改走 agent.mikiko.ai。
-  // 仅代理只读 GET 端点（client/configs、zcode-plan/billing/*）；OAuth 等写操作仍直连官方。
-  if (
-    request.method === "GET" &&
-    (url.pathname === "/api/v1/client/configs" ||
-     url.pathname.startsWith("/api/v1/zcode-plan/billing/"))
-  ) {
-    const upstream = new URL(`https://zcode.z.ai${url.pathname}${url.search}`);
-    const proxyResponse = await fetch(upstream.toString(), {
-      method: "GET",
-      headers: {
-        // 透传必要头；不透传 Authorization（代理是公开只读的）。
-        ...(request.headers.get("accept") ? { accept: request.headers.get("accept")! } : {}),
-      },
-      signal: AbortSignal.timeout(15_000),
-    }).catch(() => null);
-    if (proxyResponse === null) {
-      return jsonResponse({ error: "upstream_unavailable" }, 502);
-    }
-    const body = await proxyResponse.text();
-    return new Response(body, {
-      status: proxyResponse.status,
-      headers: {
-        "content-type": proxyResponse.headers.get("content-type") ?? "application/json",
-        "access-control-allow-origin": "*",
-        "cache-control": "public, max-age=300",
-      },
-    });
-  }
-  if (url.pathname.startsWith("/api/v1/shares/")) {
+      // 手机 CodingPlan 的只读请求经自建域名解决 CORS；专用路径隔离官方套餐数据，
+      // 避免旧代理抢占 /client/configs、覆盖 Mikiko 自建功能开关和分享限流配置。
+      if (
+        request.method === "GET" &&
+        (url.pathname === "/api/v1/coding-plan/client/configs" ||
+          url.pathname.startsWith("/api/v1/zcode-plan/billing/"))
+      ) {
+        const upstreamPath =
+          url.pathname === "/api/v1/coding-plan/client/configs"
+            ? "/api/v1/client/configs"
+            : url.pathname;
+        const upstream = new URL(`https://zcode.z.ai${upstreamPath}${url.search}`);
+        const proxyResponse = await fetch(upstream.toString(), {
+          method: "GET",
+          headers: {
+            // 透传必要头；不透传 Authorization（代理是公开只读的）。
+            ...(request.headers.get("accept") ? { accept: request.headers.get("accept")! } : {}),
+          },
+          signal: AbortSignal.timeout(15_000),
+        }).catch(() => null);
+        if (proxyResponse === null) {
+          return jsonResponse({ error: "upstream_unavailable" }, 502);
+        }
+        const body = await proxyResponse.text();
+        return new Response(body, {
+          status: proxyResponse.status,
+          headers: {
+            "content-type": proxyResponse.headers.get("content-type") ?? "application/json",
+            "access-control-allow-origin": "*",
+            "cache-control": "public, max-age=300",
+          },
+        });
+      }
+      if (url.pathname.startsWith("/api/v1/shares/")) {
         return handleShareRequest({ request, env, url, origin: url.origin });
       }
       // Bug 上报客户端端点（specs/mikiko-cloud/feedback-tickets.md）：设备 token 鉴权在模块内。
@@ -191,20 +192,22 @@ export default {
         const page = await env.ASSETS.fetch(new URL("/share.html", url.origin));
         if (page.status >= 300 && page.status < 400) {
           const location = page.headers.get("location");
-          if (location)  // 旧后台入口重定向到新 SPA（2026-10-20 D.7：admin.html → /admin/）。
-  if (url.pathname === "/admin.html" || url.pathname === "/admin.html/") {
-    return Response.redirect(url.origin + "/admin/", 301);
-  }
-  // admin SPA HTML 不缓存（hash 文件名资产自带 immutable，但 HTML 必须每次取最新引用）。
-  if (url.pathname === "/admin/" || url.pathname === "/admin") {
-    const assetResponse = await env.ASSETS.fetch(new Request(url.origin + "/admin/index.html", request));
-    const headers = new Headers(assetResponse.headers);
-    headers.set("Cache-Control", "no-cache, must-revalidate");
-    return new Response(assetResponse.body, { status: assetResponse.status, headers });
-  }
- return env.ASSETS.fetch(new URL(location, url.origin));
+          // 缺少 Location 的重定向保留原响应，禁止把 null 当相对路径请求 /null。
+          if (location) return env.ASSETS.fetch(new URL(location, url.origin));
         }
         return page;
+      }
+      // 管理页与分享页是并列路由；嵌入分享 Location 分支会令管理入口整体不可达。
+      if (url.pathname === "/admin.html" || url.pathname === "/admin.html/") {
+        return Response.redirect(url.origin + "/admin/", 301);
+      }
+      if (url.pathname === "/admin/" || url.pathname === "/admin") {
+        if (!env.ASSETS) return new Response("Not Found", { status: 404 });
+        // ASSETS 默认把 index.html 重定向回目录，直接取规范 URL 避免浏览器循环跳转。
+        const assetResponse = await env.ASSETS.fetch(new Request(url.origin + "/admin/", request));
+        const headers = new Headers(assetResponse.headers);
+        headers.set("Cache-Control", "no-cache, must-revalidate");
+        return new Response(assetResponse.body, { status: assetResponse.status, headers });
       }
       if (url.pathname === "/api/v1/builtin-provider-config") {
         if (request.method !== "GET") return methodNotAllowed();

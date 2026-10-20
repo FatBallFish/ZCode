@@ -2,7 +2,7 @@
   "name": "@zcode/server-cli",
   "private": true,
   "bin": {
-    "zcode": "./dist/server-cli.js"
+    "mikiko": "./dist/server-cli.js"
   },
   "type": "module",
   "exports": {
@@ -12,6 +12,8 @@
   "scripts": {
     "build": "tsup",
     "stage": "pnpm run build && tsx src/packaging/stageCli.ts",
+    "stage:remote-assets": "tsx src/packaging/stageRemoteAssetsCli.ts",
+    "spike:proxy-stdio-docker": "node scripts/verify-proxy-stdio-docker.mjs",
     "test": "vitest run",
     "lint": "oxlint src test"
   },

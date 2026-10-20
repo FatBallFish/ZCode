@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- Windows two-phase transport lifecycle must remain one linearized state machine. */
 import { randomBytes } from "node:crypto";
 
 import type { HelperHealth } from "@zcode/zcode-cua/broker";

@@ -1,11 +1,12 @@
+import { RemoteTaskDeviceLabel } from "@/remote-connection/RemoteTaskDeviceLabel.js";
 /* eslint-disable max-lines -- task item 同时承载默认列表和 timeline 两行布局的共享交互，先保持动作链路集中避免归档/置顶回归。 */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   Clock,
   CloudUpload,
-  ListTree,
   LoaderIcon,
+  ListTree,
   Moon,
   Pin,
   Smartphone,
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 import { isCronTask, isOffPeakTask, type ZCodeTaskMeta } from "@zcode/shared";
 import { useWorktreeStore } from "@/store/worktreeStore.js";
-import { TID_TASK_ARCHIVE, TID_TASK_ITEM, testId } from "@zcode/shared";
+import { TID_TASK_ARCHIVE, TID_TASK_ITEM, testId } from "@zcode/shared/test-ids";
 import { Badge } from "@/components/ui/badge.js";
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
@@ -55,7 +56,9 @@ import { useOptionalTabStore } from "@/store/TabStoreProvider.js";
 import { isWorkspaceReadOnly } from "@/store/tabStore.js";
 import { TaskTitleOverflowText } from "@/components/TaskTitleOverflowText.js";
 import { createTaskWorkbenchDragPreview } from "@/lib/taskWorkbenchDragPreview.js";
-import { runUserAction } from "@/lib/userActionTelemetry.js";
+import { resolveTaskSourceLabel } from "@/lib/taskSourceAttribution.js";
+import { logger } from "@/logger.js";
+import { runUserAction, runUserActionAsync } from "@/lib/userActionTelemetry.js";
 import { TaskRowActionButton } from "@/workspace-grouped-tasks/task-row-action-button.js";
 import { TaskWorkflowRunLines } from "@/components/workflow-run-line/TaskWorkflowRunLines.js";
 
@@ -68,8 +71,11 @@ interface TaskListItemProps {
   remoteSessionId?: string;
   task: ZCodeTaskMeta;
   isPinned: boolean;
+  isArchived?: boolean;
   isActive: boolean;
   isMobileActive?: boolean;
+  hoverEnabled?: boolean;
+  connectionOverlay?: "disconnected" | "reconnecting";
   onSelectTask: (taskId: string) => void;
   onArchiveTaskInline: (e: React.MouseEvent, taskId: string) => void;
   onCancelArchiveConfirm: () => void;
@@ -79,12 +85,20 @@ interface TaskListItemProps {
   onArchiveTask: (taskId: string) => void;
   onMarkTaskAsUnread: (taskId: string) => void;
   onOpenTaskContextMenu?: (taskId: string) => void;
-  onOpenFileTree?: (task: ZCodeTaskMeta) => void;
+  onOpenFileTree?: () => void | Promise<void>;
   variant?: "default" | "timeline";
   showPinAction?: boolean;
   intl: TaskListItemIntl;
   actionsDisabled?: boolean;
   actionsDisabledReason?: string;
+}
+
+export function shouldShowRemoteConnectionOverlay(params: {
+  workspaceIdentity?: string;
+  connectionOverlay?: "disconnected" | "reconnecting";
+}): boolean {
+  const workspaceIdentity = params.workspaceIdentity?.trim() ?? "";
+  return Boolean(workspaceIdentity.startsWith("remote:") && params.connectionOverlay);
 }
 
 function areJsonFieldsEqual(left: unknown, right: unknown) {
@@ -111,6 +125,7 @@ function areTaskListItemTaskFieldsEqual(left: ZCodeTaskMeta, right: ZCodeTaskMet
     left.unreadAt === right.unreadAt &&
     getTaskAutomationIdentity(left) === getTaskAutomationIdentity(right) &&
     left.status === right.status &&
+    resolveTaskSourceLabel(left) === resolveTaskSourceLabel(right) &&
     areJsonFieldsEqual(left.pendingInteraction, right.pendingInteraction) &&
     areJsonFieldsEqual(getTaskListRowActivity(left), getTaskListRowActivity(right)) &&
     areJsonFieldsEqual(left.changeSummary, right.changeSummary)
@@ -123,8 +138,11 @@ function areTaskListItemPropsEqual(left: TaskListItemProps, right: TaskListItemP
     left.remoteSessionId === right.remoteSessionId &&
     areTaskListItemTaskFieldsEqual(left.task, right.task) &&
     left.isPinned === right.isPinned &&
+    left.isArchived === right.isArchived &&
     left.isActive === right.isActive &&
     left.isMobileActive === right.isMobileActive &&
+    left.hoverEnabled === right.hoverEnabled &&
+    left.connectionOverlay === right.connectionOverlay &&
     left.isArchiveConfirming === right.isArchiveConfirming &&
     left.variant === right.variant &&
     left.showPinAction === right.showPinAction &&
@@ -148,8 +166,11 @@ export const MemoTaskItem = memo(function TaskListItem({
   remoteSessionId,
   task,
   isPinned,
+  isArchived = false,
   isActive,
   isMobileActive = false,
+  hoverEnabled = true,
+  connectionOverlay,
   onSelectTask,
   onArchiveTaskInline,
   onCancelArchiveConfirm,
@@ -253,6 +274,7 @@ export const MemoTaskItem = memo(function TaskListItem({
           { label: taskAttentionLabel, count: String(taskAttention.count) },
         )
       : taskAttentionLabel;
+  const taskSourceLabel = resolveTaskSourceLabel(task);
   const taskTitle =
     task.title ||
     intl.formatMessage({
@@ -272,7 +294,8 @@ export const MemoTaskItem = memo(function TaskListItem({
         event.preventDefault();
         return;
       }
-      event.dataTransfer.effectAllowed = "copy";
+      // 原因：此行同时可复制到分屏、移动到项目；只允许 copy 会让浏览器拒绝项目的 move/drop。
+      event.dataTransfer.effectAllowed = "copyMove";
       const payload = {
         kind: "zcode/session" as const,
         workspacePath,
@@ -332,7 +355,7 @@ export const MemoTaskItem = memo(function TaskListItem({
           action: "open_tree",
           trigger: "button",
         },
-        operation: () => onOpenFileTree?.(task),
+        operation: () => onOpenFileTree?.(),
         completed: { resultSource: "local_commit" },
         failureStage: "file_tree_open",
       });
@@ -393,20 +416,36 @@ export const MemoTaskItem = memo(function TaskListItem({
   // 月亮身份改为持久 meta 标记判断；off-peak store 反查在任务被删除后会丢失
   // 会话溯源，且让每一行多背一个全局 store 订阅。
   const isTaskOffPeak = isOffPeakTask(task);
-  const showTimelineIdleIndicator =
-    variant === "timeline" && leadingIndicator === "none" && !isPinned;
-  // 手机远控标记和置顶状态共用左侧 leading 槽。
+  // Bugfix: 手机远控标记和置顶状态共用左侧 leading 槽。
   // 已置顶任务如果继续常显 Pin，会和绝对定位的手机图标重叠；手机激活态默认让手机图标优先，hover 时再显示 Pin 操作。
   const showPinnedState = isPinned && leadingIndicator === "none" && !isMobileActive;
-  const shouldMountWorkspaceTaskActions = hoverActionsVisible || focusActionsVisible || isHoverNone;
-  // Bugfix：hover:none 只代表触屏端需要常驻 action，不代表应永久隐藏时间、状态和变更摘要。
-  // 元信息仅在真实 hover / focus 交互时让位，保持旧触屏布局的“元信息 + action”语义。
-  const shouldSuppressWorkspaceTaskMetadata = hoverActionsVisible || focusActionsVisible;
+  // 修复原因：手机会在 click 前合成 mouseenter/focus；此时切换内容会让首次点击只进入 hover。
+  // 远控入口固定操作区和元信息，避免触摸引发 DOM 切换；桌面仍沿用 hover/focus 展示。
+  const shouldSuppressWorkspaceTaskMetadata =
+    hoverEnabled && (hoverActionsVisible || focusActionsVisible);
+  const shouldMountWorkspaceTaskActions =
+    !hoverEnabled || shouldSuppressWorkspaceTaskMetadata || isHoverNone;
   const taskTimeLabel = formatTaskRelativeTime(task.updatedAt, intl);
   const taskChangeSummary = getTaskChangeSummary(task);
   const isRemoteTask = Boolean(task.workspaceIdentity?.trim());
+  const remoteConnectionUnavailable = shouldShowRemoteConnectionOverlay({
+    workspaceIdentity: task.workspaceIdentity,
+    connectionOverlay,
+  });
+  const remoteConnectionBadge = remoteConnectionUnavailable ? (
+    <Badge
+      data-remote-connection-overlay="true"
+      className="h-5 shrink-0 border-transparent bg-warning-surface px-2 text-ui-xs font-medium text-warning-surface-foreground"
+    >
+      {intl.formatMessage({ id: "taskList.remoteConnectionUnknown" })}
+    </Badge>
+  ) : null;
   const archiveLabel = intl.formatMessage({
-    id: isArchiveConfirming ? "common.confirm" : "taskList.archive",
+    id: isArchiveConfirming
+      ? "common.confirm"
+      : isArchived
+        ? "taskList.unarchive"
+        : "taskList.archive",
   });
   const taskTitleWithChanges = formatTaskTitleWithChanges(taskTitle, taskChangeSummary, intl);
   // 2026-10-16 hover 调整：worktree 会话的项目名此前拼「repoName · 分支/短id」与下方
@@ -477,8 +516,7 @@ export const MemoTaskItem = memo(function TaskListItem({
           </Button>
         </ControlHintTooltip>
       ) : (
-        // Project / Pinned 的普通归档按钮曾覆盖 hover:bg-background/90，
-        // 与同一行文件树 action 不一致；普通态统一复用共享 bg-hover action。
+        // 普通归档态复用共享 action 的 hover 背景、尺寸和提示。
         <TaskRowActionButton
           label={archiveLabel}
           onClick={handleArchive}
@@ -501,21 +539,30 @@ export const MemoTaskItem = memo(function TaskListItem({
   const canOpenFileTree =
     Boolean(onOpenFileTree) && (!task.workspaceIdentity?.trim() || Boolean(remoteSessionId));
   const fileTreeActionNode =
-    canOpenFileTree &&
+    onOpenFileTree &&
     !workspaceActionsDisabled &&
     !hasPendingInteraction &&
     (shouldMountWorkspaceTaskActions || isMobileActive) ? (
-      <span className="inline-flex shrink-0">
-        {/* Bugfix：Pinned 文件树按钮曾手写 hover 背景和 tooltip，导致与 Grouped task
-            的同一操作视觉不一致。直接复用共享 action，统一 bg-hover、尺寸和 pointer 行为。 */}
-        <TaskRowActionButton
-          label={intl.formatMessage({ id: "git.action.showTree" })}
-          onClick={handleOpenFileTree}
-          showTooltip
-        >
-          <ListTree className="size-3.5" />
-        </TaskRowActionButton>
-      </span>
+      <TaskRowActionButton
+        label={intl.formatMessage({ id: "git.action.showTree" })}
+        showTooltip
+        testId={`task-files-${task.taskId}`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          void runUserActionAsync({
+            input: { featureId: "workbench.file", action: "open_tree", trigger: "button" },
+            operation: async () => onOpenFileTree?.(),
+            completed: { resultSource: "local_commit" },
+            failureStage: "file_tree_open",
+          }).catch((cause) => {
+            logger.error("[task-list] 查看文件失败", cause);
+            toast(String(cause));
+          });
+        }}
+      >
+        <ListTree className="size-3.5" />
+      </TaskRowActionButton>
     ) : null;
   const taskActionGroupNode =
     fileTreeActionNode || archiveActionNode ? (
@@ -562,9 +609,9 @@ export const MemoTaskItem = memo(function TaskListItem({
             draggable={canDragToWorkbench}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            onFocusCapture={() => setFocusActionsVisible(true)}
+            onMouseEnter={hoverEnabled ? handleMouseEnter : undefined}
+            onMouseLeave={hoverEnabled ? handleMouseLeave : undefined}
+            onFocusCapture={hoverEnabled ? () => setFocusActionsVisible(true) : undefined}
             onBlurCapture={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                 setFocusActionsVisible(false);
@@ -592,7 +639,7 @@ export const MemoTaskItem = memo(function TaskListItem({
               // 「项目和会话都收起后找不到当前打开的会话」——补一条品牌色左侧标条强化定位。
               isActive
                 ? "bg-selected shadow-[inset_2px_0_0_0_var(--color-brand)]"
-                : "hover:bg-surface-hover",
+                : hoverEnabled && "hover:bg-surface-hover",
             )}
           >
             {/* Bugfix: 之前任务列表依赖 divide-y 画分隔线，深色侧栏里每个 item 上下都会出现明显黑线，
@@ -622,7 +669,7 @@ export const MemoTaskItem = memo(function TaskListItem({
                 ) : leadingIndicator === "unread" ? (
                   <span
                     data-unread-indicator="true"
-                    className="h-1.5 w-1.5 rounded-full bg-sky-500 dark:bg-sky-400"
+                    className="size-[7px] rounded-full bg-icon-blue"
                   />
                 ) : leadingIndicator === "loading" ? (
                   <LoaderIcon className="size-4 animate-spin text-foreground-subtle" />
@@ -631,8 +678,6 @@ export const MemoTaskItem = memo(function TaskListItem({
                     data-worktree-indicator="true"
                     className="size-3.5 text-foreground-subtle"
                   />
-                ) : showTimelineIdleIndicator ? (
-                  <span data-idle-indicator="true" className="h-1.5 w-1.5 rounded-full bg-border" />
                 ) : null}
               </span>
               {shouldRenderPinAction ? (
@@ -674,6 +719,7 @@ export const MemoTaskItem = memo(function TaskListItem({
                       </span>
                     </ControlHintTooltip>
                   ) : null}
+                  {remoteConnectionBadge}
                   <TaskTitleOverflowText
                     className="text-ui-base text-foreground"
                     title={taskTitleWithChanges}
@@ -770,6 +816,7 @@ export const MemoTaskItem = memo(function TaskListItem({
                         </span>
                       </ControlHintTooltip>
                     ) : null}
+                    {remoteConnectionBadge}
                     <TaskTitleOverflowText
                       className="text-ui-base text-foreground"
                       title={taskTitleWithChanges}
@@ -863,10 +910,12 @@ export const MemoTaskItem = memo(function TaskListItem({
 MemoTaskItem.displayName = "MemoTaskItem";
 
 export function TaskListItemContextMenuContent({
+  organizationActions,
   workspacePath,
   remoteSessionId,
   task,
   isPinned,
+  isArchived = false,
   intl,
   onTogglePinTask,
   onStartRenameTask,
@@ -875,10 +924,12 @@ export function TaskListItemContextMenuContent({
   disableTaskActions = false,
   disabledReason,
 }: {
+  organizationActions?: React.ReactNode;
   workspacePath: string;
   remoteSessionId?: string;
   task: ZCodeTaskMeta;
   isPinned: boolean;
+  isArchived?: boolean;
   intl: TaskListItemIntl;
   onTogglePinTask: (taskId: string, pinned: boolean) => void;
   onStartRenameTask: (taskId: string, currentTitle: string) => void;
@@ -979,8 +1030,10 @@ export function TaskListItemContextMenuContent({
 
   return (
     <TaskListItemContextMenu
+      organizationActions={organizationActions}
       intl={intl}
       isPinned={isPinned}
+      isArchived={isArchived}
       fileManagerLabel={fileManagerLabel}
       taskSessionFile={taskSessionFile}
       activeSessionId={task.taskId}

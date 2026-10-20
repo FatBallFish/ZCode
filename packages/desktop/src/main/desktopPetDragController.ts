@@ -88,7 +88,8 @@ export function createPetDragController(deps: PetDragControllerDeps): PetDragCon
       height: deps.windowSize.height,
     });
     // 方向判定用 clamp 后的实际应用位移：被屏幕边缘夹住的抖动不应切换跑动方向。
-    const [appliedX, appliedY] = petWindow.getPosition();
+    // Electron 的位置数组类型不保证索引存在；bounds 提供同坐标系的必填 x/y。
+    const { x: appliedX, y: appliedY } = petWindow.getBounds();
     const direction = session.tracker.push(
       appliedX - session.lastApplied.x,
       appliedY - session.lastApplied.y,
@@ -114,7 +115,7 @@ export function createPetDragController(deps: PetDragControllerDeps): PetDragCon
       if (!petWindow || petWindow.isDestroyed()) return;
       stopDragLoop();
       const anchorCursor = screen.getCursorScreenPoint();
-      const [originX, originY] = petWindow.getPosition();
+      const { x: originX, y: originY } = petWindow.getBounds();
       dragSession = {
         timer: setInterval(dragTick, DRAG_TICK_MS),
         anchorCursor,

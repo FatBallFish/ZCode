@@ -1,3 +1,4 @@
+import { migrateApplicationStorage, createSettingService } from "@zcode/services/node";
 import { disposeServiceResourcesAndWait, getAppConfigDir } from "@zcode/services/node";
 import type { IChannel } from "@zcode/rpc";
 import {
@@ -20,7 +21,7 @@ import {
 
 // In stdio mode, all logging goes to stderr
 const log = (...args: unknown[]) =>
-  console.error(formatLogPrefix("zcode-server:stdio", process.pid), ...args);
+  console.error(formatLogPrefix("mikiko-server:stdio", process.pid), ...args);
 const stderrConsoleLog = (...args: unknown[]) => console.error(...args);
 
 // stdio 模式下 stdout 只能承载 RPC 帧。
@@ -64,6 +65,7 @@ async function main() {
     environmentConfigRoot: getAppConfigDir(),
     content: readBundledZCodeBuiltinProviderConfig(),
   });
+  await migrateApplicationStorage(await createSettingService().get());
   const { authorityModeParseResult, services } = createStdioServices({
     env: process.env,
     zcodeBuiltinProviderConfigFilePath,

@@ -77,7 +77,7 @@ describe("stdio Desktop presentation surface", () => {
     process.env[ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV] = "1";
     process.env.MIKIKO_AGENT_SERVER_COMMAND = process.execPath;
     process.env.MIKIKO_AGENT_SERVER_ARGS_JSON = JSON.stringify([
-      "zcode.cjs",
+      "mikiko.cjs",
       "app-server",
       "--stdio",
     ]);
@@ -225,7 +225,7 @@ describe("stdio Desktop presentation surface", () => {
         }),
       );
       expect(resolvedCommand).toEqual({
-        args: ["zcode.cjs", "app-server", "--stdio", "--surface", "desktop"],
+        args: ["mikiko.cjs", "app-server", "--stdio", "--surface", "desktop"],
         command: process.execPath,
         cwd: "/workspace/project",
       });

@@ -7,9 +7,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { Sub2ApiSiteState } from "@zcode/services";
-import { ISub2ApiService } from "@zcode/services";
-import { TID_SUB2API_OIDC_LOGIN_BUTTON } from "@zcode/shared";
+import type { Sub2ApiSiteState, ISub2ApiService } from "@/mikiko-account-ui/contract.js";
+import { TID_SUB2API_OIDC_LOGIN_BUTTON } from "@zcode/shared/test-ids";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { toast } from "@/components/ui/toast.js";

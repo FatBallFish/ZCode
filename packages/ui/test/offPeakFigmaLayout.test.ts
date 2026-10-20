@@ -444,7 +444,7 @@ describe("idle-time task Figma layout contracts", () => {
     expect(editViewSource).toContain("<AutomationInstructionsComposer");
     expect(automationEditViewSource).not.toContain("min-h-[116px] max-h-[156px]");
     expect(editViewSource).not.toContain("<textarea");
-    expect(editViewSource).toContain('containerClassName="contents"');
+    expect(editViewSource).toContain("<AutomationInstructionsTextarea");
     expect(editViewSource).not.toContain("focus-within:bg-hover");
     expect(editViewSource).toContain("<ModelConfigSelect");
     expect(editViewSource).toContain("showProviderLevel={false}");
@@ -465,8 +465,9 @@ describe("idle-time task Figma layout contracts", () => {
     expect(automationIconsSource).toContain("strokeWidth={2}");
     expect(automationIconsSource).not.toContain("@/assets/");
     expect(automationIconsSource).not.toContain("maskImage");
-    expect(editViewSource).toContain("triggerIndicator={");
-    expect(editViewSource).toContain("containerSize={20}");
+    expect(editViewSource).toContain(
+      'triggerLabelClassName="inline-flex min-w-0 truncate text-left"',
+    );
     expect(editViewSource).toContain("<ConfigSelect");
     expect(editViewSource).toContain("option={modeOption}");
     expect(chatInputDisplaySource).toContain(

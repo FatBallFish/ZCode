@@ -1,3 +1,4 @@
+import { dirname, join } from "node:path";
 /**
  * 语音 IPC 注册（renderer ↔ main；specs/desktop/voice-input.md §5.1）。
  * 进程内实现细节不外泄：VoiceService 是唯一所有者，本层只做转发与广播。
@@ -110,11 +111,18 @@ export function registerVoiceIpc(options: { service: DesktopVoiceService }): voi
       ? {}
       : {
           resetMicApproval: async () => {
-            const bundleId = app.getBundleId?.();
-            if (!bundleId) return;
             const { execFile } = await import("node:child_process");
             const { promisify } = await import("node:util");
-            await promisify(execFile)("tccutil", ["reset", "Microphone", bundleId]);
+            // Electron 41 没有 app.getBundleId；从当前可执行 App 的签名身份读取，
+            // 不硬编码品牌 ID，避免重置错误副本的麦克风授权。
+            const infoPlist = join(dirname(process.execPath), "..", "Info.plist");
+            const { stdout } = await promisify(execFile)("/usr/libexec/PlistBuddy", [
+              "-c",
+              "Print :CFBundleIdentifier",
+              infoPlist,
+            ]);
+            const bundleId = stdout.trim();
+            if (bundleId) await promisify(execFile)("tccutil", ["reset", "Microphone", bundleId]);
           },
         }),
   });

@@ -6,9 +6,9 @@
  * 次生缺陷：这类 spawn 失败在 Node 里是**同步抛错**，绕过引擎，journal 行永远停在 running。
  *
  * 四件事钉住：
- *   1. 入口文件落在 `<cwd>/.zcode/workflow-runs/<runId>.mjs`，同目录有 `.gitignore`，run 结算后文件仍在；
+ *   1. 入口文件落在 `<cwd>/.mikiko/workflow-runs/<runId>.mjs`，同目录有 `.gitignore`，run 结算后文件仍在；
  *   2. **回归护栏**：脚本再大，命令行长度也不变（与 200 KB 的 lowered 体无关）；
- *   3. 项目 `.zcode` 写不进 → 回落 tmpdir + onWarning，run 照常；
+ *   3. 项目 `.mikiko` 写不进 → 回落 tmpdir + onWarning，run 照常；
  *   4. spawn 同步抛错 → 经引擎结算 failed，journal 行 status 是 failed 而不是 running。
  */
 
@@ -30,7 +30,9 @@ import { AutoDriver } from "./auto-driver.js";
 
 // 包一层真 spawn：截获 args，子进程照常启动；`spawnOverride` 存在时改为调用它（同步抛错用例）。
 const spawnCalls: Array<{ args: readonly string[] }> = [];
-let spawnOverride: ((...args: Parameters<typeof spawnType>) => ReturnType<typeof spawnType>) | undefined;
+let spawnOverride:
+  | ((...args: Parameters<typeof spawnType>) => ReturnType<typeof spawnType>)
+  | undefined;
 vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
   const wrapped: typeof spawnType = ((...args: Parameters<typeof spawnType>) => {
@@ -59,7 +61,10 @@ async function tempRoot(prefix: string): Promise<string> {
 async function runLowered(
   lowered: string,
   extra: Partial<Parameters<typeof runWorkflowScript>[0]> = {},
-): Promise<{ settlement: Awaited<ReturnType<typeof runWorkflowScript>>; journal: InMemoryJournalStore }> {
+): Promise<{
+  settlement: Awaited<ReturnType<typeof runWorkflowScript>>;
+  journal: InMemoryJournalStore;
+}> {
   const journal = new InMemoryJournalStore();
   const driver = new AutoDriver(journal);
   const settlement = await runWorkflowScript({
@@ -79,7 +84,7 @@ async function runLowered(
 }
 
 describe("child entry file", () => {
-  it("lands under <cwd>/.zcode/workflow-runs/<runId>.mjs with a .gitignore, and stays after the run settles", async () => {
+  it("lands under <cwd>/.mikiko/workflow-runs/<runId>.mjs with a .gitignore, and stays after the run settles", async () => {
     const cwd = await tempRoot("dwf-entry-cwd-");
 
     const { settlement } = await runLowered("return __host.args.x;", {
@@ -89,15 +94,19 @@ describe("child entry file", () => {
     });
 
     expect(settlement).toEqual({ status: "completed", artifact: 7 });
-    const entryPath = join(cwd, ".zcode", "workflow-runs", "dwfrun-1234.mjs");
+    const entryPath = join(cwd, ".mikiko", "workflow-runs", "dwfrun-1234.mjs");
     expect(spawnCalls[0]!.args).toEqual(["--max-old-space-size=256", entryPath]);
     // 保留是裁决：目录兼作每次 run 实际执行体的存档。
     const text = await readFile(entryPath, "utf8");
-    expect(text).toContain("// zcode dynamic workflow run dwfrun-1234");
-    expect(text).toContain('export const payload = {"lowered":"return __host.args.x;","args":{"x":7},"maxOldSpaceSizeMb":256}');
+    expect(text).toContain("// Mikiko dynamic workflow run dwfrun-1234");
+    expect(text).toContain(
+      'export const payload = {"lowered":"return __host.args.x;","args":{"x":7},"maxOldSpaceSizeMb":256}',
+    );
     expect(text).toContain("export const start = ");
     // 只由 harness 写一份 `*`，绝不碰项目自己的 .gitignore。
-    await expect(readFile(join(cwd, ".zcode", "workflow-runs", ".gitignore"), "utf8")).resolves.toBe("*\n");
+    await expect(
+      readFile(join(cwd, ".mikiko", "workflow-runs", ".gitignore"), "utf8"),
+    ).resolves.toBe("*\n");
   });
 
   it("keeps the command line short no matter how large the script is (Windows ENAMETOOLONG guard)", async () => {
@@ -113,10 +122,10 @@ describe("child entry file", () => {
     expect(spawnCalls[0]!.args.every((arg) => arg.length < 32_767)).toBe(true);
   });
 
-  it("falls back to os.tmpdir() and warns when the project .zcode cannot be created", async () => {
+  it("falls back to os.tmpdir() and warns when the project .mikiko cannot be created", async () => {
     const cwd = await tempRoot("dwf-entry-fallback-");
-    // `.zcode` 是个普通文件：mkdir 必然 ENOTDIR/EEXIST，正是「项目里写不进」的一种。
-    await writeFile(join(cwd, ".zcode"), "not a directory", "utf8");
+    // `.mikiko` 是个普通文件：mkdir 必然 ENOTDIR/EEXIST，正是「项目里写不进」的一种。
+    await writeFile(join(cwd, ".mikiko"), "not a directory", "utf8");
     const warnings: HarnessWarning[] = [];
 
     const { settlement } = await runLowered("return 1;", {
@@ -132,7 +141,7 @@ describe("child entry file", () => {
     expect(warnings).toEqual([
       {
         kind: "entry_file_fallback",
-        projectDir: join(cwd, ".zcode", "workflow-runs"),
+        projectDir: join(cwd, ".mikiko", "workflow-runs"),
         fallbackDir: fallbackWorkflowRunsDir(),
         error: expect.stringMatching(/ENOTDIR|EEXIST|ENOENT/),
       },
@@ -183,6 +192,8 @@ describe("writeChildEntryFile", () => {
 
     writeChildEntryFile({ cwd, runId: "r2", source: "" });
 
-    await expect(readFile(join(workflowRunsDir(cwd), ".gitignore"), "utf8")).resolves.toBe("custom\n");
+    await expect(readFile(join(workflowRunsDir(cwd), ".gitignore"), "utf8")).resolves.toBe(
+      "custom\n",
+    );
   });
 });

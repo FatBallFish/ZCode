@@ -21,6 +21,7 @@ export const REMOTE_AGENT_OFFICIAL_PLUGIN_PACKAGE_NAMES = [
 
 export const REMOTE_AGENT_OFFICIAL_PLUGIN_INCLUDED_TOP_LEVEL_PATHS = [
   ".mcp.json",
+  ".mikiko-plugin",
   ".zcode-plugin",
   "README.md",
   // 开发态远程插件复制使用独立白名单，遗漏 agents 会只在远端丢失子代理。
@@ -38,9 +39,17 @@ export const REMOTE_AGENT_OFFICIAL_PLUGIN_INCLUDED_TOP_LEVEL_PATHS = [
   "templates",
 ] as const;
 
+const MIKIKO_MANIFEST_PACKAGE_NAMES = new Set<string>([
+  "documents-plugin",
+  "pdf-plugin",
+  "presentations-plugin",
+  "spreadsheets-plugin",
+]);
+
 export const REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS = [
   ...REMOTE_AGENT_OFFICIAL_PLUGIN_PACKAGE_NAMES.map(
-    (packageName) => `${packageName}/.zcode-plugin/plugin.json`,
+    (packageName) =>
+      `${packageName}/${MIKIKO_MANIFEST_PACKAGE_NAMES.has(packageName) ? ".mikiko-plugin" : ".zcode-plugin"}/plugin.json`,
   ),
   // 只校验 Browser Use manifest 会把“有插件壳”的残缺目录
   // 误判为可复用。生产 remote、开发态 remote 与 release source 校验共用这份必需资产合同。
@@ -85,27 +94,39 @@ export const REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS = [
   "browser-use-plugin/skills/control-browser/SKILL.md",
   "browser-use-plugin/skills/web-gui-tester/SKILL.md",
   // 修复原因：仅校验 manifest 无法发现文档插件缺少技能正文或视觉评审 Agent。
+  // 文档插件 0.2.0 起带查看面板，远端还必须有 office-runtime 构建出的 server 与面板资源。
   "image-search-plugin/.mcp.json",
   "documents-plugin/agents/visual-judge.md",
   "documents-plugin/skills/docx/SKILL.md",
+  "documents-plugin/skills/docx-viewer/SKILL.md",
+  "documents-plugin/dist/server.mjs",
+  "documents-plugin/dist/ui/assets.json",
+  "documents-plugin/dist/ui/panel.html",
   "pdf-plugin/agents/visual-judge.md",
   "pdf-plugin/skills/pdf/SKILL.md",
+  "pdf-plugin/skills/pdf-viewer/SKILL.md",
+  "pdf-plugin/dist/server.mjs",
+  "pdf-plugin/dist/ui/assets.json",
+  "pdf-plugin/dist/ui/panel.html",
   "presentations-plugin/agents/visual-judge.md",
   "presentations-plugin/skills/pptx/SKILL.md",
+  "presentations-plugin/skills/pptx-viewer/SKILL.md",
+  "presentations-plugin/dist/server.mjs",
+  "presentations-plugin/dist/ui/assets.json",
+  "presentations-plugin/dist/ui/panel.html",
   "spreadsheets-plugin/agents/visual-judge.md",
   "spreadsheets-plugin/skills/xlsx/SKILL.md",
+  "spreadsheets-plugin/skills/xlsx-viewer/SKILL.md",
+  "spreadsheets-plugin/dist/server.mjs",
+  "spreadsheets-plugin/dist/ui/assets.json",
+  "spreadsheets-plugin/dist/ui/panel.html",
   "zcode-cua-plugin/docs/computer-use.md",
   "zcode-cua-plugin/scripts/computer-use-client.mjs",
   "zcode-cua-plugin/skills/computer-use/SKILL.md",
 ] as const;
 
-export function buildRemoteAgentOfficialPluginDir(
-  remoteProviderDir: string,
-): string {
-  return posix.join(
-    remoteProviderDir,
-    REMOTE_AGENT_OFFICIAL_PLUGIN_DIR_NAME,
-  );
+export function buildRemoteAgentOfficialPluginDir(remoteProviderDir: string): string {
+  return posix.join(remoteProviderDir, REMOTE_AGENT_OFFICIAL_PLUGIN_DIR_NAME);
 }
 
 export function buildRemoteAgentOfficialPluginSourceRelativePath(params: {
@@ -119,12 +140,9 @@ export function buildRemoteAgentOfficialPluginSourceRelativePath(params: {
   );
 }
 
-export function buildRemoteAgentOfficialPluginRequiredPaths(
-  remoteProviderDir: string,
-): string[] {
-  const remoteOfficialPluginDir =
-    buildRemoteAgentOfficialPluginDir(remoteProviderDir);
-  return REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS.map(
-    (relativePath) => posix.join(remoteOfficialPluginDir, relativePath),
+export function buildRemoteAgentOfficialPluginRequiredPaths(remoteProviderDir: string): string[] {
+  const remoteOfficialPluginDir = buildRemoteAgentOfficialPluginDir(remoteProviderDir);
+  return REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS.map((relativePath) =>
+    posix.join(remoteOfficialPluginDir, relativePath),
   );
 }

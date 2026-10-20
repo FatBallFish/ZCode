@@ -536,7 +536,7 @@ describe("desktopWindowChrome", () => {
     getWebContentsHandler("will-attach-webview")(
       { preventDefault: vi.fn() },
       {},
-      { src: "https://zcode.z.ai/en/rewards?embedded=app" },
+      { src: "https://agent.mikiko.ai/en/rewards?embedded=app" },
     );
     const guest = {
       on: vi.fn(),
@@ -546,7 +546,7 @@ describe("desktopWindowChrome", () => {
     getWebContentsHandler("did-attach-webview")({}, guest);
     const navigate = guest.on.mock.calls.find(([event]) => event === "will-navigate")?.[1];
     const event = { preventDefault: vi.fn() };
-    navigate(event, "https://zcode.z.ai/cn/rewards?embedded=app");
+    navigate(event, "https://agent.mikiko.ai/cn/rewards?embedded=app");
     expect(event.preventDefault).not.toHaveBeenCalled();
     navigate(event, "https://example.com/");
     expect(event.preventDefault).toHaveBeenCalledOnce();

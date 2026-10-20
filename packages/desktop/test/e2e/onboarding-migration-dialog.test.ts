@@ -1,6 +1,4 @@
-import {
-  TID_TASK_SETTINGS_BUTTON,
-} from "@zcode/shared";
+import { TID_TASK_SETTINGS_BUTTON } from "@zcode/shared/test-ids";
 import { clearAppData, waitForTestIdByDom } from "./helpers/desktop-app.js";
 
 /**
@@ -25,11 +23,11 @@ describe("首启引导迁移弹窗（意图抢占回归）", () => {
     });
 
     // 第 1 步职业（默认 developer）→ Next。
-    const nextButton = await $('button=Next');
+    const nextButton = await $("button=Next");
     await nextButton.waitForClickable({ timeout: 20_000 });
     await nextButton.click();
     // 第 2 步模式 → Next。
-    const nextStep2 = await $('button=Next');
+    const nextStep2 = await $("button=Next");
     await nextStep2.waitForClickable({ timeout: 20_000 });
     await nextStep2.click();
 
@@ -37,7 +35,7 @@ describe("首启引导迁移弹窗（意图抢占回归）", () => {
     const migrationLabel = await $("label*=Migrate conversations");
     await migrationLabel.waitForDisplayed({ timeout: 20_000 });
     await migrationLabel.click();
-    const startButton = await $('button=Get started');
+    const startButton = await $("button=Get started");
     await startButton.waitForClickable({ timeout: 20_000 });
     await startButton.click();
 
@@ -53,10 +51,10 @@ describe("首启引导迁移弹窗（意图抢占回归）", () => {
 
     // 关闭向导（未运行迁移，直接 close 走欢迎页 → 关闭），验证可正常收尾。
     await browser.keys("Escape");
-    await browser.waitUntil(
-      async () => !(await dialog.isDisplayed()),
-      { timeout: 20_000, timeoutMsg: "迁移向导未随 Esc 关闭" },
-    );
+    await browser.waitUntil(async () => !(await dialog.isDisplayed()), {
+      timeout: 20_000,
+      timeoutMsg: "迁移向导未随 Esc 关闭",
+    });
     // 引导流程收尾后应能进入工作区（或回到登录页），不再被引导卡住。
     await browser.waitUntil(
       async () =>

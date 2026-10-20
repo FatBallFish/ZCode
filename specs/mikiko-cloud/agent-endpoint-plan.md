@@ -98,6 +98,15 @@ App(Desktop/CLI)
 
 ## 4. 专题方案
 
+### 4.0 Worker 路由隔离回归（2026-10-20）
+
+- `worker.ts` 是 HTTP 路由唯一所有者；分享落地页、管理页和配置 API 为并列分支，管理页不能嵌在分享资产重定向分支内。
+- `/admin.html`、`/admin.html/` 永久重定向到 `/admin/`；`/admin`、`/admin/` 从 ASSETS 的规范目录 URL `/admin/` 读取 SPA 并覆盖 HTML 缓存为 `no-cache, must-revalidate`。不能直接请求 `/admin/index.html`，因为 Cloudflare 默认 `auto-trailing-slash` 会重定向到 `/admin/`，透传该响应会形成浏览器循环。缺少 ASSETS 时明确返回 404；管理 API 仍使用现有 session 鉴权，不由页面路由绕过。
+- 分享页只在 ASSETS 的 3xx 响应存在 `Location` 时跟随一次；缺少 `Location` 则保留原响应，禁止用 `null` 构造 URL。
+- `/api/v1/client/configs` 始终由 `MIKIKO_CLIENT_CONFIG` 持有，不能被官方 CodingPlan 代理覆盖。手机的官方 CodingPlan 配置经 `GET /api/v1/coding-plan/client/configs` 映射到官方 `/api/v1/client/configs`，保留查询串、响应信封和现有 CORS 行为；仅 CodingPlan 例外允许官方来源，不转发客户端 Authorization。CodingPlan billing 的既有只读代理保留。
+- Wrangler 必须让管理 HTML 入口先进 Worker，防止静态资产直出绕过兼容重定向和 HTML 缓存规则。
+- 验收：旧管理入口跳转、新入口返回 SPA 且禁止陈旧 HTML 缓存、无 ASSETS 明确 404、分享 307 正常跟随及无 Location 保留响应、自建配置返回 KV 值且零官方出网。
+
 ### 4.1 client/configs 双源拆分
 
 **官方源**（收窄）：仅消费 §2.2 表中「继续取」字段；`ZCodeClientConfigEnvelope`（`bigmodelCodingPlanSubscriptionProvider.ts:98-126`）同步收窄类型，删除 `builtin_provider_config_json` / `forceUpdate` / `dynamicWorkflow` / `modelContextBudget` 字段。
@@ -202,7 +211,7 @@ wrangler secret put MIKIKO_ADMIN_SESSION_SECRET   # session cookie 签名密钥
 
 > **2026-10-19 已被 [feedback-tickets.md](feedback-tickets.md) 取代**：反馈重开并
 > 切自建 agent.mikiko.ai（设备 token + 本地优先 + D1/R2 工单后台）；出网红线从
-> 「无 /feedback/* 出网」改为「反馈仅出网 agent.mikiko.ai，不出网 zcode.z.ai」。
+> 「无 /feedback/\* 出网」改为「反馈仅出网 agent.mikiko.ai，不出网 zcode.z.ai」。
 > 以下为关闭期的历史决策记录。
 
 - 反馈（已确认：**隐藏入口方式摘除**，代码保留便于日后恢复）：titleBar「问题上报」菜单项与 feedback center 入口隐藏；`createFeedbackService` 装配（`node.ts:2594`）与 `/feedback/*` 相关代码保留但不可达，不再出网。
@@ -225,7 +234,7 @@ wrangler secret put MIKIKO_ADMIN_SESSION_SECRET   # session cookie 签名密钥
 | ------------------------------------------ | -------------------------------------------- | -------------------------------- |
 | `ZCODE_BASE_URL` / `ZCODE_ENDPOINT_ORIGIN` | `MIKIKO_BASE_URL` / `MIKIKO_ENDPOINT_ORIGIN` | `zcodeEndpoint.ts:18-33`         |
 | `ZCODE_CDN_BASE_URL`                       | `MIKIKO_CDN_BASE_URL`                        | `remoteCdn.ts:19`                |
-| `MIKIKO_UPDATE_FEED_URL`                    | `MIKIKO_UPDATE_FEED_URL`                     | `autoUpdater.ts:26`              |
+| `MIKIKO_UPDATE_FEED_URL`                   | `MIKIKO_UPDATE_FEED_URL`                     | `autoUpdater.ts:26`              |
 | `ZCODE_DYNAMIC_WORKFLOW_MODE`              | `MIKIKO_DYNAMIC_WORKFLOW_MODE`               | `dynamic-workflow-feature.ts:20` |
 | `ZCODE_TELEMETRY_REPORT_ENDPOINT`          | `MIKIKO_TELEMETRY_REPORT_ENDPOINT`           | `env.ts:61`（关闭期保留读取口）  |
 

@@ -13,7 +13,8 @@ function createMockAssets() {
   const assets = {
     fetched,
     async fetch(input: URL | Request | string): Promise<Response> {
-      const url = input instanceof URL ? input : new URL(String(input));
+      const url =
+        input instanceof URL ? input : new URL(input instanceof Request ? input.url : input);
       fetched.push(url.pathname);
       if (url.pathname === "/share.html") {
         return new Response(null, { status: 307, headers: { location: "/share" } });
@@ -22,6 +23,14 @@ function createMockAssets() {
         return new Response("<!doctype html>share-page", {
           status: 200,
           headers: { "content-type": "text/html" },
+        });
+      }
+      if (url.pathname === "/admin/index.html") {
+        return new Response(null, { status: 307, headers: { location: "/admin/" } });
+      }
+      if (url.pathname === "/admin/") {
+        return new Response("<!doctype html>admin-spa", {
+          headers: { "content-type": "text/html", "cache-control": "public, max-age=3600" },
         });
       }
       return new Response("Not Found", { status: 404 });
@@ -80,6 +89,93 @@ const VALID_CONFIG = {
 };
 
 describe("公开端点", () => {
+  it("自建功能配置从 KV 读取且不请求官方配置", async (context) => {
+    const env = createEnv();
+    await env.MIKIKO_CLIENT_CONFIG.put(
+      "client-configs",
+      JSON.stringify({
+        dynamicWorkflow: { mode: "onDemand" },
+        share: { publishPerMinutePerIp: 7 },
+      }),
+    );
+    const upstream = context.mock.method(
+      globalThis,
+      "fetch",
+      async () => new Response(JSON.stringify({ code: 0, data: { configs: {} } })),
+    );
+    const response = await call(env, "/api/v1/client/configs");
+    const body = (await response.json()) as {
+      data: {
+        configs: { dynamicWorkflow: { mode: string }; share: { publishPerMinutePerIp: number } };
+      };
+    };
+    assert.equal(upstream.mock.callCount(), 0);
+    assert.equal(body.data.configs.dynamicWorkflow.mode, "onDemand");
+    assert.equal(body.data.configs.share.publishPerMinutePerIp, 7);
+  });
+
+  it("CodingPlan 专用配置代理保留查询串和响应信封且不转发鉴权", async (context) => {
+    const configs = { code: 0, data: { configs: { startPlanPreview: true } } };
+    const upstream = context.mock.method(globalThis, "fetch", async () => Response.json(configs));
+    const response = await call(createEnv(), "/api/v1/coding-plan/client/configs?platform=ios", {
+      headers: { accept: "application/json", authorization: "Bearer local-secret" },
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), configs);
+    assert.equal(response.headers.get("access-control-allow-origin"), "*");
+    assert.equal(upstream.mock.callCount(), 1);
+    const [url, init] = upstream.mock.calls[0]!.arguments as unknown as [string, RequestInit];
+    assert.equal(url, "https://zcode.z.ai/api/v1/client/configs?platform=ios");
+    assert.equal(new Headers(init.headers).has("authorization"), false);
+    assert.equal(new Headers(init.headers).get("accept"), "application/json");
+  });
+
+  it("旧管理入口重定向到 SPA 目录，不读取旧静态页", async () => {
+    const env = createEnv();
+    for (const path of ["/admin.html", "/admin.html/"]) {
+      const response = await call(env, path);
+      assert.equal(response.status, 301);
+      assert.equal(response.headers.get("location"), "https://agent.mikiko.ai/admin/");
+    }
+    assert.deepEqual((env.ASSETS as unknown as { fetched: string[] }).fetched, []);
+  });
+
+  it("管理入口读取 SPA HTML 并覆盖陈旧缓存策略", async () => {
+    const env = createEnv();
+    for (const path of ["/admin", "/admin/"]) {
+      const response = await call(env, path);
+      assert.equal(response.status, 200);
+      assert.match(await response.text(), /admin-spa/u);
+      assert.equal(response.headers.get("cache-control"), "no-cache, must-revalidate");
+      assert.equal(response.headers.get("content-type"), "text/html");
+    }
+    assert.deepEqual((env.ASSETS as unknown as { fetched: string[] }).fetched, [
+      "/admin/",
+      "/admin/",
+    ]);
+  });
+
+  it("管理 SPA 缺少 ASSETS 时明确 404", async () => {
+    const env = createEnv();
+    delete (env as { ASSETS?: unknown }).ASSETS;
+    const response = await call(env, "/admin/");
+    assert.equal(response.status, 404);
+  });
+
+  it("分享资产重定向缺少 Location 时保留响应且不伪造跳转", async () => {
+    const env = createEnv();
+    const fetched: string[] = [];
+    env.ASSETS = {
+      async fetch(input: URL): Promise<Response> {
+        fetched.push(input.pathname);
+        return new Response(null, { status: 307 });
+      },
+    } as unknown as Fetcher;
+    const response = await call(env, "/share/abc123");
+    assert.equal(response.status, 307);
+    assert.deepEqual(fetched, ["/share.html"]);
+  });
+
   it("根路径按地域语言分流：CN/HK/MO/TW→/cn/，其余/未知→/en/", async () => {
     const env = createEnv();
     const request = (country: string | undefined) => {

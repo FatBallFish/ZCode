@@ -9,7 +9,7 @@ interface WebLoggedInWaitingPageProps {
 }
 
 function getAvatarFallback(user: UserInfo): string {
-  return (user.displayName || user.username || "Z").trim().slice(0, 1).toUpperCase();
+  return (user.displayName || user.username || "M").trim().slice(0, 1).toUpperCase();
 }
 
 export function WebLoggedInWaitingPage({ onLogout, user }: WebLoggedInWaitingPageProps) {

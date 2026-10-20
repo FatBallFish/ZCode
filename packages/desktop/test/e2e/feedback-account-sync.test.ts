@@ -3,8 +3,8 @@ import {
   TID_LOGIN_USE_API_KEY_BUTTON,
   TID_OAUTH_LOGIN_BUTTON,
   TID_TASK_SETTINGS_BUTTON,
-  testId,
-} from "@zcode/shared";
+} from "@zcode/shared/test-ids";
+import { testId } from "@zcode/shared/test-ids";
 import { clearAppData, clickTestIdByDom, waitForTestIdByDom } from "./helpers/desktop-app.js";
 
 /**
@@ -26,7 +26,7 @@ describe("反馈账户化", () => {
     const openExternalMock = await browser.electron.mock("shell", "openExternal");
     await openExternalMock.mockResolvedValue(undefined);
 
-    const surface = await $(`[data-testid="${TID_OAUTH_LOGIN_BUTTON}"]`).isExisting()
+    const surface = (await $(`[data-testid="${TID_OAUTH_LOGIN_BUTTON}"]`).isExisting())
       ? "login"
       : "workspace";
     if (surface !== "login") {
@@ -38,10 +38,10 @@ describe("反馈账户化", () => {
     await waitForTestIdByDom(TID_SUB2API_OIDC_LOGIN_BUTTON, { timeout: 20_000 });
     await clickTestIdByDom(TID_SUB2API_OIDC_LOGIN_BUTTON);
 
-    await browser.waitUntil(
-      async () => (await openExternalMock.mock.calls.length) > 0,
-      { timeout: 20_000, timeoutMsg: "未捕获授权 URL" },
-    );
+    await browser.waitUntil(async () => (await openExternalMock.mock.calls.length) > 0, {
+      timeout: 20_000,
+      timeoutMsg: "未捕获授权 URL",
+    });
 
     // Node 侧完成 KeyCloak 登录（真实线上，测试账号）——与 mikikocc-oidc-login 共用逻辑。
     // 此处简化为等待登录完成。

@@ -1,4 +1,7 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import type { PluginDiagnostic } from "@zcode/contracts";
+import type { PluginAbortOptions } from "./types.js";
+import { throwIfAborted, isNotFoundError } from "./helpers.js";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { ZCODE_OFFICIAL_PLUGIN_MARKETPLACE } from "@zcode/contracts";
 
@@ -32,17 +35,11 @@ export function writeCdnOfficialMarketplacePartitionSync(input: {
   return rebuildOfficialMarketplaceSync(input.storageRoot);
 }
 
-export function loadBundledOfficialPluginRootsSync(
-  storageRoot: string,
-): string[] | undefined {
+export function loadBundledOfficialPluginRootsSync(storageRoot: string): string[] | undefined {
   const bundledPartition = readBundledPartition(storageRoot);
   if (!bundledPartition) return undefined;
 
-  const officialCacheRoot = resolve(
-    storageRoot,
-    "cache",
-    ZCODE_OFFICIAL_PLUGIN_MARKETPLACE,
-  );
+  const officialCacheRoot = resolve(storageRoot, "cache", ZCODE_OFFICIAL_PLUGIN_MARKETPLACE);
   return readPluginEntries(bundledPartition.manifest).flatMap((plugin) => {
     const name = readPluginName(plugin);
     const cachePath = typeof plugin.cachePath === "string" ? plugin.cachePath : undefined;
@@ -155,4 +152,45 @@ function writeJsonFileSync(path: string, value: unknown): void {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function scanOfficialCache(
+  storageRoot: string,
+  diagnostics: PluginDiagnostic[],
+  options?: PluginAbortOptions,
+): string[] {
+  // 官方插件升级会保留旧版本缓存目录；若遍历全部目录再按插件 id
+  // “先到先得”，旧版本会抢在 bundled marketplace 指向的当前版本前被加载。
+  // bundled 分片是当前随应用发布资产的权威清单；存在时只加载其 cachePath。
+  // 不能简单选择最高 semver，否则官方回滚版本时仍会错误加载旧缓存。
+  const bundledRoots = loadBundledOfficialPluginRootsSync(storageRoot);
+  if (bundledRoots !== undefined) {
+    for (const rootPath of bundledRoots) {
+      throwIfAborted(options);
+    }
+    return bundledRoots;
+  }
+
+  const cacheRoot = join(storageRoot, "cache", ZCODE_OFFICIAL_PLUGIN_MARKETPLACE);
+  try {
+    const roots: string[] = [];
+    for (const pluginEntry of readdirSync(cacheRoot, { withFileTypes: true })) {
+      throwIfAborted(options);
+      if (!pluginEntry.isDirectory()) continue;
+      const pluginDir = join(cacheRoot, pluginEntry.name);
+      for (const versionEntry of readdirSync(pluginDir, { withFileTypes: true })) {
+        if (versionEntry.isDirectory()) roots.push(join(pluginDir, versionEntry.name));
+      }
+    }
+    return roots;
+  } catch (error) {
+    if (isNotFoundError(error)) return [];
+    diagnostics.push({
+      code: "plugin_root_not_found",
+      message: error instanceof Error ? error.message : `Failed to scan ${cacheRoot}`,
+      path: cacheRoot,
+      severity: "warning",
+    });
+    return [];
+  }
 }

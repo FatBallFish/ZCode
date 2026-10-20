@@ -54,10 +54,17 @@ export interface OfficialPluginDefinition {
   version: string;
 }
 
-const ZAI_AUTHOR = { name: "Z.ai", url: "https://z.ai" } as const;
-const OFFICIAL_PLUGIN_ASSETS_BASE_URL = "https://cdn-zcode.z.ai/zcode/official-plugin/assets";
+const MIKIKO_AUTHOR = { name: "Mikiko", url: "https://agent.mikiko.ai" } as const;
+const OFFICIAL_PLUGIN_ASSETS_BASE_URL = "https://agent-dl.mikiko.ai/mikiko/official-plugin/assets";
 
 export const OFFICIAL_NODE_REPL_HOST_REQUIRED_SEED_PATHS = ["dist/mcp/server.js"] as const;
+
+/** 文档插件（documents / pdf / presentations / spreadsheets）查看面板的构建产物。 */
+export const OFFICIAL_OFFICE_VIEWER_RUNTIME_PATHS = [
+  "dist/server.mjs",
+  "dist/ui/assets.json",
+  "dist/ui/panel.html",
+] as const;
 
 export const OFFICIAL_BROWSER_USE_REQUIRED_SEED_PATHS = [
   "docs/api.json",
@@ -89,7 +96,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
   {
     defaultEnabled: true,
     listing: {
-      author: ZAI_AUTHOR,
+      author: MIKIKO_AUTHOR,
       category: "productivity",
       displayName: "Visualize",
       displayName_i18n: { "zh-CN": "交互视图" },
@@ -150,7 +157,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
   },
   {
     listing: {
-      author: ZAI_AUTHOR,
+      author: MIKIKO_AUTHOR,
       category: "developer-tools",
       displayName: "Android Emulator",
       displayName_i18n: { "zh-CN": "Android 模拟器" },
@@ -174,7 +181,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     defaultEnabled: true,
     hostMcpServerNames: ["node_repl"],
     listing: {
-      author: ZAI_AUTHOR,
+      author: MIKIKO_AUTHOR,
       category: "productivity",
       displayName: "Browser Use",
       displayName_i18n: { "zh-CN": "浏览器操作" },
@@ -197,16 +204,17 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
   },
   ...(
     [
-      ["documents", "docx", "Documents", "Word文档"],
-      ["pdf", "pdf", "PDF", "PDF"],
-      ["presentations", "pptx", "Presentations", "演示文档"],
-      ["spreadsheets", "xlsx", "Spreadsheets", "电子表格"],
+      // 版本按插件各自升：pdf 0.2.1 起面板带中日韩字体回退，换新缓存目录，不复用 0.2.0 的旧缓存。
+      ["documents", "docx", "Documents", "Word文档", "0.2.0"],
+      ["pdf", "pdf", "PDF", "PDF", "0.2.1"],
+      ["presentations", "pptx", "Presentations", "演示文档", "0.2.0"],
+      ["spreadsheets", "xlsx", "Spreadsheets", "电子表格", "0.2.0"],
     ] as const
   ).map(
-    ([name, skill, displayName, chineseName]): OfficialPluginDefinition => ({
+    ([name, skill, displayName, chineseName, version]): OfficialPluginDefinition => ({
       defaultEnabled: true,
       listing: {
-        author: ZAI_AUTHOR,
+        author: MIKIKO_AUTHOR,
         category: "productivity",
         displayName,
         displayName_i18n: { "zh-CN": chineseName },
@@ -215,21 +223,28 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
         description_i18n: { "zh-CN": `创建、编辑与审阅${chineseName}（${skill.toUpperCase()}）。` },
       },
       name,
-      requiredSeedPaths: ["agents/visual-judge.md", `skills/${skill}/SKILL.md`],
+      // 0.2.0 起文档插件同时提供查看面板：MCP server 与面板资源由 office-runtime 构建进 dist/，
+      // 缺任一项都会 seed 出能看到面板入口却无法启动的残缺插件。
+      requiredSeedPaths: [
+        "agents/visual-judge.md",
+        `skills/${skill}/SKILL.md`,
+        `skills/${skill}-viewer/SKILL.md`,
+        ...OFFICIAL_OFFICE_VIEWER_RUNTIME_PATHS,
+      ],
       rootCandidates: [
         `packages/${name}-plugin`,
         `../${name}-plugin`,
         `../../${name}-plugin`,
         `../../../${name}-plugin`,
       ],
-      version: "0.1.8",
+      version,
     }),
   ),
   {
     // 沿用原聚合文档插件的官方搜图能力，仅拆出独立开关；认证仍由官方 MCP adapter 注入。
     defaultEnabled: true,
     listing: {
-      author: ZAI_AUTHOR,
+      author: MIKIKO_AUTHOR,
       category: "productivity",
       displayName: "Image Search",
       displayName_i18n: { "zh-CN": "搜图" },
@@ -247,7 +262,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
   },
   {
     listing: {
-      author: ZAI_AUTHOR,
+      author: MIKIKO_AUTHOR,
       category: "developer-tools",
       displayName: "iOS Simulator",
       displayName_i18n: { "zh-CN": "iOS 模拟器" },
@@ -267,7 +282,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
   },
   {
     listing: {
-      author: ZAI_AUTHOR,
+      author: MIKIKO_AUTHOR,
       category: "utilities",
       displayName: "Restore Legacy Sessions",
       displayName_i18n: { "zh-CN": "恢复旧版会话" },
@@ -290,7 +305,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     name: "plugin-creator",
     version: "0.1.1",
     listing: {
-      author: ZAI_AUTHOR,
+      author: MIKIKO_AUTHOR,
       category: "utilities",
       displayName: "Plugin Creator",
       // 创建器使用客户端自带图标，不再借用 skill-creator 的远端图片。
@@ -319,7 +334,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
   {
     defaultEnabled: true,
     listing: {
-      author: ZAI_AUTHOR,
+      author: MIKIKO_AUTHOR,
       category: "utilities",
       displayName: "Skill Creator",
       displayName_i18n: { "zh-CN": "技能创建器" },
@@ -340,7 +355,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     // 让用户/agent 开箱即用地拿到 ZCode 配置指南、自诊断技能与 dynamic workflow 编写指南。
     defaultEnabled: true,
     listing: {
-      author: ZAI_AUTHOR,
+      author: MIKIKO_AUTHOR,
       category: "utilities",
       displayName: "Mikiko Guide",
       displayName_i18n: { "zh-CN": "Mikiko 使用指南" },
@@ -377,11 +392,11 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     // isZCodeCuaInternalFeatureEnabled（打包层默认 true）与输入框入口 hidden 默认值的联动语义。
     name: "computer-use",
     hostMcpServerNames: ["node_repl"],
-    // 用户露出名统一为「Computer Use / 电脑控制」。包名与 producer 仓库仍保持 zcode-cua，
+    // 用户露出名统一为「Computer Use / 电脑控制」。包名与 producer workspace 包仍保持 zcode-cua，
     // 以兼容原生 Helper identity；EN 描述基线走 manifest
     // description，这里只放 zh-CN 覆盖；resolveLocalizedText 在 en-US 时回退到 manifest。
     listing: {
-      author: ZAI_AUTHOR,
+      author: MIKIKO_AUTHOR,
       category: "productivity",
       displayName: "Computer Use",
       displayName_i18n: { "zh-CN": "电脑控制" },
@@ -404,7 +419,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     runtimeTopLevelPaths: ["node_modules"],
     // 这里的 version 追踪上游 zcode-cua runtime 版本，使插件 UI 展示、缓存路径、
     // marketplace 条目都对齐；具体版本由原子 producer bump 工作流维护。
-    version: "0.6.4",
+    version: "0.6.5",
   },
 ];
 

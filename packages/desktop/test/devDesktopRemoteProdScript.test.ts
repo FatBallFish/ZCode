@@ -52,7 +52,7 @@ describe("dev desktop remote production-like script", () => {
     const env = buildDesktopRemoteProdEnv(
       {
         MIKIKO_ENV: "test",
-        ZCODE_DEV_REMOTE_ASSET_USE_CDN: "0",
+        MIKIKO_DEV_REMOTE_ASSET_USE_CDN: "0",
         MIKIKO_REMOTE_ASSET_CACHE_DIR: "/tmp/custom-cache",
       },
       "darwin",
@@ -60,7 +60,7 @@ describe("dev desktop remote production-like script", () => {
     );
 
     expect(env.MIKIKO_ENV).toBe("production");
-    expect(env.ZCODE_DEV_REMOTE_ASSET_USE_CDN).toBe("1");
+    expect(env.MIKIKO_DEV_REMOTE_ASSET_USE_CDN).toBe("1");
     expect(env.MIKIKO_REMOTE_ASSET_CACHE_DIR).toBe("/tmp/custom-cache");
   });
 

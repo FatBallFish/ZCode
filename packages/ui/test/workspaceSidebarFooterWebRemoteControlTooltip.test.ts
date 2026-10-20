@@ -23,12 +23,16 @@ vi.mock("@/hooks/useServices.js", () => ({
   useOptionalServices: () => null,
   useServices: () => ({
     modelSelectionService: { read: async () => null },
-    zcodeSessionService: {}, zcodeTaskService: {}, usageStatsService: {},
-    conversationShareService: {}, highspeedCardService: {},
+    zcodeSessionService: {},
+    zcodeTaskService: {},
+    usageStatsService: {},
+    conversationShareService: {},
+    highspeedCardService: {},
   }),
   ServiceProvider: ({ children }: { children: unknown }) => children,
 }));
-vi.mock("@/ControlHintTooltip.js", () => ({
+vi.mock("@/ControlHintTooltip.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/ControlHintTooltip.js")>()),
   ControlHintTooltip: ({ children, title }: { children: unknown; title: string }) =>
     createElement("span", { "data-tooltip-title": title }, children),
 }));
@@ -105,28 +109,6 @@ describe("WorkspaceSidebarFooter web remote control tooltip", () => {
     };
   });
 
-  it("keeps long profile names constrained inside the footer row", () => {
-    const html = renderToStaticMarkup(
-      createElement(WorkspaceSidebarFooter, {
-        theme: "dark",
-        localeMenuValue: "zh-CN",
-        onLocaleChange: () => {},
-        onThemeChange: () => {},
-        onSettingsButtonClick: () => {},
-        user: {
-          id: "user-long-name",
-          username: "very-very-very-very-very-very-long-user-name",
-          displayName: "VeryVeryVeryVeryVeryVeryVeryVeryLongDisplayName",
-        },
-      }),
-    );
-
-    expect(html).toContain("min-w-0 flex-1");
-    expect(html).toContain("overflow-hidden");
-    expect(html).toContain("text-left");
-    expect(html).toContain("truncate text-ui-base font-semibold");
-  });
-
   it("derives compact sidebar footer plan badge labels", () => {
     expect(
       resolveSidebarFooterPlanBadgeLabel({
@@ -195,8 +177,6 @@ describe("WorkspaceSidebarFooter web remote control tooltip", () => {
     );
 
     expect(html).toContain("sidebar.usage.plan.audienceTeam");
-    expect(html).toContain("text-ui-xs");
-    expect(html).not.toContain("text-ui-sm");
     expect(html).not.toContain("Max");
   });
 

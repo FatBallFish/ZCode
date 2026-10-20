@@ -46,7 +46,7 @@ describe("Session 完整选择的实际保存与冷恢复", () => {
           },
         },
       };
-      let store = createSqliteSessionStore({ dbPath });
+      let store = await createSqliteSessionStore({ dbPath });
       let app = await createRegistryBackedTestApp({ ...common, sessionStore: store });
       try {
         const sessionId = app.sessionId;
@@ -63,7 +63,7 @@ describe("Session 完整选择的实际保存与冷恢复", () => {
         expect(app.runtime.getSessionModelSelection()).toEqual(selected);
         await app.close?.();
         store.close();
-        store = createSqliteSessionStore({ dbPath });
+        store = await createSqliteSessionStore({ dbPath });
         app = await createRegistryBackedTestApp({
           ...common,
           sessionStore: store,

@@ -1,8 +1,11 @@
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { gunzipSync } from "node:zlib";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   collectBareModuleSpecifiers,
@@ -18,15 +21,18 @@ async function runTar(args: string[]): Promise<void> {
 }
 
 const temporaryDirs: string[] = [];
+const macIt = process.platform === "darwin" ? it : it.skip;
 
 async function makeTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "zcode-server-stage-test-"));
+  const dir = await mkdtemp(join(tmpdir(), "mikiko-server-stage-test-"));
   temporaryDirs.push(dir);
   return dir;
 }
 
 afterEach(async () => {
-  await Promise.all(temporaryDirs.splice(0).map((dir) => rm(dir, { force: true, recursive: true })));
+  await Promise.all(
+    temporaryDirs.splice(0).map((dir) => rm(dir, { force: true, recursive: true })),
+  );
 });
 
 interface FakePackageSpec {
@@ -96,7 +102,9 @@ describe("resolveProductionPackageClosure", () => {
       dependencies: { "pkg-b": "*" },
       devDependencies: { "pkg-dev": "*" },
     });
-    await writeFakePackage(nodeModulesDir, "pkg-b", { dependencies: { "@scope/pkg-c": "*" } });
+    await writeFakePackage(nodeModulesDir, "pkg-b", {
+      dependencies: { "@scope/pkg-c": "*" },
+    });
     await writeFakePackage(nodeModulesDir, "@scope/pkg-c");
     await writeFakePackage(nodeModulesDir, "pkg-dev");
 
@@ -145,6 +153,7 @@ describe("stageRelease", () => {
     agentBundlePath: string;
     nodeBinaryPath: string;
     outputDir: string;
+    notices: { thirdParty: string; node: string; nodeSource: string };
   }> {
     const root = await makeTempDir();
     const distDir = join(root, "dist");
@@ -176,7 +185,7 @@ describe("stageRelease", () => {
       files: { "prebuilds/linux-x64/pty.node": "linux-binary" },
     });
 
-    const agentBundlePath = join(root, "zcode.cjs");
+    const agentBundlePath = join(root, "mikiko.cjs");
     await writeFile(agentBundlePath, "// fake agent bundle\n", "utf8");
     const nodeBinaryPath = join(root, "node-binary");
     await writeFile(nodeBinaryPath, "#!/bin/sh\nexit 0\n", "utf8");
@@ -187,14 +196,28 @@ describe("stageRelease", () => {
       node: "Copyright Node\nComplete runtime terms\n",
       nodeSource: '{"version":"22.16.0"}\n',
     };
-    return { distDir, workspaceNodeModulesDir, agentBundlePath, nodeBinaryPath, outputDir, notices };
+    return {
+      distDir,
+      workspaceNodeModulesDir,
+      agentBundlePath,
+      nodeBinaryPath,
+      outputDir,
+      notices,
+    };
   }
 
-  async function writeFakeNativeTools(toolsDir: string, tools: Record<string, string>): Promise<void> {
+  async function writeFakeNativeTools(
+    toolsDir: string,
+    tools: Record<string, string>,
+  ): Promise<void> {
     for (const [tool, binaryName] of Object.entries(tools)) {
       await mkdir(join(toolsDir, tool), { recursive: true });
       await writeFile(join(toolsDir, tool, binaryName), tool, "utf8");
-      await writeFile(join(toolsDir, tool, "THIRD-PARTY-NOTICES.txt"), `Copyright ${tool}\nFull terms\n`, "utf8");
+      await writeFile(
+        join(toolsDir, tool, "THIRD-PARTY-NOTICES.txt"),
+        `Copyright ${tool}\nFull terms\n`,
+        "utf8",
+      );
       await writeFile(join(toolsDir, tool, "SOURCES.json"), JSON.stringify({ tool }), "utf8");
     }
   }
@@ -209,12 +232,12 @@ describe("stageRelease", () => {
     });
 
     const releaseDir = staged.releaseDir;
-    expect(releaseDir.endsWith("zcode-server-linux-x64")).toBe(true);
+    expect(releaseDir.endsWith("mikiko-server-linux-x64")).toBe(true);
 
-    const launcher = await readFile(join(releaseDir, "bin", "zcode"), "utf8");
+    const launcher = await readFile(join(releaseDir, "bin", "mikiko"), "utf8");
     expect(launcher).toContain('"$DIR/runtime/node"');
     expect(launcher).toContain('"$DIR/runtime/server-cli.js"');
-    const launcherStat = await stat(join(releaseDir, "bin", "zcode"));
+    const launcherStat = await stat(join(releaseDir, "bin", "mikiko"));
     // Bugfix: NTFS 不保留 POSIX exec 位（Windows 上 stat.mode 恒无 0o111 位），
     // 可执行性断言只在 POSIX 宿主上生效；Windows 宿主仍验证文件存在与内容。
     if (process.platform !== "win32") expect(launcherStat.mode & 0o111).not.toBe(0);
@@ -227,7 +250,7 @@ describe("stageRelease", () => {
     for (const relativePath of [
       "runtime/server-cli.js",
       "runtime/server-core.js",
-      "runtime/zcode.cjs",
+      "runtime/mikiko.cjs",
       "runtime/node",
       "runtime/node_modules/fake-dep/package.json",
       "runtime/node_modules/fake-transitive/package.json",
@@ -266,14 +289,14 @@ describe("stageRelease", () => {
       nodeVersion: string;
       entrypoints: { cli: string; core: string; agent: string };
     };
-    expect(manifest.product).toBe("zcode-server");
+    expect(manifest.product).toBe("mikiko-server");
     expect(manifest.target).toBe("linux-x64");
     expect(manifest.appVersion).toBe("9.9.9-test");
     expect(manifest.nodeVersion).toBe("22.16.0");
     expect(manifest.entrypoints).toEqual({
       cli: "runtime/server-cli.js",
       core: "runtime/server-core.js",
-      agent: "runtime/zcode.cjs",
+      agent: "runtime/mikiko.cjs",
     });
 
     expect(staged.packagedDependencies).toEqual(["fake-dep", "fake-transitive", "node-pty"]);
@@ -302,13 +325,26 @@ describe("stageRelease", () => {
     const fixture = await makeStageFixture();
     const toolsDir = join(await makeTempDir(), "tools");
     await writeFakeNativeTools(toolsDir, { ripgrep: "rg.exe", ugrep: "ugrep.exe" });
-    const staged = await stageRelease({ target: "win32-x64", appVersion: "9.9.9-test", nativeToolsDir: toolsDir, ...fixture });
+    const staged = await stageRelease({
+      target: "win32-x64",
+      appVersion: "9.9.9-test",
+      nativeToolsDir: toolsDir,
+      ...fixture,
+    });
     expect(staged.archivePath).toMatch(/\.zip$/u);
-    expect(await readFile(join(staged.releaseDir, "bin", "zcode.cmd"), "utf8")).toContain("node.exe");
+    expect(await readFile(join(staged.releaseDir, "bin", "mikiko.cmd"), "utf8")).toContain(
+      "node.exe",
+    );
     await expect(stat(join(staged.releaseDir, "runtime", "node.exe"))).resolves.toBeTruthy();
-    await expect(stat(join(staged.releaseDir, "runtime", "tools", "ripgrep", "rg.exe"))).resolves.toBeTruthy();
-    await expect(stat(join(staged.releaseDir, "runtime", "tools", "ugrep", "ugrep.exe"))).resolves.toBeTruthy();
-    await expect(stat(join(staged.releaseDir, "runtime", "tools", "ugrep", "THIRD-PARTY-NOTICES.txt"))).resolves.toBeTruthy();
+    await expect(
+      stat(join(staged.releaseDir, "runtime", "tools", "ripgrep", "rg.exe")),
+    ).resolves.toBeTruthy();
+    await expect(
+      stat(join(staged.releaseDir, "runtime", "tools", "ugrep", "ugrep.exe")),
+    ).resolves.toBeTruthy();
+    await expect(
+      stat(join(staged.releaseDir, "runtime", "tools", "ugrep", "THIRD-PARTY-NOTICES.txt")),
+    ).resolves.toBeTruthy();
     await expect(stat(join(staged.releaseDir, "runtime", "tools", "bfs"))).rejects.toThrow();
   });
 
@@ -316,46 +352,129 @@ describe("stageRelease", () => {
     const fixture = await makeStageFixture();
     const toolsDir = join(await makeTempDir(), "tools");
     await writeFakeNativeTools(toolsDir, { bfs: "bfs", ripgrep: "rg", ugrep: "ugrep" });
-    const staged = await stageRelease({ target: "linux-x64", appVersion: "9.9.9-test", nativeToolsDir: toolsDir, ...fixture });
-    const manifest = JSON.parse(await readFile(join(staged.releaseDir, "manifest.json"), "utf8")) as {
+    const staged = await stageRelease({
+      target: "linux-x64",
+      appVersion: "9.9.9-test",
+      nativeToolsDir: toolsDir,
+      ...fixture,
+    });
+    const manifest = JSON.parse(
+      await readFile(join(staged.releaseDir, "manifest.json"), "utf8"),
+    ) as {
       components: Array<{ id: string; archivePath: string }>;
     };
     const expected: Record<string, string[]> = {
       "node-runtime": ["runtime/LICENSE.node.txt", "runtime/NODE-SOURCES.json"],
       "server-runtime": ["runtime/THIRD-PARTY-NOTICES.md", "runtime/node_modules/node-pty/LICENSE"],
       "agent-runtime": ["runtime/licenses/agent/THIRD-PARTY-NOTICES.md"],
-      "native-search-tools": ["runtime/tools/ripgrep/THIRD-PARTY-NOTICES.txt", "runtime/tools/ugrep/SOURCES.json"],
+      "native-search-tools": [
+        "runtime/tools/ripgrep/THIRD-PARTY-NOTICES.txt",
+        "runtime/tools/ugrep/SOURCES.json",
+      ],
     };
-    expect(manifest.components.map((component) => component.id).sort()).toEqual(Object.keys(expected).sort());
+    expect(manifest.components.map((component) => component.id).sort()).toEqual(
+      Object.keys(expected).sort(),
+    );
     const extractRoot = await makeTempDir();
     for (const component of manifest.components) {
       const extractDir = join(extractRoot, component.id);
       await mkdir(extractDir, { recursive: true });
       await runTar(["-xf", join(fixture.outputDir, component.archivePath), "-C", extractDir]);
       for (const member of expected[component.id] ?? []) {
-        expect(await readFile(join(extractDir, member))).toEqual(await readFile(join(staged.releaseDir, member)));
+        expect(await readFile(join(extractDir, member))).toEqual(
+          await readFile(join(staged.releaseDir, member)),
+        );
       }
     }
   });
 
-  it("工具目录缺少声明或声明参数为空时拒绝组装发行包", async () => {
+  it.each([true, false])(
+    "工具目录缺少声明或声明参数为空时拒绝组装发行包（componentArchives=%s）",
+    async (componentArchives) => {
+      const fixture = await makeStageFixture();
+      const toolsDir = join(await makeTempDir(), "tools");
+      await writeFakeNativeTools(toolsDir, { bfs: "bfs", ripgrep: "rg", ugrep: "ugrep" });
+      await rm(join(toolsDir, "ripgrep", "THIRD-PARTY-NOTICES.txt"));
+      await expect(
+        stageRelease({
+          target: "linux-x64",
+          appVersion: "9.9.9-test",
+          archive: false,
+          nativeToolsDir: toolsDir,
+          componentArchives,
+          ...fixture,
+        }),
+      ).rejects.toThrow(/ENOENT/u);
+      await expect(
+        stageRelease({
+          target: "linux-x64",
+          appVersion: "9.9.9-test",
+          archive: false,
+          ...fixture,
+          notices: { ...fixture.notices, node: " " },
+          componentArchives,
+        }),
+      ).rejects.toThrow(/Missing distribution notice: node/u);
+    },
+  );
+  macIt("omits macOS extended attributes from POSIX release archives", async () => {
     const fixture = await makeStageFixture();
-    const toolsDir = join(await makeTempDir(), "tools");
-    await writeFakeNativeTools(toolsDir, { bfs: "bfs", ripgrep: "rg", ugrep: "ugrep" });
-    await rm(join(toolsDir, "ripgrep", "THIRD-PARTY-NOTICES.txt"));
-    await expect(
-      stageRelease({ target: "linux-x64", appVersion: "9.9.9-test", archive: false, nativeToolsDir: toolsDir, ...fixture }),
-    ).rejects.toThrow(/ENOENT/u);
-    await expect(
-      stageRelease({
-        target: "linux-x64",
-        appVersion: "9.9.9-test",
-        archive: false,
-        ...fixture,
-        notices: { ...fixture.notices, node: " " },
-      }),
-    ).rejects.toThrow(/Missing distribution notice: node/u);
+    await execFileAsync("xattr", ["-w", "com.example.mikiko", "value", fixture.nodeBinaryPath]);
+
+    const staged = await stageRelease({
+      target: "linux-x64",
+      appVersion: "9.9.9-test",
+      ...fixture,
+    });
+    const archive = gunzipSync(await readFile(staged.archivePath ?? ""));
+    const tarText = archive.toString("latin1");
+
+    expect(tarText).not.toContain("LIBARCHIVE.xattr");
+    expect(tarText).not.toContain("SCHILY.xattr");
   });
+
+  async function writeOfficialPluginFixture(
+    officialPluginsDir: string,
+    name: string,
+    options: {
+      mcpEntry?: string;
+      withMcpEntryFile?: boolean;
+      withManifest?: boolean;
+      manifestDirectory?: string;
+    } = {},
+  ): Promise<void> {
+    const pluginDir = join(officialPluginsDir, name);
+    const manifestDirectory = options.manifestDirectory ?? ".zcode-plugin";
+    await mkdir(join(pluginDir, manifestDirectory), { recursive: true });
+    await writeFile(join(pluginDir, "README.md"), name, "utf8");
+    // 真实官方插件的 package.json 都是 tracked 文件，是"该目录属于当前 checkout"的判据。
+    await writeFile(
+      join(pluginDir, "package.json"),
+      JSON.stringify({ name: `@zcode/${name}`, private: true }),
+      "utf8",
+    );
+    const manifest: Record<string, unknown> = {
+      name: name.replace(/-plugin$/u, ""),
+      version: "0.1.0",
+    };
+    if (options.mcpEntry) {
+      manifest.mcpServers = {
+        [name]: { command: "node", args: [`\${MIKIKO_PLUGIN_ROOT}/${options.mcpEntry}`] },
+      };
+      if (options.withMcpEntryFile !== false) {
+        const entryPath = join(pluginDir, ...options.mcpEntry.split("/"));
+        await mkdir(join(entryPath, ".."), { recursive: true });
+        await writeFile(entryPath, "// mcp server\n", "utf8");
+      }
+    }
+    if (options.withManifest !== false) {
+      await writeFile(
+        join(pluginDir, manifestDirectory, "plugin.json"),
+        JSON.stringify(manifest),
+        "utf8",
+      );
+    }
+  }
 
   it("stages the official plugin set and excludes the on-demand superpowers package", async () => {
     const fixture = await makeStageFixture();
@@ -363,16 +482,37 @@ describe("stageRelease", () => {
     const pluginNames = [
       "android-emulator-plugin",
       "browser-use-plugin",
-      "document-skills-plugin",
+      "documents-plugin",
+      "pdf-plugin",
+      "presentations-plugin",
+      "spreadsheets-plugin",
       "ios-simulator-plugin",
       "restore-legacy-sessions-plugin",
       "skill-creator-plugin",
       "zcode-guide-plugin",
       "superpowers-plugin",
     ];
+    const mcpRuntimePlugins = new Set([
+      "android-emulator-plugin",
+      "browser-use-plugin",
+      "ios-simulator-plugin",
+    ]);
+    const officePlugins = new Set([
+      "documents-plugin",
+      "pdf-plugin",
+      "presentations-plugin",
+      "spreadsheets-plugin",
+    ]);
     for (const name of pluginNames) {
-      await mkdir(join(officialPluginsDir, name), { recursive: true });
-      await writeFile(join(officialPluginsDir, name, "README.md"), name, "utf8");
+      await writeOfficialPluginFixture(
+        officialPluginsDir,
+        name,
+        officePlugins.has(name)
+          ? { mcpEntry: "dist/server.mjs", manifestDirectory: ".mikiko-plugin" }
+          : mcpRuntimePlugins.has(name)
+            ? { mcpEntry: "dist/mcp/server.js" }
+            : {},
+      );
     }
 
     const staged = await stageRelease({
@@ -384,25 +524,124 @@ describe("stageRelease", () => {
     });
 
     for (const name of pluginNames.filter((name) => name !== "superpowers-plugin")) {
-      await expect(stat(join(staged.releaseDir, "runtime/packages", name, "README.md"))).resolves.toBeTruthy();
+      await expect(
+        stat(join(staged.releaseDir, "runtime/packages", name, "README.md")),
+      ).resolves.toBeTruthy();
+    }
+    for (const name of mcpRuntimePlugins) {
+      await expect(
+        stat(join(staged.releaseDir, "runtime/packages", name, "dist/mcp/server.js")),
+      ).resolves.toBeTruthy();
+    }
+    for (const name of officePlugins) {
+      const root = join(staged.releaseDir, "runtime/packages", name);
+      await expect(stat(join(root, ".mikiko-plugin", "plugin.json"))).resolves.toBeTruthy();
+      await expect(stat(join(root, "dist/server.mjs"))).resolves.toBeTruthy();
+      await expect(stat(join(root, ".zcode-plugin"))).rejects.toThrow();
     }
     await expect(
       stat(join(staged.releaseDir, "runtime/packages/superpowers-plugin")),
     ).rejects.toThrow();
-    const manifest = JSON.parse(await readFile(join(staged.releaseDir, "manifest.json"), "utf8")) as {
+    const manifest = JSON.parse(
+      await readFile(join(staged.releaseDir, "manifest.json"), "utf8"),
+    ) as {
       plugins?: string[];
       components?: Array<{ id: string }>;
     };
     expect(manifest.plugins).toEqual([
       "android-emulator",
       "browser-use",
-      "document-skills",
+      "documents",
       "ios-simulator",
+      "pdf",
+      "presentations",
       "restore-legacy-sessions",
       "skill-creator",
+      "spreadsheets",
       "zcode-guide",
     ]);
-    expect(manifest.components?.some((component) => component.id === "official-plugins")).toBe(true);
+    expect(manifest.components?.some((component) => component.id === "official-plugins")).toBe(
+      true,
+    );
+  });
+
+  it.each([true, false])(
+    "fails closed on a missing MCP entry with componentArchives=%s",
+    async (componentArchives) => {
+      // Bug 原因：插件 dist 被 gitignore，干净 CI 工作区里 android-emulator / ios-simulator 没有
+      // dist/mcp/server.js；legacy prepare-prebuilds.mjs 曾构建并断言该文件，切到 stageRelease 后只剩
+      // 整目录复制，archive 会静默带上只有 plugin.json 与 skills、缺 MCP 入口的插件。staging 必须以
+      // plugin.json 的 mcpServers 声明为事实源 fail-closed。
+      const fixture = await makeStageFixture();
+      const officialPluginsDir = join(await makeTempDir(), "packages");
+      await writeOfficialPluginFixture(officialPluginsDir, "android-emulator-plugin", {
+        mcpEntry: "dist/mcp/server.js",
+        withMcpEntryFile: false,
+      });
+      await writeOfficialPluginFixture(officialPluginsDir, "zcode-guide-plugin");
+
+      await expect(
+        stageRelease({
+          target: "linux-x64",
+          appVersion: "9.9.9-test",
+          archive: false,
+          officialPluginsDir,
+          componentArchives,
+          ...fixture,
+        }),
+      ).rejects.toThrow(/android-emulator-plugin[\s\S]*dist\/mcp\/server\.js/u);
+    },
+  );
+
+  it("fails closed when a staged official plugin has no plugin manifest", async () => {
+    const fixture = await makeStageFixture();
+    const officialPluginsDir = join(await makeTempDir(), "packages");
+    await writeOfficialPluginFixture(officialPluginsDir, "ios-simulator-plugin", {
+      withManifest: false,
+    });
+
+    await expect(
+      stageRelease({
+        target: "linux-x64",
+        appVersion: "9.9.9-test",
+        archive: false,
+        officialPluginsDir,
+        ...fixture,
+      }),
+    ).rejects.toThrow(/ios-simulator-plugin[\s\S]*plugin\.json/u);
+  });
+
+  it("ignores orphaned *-plugin directories left behind by a previous checkout", async () => {
+    // Bug 原因：CI 用 GIT_CLEAN_FLAGS "-e node_modules/" 跨 job 保留 node_modules，其它分支
+    // （例如曾把 zcode-cua-plugin 改名为 computer-use-plugin 的分支）install 过的插件目录切回本
+    // 分支后只剩 node_modules，tracked 文件全被 checkout 删掉。旧规则仅按 "-plugin" 后缀识别官方
+    // 插件，会把这种僵尸目录当插件 stage，随后 fail-closed 校验读不到 plugin.json 而整段失败。
+    const fixture = await makeStageFixture();
+    const officialPluginsDir = join(await makeTempDir(), "packages");
+    await writeOfficialPluginFixture(officialPluginsDir, "zcode-guide-plugin");
+    const orphanDir = join(officialPluginsDir, "computer-use-plugin");
+    await mkdir(join(orphanDir, "node_modules", "@zcode", "computer-use"), { recursive: true });
+    await writeFile(
+      join(orphanDir, "node_modules", "@zcode", "computer-use", "package.json"),
+      "{}",
+      "utf8",
+    );
+
+    const staged = await stageRelease({
+      target: "linux-x64",
+      appVersion: "9.9.9-test",
+      archive: false,
+      officialPluginsDir,
+      ...fixture,
+    });
+
+    await expect(
+      stat(join(staged.releaseDir, "runtime/packages/computer-use-plugin")),
+    ).rejects.toThrow();
+    const manifest = JSON.parse(
+      await readFile(join(staged.releaseDir, "manifest.json"), "utf8"),
+    ) as { plugins?: string[] };
+    expect(manifest.plugins).toEqual(["zcode-guide"]);
   });
 
   it("removes stale component archives before restaging a target", async () => {
@@ -411,8 +650,69 @@ describe("stageRelease", () => {
     await mkdir(staleDir, { recursive: true });
     await writeFile(join(staleDir, "stale-component.tar.gz"), "stale", "utf8");
 
-    await stageRelease({ target: "linux-x64", appVersion: "9.9.9-test", archive: false, ...fixture });
+    await stageRelease({
+      target: "linux-x64",
+      appVersion: "9.9.9-test",
+      archive: false,
+      ...fixture,
+    });
 
     await expect(stat(join(staleDir, "stale-component.tar.gz"))).rejects.toThrow();
   });
+
+  it.each(["linux-x64", "linux-arm64"] as const)(
+    "stages an installable full %s archive without standalone components",
+    async (target) => {
+      const fixture = await makeStageFixture();
+      await writeFakePackage(fixture.workspaceNodeModulesDir, "@lydell/node-pty-linux-arm64", {
+        files: { "prebuilds/linux-arm64/pty.node": "linux-arm64-binary" },
+      });
+      const options = { ...fixture, target, appVersion: "9.9.9-test" };
+      const original = await stageRelease(options);
+      expect(original.componentArchivePaths.length).toBeGreaterThan(0);
+      const expected = JSON.parse(
+        await readFile(join(original.releaseDir, "manifest.json"), "utf8"),
+      );
+      for (const component of expected.components) {
+        expect(component.archivePath).toBeTruthy();
+        delete component.archivePath;
+      }
+
+      const staged = await stageRelease({ ...options, componentArchives: false });
+      expect(staged.componentArchivePaths).toEqual([]);
+      await expect(stat(join(fixture.outputDir, "components", target))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      await expect(stat(join(fixture.outputDir, ".components"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      const manifest = JSON.parse(await readFile(join(staged.releaseDir, "manifest.json"), "utf8"));
+      expect(manifest).toEqual(expected);
+
+      // 用真实整包 installer 验证没有组件 archivePath 仍可安装，且整包摘要校验仍会拒绝错误身份。
+      const { ReleaseInstaller } = await import(
+        fileURLToPath(new URL("../src/runtime/releaseInstaller.ts", import.meta.url))
+      );
+      const { resolveServerLayout } = await import(
+        fileURLToPath(new URL("../src/runtime/paths.ts", import.meta.url))
+      );
+      const installer = new ReleaseInstaller(
+        resolveServerLayout(join(await makeTempDir(), "server")),
+      );
+      const archivePath = staged.archivePath!;
+      const archiveSha256 = createHash("sha256")
+        .update(await readFile(archivePath))
+        .digest("hex");
+      await expect(
+        installer.installArchive({ archivePath, target, archiveSha256: "0".repeat(64) }),
+      ).rejects.toThrow(/checksum mismatch/);
+      const installed = await installer.installArchive({ archivePath, target, archiveSha256 });
+      expect(
+        JSON.parse(await readFile(join(installed.releaseDir, "manifest.json"), "utf8")),
+      ).toEqual(expected);
+      expect(await readFile(join(installed.releaseDir, "runtime", "mikiko.cjs"))).toEqual(
+        await readFile(fixture.agentBundlePath),
+      );
+    },
+  );
 });

@@ -1,3 +1,4 @@
+import { createCustomAboutDialogHtml } from "../src/main/aboutWindow.js";
 import { describe, expect, it } from "vitest";
 import {
   createAboutSnapshot,
@@ -6,7 +7,6 @@ import {
   formatAboutDetail,
   formatAboutOptimizationLine,
 } from "../src/main/about.js";
-import { createCustomAboutDialogHtml } from "../src/main/aboutWindow.js";
 
 describe("about", () => {
   const appleSiliconSnapshot = createAboutSnapshot({
@@ -86,12 +86,12 @@ describe("about", () => {
     expect(html).toContain("version 0.1.7");
     expect(html).toContain("Optimized for Apple Silicon.");
     expect(html).toContain("Copyright © 2026 Mikiko.");
-    expect(html).toContain("class=\"ok-button\"");
+    expect(html).toContain('class="ok-button"');
     expect(html).toContain(">OK</button>");
-    expect(html).toContain("class=\"app-logo\"");
-    expect(html).toContain("viewBox=\"0 0 64 64\"");
+    expect(html).toContain('class="app-logo"');
+    expect(html).toContain('viewBox="0 0 64 64"');
     expect(html).toContain("linear-gradient(180deg, #000000 0%, #151718 100%)");
-    expect(html).toContain("class=\"about-window\"");
+    expect(html).toContain('class="about-window"');
     expect(html).toContain("border-radius: 0");
     expect(html).toContain("background: var(--about-primary)");
     expect(html).toContain("color: var(--about-primary-foreground)");

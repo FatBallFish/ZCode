@@ -2,7 +2,8 @@ import { createElement } from "react";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { DesktopCommandIds, TID_WORKSPACE_HELP_MENU_RESOURCE_MANAGER } from "@zcode/shared";
+import { DesktopCommandIds } from "@zcode/shared";
+import { TID_WORKSPACE_HELP_MENU_RESOURCE_MANAGER } from "@zcode/shared/test-ids";
 
 vi.mock("@/i18n/IntlProvider.js", () => ({
   useZCodeIntl: () => ({
@@ -243,7 +244,10 @@ describe("WorkspaceHelpMenuButton", () => {
   it("桌面端与 Web 端保留反馈两项；产品文档与用户社群暂隐藏（2026-10-20 裁定）", async () => {
     for (const isDesktop of [true, false]) {
       const html = await render(isDesktop);
-      for (const id of ["workspaceHeader.help.issueReport", "workspaceHeader.help.productRequest"]) {
+      for (const id of [
+        "workspaceHeader.help.issueReport",
+        "workspaceHeader.help.productRequest",
+      ]) {
         expect(html).toContain(id);
       }
       for (const hidden of ["workspaceHeader.help.community", "workspaceHeader.help.docs"]) {

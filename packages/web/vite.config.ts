@@ -10,6 +10,7 @@ import { resolveRemoteFrontendVersion } from "./vite/remoteFrontendVersion.mjs";
 // Bugfix: Vite 配置在 Node 加载期执行，不能导入 @zcode/shared 根入口。
 // 根入口包含 NodeNext 风格的源码 re-export，Node 会按真实文件查找 .js 并在 bootstrap 阶段失败。
 import {
+  resolveBigModelApiOrigin,
   resolveRuntimeZCodeEndpointOrigin,
   resolveZaiOAuthClientId,
   resolveZaiOAuthOrigin,
@@ -17,7 +18,10 @@ import {
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const REPO_ROOT = resolve(HERE, "../..");
-const { version } = JSON.parse(readFileSync(resolve(REPO_ROOT, "package.json"), "utf-8"));
+const { version, zcodeCompatibility } = JSON.parse(
+  readFileSync(resolve(REPO_ROOT, "package.json"), "utf-8"),
+) as { version: string; zcodeCompatibility?: { minCompatibleVersion?: string } };
+const minCompatibleVersion = zcodeCompatibility?.minCompatibleVersion ?? version;
 
 function resolveZCodeEnv(value: string | undefined): "test" | "production" {
   return value?.trim().toLowerCase() === "production" ? "production" : "test";
@@ -35,6 +39,8 @@ export default defineConfig(({ mode }) => {
   };
   const zcodeEndpointOrigin = resolveRuntimeZCodeEndpointOrigin(endpointEnv);
   const zaiOAuthOrigin = resolveZaiOAuthOrigin(endpointEnv);
+  // 远控与桌面/分享页一致，BigModel 授权域名必须跟随产品环境。
+  const bigmodelOAuthOrigin = resolveBigModelApiOrigin(endpointEnv);
   // ZAI OAuth client_id 是公开标识，允许注入浏览器包；secret/token 不得走 VITE_。
   const zaiOAuthClientId = resolveZaiOAuthClientId(endpointEnv);
 
@@ -63,12 +69,21 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: true,
         },
+        "/api/v1/remote": {
+          target: zcodeEndpointOrigin,
+          changeOrigin: true,
+          secure: true,
+          ws: true,
+        },
         // 将 /ws 和 /api 请求代理到 server（默认 3030 端口）
         "/ws": { target: "ws://localhost:3030", ws: true },
         "/api": { target: "http://localhost:3030" },
       },
     },
     optimizeDeps: {
+      // 历史dist-pages含另一套构建快照，默认扫描会把旧产物误作当前入口；
+      // 当前Web应用只有此源码入口，避免预构建读取旧品牌/旧依赖并拖慢fixture启动。
+      entries: ["index.html"],
       // 修复：在依赖预构建阶段显式加入 react 相关入口，避免 rolldown 解析 `react/jsx-runtime`
       // / `react/jsx-dev-runtime` 时返回无后缀路径导致的加载失败（UNLOADABLE_DEPENDENCY）。
       include: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
@@ -85,6 +100,7 @@ export default defineConfig(({ mode }) => {
       __ZCODE_VERSION__: JSON.stringify(
         resolveRemoteFrontendVersion(version, process.env.WEB_REMOTE_FRONTEND_VERSION),
       ),
+      __ZCODE_MIN_COMPATIBLE_VERSION__: JSON.stringify(minCompatibleVersion),
       __ZCODE_COMMIT__: JSON.stringify(env.MIKIKO_COMMIT || "unknown"),
       __ZCODE_ENV__: JSON.stringify(zcodeEnv),
       "import.meta.env.VITE_MIKIKO_BASE_URL": JSON.stringify(zcodeEndpointOrigin),
@@ -93,6 +109,7 @@ export default defineConfig(({ mode }) => {
       // 明确注入 OAuth 公开配置，避免 Web 端在不同 mode 下隐式依赖源码 fallback。
       "import.meta.env.VITE_ZAI_OAUTH_CLIENT_ID": JSON.stringify(zaiOAuthClientId),
       "import.meta.env.VITE_ZAI_OAUTH_ORIGIN": JSON.stringify(zaiOAuthOrigin),
+      "import.meta.env.VITE_BIGMODEL_OAUTH_ORIGIN": JSON.stringify(bigmodelOAuthOrigin),
     },
     build: {
       // 生产不在浏览器产物暴露 sourceMappingURL，避免客户端侧还原业务源码。

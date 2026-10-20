@@ -77,6 +77,7 @@ const USER_CONFIG_FILE_MODE = 0o600;
 const MARKETPLACE_SOURCE_ROOT_DIRECTORY = "marketplace-sources";
 const MIRRORED_MARKETPLACE_PLUGIN_ROOT = "plugins";
 const PLUGIN_MANIFEST_RELATIVE_PATHS = [
+  [".mikiko-plugin", "plugin.json"],
   [".zcode-plugin", "plugin.json"],
   [".claude-plugin", "plugin.json"],
   [".codex-plugin", "plugin.json"],
@@ -548,14 +549,14 @@ async function fileExists(path: string): Promise<boolean> {
 
 async function readArchiveMetadata(tempRoot: string): Promise<PluginSyncArchiveMetadata> {
   const raw = await readFile(
-      join(
-        tempRoot,
-        (await fileExists(join(tempRoot, PLUGIN_SYNC_METADATA_ARCHIVE_PATH)))
-          ? PLUGIN_SYNC_METADATA_ARCHIVE_PATH
-          : LEGACY_PLUGIN_SYNC_METADATA_ARCHIVE_PATH,
-      ),
-      "utf-8",
-    );
+    join(
+      tempRoot,
+      (await fileExists(join(tempRoot, PLUGIN_SYNC_METADATA_ARCHIVE_PATH)))
+        ? PLUGIN_SYNC_METADATA_ARCHIVE_PATH
+        : LEGACY_PLUGIN_SYNC_METADATA_ARCHIVE_PATH,
+    ),
+    "utf-8",
+  );
   const parsed = JSON.parse(raw) as unknown;
   if (!isRecord(parsed) || !Array.isArray(parsed.plugins)) {
     throw new Error("invalid plugin sync archive metadata");
@@ -585,14 +586,14 @@ async function readMarketplaceSourceArchiveMetadata(tempRoot: string): Promise<{
   marketplaceId: string;
 }> {
   const raw = await readFile(
-      join(
-        tempRoot,
-        (await fileExists(join(tempRoot, PLUGIN_SYNC_METADATA_ARCHIVE_PATH)))
-          ? PLUGIN_SYNC_METADATA_ARCHIVE_PATH
-          : LEGACY_PLUGIN_SYNC_METADATA_ARCHIVE_PATH,
-      ),
-      "utf-8",
-    );
+    join(
+      tempRoot,
+      (await fileExists(join(tempRoot, PLUGIN_SYNC_METADATA_ARCHIVE_PATH)))
+        ? PLUGIN_SYNC_METADATA_ARCHIVE_PATH
+        : LEGACY_PLUGIN_SYNC_METADATA_ARCHIVE_PATH,
+    ),
+    "utf-8",
+  );
   const parsed = JSON.parse(raw) as unknown;
   if (!isRecord(parsed) || !Array.isArray(parsed.marketplaceSources)) {
     throw new Error("invalid plugin marketplace source archive metadata");

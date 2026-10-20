@@ -2,18 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   MCP_APPS_EXTENSION_ID,
   MCP_APPS_RESOURCE_MIME_TYPE,
-  MCP_APPS_UI_RESOURCE_SCHEME,
   MCP_APPS_LEGACY_RESOURCE_URI_META_KEY,
-  buildMcpAppsClientCapabilities,
   isMcpAppsUiReadResourceMimeAllowed,
 } from "./contract.js";
 import { normalizeMcpAppCspRelaxations, normalizeMcpToolUiMeta } from "./toolMeta.js";
-import {
-  exampleClientCapabilities,
-  exampleResourceMetaWithRelaxations,
-  exampleSandboxHandle,
-  exampleToolUiDescriptor,
-} from "./contract.example.js";
+import { exampleResourceMetaWithRelaxations } from "./contract.example.js";
 
 describe("mcp-apps-protocol contract", () => {
   it.each([
@@ -56,7 +49,6 @@ describe("mcp-apps-protocol contract", () => {
     expect(MCP_APPS_EXTENSION_ID).toBe("io.modelcontextprotocol/ui");
     expect(MCP_APPS_RESOURCE_MIME_TYPE).toBe("text/html;profile=mcp-app");
     expect(MCP_APPS_LEGACY_RESOURCE_URI_META_KEY).toBe("ui/resourceUri");
-    expect(buildMcpAppsClientCapabilities()).toEqual(exampleClientCapabilities);
   });
 
   it("resourceUri 同时接受标准键、弃用扁平键与 openai/outputTemplate", () => {
@@ -78,12 +70,22 @@ describe("mcp-apps-protocol contract", () => {
       null,
     );
   });
+});
 
-  it("示例描述与句柄满足契约形状", () => {
-    expect(exampleToolUiDescriptor.resourceUri.startsWith(MCP_APPS_UI_RESOURCE_SCHEME)).toBe(true);
-    expect(exampleSandboxHandle.shellUrl).toBe(
-      `zcode-sandbox://shell-${exampleSandboxHandle.sandboxId}/`,
-    );
-    expect(exampleSandboxHandle.partition.startsWith("persist:plugin-sandbox-")).toBe(true);
+it("Mikiko CSP declarations override the legacy key without granting undeclared flags", () => {
+  expect(
+    normalizeMcpAppCspRelaxations({
+      "mikiko/csp": { unsafeEval: true },
+      "zcode/csp": { wasmUnsafeEval: true },
+    }),
+  ).toEqual({ unsafeEval: true });
+  expect(normalizeMcpAppCspRelaxations({ "zcode/csp": { unsafeEval: true } })).toEqual({
+    unsafeEval: true,
   });
+  expect(
+    normalizeMcpAppCspRelaxations({
+      "mikiko/csp": { unsafeEval: false },
+      "zcode/csp": { unsafeEval: true },
+    }),
+  ).toBeNull();
 });

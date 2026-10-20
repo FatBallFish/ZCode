@@ -3,6 +3,7 @@ import type { ZCodeEnv } from "./env.js";
 
 export const DEFAULT_ZCODE_ENDPOINT_ORIGIN = "https://agent.mikiko.ai";
 export const TEST_ZCODE_ENDPOINT_ORIGIN = "https://agent.mikiko.ai";
+export const CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN = "https://zcode.z.ai";
 export const CODING_PLAN_LOCAL_WEBVIEW_ORIGIN = "http://localhost:3000";
 
 /**
@@ -19,7 +20,7 @@ export const DEFAULT_ZAI_BUSINESS_BASE_URL = "https://api.z.ai";
 export const TEST_ZAI_BUSINESS_BASE_URL = "https://api.z.ai";
 export const DEFAULT_ZAI_OAUTH_CLIENT_ID = "client_P8X5CMWmlaRO9gyO-KSqtg";
 export const TEST_ZAI_OAUTH_CLIENT_ID = "client_P8X5CMWmlaRO9gyO-KSqtg";
-export const DEFAULT_WEB_REMOTE_CONTROL_RELAY_WS_URL = "wss://zcode.z.ai/ws";
+export const DEFAULT_WEB_REMOTE_CONTROL_RELAY_WS_URL = "wss://ws.mikiko.ai";
 export const WEB_REMOTE_CONTROL_V4_MIN_APP_VERSION = "3.4.0";
 
 export interface BuildZCodeEndpointUrlsOptions {
@@ -272,8 +273,7 @@ export function isTrustedCodingPlanWebviewOrigin(
   try {
     const origin = normalizeZCodeEndpointOrigin(value);
     if (
-      origin === DEFAULT_ZCODE_ENDPOINT_ORIGIN ||
-      origin === TEST_ZCODE_ENDPOINT_ORIGIN ||
+      origin === CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN ||
       origin === CODING_PLAN_LOCAL_WEBVIEW_ORIGIN
     ) {
       return true;
@@ -291,19 +291,22 @@ export function resolveZCodeEndpointOrigin(options?: {
   overrideOrigin?: string | null;
 }): string {
   const env = options?.env ?? "test";
+  // 旧产品默认值不能把普通云端服务带回官方；CodingPlan 由独立 resolver 保留官方例外。
+  const productOrigin = (value: string) => {
+    const origin = normalizeZCodeEndpointOrigin(value);
+    return origin === CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN ? DEFAULT_MIKIKO_CLOUD_ORIGIN : origin;
+  };
   const envBaseOrigin = options?.envBaseOrigin?.trim();
   if (env === "production") {
-    return envBaseOrigin
-      ? normalizeZCodeEndpointOrigin(envBaseOrigin)
-      : DEFAULT_ZCODE_ENDPOINT_ORIGIN;
+    return envBaseOrigin ? productOrigin(envBaseOrigin) : DEFAULT_ZCODE_ENDPOINT_ORIGIN;
   }
 
   const overrideOrigin = options?.overrideOrigin?.trim();
   if (overrideOrigin) {
-    return normalizeZCodeEndpointOrigin(overrideOrigin);
+    return productOrigin(overrideOrigin);
   }
 
-  return envBaseOrigin ? normalizeZCodeEndpointOrigin(envBaseOrigin) : TEST_ZCODE_ENDPOINT_ORIGIN;
+  return envBaseOrigin ? productOrigin(envBaseOrigin) : TEST_ZCODE_ENDPOINT_ORIGIN;
 }
 
 export function resolveRuntimeZCodeEnv(env: RuntimeZCodeEndpointEnv = {}): ZCodeEnv {
@@ -351,13 +354,8 @@ export function resolveWebRemoteControlRelayWsUrl(options?: {
     return overrideUrl;
   }
 
-  // Bugfix：标准 test endpoint 已部署独立 relay；继续固定到生产 relay 会让测试环境跨环境配对。
-  // 仅识别规范 test origin，避免改变 production、localhost 和其他自定义 endpoint 的既有行为。
-  if (options?.endpointOrigin?.trim() === TEST_ZCODE_ENDPOINT_ORIGIN) {
-    return "wss://zcode.z.ai/ws";
-  }
-
-  return DEFAULT_WEB_REMOTE_CONTROL_RELAY_WS_URL;
+  return buildZCodeEndpointUrls(options?.endpointOrigin?.trim() || DEFAULT_ZCODE_ENDPOINT_ORIGIN)
+    .relayWsUrl;
 }
 
 export function resolveBigModelApiOrigin(env: RuntimeBigModelApiEnv = {}): string {
@@ -471,11 +469,29 @@ export function resolveRuntimeProductEndpointConfig(
   };
 }
 
+/** CodingPlan 是保留的官方账号业务；自建产品默认不能改写它的授权/计费来源。 */
+export function resolveCodingPlanEndpointOrigin(env: RuntimeZCodeEndpointEnv = {}): string {
+  const origin = resolveRuntimeZCodeEndpointOrigin(env);
+  return origin === DEFAULT_MIKIKO_CLOUD_ORIGIN ? CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN : origin;
+}
+
+/** 仅官方 CodingPlan 账号/额度业务使用，普通产品 API 不走此入口。 */
+export function buildRuntimeCodingPlanApiUrl(
+  env: RuntimeZCodeEndpointEnv = {},
+  path: string,
+): string {
+  return new URL(path, resolveCodingPlanEndpointOrigin(env)).toString();
+}
+
 export function buildZCodeEndpointUrls(
   origin: string,
   options: BuildZCodeEndpointUrlsOptions = {},
 ): ZCodeEndpointUrls {
   const normalizedOrigin = normalizeZCodeEndpointOrigin(origin);
+  const codingPlanOrigin =
+    normalizedOrigin === DEFAULT_MIKIKO_CLOUD_ORIGIN
+      ? CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN
+      : normalizedOrigin;
   const parsed = new URL(normalizedOrigin);
   const wsProtocol = parsed.protocol === "https:" ? "wss:" : "ws:";
   const wsOrigin = `${wsProtocol}//${parsed.host}`;
@@ -486,13 +502,16 @@ export function buildZCodeEndpointUrls(
     origin: normalizedOrigin,
     apiBaseUrl: `${normalizedOrigin}/api/v1`,
     remoteUrl: `${normalizedOrigin}/remote/${remoteVersion}`,
-    webRemoteCallbackUrl: `${normalizedOrigin}/web-remote/callback`,
+    webRemoteCallbackUrl: `${normalizedOrigin}/remote/v4`,
     webShareCallbackUrl: `${normalizedOrigin}/cn/share/callback`,
-    relayWsUrl: `${wsOrigin}/ws`,
-    zcodePlanOpenAiBaseUrl: `${normalizedOrigin}/api/v1/zcode-plan`,
-    zcodePlanAnthropicBaseUrl: `${normalizedOrigin}/api/v1/zcode-plan/anthropic`,
-    zcodePlanBillingCurrentUrl: `${normalizedOrigin}/api/v1/zcode-plan/billing/current`,
-    zcodePlanBillingBalanceUrl: `${normalizedOrigin}/api/v1/zcode-plan/billing/balance`,
+    relayWsUrl:
+      normalizedOrigin === DEFAULT_MIKIKO_CLOUD_ORIGIN
+        ? DEFAULT_WEB_REMOTE_CONTROL_RELAY_WS_URL
+        : `${wsOrigin}/ws`,
+    zcodePlanOpenAiBaseUrl: `${codingPlanOrigin}/api/v1/zcode-plan`,
+    zcodePlanAnthropicBaseUrl: `${codingPlanOrigin}/api/v1/zcode-plan/anthropic`,
+    zcodePlanBillingCurrentUrl: `${codingPlanOrigin}/api/v1/zcode-plan/billing/current`,
+    zcodePlanBillingBalanceUrl: `${codingPlanOrigin}/api/v1/zcode-plan/billing/balance`,
   };
 }
 

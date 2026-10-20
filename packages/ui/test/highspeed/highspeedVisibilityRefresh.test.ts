@@ -94,7 +94,11 @@ const projectionState = vi.hoisted(() => ({
 }));
 
 vi.mock("@/store/TabStoreProvider.js", async (importOriginal) => {
-  const api = { getState: () => ({ tabs: [], activeTabId: null }), setState: () => {}, subscribe: () => () => {} };
+  const api = {
+    getState: () => ({ tabs: [], activeTabId: null }),
+    setState: () => {},
+    subscribe: () => () => {},
+  };
   return {
     ...(await importOriginal<typeof import("@/store/TabStoreProvider.js")>()),
     useTabStoreApi: () => api,
@@ -110,6 +114,7 @@ vi.mock("@/v4/ConversationDraftSuggestedPromptsContainer.js", () => ({
 }));
 
 vi.mock("@/hooks/useServices.js", () => ({
+  useComposerClientNamespace: () => "desktop",
   useServices: () => ({
     botsService: mocks.botsService,
     broadcastService: mocks.broadcastService,

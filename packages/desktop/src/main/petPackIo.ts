@@ -41,7 +41,9 @@ export function readInstalledRecord(petDir: string): InstalledPetRecord | undefi
       (raw.installedFrom === "market" ||
         raw.installedFrom === "codex-import" ||
         raw.installedFrom === "builtin") &&
+      "petJsonSha256" in raw &&
       typeof raw.petJsonSha256 === "string" &&
+      "spritesheetSha256" in raw &&
       typeof raw.spritesheetSha256 === "string"
     ) {
       return raw as InstalledPetRecord;

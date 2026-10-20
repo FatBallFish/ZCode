@@ -54,6 +54,7 @@ const GIT_MARKER = ".git";
 const HOME_PREFIX = "~/";
 const ZCODE_OFFICIAL_PLUGIN_MARKETPLACE = "zcode-plugins-official";
 const ZCODE_INLINE_PLUGIN_MARKETPLACE = "inline";
+const MIKIKO_PLUGIN_MANIFEST_PATH = join(".mikiko-plugin", "plugin.json");
 const ZCODE_PLUGIN_MANIFEST_PATH = join(".zcode-plugin", "plugin.json");
 const CLAUDE_PLUGIN_MANIFEST_PATH = join(".claude-plugin", "plugin.json");
 const CODEX_PLUGIN_MANIFEST_PATH = join(".codex-plugin", "plugin.json");
@@ -256,7 +257,7 @@ function collectMentionedSkillNames(prompt: string): Set<string> {
 function escapeXmlAttribute(value: string): string {
   return value
     .replaceAll("&", "&amp;")
-    .replaceAll("\"", "&quot;")
+    .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 }
@@ -457,7 +458,7 @@ function hasYamlUnsafeLooseInlineField(frontmatterText: string): boolean {
     const rawValue = line.slice(colonIndex + 1).trim();
     if (
       rawValue.length === 0 ||
-      rawValue.startsWith("\"") ||
+      rawValue.startsWith('"') ||
       rawValue.startsWith("'") ||
       rawValue.startsWith("|") ||
       rawValue.startsWith(">")
@@ -742,6 +743,7 @@ async function readPluginManifest(rootPath: string): Promise<PluginManifestSumma
 
 async function findPluginManifestPath(rootPath: string): Promise<string | null> {
   for (const manifestPath of [
+    join(rootPath, MIKIKO_PLUGIN_MANIFEST_PATH),
     join(rootPath, ZCODE_PLUGIN_MANIFEST_PATH),
     join(rootPath, CLAUDE_PLUGIN_MANIFEST_PATH),
     join(rootPath, CODEX_PLUGIN_MANIFEST_PATH),
@@ -845,9 +847,7 @@ async function discoverSkills(params: {
   includeUserSkills: boolean;
   provider: ZCodeProvider;
 }): Promise<DiscoverResult> {
-  const workspaceRoots = dedupeRoots(
-    await resolveAncestorWorkspaceRoots(params.workspacePath),
-  );
+  const workspaceRoots = dedupeRoots(await resolveAncestorWorkspaceRoots(params.workspacePath));
   const roots: SkillRootDescriptor[] = workspaceRoots.map((rootPath) => ({
     scope: "workspace" as const,
     rootPath,
@@ -910,10 +910,7 @@ async function discoverSkills(params: {
         diagnostics.push({
           code: "skill_read_failed",
           severity: "warning",
-          message:
-            error instanceof Error
-              ? error.message
-              : `Failed to read skill: ${skillPath}`,
+          message: error instanceof Error ? error.message : `Failed to read skill: ${skillPath}`,
           path: skillPath,
         });
         continue;
@@ -1001,10 +998,7 @@ async function collectSkillMarkdownPaths(
       diagnostics.push({
         code: "skill_scan_failed",
         severity: "warning",
-        message:
-          error instanceof Error
-            ? error.message
-            : `Failed to scan skill directory: ${path}`,
+        message: error instanceof Error ? error.message : `Failed to scan skill directory: ${path}`,
         path,
       });
     },
@@ -1015,8 +1009,7 @@ async function collectSkillMarkdownPaths(
 }
 
 function resolveCapabilities(options?: SkillsServiceOptions): SkillsCapability {
-  const isDesktopRuntime =
-    options?.isDesktopRuntime ?? Boolean(process.env.MIKIKO_PROCESS_LABEL);
+  const isDesktopRuntime = options?.isDesktopRuntime ?? Boolean(process.env.MIKIKO_PROCESS_LABEL);
   if (isDesktopRuntime) {
     return { userScopeAvailable: true };
   }
@@ -1227,10 +1220,7 @@ export function createSkillsService(options?: SkillsServiceOptions): ISkillsServ
         const canonicalRoot = await realpath(root).catch(() => root);
         const relativePath = relative(canonicalRoot, canonicalParent);
         // 父目录等于根（叶子直接位于根下）也是合法的常见场景，故允许 "".
-        if (
-          relativePath === "" ||
-          (!relativePath.startsWith("..") && !isAbsolute(relativePath))
-        ) {
+        if (relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath))) {
           contained = true;
           break;
         }

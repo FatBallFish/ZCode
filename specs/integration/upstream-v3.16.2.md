@@ -44,3 +44,12 @@ flowchart LR
 - 新产品文件/配置/变量/目录/进程品牌扫描无未分类残留，legacy 例外有明确可执行合同。
 - 真实 SQLite 迁移/重复执行/失败恢复保留身份、cwd、正文与组织态；测试不用个人正式数据库。
 - 按 integration-cases 的已确认场景执行单元、集成、E2E；必须运行 typecheck/lint/架构检查，真实记录失败和环境限制。
+
+## 手机 E2E fixture 合同
+
+上游移动项目/未读/会话恢复用例继续验证同一 Host 与 replayable 语义，但 fixture 必须采用
+自建 HMAC `device_register_init → auth_init/challenge/response → data` 协议，禁止通过
+Relay V2 `/api/v1/remote/token` 或官方账号设备表冒充自建链已验证。账号相关外部 HTTP
+仍隔离到 loopback。Web 开发 fixture 使用操作系统分配的独立端口，不抢占开发者5173；
+其实际 origin 通过 Mikiko 环境变量与用例传递。启动失败/正常结束均关闭本次拥有的
+Web 子进程和 relay，恢复本次环境，不关闭其他会话的进程。

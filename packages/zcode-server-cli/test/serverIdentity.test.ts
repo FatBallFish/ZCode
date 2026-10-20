@@ -9,7 +9,7 @@ import { validateServerInstallOwnership } from "../src/runtime/installationOwner
 
 describe("Server Core identity", () => {
   it("uses the persisted installation id from the ownership marker", async () => {
-    const root = await mkdtemp(join(tmpdir(), "zcode-server-identity-"));
+    const root = await mkdtemp(join(tmpdir(), "mikiko-server-identity-"));
     const layout = resolveServerLayout(join(root, "server"));
     await new ReleaseManager(layout).ensure();
     const ownership = await validateServerInstallOwnership(layout);

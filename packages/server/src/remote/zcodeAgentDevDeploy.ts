@@ -99,7 +99,7 @@ async function computeDevelopmentAgentAssetsSha256(params: {
   repoRoot: string;
 }): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("bundle:zcode.cjs\n");
+  hash.update("bundle:mikiko.cjs\n");
   hash.update(await readFile(params.localBundlePath));
   for (const packageName of REMOTE_AGENT_OFFICIAL_PLUGIN_PACKAGE_NAMES) {
     const packageRoot = join(params.repoRoot, "apps", "zcode-cli", "packages", packageName);
@@ -114,7 +114,10 @@ async function hashDevelopmentOfficialPluginPackage(
   packageRoot: string,
   packageName: string,
 ): Promise<void> {
-  const manifestPath = join(packageRoot, ".zcode-plugin", "plugin.json");
+  const manifestPath =
+    [".mikiko-plugin", ".zcode-plugin", ".claude-plugin"]
+      .map((directory) => join(packageRoot, directory, "plugin.json"))
+      .find(existsSync) ?? join(packageRoot, ".mikiko-plugin", "plugin.json");
   if (!existsSync(manifestPath)) {
     throw new Error(`[zcode-agent-deploy] missing official plugin manifest: ${manifestPath}`);
   }
@@ -251,7 +254,7 @@ async function shouldSkipDevelopmentZCodeAgentDeploy(params: {
   try {
     await waitForClose(
       await params.backend.exec(
-        `"\${ZCODE_SERVER_RUNTIME_ROOT:-$HOME/.zcode/server}/node" -e ${quotePosixShellArg(verifyBundleScript)} ${quotePosixPathArg(params.remoteBundlePath)} ${quotePosixShellArg(params.localBundleSha256)}`,
+        `"\${MIKIKO_SERVER_RUNTIME_ROOT:-$HOME/.mikiko/server}/node" -e ${quotePosixShellArg(verifyBundleScript)} ${quotePosixPathArg(params.remoteBundlePath)} ${quotePosixShellArg(params.localBundleSha256)}`,
       ),
     );
   } catch {
@@ -262,7 +265,7 @@ async function shouldSkipDevelopmentZCodeAgentDeploy(params: {
   }
 
   params.loggers.log(
-    `[zcode-agent-deploy] ${ZCODE_AGENT_PROVIDER}: 开发态 zcode.cjs 未变化，跳过`,
+    `[zcode-agent-deploy] ${ZCODE_AGENT_PROVIDER}: 开发态 mikiko.cjs 未变化，跳过`,
   );
   return true;
 }
@@ -274,7 +277,10 @@ async function stageDevelopmentOfficialPluginPackages(params: {
   await mkdir(params.packagesDir, { recursive: true });
   for (const packageName of REMOTE_AGENT_OFFICIAL_PLUGIN_PACKAGE_NAMES) {
     const sourceRoot = join(params.repoRoot, "apps", "zcode-cli", "packages", packageName);
-    const manifestPath = join(sourceRoot, ".zcode-plugin", "plugin.json");
+    const manifestPath =
+      [".mikiko-plugin", ".zcode-plugin", ".claude-plugin"]
+        .map((directory) => join(sourceRoot, directory, "plugin.json"))
+        .find(existsSync) ?? join(sourceRoot, ".mikiko-plugin", "plugin.json");
     if (!existsSync(manifestPath)) {
       throw new Error(`[zcode-agent-deploy] missing official plugin manifest: ${manifestPath}`);
     }
@@ -410,12 +416,12 @@ export async function deployDevelopmentZCodeAgentRuntime(
     return true;
   }
 
-  // 开发态 SSH 远端过去只会部署本地 zcode.cjs，不会携带 packages/*-plugin。
+  // 开发态 SSH 远端过去只会部署本地 mikiko.cjs，不会携带 packages/*-plugin。
   // builtin plugin seed 依赖 agent 包旁边的官方插件源资源，所以 dev 部署需要同步 bundle 与插件资源。
   // 本地修改 apps/zcode-cli 后，远端测试仍运行滞后的发布包。这里改为上传 dev 启动时刚构建的
-  // dist/zcode.cjs，并用远端已部署的 node 包一层 wrapper 启动，保证 agent 仍运行在目标机器内。
+  // dist/mikiko.cjs，并用远端已部署的 node 包一层 wrapper 启动，保证 agent 仍运行在目标机器内。
   loggers.log(
-    `[zcode-agent-deploy] ${ZCODE_AGENT_PROVIDER}: 开发态上传本地 zcode.cjs ${devVersion.slice(0, 12)}`,
+    `[zcode-agent-deploy] ${ZCODE_AGENT_PROVIDER}: 开发态上传本地 mikiko.cjs ${devVersion.slice(0, 12)}`,
   );
   const mkdirStream = await backend.exec(`mkdir -p ${quotePosixPathArg(params.remoteProviderDir)}`);
   await waitForClose(mkdirStream);

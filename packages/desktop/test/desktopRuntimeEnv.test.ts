@@ -151,7 +151,7 @@ vi.mock("@zcode/services/node", () => ({
   ZCODE_WINDOWS_APP_INSTALL_DIR_ENV: "MIKIKO_WINDOWS_APP_INSTALL_DIR",
 }));
 
-const originalUseCdnSwitch = process.env["ZCODE_DEV_REMOTE_ASSET_USE_CDN"];
+const originalUseCdnSwitch = process.env["MIKIKO_DEV_REMOTE_ASSET_USE_CDN"];
 const originalCdnBaseUrl = process.env["MIKIKO_REMOTE_ASSET_CDN_BASE_URL"];
 const originalRemoteAssetCacheDir = process.env["MIKIKO_REMOTE_ASSET_CACHE_DIR"];
 const originalNodeNoWarnings = process.env["NODE_NO_WARNINGS"];
@@ -207,7 +207,7 @@ function isAmbientHostEnvKey(key: string): boolean {
     AMBIENT_TOOL_PASSTHROUGH_ENV_KEYS.has(upperKey) ||
     upperKey.startsWith("OTEL_") ||
     upperKey.startsWith("ZCODE_TELEMETRY_") ||
-            upperKey.startsWith("MIKIKO_TELEMETRY_") ||
+    upperKey.startsWith("MIKIKO_TELEMETRY_") ||
     // 在 ZCode 桌面内跑测试时，宿主会把 CUA Helper 等运行时路径注入环境；
     // 不清理会让“dev 免签回退 MIKIKO_HOME”用例被宿主路径劫持（环境密闭性）。
     upperKey.startsWith("ZCODE_CUA_") ||
@@ -272,16 +272,16 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
     vi.resetModules();
     appMock.isPackaged = false;
     appMock.getPath.mockImplementation((name: string) => `/mock/${name}`);
-    delete process.env["ZCODE_DEV_REMOTE_ASSET_USE_CDN"];
+    delete process.env["MIKIKO_DEV_REMOTE_ASSET_USE_CDN"];
     delete process.env["MIKIKO_REMOTE_ASSET_CDN_BASE_URL"];
     delete process.env["MIKIKO_REMOTE_ASSET_CACHE_DIR"];
   });
 
   afterAll(() => {
     if (originalUseCdnSwitch == null) {
-      delete process.env["ZCODE_DEV_REMOTE_ASSET_USE_CDN"];
+      delete process.env["MIKIKO_DEV_REMOTE_ASSET_USE_CDN"];
     } else {
-      process.env["ZCODE_DEV_REMOTE_ASSET_USE_CDN"] = originalUseCdnSwitch;
+      process.env["MIKIKO_DEV_REMOTE_ASSET_USE_CDN"] = originalUseCdnSwitch;
     }
 
     if (originalCdnBaseUrl == null) {
@@ -312,6 +312,7 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
       });
 
       expect(dirs.mockCdnDir).toMatch(/[\\/]mock-cdn$/);
+      expect(dirs.sourceServerArtifactPolicy).toBe("development-content-addressed");
       expect(dirs.remoteCdnBaseUrl).toBe(
         "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
       );
@@ -322,7 +323,7 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
     });
   });
 
-  it("开发态当前版本 mock-cdn 缺失时回退到 CDN cache", async () => {
+  it("开发态当前版本 mock-cdn 缺失时保留内容寻址策略并由连接 fail-closed", async () => {
     await withTestMockCdnReleaseDir("missing", async () => {
       const { resolveRemoteAssetDirs } = await import("../src/main/desktopRuntimeEnv.js");
       const dirs = resolveRemoteAssetDirs({
@@ -331,6 +332,7 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
       });
 
       expect(dirs.mockCdnDir).toBeUndefined();
+      expect(dirs.sourceServerArtifactPolicy).toBe("development-content-addressed");
       expect(dirs.remoteCdnBaseUrl).toBe(
         "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
       );
@@ -341,7 +343,7 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
     });
   });
   it("开发态打开开关后应直接走 CDN", async () => {
-    process.env["ZCODE_DEV_REMOTE_ASSET_USE_CDN"] = "TRUE";
+    process.env["MIKIKO_DEV_REMOTE_ASSET_USE_CDN"] = "TRUE";
     const { resolveRemoteAssetDirs } = await import("../src/main/desktopRuntimeEnv.js");
     const dirs = resolveRemoteAssetDirs({
       locale: "en-US",
@@ -349,6 +351,7 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
     });
 
     expect(dirs.mockCdnDir).toBeUndefined();
+    expect(dirs.sourceServerArtifactPolicy).toBeUndefined();
     expect(dirs.remoteCdnBaseUrl).toBe(
       "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
     );
@@ -360,7 +363,7 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
 
   it("生产态应始终走 CDN 分支", async () => {
     appMock.isPackaged = true;
-    process.env["ZCODE_DEV_REMOTE_ASSET_USE_CDN"] = "0";
+    process.env["MIKIKO_DEV_REMOTE_ASSET_USE_CDN"] = "0";
     process.env["MIKIKO_REMOTE_ASSET_CDN_BASE_URL"] = "https://cdn.example.com/releases///";
     const { resolveRemoteAssetDirs } = await import("../src/main/desktopRuntimeEnv.js");
     const dirs = resolveRemoteAssetDirs({
@@ -369,6 +372,7 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
     });
 
     expect(dirs.mockCdnDir).toBeUndefined();
+    expect(dirs.sourceServerArtifactPolicy).toBeUndefined();
     expect(dirs.remoteCdnBaseUrl).toBe("https://cdn.example.com/releases");
     expect(dirs.remoteCdnBaseUrls).toEqual(["https://cdn.example.com/releases"]);
     expect(dirs.remoteCacheDir).toMatch(/[\\/]userData[\\/]remote-assets-cache$/);
@@ -411,7 +415,7 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
         timeZone: "Asia/Shanghai",
       },
       {
-        ZCODE_DEV_REMOTE_ASSET_USE_CDN: "1",
+        MIKIKO_DEV_REMOTE_ASSET_USE_CDN: "1",
         MIKIKO_REMOTE_ASSET_CDN_BASE_URL: "https://cdn.example.com/releases///",
         MIKIKO_REMOTE_ASSET_CACHE_DIR: overrideCacheDir,
       },
@@ -906,7 +910,8 @@ describe("desktopRuntimeEnv buildHostProcessEnv", () => {
     // shell 和 .env 两条继承路径都要被删干净，本机环境变量不能自行打开灰度。
     expect(buildHostProcessEnv({}).MIKIKO_DYNAMIC_WORKFLOW_MODE).toBeUndefined();
     expect(
-      buildHostProcessEnv({ MIKIKO_DYNAMIC_WORKFLOW_MODE: "alwaysOn" }).MIKIKO_DYNAMIC_WORKFLOW_MODE,
+      buildHostProcessEnv({ MIKIKO_DYNAMIC_WORKFLOW_MODE: "alwaysOn" })
+        .MIKIKO_DYNAMIC_WORKFLOW_MODE,
     ).toBeUndefined();
   });
 });

@@ -1,10 +1,10 @@
+import enUS from "@/i18n/locales/en-US.js";
+import zhCN from "@/i18n/locales/zh-CN.js";
 import { describe, expect, it } from "vitest";
 import {
   resolveChatPlaceholderKey,
   shouldDeferChatPlaceholder,
 } from "../src/lib/chatPlaceholder.js";
-import enUS from "../src/i18n/locales/en-US.js";
-import zhCN from "../src/i18n/locales/zh-CN.js";
 
 describe("resolveChatPlaceholderKey", () => {
   it("returns newTask for empty conversation", () => {

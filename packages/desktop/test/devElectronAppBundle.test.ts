@@ -134,7 +134,7 @@ describe("dev Electron app bundle", () => {
       await symlink("Versions/Current/Resources", join(framework, "Resources"));
 
       const result = await prepareDevElectronAppBundle({
-      execFileImpl: codesignStub,
+        execFileImpl: codesignStub,
         electronAppPath: sourceApp,
         runtimeRoot: join(root, "runtime"),
         electronVersion: "41.0.3",
@@ -181,7 +181,7 @@ describe("dev Electron app bundle", () => {
     });
     // v4：改写 Info.plist 后必须 ad-hoc 重签名（TCC 麦克风授权死局修复）。
     expect(codesignCalls.length).toBeGreaterThanOrEqual(1);
-    const stampPath = join(outputRoot, "41.0.3-arm64", ".zcode-dev-electron-source.json");
+    const stampPath = join(outputRoot, "41.0.3-arm64", ".mikiko-dev-electron-source.json");
     const stamp = JSON.parse(await readFile(stampPath, "utf8"));
     expect(stamp.format).toBe(DEV_ELECTRON_BUNDLE_FORMAT);
     // 模拟旧版脚本留下的缓存：没有 format 字段，源二进制指纹却仍然匹配。

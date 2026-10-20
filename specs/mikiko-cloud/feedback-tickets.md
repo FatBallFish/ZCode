@@ -26,6 +26,11 @@
 
 ## 2. 服务端（mikiko-cloud）
 
+内部边界（2026-10-20）：`feedback.ts` 保留客户端设备/账号路由与原有公开导出；
+`feedbackAdmin.ts` 只处理 Worker 完成 admin session 鉴权后转入的管理路由；
+`feedbackModel.ts` 集中 D1 行映射、枚举、响应信封与共用单行读取，双方不保存第二份业务状态。
+拆分不改变 HTTP 路径、鉴权顺序、D1/R2 操作、错误码与导入幂等规则；同一套客户端、管理端和账号回归在拆前/拆后执行。
+
 - **存储**：D1（`DB`，database `mikiko-cloud-db`，migrations/0001 三表：
   `feedback_tickets` / `feedback_attachments` / `feedback_comments`）+ R2
   （`FEEDBACK_ARTIFACTS`，bucket `mikiko-feedback-artifacts`，对象
@@ -63,7 +68,7 @@
     wrangler.toml）→ `wrangler d1 migrations apply mikiko-cloud-db --remote`
     → `wrangler r2 bucket create mikiko-feedback-artifacts`。
   - 日常部署：GitHub Actions
-    `.github/workflows/deploy-mikiko-cloud.yml`（v* tag / 手动 dispatch；
+    `.github/workflows/deploy-mikiko-cloud.yml`（v\* tag / 手动 dispatch；
     含 D1 迁移；需 `CLOUDFLARE_API_TOKEN`，未配置时跳过）。
 
 ## 5. 安全备注
@@ -71,7 +76,6 @@
 `.admin-credentials.local` 曾被 git 追踪（含真实管理凭据）——已 `git rm
 --cached` + gitignore（条目本已存在）；**凭据已在 git 历史中，必须轮换
 MIKIKO_ADMIN_USERNAME/PASSWORD**。
-
 
 ## 账户化与产品需求模块（2026-10-20 批次 3）
 

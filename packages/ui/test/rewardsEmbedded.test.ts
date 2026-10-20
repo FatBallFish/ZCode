@@ -9,24 +9,26 @@ import {
 
 describe("Rewards embedded contract", () => {
   it("直接使用新分区和事件，旧主页不再受信任", () => {
-    expect(REWARDS_PARTITION).toBe("persist:zcode-rewards");
-    expect(REWARDS_CONTEXT_EVENT).toBe("zcode-rewards-context");
+    expect(REWARDS_PARTITION).toBe("persist:mikiko-rewards");
+    expect(REWARDS_CONTEXT_EVENT).toBe("mikiko-rewards-context");
     for (const lang of ["cn", "en"]) {
-      expect(isTrustedRewardsUrl(`https://zcode.z.ai/${lang}/referrals?embedded=app`)).toBe(false);
+      expect(isTrustedRewardsUrl(`https://agent.mikiko.ai/${lang}/referrals?embedded=app`)).toBe(
+        false,
+      );
       expect(
         isTrustedRewardsUrl(`http://localhost:3000/${lang}/referrals?embedded=app`, { dev: true }),
       ).toBe(false);
     }
   });
   it("解析三环境及 cn/en 和主题", () => {
-    expect(resolveRewardsOrigin({ env: "test", dev: true })).toBe("https://zcode.z.ai");
-    expect(resolveRewardsOrigin({ env: "production", dev: true })).toBe("https://zcode.z.ai");
-    expect(resolveRewardsOrigin({ env: "test" })).toBe("https://zcode.z.ai");
-    expect(resolveRewardsOrigin({ env: "production" })).toBe("https://zcode.z.ai");
-    expect(buildRewardsUrl("https://zcode.z.ai", "zh-CN", "zai-light")).toBe(
-      "https://zcode.z.ai/cn/rewards?embedded=app&theme=zai-light",
+    expect(resolveRewardsOrigin({ env: "test", dev: true })).toBe("https://agent.mikiko.ai");
+    expect(resolveRewardsOrigin({ env: "production", dev: true })).toBe("https://agent.mikiko.ai");
+    expect(resolveRewardsOrigin({ env: "test" })).toBe("https://agent.mikiko.ai");
+    expect(resolveRewardsOrigin({ env: "production" })).toBe("https://agent.mikiko.ai");
+    expect(buildRewardsUrl("https://agent.mikiko.ai", "zh-CN", "zai-light")).toBe(
+      "https://agent.mikiko.ai/cn/rewards?embedded=app&theme=zai-light",
     );
-    expect(buildRewardsUrl("https://zcode.z.ai", "en-US", "zai-dark")).toContain(
+    expect(buildRewardsUrl("https://agent.mikiko.ai", "en-US", "zai-dark")).toContain(
       "/en/rewards?",
     );
   });
@@ -36,20 +38,21 @@ describe("Rewards embedded contract", () => {
         "http://localhost:3000",
       );
       expect(resolveRewardsOrigin({ env, override: "http://localhost:3000" })).toBe(
-        env === "test" ? "https://zcode.z.ai" : "https://zcode.z.ai",
+        env === "test" ? "https://agent.mikiko.ai" : "https://agent.mikiko.ai",
       );
     }
   });
   it("只允许可信 origin 和精确 rewards 路径", () => {
     expect(resolveRewardsOrigin({ env: "production", override: "not-a-url" })).toBe(
-      "https://zcode.z.ai",
+      "https://agent.mikiko.ai",
     );
-    expect(isTrustedRewardsUrl("https://zcode.z.ai/en/rewards?embedded=app")).toBe(true);
+    expect(isTrustedRewardsUrl("https://agent.mikiko.ai/en/rewards?embedded=app")).toBe(true);
+    expect(isTrustedRewardsUrl("https://zcode.z.ai/en/rewards?embedded=app")).toBe(false);
     for (const url of [
-      "https://zcode.z.ai.evil.test/en/rewards?embedded=app",
-      "https://user@zcode.z.ai/en/rewards?embedded=app",
-      "https://zcode.z.ai/en/rewards-fake?embedded=app",
-      "https://zcode.z.ai/en/rewards",
+      "https://agent.mikiko.ai.evil.test/en/rewards?embedded=app",
+      "https://user@agent.mikiko.ai/en/rewards?embedded=app",
+      "https://agent.mikiko.ai/en/rewards-fake?embedded=app",
+      "https://agent.mikiko.ai/en/rewards",
       "http://localhost:3000/en/rewards?embedded=app",
     ]) {
       expect(isTrustedRewardsUrl(url)).toBe(false);

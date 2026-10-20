@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { serverRuntimeManifestSchema, type ServerTarget } from "./manifest.js";
+import { readInstalledRuntimeManifest, type ServerTarget } from "./manifest.js";
 
 export interface ReleaseIdentity {
   archiveSha256: string;
@@ -20,7 +20,7 @@ async function hashReleaseTree(root: string, relativeRoot = ""): Promise<string>
   const hash = createHash("sha256");
   const visit = async (relativeDirectory: string): Promise<void> => {
     const entries = await readdir(join(root, relativeDirectory), { withFileTypes: true });
-    entries.sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+    entries.sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0));
     for (const entry of entries) {
       const relativePath = join(relativeDirectory, entry.name);
       if (relativePath === RELEASE_INTEGRITY_FILE) continue;
@@ -48,9 +48,7 @@ async function assertExistingReleaseMatches(
     const integrity = JSON.parse(
       await readFile(join(releaseDir, RELEASE_INTEGRITY_FILE), "utf8"),
     ) as Partial<ReleaseIntegrity>;
-    const runtimeManifest = serverRuntimeManifestSchema.parse(
-      JSON.parse(await readFile(join(releaseDir, "manifest.json"), "utf8")),
-    );
+    const runtimeManifest = await readInstalledRuntimeManifest(releaseDir);
     const actualContentSha256 = await hashReleaseTree(releaseDir);
     if (
       integrity.archiveSha256 !== expected.archiveSha256 ||
@@ -102,7 +100,9 @@ export async function promoteImmutableReleaseDirectory(options: {
     const existingKind = await existingPathKind(options.targetDir);
     if (existingKind !== null) {
       if (existingKind !== "directory") {
-        throw new Error(`Existing immutable release conflict at ${options.targetDir}: target is not a directory`);
+        throw new Error(
+          `Existing immutable release conflict at ${options.targetDir}: target is not a directory`,
+        );
       }
       await assertExistingReleaseMatches(options.targetDir, integrity);
       return;

@@ -23,6 +23,7 @@ import {
   normalizeDynamicWorkflowMode,
   readZCodeAgentTelemetryEnv,
   sanitizeZCodeRuntimeEnv,
+  type SourceServerArtifactPolicy,
   type ZCodeRuntimeEnv,
 } from "@zcode/shared";
 import { resolvePlatformKeyForPackagedApp } from "../../scripts/target-platform.mjs";
@@ -97,7 +98,9 @@ export function getCredentialsDir() {
 export type RemoteAssetDirs = Pick<
   ConnectOptions,
   "mockCdnDir" | "remoteCdnBaseUrl" | "remoteCdnBaseUrls" | "remoteCacheDir"
->;
+> & {
+  sourceServerArtifactPolicy?: SourceServerArtifactPolicy;
+};
 type LocalRuntimeEnv = Record<string, string | undefined>;
 
 export async function isDockerDaemonAvailable(): Promise<boolean> {
@@ -251,7 +254,7 @@ function isTruthyEnvFlag(value: string | undefined): boolean {
 }
 
 function shouldUseRemoteCdnInDevelopment(localEnv: LocalRuntimeEnv = {}): boolean {
-  return isTruthyEnvFlag(resolveEnvValue("ZCODE_DEV_REMOTE_ASSET_USE_CDN", localEnv));
+  return isTruthyEnvFlag(resolveEnvValue("MIKIKO_DEV_REMOTE_ASSET_USE_CDN", localEnv));
 }
 
 function resolveRemoteCdnBaseUrls(
@@ -352,6 +355,9 @@ export function resolveRemoteAssetDirs(
   const developmentMockCdnDir = resolveAvailableDevelopmentMockCdnDir();
   return {
     ...(developmentMockCdnDir ? { mockCdnDir: developmentMockCdnDir } : {}),
+    // Bug 原因：ZCODE_ENV 表示测试/生产产品环境，dev:desktop 也可能取 production；
+    // 同版本开发制品刷新必须由未打包 Electron 这一运行形态显式授权。
+    sourceServerArtifactPolicy: "development-content-addressed",
     remoteCdnBaseUrl,
     remoteCdnBaseUrls,
     remoteCacheDir: resolveRemoteAssetCacheDir(localEnv),
@@ -535,7 +541,7 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
   // 不能伪造 uid/device/runtime surface 或绕过本地 identity state 的隔离边界。
   for (const key of [
     "MIKIKO_TELEMETRY_USER_ID",
-    "ZCODE_TELEMETRY_USER_ID_HASH",
+    "MIKIKO_TELEMETRY_USER_ID_HASH",
     "MIKIKO_TELEMETRY_USER_SUBJECT_ID",
     "MIKIKO_TELEMETRY_IDENTITY_STATE",
     "MIKIKO_TELEMETRY_DEVICE_MID",

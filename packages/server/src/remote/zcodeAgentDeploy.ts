@@ -110,7 +110,7 @@ async function shouldSkipZCodeAgentDeploy(params: {
     }
   }
 
-  // wrapper 在、但 zcode.cjs 缺失（被清理 / 旧原生二进制部署残留）时也要重新部署。
+  // wrapper 在、但 mikiko.cjs 缺失（被清理 / 旧原生二进制部署残留）时也要重新部署。
   if (!(await params.backend.exists(params.remoteBundlePath))) {
     params.loggers.logWarn(
       `[remote-assets] ${params.installer.mode === "remote-download" ? "download required" : "upload required"}: component=${params.componentId} reason=remote bundle missing path=${params.remoteBundlePath}`,
@@ -164,7 +164,7 @@ export async function deployZCodeAgentRuntime(
   }
 
   // binaryName 指 wrapper 可执行文件名（如 zcode-agent / zcode-agent.exe）——
-  // 一个调用远端 node 执行 zcode.cjs 的壳脚本。
+  // 一个调用远端 node 执行 mikiko.cjs 的壳脚本。
   const binaryName = runtime.resolveEntrySegments(env.platform).at(-1);
   if (!binaryName) {
     loggers.logWarn(`[zcode-agent-deploy] ${provider}: 无法解析 agent 入口名称，跳过部署`);
@@ -263,10 +263,10 @@ export async function deployZCodeAgentRuntime(
   } else {
     // 1) chmod 失败时先验证 packages 可替换，避免 bundle 已更新但旧 packages 删除失败。
     await installOfficialPluginPackages();
-    // 2) packages 替换成功后再安装编译产物 zcode.cjs（跨平台同一份，glm 组件里就是它）。
+    // 2) packages 替换成功后再安装编译产物 mikiko.cjs（跨平台同一份，glm 组件里就是它）。
     await installBundle();
   }
-  // 3) 写入 wrapper（即 resolver 期望的 zcode-agent），用远端已部署的 node 执行 zcode.cjs。
+  // 3) 写入 wrapper（即 resolver 期望的 zcode-agent），用远端已部署的 node 执行 mikiko.cjs。
   await deployRemoteAgentWrapper({
     backend,
     content: buildRemoteAgentBundleWrapper(runtime.bundledResourceDir),

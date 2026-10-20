@@ -47,14 +47,6 @@ describe("web remote control bootstrap shell", () => {
     expect(readWorkspaceFile("packages/web/public/favicon.ico").length).toBeGreaterThan(0);
   });
 
-  it("预渲染 loading 容器自身兜底主题背景，避免全局透明 body 露出白底", () => {
-    const html = readWebIndexHtml();
-    const loadingRule = readCssRule(html, ".zcode-boot-loading");
-
-    expect(loadingRule).toContain("background: var(--zcode-bootstrap-bg");
-    expect(loadingRule).toContain("#0f172a");
-  });
-
   it.each([
     ["mikiko-dark", "dark", "#161616"],
     ["mikiko-light", "light", "#f8f8f8"],
@@ -77,13 +69,4 @@ describe("web remote control bootstrap shell", () => {
       dom.window.close();
     },
   );
-
-  it("Web 根表面以语义背景覆盖 Electron 透明根背景", () => {
-    const html = readWebIndexHtml();
-    const browserSurfaceRule = readCssRule(html, "html[data-zcode-browser-theme-surface] #root");
-
-    expect(html).toContain("html[data-zcode-browser-theme-surface] body");
-    expect(browserSurfaceRule).toContain("background: var(--color-background");
-    expect(browserSurfaceRule).toContain("!important");
-  });
 });

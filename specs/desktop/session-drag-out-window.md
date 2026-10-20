@@ -6,11 +6,11 @@
 
 「松开以在新窗口打开会话」chip 的展示谓词与释放动作完全一致（同一函数计算）：
 
-| 释放位置 | 结果 | chip |
-| --- | --- | --- |
+| 释放位置                                    | 结果                  | chip               |
+| ------------------------------------------- | --------------------- | ------------------ |
 | 任意 pane 的边缘分屏区（dropEffect 被消费） | 既有分屏/叠放（不变） | 无（半区高亮接管） |
-| 指针仍在「所属范围」内 | 取消（无操作） | 无 |
-| 指针超出「所属范围」（含窗口外） | **打开独立会话窗口** | 显示 |
+| 指针仍在「所属范围」内                      | 取消（无操作）        | 无                 |
+| 指针超出「所属范围」（含窗口外）            | **打开独立会话窗口**  | 显示               |
 
 「所属范围」按会话来源划分：
 
@@ -89,7 +89,7 @@
 ## 附着主窗口 Host 与面板转发（2026-10-14 二轮）
 
 - **同 Host 附着**：会话窗口不再 spawn 自有 Local Host——`StartupWindowBootstrap
-  .attachToHostOfWindow`（源窗口 webContents id）→ dom-ready 时对源 Host 发
+.attachToHostOfWindow`（源窗口 webContents id）→ dom-ready 时对源 Host 发
   `AttachServicePort`（desktop-continuous / scope=local，与手机远控、刷新共用机制），
   端口投递给会话窗口 renderer。同 Host 同运行时：会话状态、运行 lease、消息流与
   主窗口完全一致（实时同步，非备份）；关闭会话窗口只关 attachment 端口，源 Host
@@ -168,3 +168,7 @@
 - 验收：会话窗口打开内置浏览器 tab 并导航 → 关闭会话窗口 → 主窗口侧面板自动出现
   该 tab 并回到原 URL；agent 正在主窗口浏览器上操作时创建/关闭会话窗口，主窗口
   guest 与 CDP 调度不受扰动。
+
+## Mikiko 上游 3.16.2 集成验收（2026-10-20）
+
+采用新的 ProjectTree / project-sidebar 作为组织态唯一投影。保留工作树真实 workspaceIdentity/cwd、根项目聚合、路径菜单、置顶项目层级、归档和拖出开窗；投影不得变更运行时归属。独立窗口附着已有 Host，面板仍在各窗口本地渲染；未读按 task identity 去重，不引入第二份事实。手机远控继续自建服务，禁止装配 Relay V2；新增可见配置和路径使用 Mikiko。验收同时覆盖桌面 continuous 与手机 replayable 恢复，主/独立窗切换与关闭不改变共享会话运行时。

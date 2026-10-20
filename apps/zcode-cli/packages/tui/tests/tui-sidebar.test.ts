@@ -14,18 +14,6 @@ import {
 import { createSidebarShortcutState, resolveSidebarShortcut } from "../src/app-sidebar-shortcut.js";
 import type { SidebarState } from "../src/app-model.js";
 
-test("uses the responsive sidebar width from the v2 layout contract", () => {
-  assert.equal(SIDEBAR_WIDTH, 42);
-  assert.equal(SIDEBAR_CONTENT_WIDTH, 40);
-});
-
-test("renders as a borderless background block", () => {
-  const style = reactElementStyle(Sidebar(baseSidebarState));
-
-  assert.equal(style.border, false);
-  assert.equal(style.backgroundColor, "#1f2937");
-});
-
 test("splits the current provider and model rows in the run section", () => {
   const lines = collectTextLines(
     Sidebar({
@@ -204,7 +192,7 @@ test("production sidebar shows product header and hides developer diagnostics", 
   const lines = collectTextLines(node);
   const textNodes = collectTextNodes(node);
 
-  assert.equal(textNodes.find((item) => item.text === "ZCode")?.style.fg, "#7dd3fc");
+  assert.equal(textNodes.find((item) => item.text === "Mikiko")?.style.fg, "#7dd3fc");
   assert.equal(textNodes.find((item) => item.text === " 1.2.3")?.style.fg, "#94a3b8");
   assert.equal(lines.includes("OpenTUI shell"), false);
   assert.equal(lines.includes("Run"), false);

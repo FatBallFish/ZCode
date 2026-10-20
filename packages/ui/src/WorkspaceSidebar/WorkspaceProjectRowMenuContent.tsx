@@ -1,5 +1,5 @@
 import { CopyIcon, FolderOpen, Pin, PinOff, XIcon } from "lucide-react";
-import { testId, TID_WORKSPACE_CLOSE } from "@zcode/shared";
+import { testId } from "@zcode/shared/test-ids";
 import type { WorkspaceTabState } from "@/store/tabStore.js";
 
 interface ProjectRowMenuItemProps {
@@ -85,7 +85,7 @@ export function WorkspaceProjectRowMenuContent({
         })}
       </Item>
       <Separator />
-      <Item data-testid={testId(TID_WORKSPACE_CLOSE, tab.workspacePath)} onSelect={onRemoveProject}>
+      <Item data-testid={testId("workspace-close", tab.workspacePath)} onSelect={onRemoveProject}>
         <XIcon className="size-3.5 shrink-0" />
         {intl.formatMessage({ id: "workspaceSidebar.remove" })}
       </Item>

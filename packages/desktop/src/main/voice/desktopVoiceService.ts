@@ -1,4 +1,4 @@
-/* eslint-disable max-lines -- 语音服务是模型文件/引擎 worker/会话三段生命周期的单一所有者（specs/desktop/voice-input.md），
+/* 语音服务是模型文件/引擎 worker/会话三段生命周期的单一所有者（specs/desktop/voice-input.md），
    拆分会把同一份状态（downloading/engine/activeSession）散射到多个模块，扩大时序回归面。 */
 /**
  * 语音服务（desktop main）—— specs/desktop/voice-input.md §4-6。
@@ -228,7 +228,7 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
         let received = 0;
         try {
           for await (const chunk of response.body) {
-            const buffer = Buffer.from(chunk as ArrayBuffer);
+            const buffer = Buffer.from(chunk);
             await handle.write(buffer);
             hash.update(buffer);
             received += buffer.byteLength;
@@ -485,10 +485,10 @@ export function createVoiceService(options: DesktopVoiceServiceOptions) {
     });
     child.on("exit", () => {
       // 加载期退出：engine 尚未赋值，靠 loadingEngineChild 判定，立即失败而非等满超时。
-      const wasLoading = engineLoadWaiter && loadingEngineChild === child;
-      if (wasLoading) {
-        clearTimeout(engineLoadWaiter.timer);
-        engineLoadWaiter.reject(new Error("engine worker exited during load"));
+      const waiter = engineLoadWaiter;
+      if (waiter && loadingEngineChild === child) {
+        clearTimeout(waiter.timer);
+        waiter.reject(new Error("engine worker exited during load"));
         engineLoadWaiter = null;
       }
       if (loadingEngineChild === child) {

@@ -29,6 +29,8 @@ Object.defineProperty(globalThis, "document", {
   configurable: true,
   value: {
     documentElement: {
+      // StoreProvider 初始化会应用 Mikiko 皮肤；工具用例的最小 DOM 同样提供 CSSOM 能力。
+      style: { setProperty: () => {}, removeProperty: () => {} },
       classList: {
         contains: () => false,
         toggle: () => {},
@@ -107,8 +109,7 @@ describe("PlanGuidanceToolCallBlock", () => {
       kind: "other",
       title: "EnterPlanMode",
       input: {},
-      output:
-        "Entered plan mode.\n\n1. Thoroughly explore the codebase\n2. Consider trade-offs",
+      output: "Entered plan mode.\n\n1. Thoroughly explore the codebase\n2. Consider trade-offs",
       status: "completed",
       raw: {
         _meta: {

@@ -13,6 +13,7 @@ import {
   cleanupPluginSourceBestEffort,
   directoryExists,
   fileExists,
+  PLUGIN_MANIFEST_RELATIVE_PATHS,
   isRecord,
   resolveInside,
   sanitizePluginId,
@@ -50,16 +51,13 @@ const INSTALLED_PLUGINS_FILE = "installed_plugins.json";
 const MARKETPLACE_FILE = "marketplace.json";
 const CLAUDE_OFFICIAL_MARKETPLACE = "claude-plugins-official";
 const PLUGIN_ICON_SOURCES_FILE = "icon-sources.json";
-const PLUGIN_ICON_ASSETS_BASE_URL = "https://cdn-zcode.z.ai/zcode/official-plugin/assets/";
+const PLUGIN_ICON_ASSETS_BASE_URL = "https://agent-dl.mikiko.ai/mikiko/official-plugin/assets/";
 const PLUGIN_ICON_SOURCES_URL = `${PLUGIN_ICON_ASSETS_BASE_URL}${PLUGIN_ICON_SOURCES_FILE}`;
 const MARKETPLACE_JSON_MAX_BYTES = 10 * 1024 * 1024;
 const MARKETPLACE_JSON_MAX_REDIRECTS = 5;
 const MARKETPLACE_JSON_TIMEOUT_MS = 180_000;
 const claudeIconMigrationAttempts = new Set<string>();
 const CLAUDE_MARKETPLACE_FILE = join(".claude-plugin", "marketplace.json");
-const ZCODE_MANIFEST_PATH = join(".zcode-plugin", "plugin.json");
-const CLAUDE_MANIFEST_PATH = join(".claude-plugin", "plugin.json");
-const CODEX_MANIFEST_PATH = join(".codex-plugin", "plugin.json");
 const DEFAULT_VERSION = "0.0.0";
 const GIT_CLONE_MAX_ATTEMPTS = 3;
 const GIT_COMMAND_TIMEOUT_MS = 90_000;
@@ -68,12 +66,7 @@ const CLAUDE_MARKETPLACE_REFRESH_TIMEOUT_MS = 30_000;
 const MARKETPLACE_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const PLUGIN_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const SOURCE_SHA256_PATTERN = /^[a-f0-9]{64}$/u;
-const UNSUPPORTED_MANIFEST_FIELDS = [
-  "channels",
-  "lspServers",
-  "outputStyles",
-  "settings",
-] as const;
+const UNSUPPORTED_MANIFEST_FIELDS = ["channels", "lspServers", "outputStyles", "settings"] as const;
 
 export type MarketplaceSource =
   | { source: "url"; headers?: Record<string, string>; url: string }
@@ -1211,7 +1204,9 @@ export async function validateLocalPluginPath(input: {
       },
     ];
   }
-  const rootPath = statSync(resolved).isDirectory() ? resolved : resolveManifestRootFromFile(resolved);
+  const rootPath = statSync(resolved).isDirectory()
+    ? resolved
+    : resolveManifestRootFromFile(resolved);
   if (findMarketplaceManifestPath(rootPath)) {
     return validateMarketplaceSource({
       signal: input.signal,
@@ -2284,6 +2279,9 @@ export function parseEntryStoreListing(
   };
 
   const listing: PluginStoreListing = {};
+  if (entry.publisherType === "official" || entry.publisherType === "community") {
+    listing.publisherType = entry.publisherType;
+  }
   const displayName = readString("displayName");
   if (displayName) listing.displayName = displayName;
   const displayNameI18n = readStringMap("displayName_i18n");
@@ -2357,7 +2355,7 @@ function findMarketplaceManifestPath(rootPath: string, explicitPath?: string): s
 }
 
 function findPluginManifestPath(rootPath: string): string | null {
-  for (const candidate of [ZCODE_MANIFEST_PATH, CLAUDE_MANIFEST_PATH, CODEX_MANIFEST_PATH]) {
+  for (const candidate of PLUGIN_MANIFEST_RELATIVE_PATHS) {
     const path = join(rootPath, candidate);
     if (fileExists(path)) return path;
   }
