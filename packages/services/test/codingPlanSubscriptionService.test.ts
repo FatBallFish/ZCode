@@ -722,7 +722,7 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
       "Small repo iteration",
     ]);
     const requestUrl = String(vi.mocked(apiClient.request).mock.calls[0]?.[0]);
-    expect(requestUrl).toContain("https://agent.mikiko.ai/api/v1/coding-plan/client/configs?");
+    expect(requestUrl).toContain("https://zcode.z.ai/api/v1/client/configs?");
     expect(requestUrl).toContain("app_version=");
     expect(requestUrl).toContain(`platform=${process.platform}-${process.arch}`);
     expect(apiClient.request).toHaveBeenCalledWith(expect.any(URL), expect.anything());
@@ -871,21 +871,27 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
     );
   });
 
-  it("client configs 根据 MIKIKO_ENV 选择测试或生产环境", () => {
+  it("client configs 生产保持官方账号来源，测试可显式注入来源", () => {
     expect(
       resolveCodingPlanClientConfigUrl({
         MIKIKO_ENV: "test",
       }).toString(),
-    ).toBe("https://agent.mikiko.ai/api/v1/coding-plan/client/configs");
+    ).toBe("https://zcode.z.ai/api/v1/client/configs");
     expect(
       resolveCodingPlanClientConfigUrl({
         MIKIKO_ENV: "production",
         MIKIKO_ENDPOINT_ORIGIN: "https://runtime.example.com",
       }).toString(),
-    ).toBe("https://runtime.example.com/api/v1/coding-plan/client/configs");
+    ).toBe("https://zcode.z.ai/api/v1/client/configs");
+    expect(
+      resolveCodingPlanClientConfigUrl({
+        MIKIKO_ENV: "test",
+        MIKIKO_BASE_URL: "http://127.0.0.1:3030",
+      }).toString(),
+    ).toBe("http://127.0.0.1:3030/api/v1/client/configs");
   });
 
-  it("getForceUpdateConfig 从 ZCode client config 读取强制升级配置", async () => {
+  it("getForceUpdateConfig 从自建升级配置读取强制升级规则", async () => {
     const apiClient: ApiClient = {
       request: vi.fn(async () =>
         createJsonResponse({
@@ -917,6 +923,21 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
         method: "GET",
       }),
     );
+  });
+
+  it("兼容强更入口只访问自建升级服务，不消费官方账号配置", async () => {
+    const apiClient: ApiClient = {
+      request: vi.fn(async () => createJsonResponse({ code: 0, data: { configs: {} } })),
+    };
+    const provider = new BigModelCodingPlanSubscriptionProvider({
+      apiClient,
+      credentialService: { load: vi.fn(async () => null) },
+    });
+    await provider.getForceUpdateConfig();
+    const url = new URL(String(vi.mocked(apiClient.request).mock.calls[0]?.[0]));
+    expect(url.origin).toBe("https://agent-update.mikiko.ai");
+    expect(url.pathname).toBe("/api/v1/client/configs");
+    expect(vi.mocked(apiClient.request).mock.calls[0]?.[1]?.headers).toBeUndefined();
   });
 
   it("getForceUpdateConfig 在字段缺失时返回 null", async () => {

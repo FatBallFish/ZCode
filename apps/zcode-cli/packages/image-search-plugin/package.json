@@ -3,6 +3,6 @@
   "name": "@zcode/image-search-plugin",
   "version": "0.1.1",
   "private": true,
-  "license": "Apache-2.0",
-  "description": "Official ZCode image search MCP server for finding illustrations and reference images."
+  "description": "Mikiko image search plugin using the official CodingPlan account backend.",
+  "license": "Apache-2.0"
 }

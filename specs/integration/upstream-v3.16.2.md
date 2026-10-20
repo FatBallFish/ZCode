@@ -7,7 +7,7 @@
 1. 手机远控保持当前自建 relay、Mikiko ID、设备认领/直连、扫码与 P2P 能力。上游 Relay V2 不采用、不装配，不以它替换自建协议；其专属模块列入明确排除台账。通用任务/恢复修复仍需适配并回归。
 2. 更新/远端资源下载、bug 上报、需求反馈、分享、客户端功能配置等产品云端接口全部使用自有品牌与自建服务。只有官方 CodingPlan 账号体系及它完成账号业务必需的供应商接口继续保持官方合同。普通产品服务不能借此例外回流官方端点。
 
-生产模式下，任意自建产品域（包括 `MIKIKO_BASE_URL` 自定义部署）均不改变官方 CodingPlan OAuth、套餐计费/领取及官方 MCP 套餐额度的来源，不能向产品域转发官方账号凭据。由共享 account resolver 唯一决定该来源；非生产显式测试 origin、loopback 回放与账户工厂的明确 baseUrl 注入保留测试合同。公共功能配置仍自建，套餐静态配置使用已有专用只读代理，不能把普通产品 client/configs 当账号配置。
+生产模式下，任意自建产品域（包括 `MIKIKO_BASE_URL` 自定义部署）均不改变官方 CodingPlan OAuth、套餐计费/领取及官方 MCP 套餐额度的来源，不能向产品域转发官方账号凭据。由共享 account resolver 唯一决定该来源；非生产显式测试 origin、loopback 回放与账户工厂的明确 baseUrl 注入保留测试合同。公共功能配置仍自建；Desktop/Host 套餐静态配置直接使用官方账号 client/configs 专用消费链，恢复规则与来源头验收见 `specs/mikiko-cloud/coding-plan-account-routing.md`。
 
 3. 新功能的产品侧环境变量、配置名、文件名、目录路径、进程名、可见文案和安装身份统一 Mikiko。包 scope、TypeScript 内部符号、不可见协议判别器与第三方品牌不做机械替换；可对外配置/运行的名字不属于内部符号豁免。
 

@@ -4,9 +4,15 @@ import { join, resolve } from "node:path";
 import {
   ZCODE_OFFICIAL_PLUGIN_MARKETPLACE,
   ZCODE_PLUGIN_HOST_COMMAND,
-  type McpServerConfig,
+  type McpStdioServerConfig,
+  type McpHttpServerConfig,
+  type PluginLoadOutcome,
 } from "@zcode/contracts";
-import { ZCODE_PLUGIN_ID_ENV_KEY } from "@zcode/shared";
+import {
+  ZCODE_PLUGIN_ID_ENV_KEY,
+  buildRuntimeCodingPlanApiUrl,
+  type RuntimeZCodeEndpointEnv,
+} from "@zcode/shared";
 import {
   createOfficialPluginCacheRetryBudget,
   type OfficialPluginCacheRetryBudget,
@@ -17,19 +23,51 @@ type SeaModule = typeof import("node:sea");
 
 const MCP_SERVER_RELATIVE_PATH = ["dist", "mcp", "server.js"] as const;
 
+/** Image Search 默认采用官方账号后端；后续自建 adapter 必须显式提供配置且不继承官方鉴权。 */
+export type ImageSearchBackendPort =
+  | { kind: "official-coding-plan" }
+  | { kind: "custom"; createMcpConfig(existing: McpHttpServerConfig): McpHttpServerConfig };
+
+export function createImageSearchMcpConfig(options: {
+  existing: McpHttpServerConfig;
+  env?: RuntimeZCodeEndpointEnv;
+  backend?: ImageSearchBackendPort;
+}): McpHttpServerConfig {
+  if (options.backend?.kind === "custom") {
+    const {
+      auth: _auth,
+      official: _official,
+      ...config
+    } = {
+      ...options.existing,
+      ...options.backend.createMcpConfig(options.existing),
+    };
+    return config;
+  }
+  return {
+    ...options.existing,
+    // 用户明确授权此搜图后端例外；账号来源独立于自建产品域，不向产品域发送官方凭据。
+    url: buildRuntimeCodingPlanApiUrl(options.env ?? {}, "/api/v1/mcp/server/image_search"),
+    auth: { type: "zcode_official", provider: "jwt_token" },
+  };
+}
+
 export function createBundledMcpRuntimeConfig(input: {
-  cwd: string;
+  cwd?: string;
   env?: Record<string, string>;
   relativeServerPath?: readonly string[];
+  serverArgs?: readonly string[];
   rootPath: string;
   timeoutMs?: number;
-}): McpServerConfig | undefined {
+}): McpStdioServerConfig | undefined {
   const hostPrefixArgs = officialPluginHostPrefixArgs();
   if (!hostPrefixArgs) return undefined;
   return {
     args: [
       ...hostPrefixArgs,
-      join(input.rootPath, ...(input.relativeServerPath ?? MCP_SERVER_RELATIVE_PATH)),
+      ...(input.serverArgs ?? [
+        join(input.rootPath, ...(input.relativeServerPath ?? MCP_SERVER_RELATIVE_PATH)),
+      ]),
     ],
     command: process.execPath,
     cwd: input.cwd,
@@ -41,6 +79,61 @@ export function createBundledMcpRuntimeConfig(input: {
     timeoutMs: input.timeoutMs,
     type: "stdio",
   };
+}
+
+/** 每个消费者只信任当前进程绑定；共享缓存里的命令前缀不是运行态权威。 */
+export function bindOfficialPluginMcpRuntime(
+  outcome: PluginLoadOutcome,
+  options: {
+    env?: RuntimeZCodeEndpointEnv;
+    imageSearchBackend?: ImageSearchBackendPort;
+  } = {},
+): PluginLoadOutcome {
+  let mcpServers: PluginLoadOutcome["mcpServers"] | undefined;
+  for (const plugin of outcome.plugins) {
+    if (
+      !plugin.enabled ||
+      plugin.marketplace !== ZCODE_OFFICIAL_PLUGIN_MARKETPLACE ||
+      plugin.id !== `${plugin.name}@${ZCODE_OFFICIAL_PLUGIN_MARKETPLACE}`
+    )
+      continue;
+    for (const serverName of plugin.mcpServerNames) {
+      if (!serverName.startsWith(`plugin:${plugin.name}:`)) continue;
+      const server = outcome.mcpServers[serverName];
+      if (
+        plugin.name === "image-search" &&
+        serverName === "plugin:image-search:image_search" &&
+        server?.type === "http"
+      ) {
+        mcpServers ??= { ...outcome.mcpServers };
+        mcpServers[serverName] = createImageSearchMcpConfig({
+          existing: server,
+          env: options.env,
+          backend: options.imageSearchBackend,
+        });
+        continue;
+      }
+      if (server?.type !== "stdio") continue;
+      const args = server.args ?? [];
+      // Bug 根因：共享 manifest 会被测试/旧客户端写入其入口和 Node execArgv；
+      // 后来的日常运行若照抄缓存，就启动归档测试而非 MCP。只保留 host 标记后的真实 server 参数。
+      const hostMarker = args.indexOf(ZCODE_PLUGIN_HOST_COMMAND);
+      const serverArgs = hostMarker < 0 ? args : args.slice(hostMarker + 1);
+      if (!serverArgs.length) continue;
+      const runtime = createBundledMcpRuntimeConfig({
+        rootPath: plugin.rootPath,
+        cwd: server.cwd,
+        env: server.env,
+        serverArgs,
+        timeoutMs: server.timeoutMs,
+      });
+      if (!runtime) continue;
+      mcpServers ??= { ...outcome.mcpServers };
+      // auth/provenance、isolation、protocol 等业务合同保留；只替换当前进程的启动材料。
+      mcpServers[serverName] = { ...server, ...runtime };
+    }
+  }
+  return mcpServers ? { ...outcome, mcpServers } : outcome;
 }
 
 interface OfficialRuntimeManifestInput {

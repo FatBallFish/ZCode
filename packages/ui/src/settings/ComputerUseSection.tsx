@@ -93,19 +93,15 @@ export function ComputerUseSection({
     remoteTarget,
     workspaceIdentity,
   });
-  // CUA 权限是 macOS 本机属性：仅完整 macOS 设置需要 Helper workspace 路径。
-  const path = supportsLocalMacWorkspace ? (localWorkspacePath ?? workspacePath) : null;
-  // 展示只跟 settled：fresh 每次查询开始都会落回 false，跟着它渲染会让授权按钮的文案
-  // 在「验证中…」与终态之间切换、宽度随之跳变。
-  const { status, settled, refresh } = useCuaPermissionStatus(path ?? null, workspaceIdentity);
-  const availableStatus = status && isCuaPermissionStatusAvailable(status) ? status : null;
-
-  // macOS 版本门槛：低版本系统上 Helper 被 LaunchServices -10825 拒启，表象是授权反复无响应。
-  // 查询一次主进程判定（GetCuaOsSupport），低于地板时渲染提示卡并隐藏授权操作区。
-  // 查询失败按无门槛处理，不阻塞设置页；useCuaPermissionStatus 轮询保留，仅隐藏交互入口。
   const [osSupport, setOsSupport] = useState<CuaOsSupport | null>(null);
+  const needsLocalBuildCapability = isLocalWorkspace && (isDesktop || supportsComputerUseSettings);
   useEffect(() => {
-    if (!supportsLocalMacWorkspace || typeof platform.executeDesktopCommand !== "function") return;
+    if (!needsLocalBuildCapability) return;
+    // 兼容没有该命令的旧平台适配；新 Main 始终返回明确的构建能力事实。
+    if (typeof platform.executeDesktopCommand !== "function") {
+      setOsSupport({ kind: "supported" });
+      return;
+    }
     let cancelled = false;
     void platform
       .executeDesktopCommand(DesktopCommandIds.GetCuaOsSupport)
@@ -113,12 +109,21 @@ export function ComputerUseSection({
         if (!cancelled) setOsSupport(result as CuaOsSupport);
       })
       .catch(() => {
-        /* 查询失败按无门槛处理，不阻塞设置页 */
+        // 保留既有命令读取失败时的 OS 门槛兼容，不把 IO 错误伪装成缺少 producer。
+        if (!cancelled) setOsSupport({ kind: "supported" });
       });
     return () => {
       cancelled = true;
     };
-  }, [supportsLocalMacWorkspace, platform]);
+  }, [needsLocalBuildCapability, platform]);
+  const buildUnavailable = osSupport?.kind === "build-unavailable";
+  // 先确认真实 producer 与 OS 支持，再订阅权限；否则占位包会重复查询无法启动的 Helper。
+  const path =
+    supportsLocalMacWorkspace && osSupport?.kind === "supported"
+      ? (localWorkspacePath ?? workspacePath)
+      : null;
+  const { status, settled, refresh } = useCuaPermissionStatus(path ?? null, workspaceIdentity);
+  const availableStatus = status && isCuaPermissionStatusAvailable(status) ? status : null;
 
   const macOsBelowCuaFloor = osSupport?.kind === "macos-below-minimum";
 
@@ -136,6 +141,8 @@ export function ComputerUseSection({
     if (
       initRef.current ||
       !supportsComputerUseSettings ||
+      osSupport === null ||
+      buildUnavailable ||
       !workspacePath ||
       !pluginManagementService
     )
@@ -149,6 +156,8 @@ export function ComputerUseSection({
     });
   }, [
     supportsComputerUseSettings,
+    osSupport,
+    buildUnavailable,
     workspacePath,
     workspaceIdentity,
     pluginManagementService,
@@ -679,6 +688,30 @@ export function ComputerUseSection({
       </button>
     );
   };
+
+  if (needsLocalBuildCapability && osSupport === null) {
+    return (
+      <p role="status" className="text-ui-sm text-foreground-subtle">
+        {intl.formatMessage({ id: "common.loading" })}
+      </p>
+    );
+  }
+  if (buildUnavailable) {
+    return (
+      <div
+        role="status"
+        data-testid="computer-use-build-unavailable"
+        className="rounded-lg border border-border bg-surface p-4"
+      >
+        <p className="font-medium">
+          {intl.formatMessage({ id: "settings.computerUse.buildUnavailable.title" })}
+        </p>
+        <p className="mt-1 text-ui-sm text-foreground-subtle">
+          {intl.formatMessage({ id: "settings.computerUse.buildUnavailable.description" })}
+        </p>
+      </div>
+    );
+  }
 
   if (!supportsComputerUseSettings) {
     // 远端 / Linux 环境若直接 return null，设置页只剩标题，会让用户误以为页面加载失败。

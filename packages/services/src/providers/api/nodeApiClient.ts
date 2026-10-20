@@ -1,4 +1,5 @@
 import {
+  CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN,
   ApiError,
   DEFAULT_ZCODE_ENDPOINT_ORIGIN,
   normalizeZCodeEndpointOrigin,
@@ -165,13 +166,23 @@ function resolveRequestHeaders(
   endpointOrigin: string,
   clientLanguage: string | undefined,
 ): RequestInit["headers"] | undefined {
-  if (!isRequestForEndpoint(requestInput, endpointOrigin)) {
-    return headers;
+  if (isRequestForEndpoint(requestInput, endpointOrigin)) {
+    return withZCodeEndpointHeaders(headers, endpointOrigin, clientLanguage);
   }
-
-  // ZCode 后端请求以前只有部分业务路径手动补来源头。
-  // 统一在 ApiClient 出口按 endpoint origin 注入，避免 OAuth/config/billing/snapshot 等链路遗漏。
-  return withZCodeEndpointHeaders(headers, endpointOrigin, clientLanguage);
+  // 修复依据：官方账号域从自建产品域隔离后，balance 丢失 X-Device-Mid 等来源头，
+  // 实际返回 400 parameter error；相同真实版本补回来源头后为 200。只放行账号合同路径，
+  // 不能把设备身份扩散到官方普通产品 API 或第三方，也不改写官方请求 URL。
+  const accountUrl = new URL(resolveUrl(requestInput));
+  const isOfficialAccountRequest =
+    accountUrl.origin === CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN &&
+    (accountUrl.pathname === "/api/v1/client/configs" ||
+      accountUrl.pathname === "/api/v1/mcp/usage" ||
+      ["/api/v1/oauth/", "/api/v1/zcode-plan/", "/api/v1/coding-plan/"].some((prefix) =>
+        accountUrl.pathname.startsWith(prefix),
+      ));
+  return isOfficialAccountRequest
+    ? withZCodeEndpointHeaders(headers, CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN, clientLanguage)
+    : headers;
 }
 
 export class NodeApiClient implements ApiClient {

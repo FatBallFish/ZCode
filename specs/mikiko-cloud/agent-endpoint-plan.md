@@ -41,17 +41,18 @@
 
 ### 2.1 保留不动（Zai 账户 / CodingPlan / Message / 用量）
 
-| 接口                                                                                    | 域名             | 用途                                      |
-| --------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------- |
-| `/api/oauth/authorize`、`/api/oauth/userinfo`                                           | chat.z.ai        | Zai OAuth                                 |
-| `/api/v1/oauth/token`、`/oauth/cli/init`、`/oauth/cli/poll/{id}`                        | zcode.z.ai       | token 兑换、CLI 设备流登录                |
-| `/api/v1/zcode-plan`(+`/anthropic`)、`/billing/current`、`/billing/balance`             | zcode.z.ai       | CodingPlan 网关与计费                     |
-| `/api/v1/mcp/usage`、`/api/v1/coding-plan/reset/*`                                      | zcode.z.ai       | 用量与额度重置                            |
-| `/api/auth/z/login`、`/api/anthropic/v1/messages`、`/api/monitor/usage/*`、`/api/biz/*` | api.z.ai         | 业务登录、海外网关、用量、购买            |
-| `/api/anthropic/v1/messages`、`/coding-plan/*`、`/api/biz/*`                            | open.bigmodel.cn | 国内网关与管理页                          |
-| `marketplace.json`、`/official-plugin/assets`                                           | cdn-zcode.z.ai   | 插件市场（本期保留官方，自建规划见 §4.6） |
+| 接口                                                                                    | 域名             | 用途                                                                                                |
+| --------------------------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------- |
+| `/api/oauth/authorize`、`/api/oauth/userinfo`                                           | chat.z.ai        | Zai OAuth                                                                                           |
+| `/api/v1/oauth/token`、`/oauth/cli/init`、`/oauth/cli/poll/{id}`                        | zcode.z.ai       | token 兑换、CLI 设备流登录                                                                          |
+| `/api/v1/zcode-plan`(+`/anthropic`)、`/billing/current`、`/billing/balance`             | zcode.z.ai       | CodingPlan 网关与计费                                                                               |
+| `/api/v1/mcp/usage`、`/api/v1/coding-plan/reset/*`                                      | zcode.z.ai       | 用量与额度重置                                                                                      |
+| `/api/v1/mcp/server/image_search`                                                       | zcode.z.ai       | 2026-10-21 用户追加授权的官方 CodingPlan 搜图后端；仅当前智谱登录有效，预留无官方鉴权的 custom 后端 |
+| `/api/auth/z/login`、`/api/anthropic/v1/messages`、`/api/monitor/usage/*`、`/api/biz/*` | api.z.ai         | 业务登录、海外网关、用量、购买                                                                      |
+| `/api/anthropic/v1/messages`、`/coding-plan/*`、`/api/biz/*`                            | open.bigmodel.cn | 国内网关与管理页                                                                                    |
+| `marketplace.json`、`/official-plugin/assets`                                           | cdn-zcode.z.ai   | 插件市场（本期保留官方，自建规划见 §4.6）                                                           |
 
-前提：`ZCODE_BASE_URL` / `ZCODE_ENDPOINT_ORIGIN` 保持官方默认（这是以上接口地址解析的来源，整体切换会破坏 Zai 链路）。
+以上账号业务由独立 CodingPlan account resolver 解析，不受 `MIKIKO_BASE_URL` / `MIKIKO_ENDPOINT_ORIGIN` 自建产品来源影响；不能将官方账号凭据发到产品域。Image Search 是用户本轮明确追加的服务例外，其他普通产品服务仍保持自建方案。
 
 ### 2.2 收窄消费：官方 `/api/v1/client/configs`
 

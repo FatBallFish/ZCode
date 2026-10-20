@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createServer } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_ZCODE_ENDPOINT_ORIGIN } from "@zcode/shared";
 import { setDataBaseDir } from "../src/paths.js";
@@ -35,6 +36,74 @@ describe("NodeApiClient endpoint rewriting", () => {
       "https://feedback.example.invalid/api/v1/tickets",
       "https://api.z.ai/v1/models",
     ]);
+  });
+
+  it("自建产品域与官方账号域共存时，真实 loopback 服务收到 balance 必需设备来源头", async () => {
+    const dataBaseDir = mkdtempSync(join(tmpdir(), "mikiko-official-account-headers-"));
+    tempDirs.push(dataBaseDir);
+    setDataBaseDir(dataBaseDir);
+    const configDir = join(dataBaseDir, ".mikiko", "v2");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(
+      join(configDir, "telemetry-state.json"),
+      JSON.stringify({ deviceMid: "fixture-mid" }),
+    );
+    const received: Array<{ path: string; headers: Headers }> = [];
+    const server = createServer((request, response) => {
+      const headers = new Headers();
+      for (const [key, value] of Object.entries(request.headers)) {
+        if (value) headers.set(key, Array.isArray(value) ? value.join(",") : value);
+      }
+      received.push({ path: request.url ?? "", headers });
+      response.writeHead(headers.get("X-Device-Mid") ? 200 : 400, {
+        "Content-Type": "application/json",
+      });
+      response.end(JSON.stringify({ code: headers.get("X-Device-Mid") ? 0 : 3001 }));
+    });
+    try {
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const address = server.address();
+      if (!address || typeof address === "string") throw new Error("missing loopback address");
+      const client = createNodeApiClient({
+        resolveZCodeEndpointOrigin: () => "https://private-product.example",
+        fetchImpl: async (input, init) => {
+          const url = new URL(String(input));
+          expect(url.origin).toBe("https://zcode.z.ai");
+          return fetch(`http://127.0.0.1:${address.port}${url.pathname}${url.search}`, init);
+        },
+      });
+      const result = await client.request(
+        "https://zcode.z.ai/api/v1/zcode-plan/billing/balance?app_version=1.1.3",
+        {
+          headers: {
+            Authorization: "Bearer fixture-official-account",
+            "X-ZCode-App-Version": "1.1.3",
+          },
+        },
+      );
+      expect(result.status).toBe(200);
+      expect(received[0]?.path).toBe("/api/v1/zcode-plan/billing/balance?app_version=1.1.3");
+      expect(received[0]?.headers.get("X-Device-Mid")).toBe("fixture-mid");
+      expect(received[0]?.headers.get("X-Platform")).toBe(`${process.platform}-${process.arch}`);
+      expect(received[0]?.headers.get("X-ZCode-App-Version")).toBe("1.1.3");
+      expect(received[0]?.headers.get("Authorization")).toBe("Bearer fixture-official-account");
+      expect(received[0]?.headers.get("HTTP-Referer")).toBe("https://zcode.z.ai");
+    } finally {
+      server.closeAllConnections();
+      if (server.listening) await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it("官方账号之外的官方产品路径与任意第三方不获得设备来源头", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}"));
+    const client = createNodeApiClient({ fetchImpl: fetchImpl as typeof fetch });
+    await client.request("https://zcode.z.ai/api/v1/remote/token");
+    await client.request("https://zcode.z.ai/api/v1/marketing/touch");
+    await client.request("https://third-party.example/api/v1/zcode-plan/billing/balance");
+    for (const [, init] of fetchImpl.mock.calls) {
+      expect(new Headers(init?.headers).get("X-Platform")).toBeNull();
+      expect(new Headers(init?.headers).get("X-Device-Mid")).toBeNull();
+    }
   });
 
   it("只给当前 zcode endpoint 请求统一补来源 headers", async () => {

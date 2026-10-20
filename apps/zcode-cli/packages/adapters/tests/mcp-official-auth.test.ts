@@ -7,6 +7,7 @@ import type {
   Logger,
   OfficialMcpAuthHeadersPort,
   OfficialMcpTrustedOriginRegistry,
+  McpOfficialProvenance,
 } from "@zcode/contracts";
 import {
   createOfficialMcpAuthFetch,
@@ -87,6 +88,7 @@ function rpcRequest(method: string, headers?: HeadersInit): RequestInit {
 }
 
 function createFetch(overrides: {
+  official?: McpOfficialProvenance;
   logger?: Logger;
   onServerResponse?: (response: OfficialMcpServerResponseInfo) => void;
   port?: OfficialMcpAuthHeadersPort;
@@ -96,7 +98,7 @@ function createFetch(overrides: {
   return createOfficialMcpAuthFetch({
     authHeadersPort: overrides.port ?? headersPort([{ headers: JWT_HEADERS, ok: true }]),
     baseFetch: globalThis.fetch,
-    official: { mcpKey: MCP_KEY, pluginId: PLUGIN_ID, source: "plugin" },
+    official: overrides.official ?? { mcpKey: MCP_KEY, pluginId: PLUGIN_ID, source: "plugin" },
     serverName: `plugin:zcode-tools:${MCP_KEY}`,
     trustedOrigins: overrides.registry ?? trustedRegistry(),
     url: overrides.url ?? `${origin}/mcp`,
@@ -321,6 +323,79 @@ describe("official mcp auth fetch", () => {
     expect(received).toHaveLength(1);
     expect(received[0]?.headers["authorization"]).toBeUndefined();
     expect(received[0]?.headers["x-bigmodel-authorization"]).toBeUndefined();
+  });
+
+  it.each(["official_auth_unavailable", "official_auth_plan_required"] as const)(
+    "官方 Image Search 的付费 tools/call 在 %s 时明确拒绝且零匿名请求",
+    async (reason) => {
+      const authFetch = createFetch({
+        official: {
+          pluginId: "image-search@zcode-plugins-official",
+          mcpKey: "image_search",
+          source: "plugin",
+        },
+        port: headersPort([{ ok: false, reason }]),
+      });
+      await expect(authFetch(`${origin}/mcp`, rpcRequest("tools/call"))).rejects.toMatchObject({
+        name: "OfficialMcpAuthError",
+        kind: reason,
+        message: expect.stringContaining("Image Search"),
+      });
+      expect(received).toHaveLength(0);
+    },
+  );
+
+  it("官方 Image Search 的成功空身份不能被当作登录", async () => {
+    const authFetch = createFetch({
+      official: {
+        pluginId: "image-search@zcode-plugins-official",
+        mcpKey: "image_search",
+        source: "plugin",
+      },
+      port: headersPort([{ ok: true, headers: {} }]),
+    });
+    await expect(authFetch(`${origin}/mcp`, rpcRequest("tools/call"))).rejects.toMatchObject({
+      kind: "official_auth_unavailable",
+    });
+    expect(received).toHaveLength(0);
+  });
+
+  it("官方 Image Search 没有账号端口时初始化也明确拒绝", async () => {
+    const failures: string[] = [];
+    const authFetch = createOfficialMcpAuthFetch({
+      official: {
+        pluginId: "image-search@zcode-plugins-official",
+        mcpKey: "image_search",
+        source: "plugin",
+      },
+      baseFetch: fetch,
+      serverName: "plugin:image-search:image_search",
+      trustedOrigins: trustedRegistry(),
+      url: `${origin}/mcp`,
+      onAuthFailure: (kind) => failures.push(kind),
+    });
+    await expect(
+      authFetch(new Request(`${origin}/mcp`, rpcRequest("initialize"))),
+    ).rejects.toMatchObject({
+      kind: "official_auth_unavailable",
+      message: expect.stringContaining("signed-in"),
+    });
+    expect(received).toHaveLength(0);
+    expect(failures).toEqual(["official_auth_unavailable"]);
+  });
+
+  it("官方 Image Search 有当前账号身份才向 loopback 发出工具请求", async () => {
+    const authFetch = createFetch({
+      official: {
+        pluginId: "image-search@zcode-plugins-official",
+        mcpKey: "image_search",
+        source: "plugin",
+      },
+      port: headersPort([{ ok: true, headers: JWT_HEADERS }]),
+    });
+    expect((await authFetch(`${origin}/mcp`, rpcRequest("tools/call"))).status).toBe(200);
+    expect(received).toHaveLength(1);
+    expect(received[0]?.headers["authorization"]).toBe(JWT_HEADERS.Authorization);
   });
 
   it("OMCP-CALL-003: sends only the identity header when a plan is required", async () => {

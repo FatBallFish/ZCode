@@ -5,3 +5,5 @@ transport 独占配对/重连/心跳与 RPC 等待，credential/设备配对仍�
 workspace bridge 注册仅引用既有 Host attachment；dispose 先比较 services 实例，迟到旧 bridge 不能注销新连接。手机保持 web-remote-replayable，queue/snapshot/session 事实不落 relay 或该适配器。
 
 旧 Web source 导入路径保持公开兼容入口，本轮仅登记真实边界。
+
+自建票据入口通过现有 Host settings 窗口投影读取 lastActiveWorkspace，解析 path/purpose 和可选 task 后才挂载 Root。lastWorkspaceSession 为空不影响 active 投影。读取不创建目录、项目或 Agent；remote 投影必须获得所属 Source attachment，不能按相同 cwd 冒用 local services。缺失/remote 投影由入口展示可操作状态。

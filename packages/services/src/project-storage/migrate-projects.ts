@@ -16,7 +16,7 @@ function rootName(path: string): string {
   return (path.includes("\\") ? win32 : posix).basename(path) || path;
 }
 
-function createProject(
+export function createProject(
   db: DatabaseSync,
   hostId: string,
   name: string,

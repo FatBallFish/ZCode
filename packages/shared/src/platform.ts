@@ -688,8 +688,10 @@ export type DesktopCommandId = (typeof DesktopCommandIds)[keyof typeof DesktopCo
  * - macos-below-minimum：macOS 低于承诺地板（Helper LSMinimumSystemVersion 12.0），
  *   低版本上 Helper 会被 LaunchServices -10825 拒启，表象是授权反复无响应。
  * - not-applicable：非 darwin 平台，无 macOS 版本门槛概念。
+ * - build-unavailable：构建没有真实 Computer Use producer/Helper，不应尝试授权或重启。
  */
 export type CuaOsSupport =
+  | { kind: "build-unavailable" }
   | { kind: "supported" }
   | { kind: "macos-below-minimum"; minimumMacOs: string; currentMacOs: string }
   | { kind: "not-applicable" };

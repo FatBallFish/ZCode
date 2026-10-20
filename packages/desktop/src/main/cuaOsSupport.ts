@@ -1,6 +1,8 @@
 import { release } from "node:os";
 import type { CuaOsSupport } from "@zcode/shared";
 
+declare const __MIKIKO_COMPUTER_USE_AVAILABLE__: boolean;
+
 // 承诺地板 = max(Helper Info.plist LSMinimumSystemVersion 12.0, SEA 二进制 minos 11.0)。
 // 2026-08 事故：地板检查缺位时，低版本 macOS 用户只看到授权反复无响应
 // （真因是 LaunchServices -10825 拒启 Helper）。
@@ -16,7 +18,11 @@ export function darwinMajorToMacosMajor(major: number): number {
 export function resolveCuaOsSupport(
   platform = process.platform,
   darwinRelease = release(),
+  computerUseAvailable = typeof __MIKIKO_COMPUTER_USE_AVAILABLE__ !== "undefined" &&
+    __MIKIKO_COMPUTER_USE_AVAILABLE__,
 ): CuaOsSupport {
+  // OS 满足要求不代表当前构建包含真实 producer；占位包授权/重试无法恢复 Helper。
+  if (!computerUseAvailable) return { kind: "build-unavailable" };
   if (platform !== "darwin") return { kind: "not-applicable" };
   const major = Number.parseInt(darwinRelease.split(".")[0] ?? "0", 10);
   if (Number.isNaN(major)) return { kind: "supported" };

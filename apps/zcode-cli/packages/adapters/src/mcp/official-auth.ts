@@ -96,6 +96,9 @@ export function createOfficialMcpAuthFetch(
   input: CreateOfficialMcpAuthFetchInput,
 ): typeof globalThis.fetch {
   const expectedOrigin = safeOrigin(input.url);
+  const isOfficialImageSearch =
+    input.official.pluginId === "image-search@zcode-plugins-official" &&
+    input.official.mcpKey === "image_search";
 
   /**
    * 上报分类并构造错误，由调用点 `throw`。
@@ -138,6 +141,8 @@ export function createOfficialMcpAuthFetch(
     // 请求级 debug 上下文。刻意只含非敏感项：rpc 方法名、请求体字节数、路径。
     // 不记 body 内容（含用户 query），不记任何 header 值。
     const rpc = describeJsonRpc(init?.body);
+    // Image Search 整条连接仅在账号有效时可用，不能依赖日志用的 body/method 解析作为消费授权边界。
+    const requiresImageSearchIdentity = isOfficialImageSearch;
     const logBase = {
       event: "mcp.official_auth.request",
       mcpKey: input.official.mcpKey,
@@ -168,6 +173,13 @@ export function createOfficialMcpAuthFetch(
         if (resolved.ok) {
           authHeaders = resolved.headers;
         } else {
+          // 用户授权的官方 Image Search 仅对当前智谱登录账号开放，不能沿用通用 MCP 的匿名降级。
+          if (requiresImageSearchIdentity) {
+            throw failWith(
+              resolved.reason,
+              "Image Search requires an available Zhipu CodingPlan account. Sign in or reconnect your account.",
+            );
+          }
           // 解析不到身份时仍把无身份请求交给 server 做权威判定；adapter 不缓存旧凭证，
           // 也不在本地把解析失败冒充为网络失败。
           input.logger?.warn("Official MCP auth headers unavailable for request", {
@@ -181,6 +193,12 @@ export function createOfficialMcpAuthFetch(
           });
         }
       } else {
+        if (requiresImageSearchIdentity) {
+          throw failWith(
+            "official_auth_unavailable",
+            "Image Search requires a signed-in Zhipu CodingPlan account; account authentication is unavailable.",
+          );
+        }
         input.logger?.warn("Official MCP auth port unavailable for request", {
           ...logBase,
           attempt,
@@ -189,6 +207,12 @@ export function createOfficialMcpAuthFetch(
           reason: "official_auth_unavailable",
           status: "failed",
         });
+      }
+      if (requiresImageSearchIdentity && !new Headers(authHeaders).get("Authorization")?.trim()) {
+        throw failWith(
+          "official_auth_unavailable",
+          "Image Search requires a signed-in Zhipu CodingPlan account; no current account identity is available.",
+        );
       }
       // 只记 header 名与套餐维度，绝不记 header 值。targetType 是 PERSONAL/TEAM 这类
       // 低敏枚举，但对"为什么服务端判我没权益"最关键，因此保留原值。

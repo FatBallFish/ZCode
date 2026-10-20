@@ -7,6 +7,7 @@ import { projectStorage } from "#src/project-storage/index.js";
 import {
   createRemoteProjectService,
   projectWorkspaceSettings,
+  assertWorkspaceSettingsProjectSeed,
 } from "#src/remote-projects/index.js";
 import { appSettingsSchema } from "@zcode/shared";
 import type { RemoteProjectCache } from "#src/remote-projects/contract.js";
@@ -22,7 +23,10 @@ async function fixture() {
   db.exec("PRAGMA foreign_keys=ON");
   const directory = await mkdtemp(join(tmpdir(), "remote-project-test-"));
   directories.push(directory);
-  await projectStorage.migrate(db, { backupDirectories: [directory] });
+  await projectStorage.migrate(db, {
+    settings: { recentProjects: [] },
+    backupDirectories: [directory],
+  });
   const afterChange = vi.fn();
   const service = createRemoteProjectService({
     database: async () => db,
@@ -38,6 +42,33 @@ async function fixture() {
   };
   return { db, service, afterChange, target, project };
 }
+
+it("preserves a legacy local list when its seed is missing, while allowing explicit soft deletion", async () => {
+  const { db, service } = await fixture();
+  const settings = appSettingsSchema.parse({
+    lastWorkspaceSession: [{ kind: "local", workspacePath: "/saved-empty" }],
+  });
+  expect(() => assertWorkspaceSettingsProjectSeed([], settings)).toThrow(
+    "project.migration-seed-missing",
+  );
+  const repo = projectStorage.repository(db);
+  repo.deleteProject(repo.saveProject({ roots: ["/saved-empty"] }).id);
+  const known = repo.readTree({ includeDeleted: true, includeTasks: false }).projects;
+  expect(() => assertWorkspaceSettingsProjectSeed(known, settings)).not.toThrow();
+  expect(
+    projectWorkspaceSettings(known, await service.readDirectory(), settings).lastWorkspaceSession,
+  ).toEqual([]);
+  expect(() =>
+    assertWorkspaceSettingsProjectSeed(
+      [],
+      appSettingsSchema.parse({
+        lastWorkspaceSession: [
+          { kind: "local", workspacePath: "/chat", workspacePurpose: "conversation" },
+        ],
+      }),
+    ),
+  ).not.toThrow();
+});
 describe("workspace settings projection", () => {
   it("只从本机保留入口派生兼容集合；删除入口不因活动目录或旧快照复活", async () => {
     const { db, service, target, project } = await fixture();

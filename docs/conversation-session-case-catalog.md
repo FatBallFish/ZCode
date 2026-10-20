@@ -4794,3 +4794,9 @@ Owner：工作树由WorktreeService写注册表，CLI持有执行/统计，Main�
 | INT-E2E-01 | `packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-integration-worktree-window.test.ts`      | `./test/e2e/conversation-session/conversation-session-integration-worktree-window.test.ts`      | native Electron passed on final bundle; pending review, not promoted |
 | INT-E2E-02 | `packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-integration-composer-stats-voice.test.ts` | `./test/e2e/conversation-session/conversation-session-integration-composer-stats-voice.test.ts` | native Electron passed on final bundle; pending review, not promoted |
 | INT-E2E-03 | `packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-integration-skin-remote-entry.test.ts`    | `./test/e2e/conversation-session/conversation-session-integration-skin-remote-entry.test.ts`    | native Electron passed on final bundle; pending review, not promoted |
+
+## R1 旧项目首次种子保留（2026-10-21，accepted/pending）
+
+`conversation-session-project-seed-upgrade.test.ts`：隔离 HOME 在启动 Electron 前提供真实旧 tasks schema 和空项目/含置顶会话项目/普通项目的 settings 清单，经真实 Host migration 后三项目可见、两会话归属与 cwd 保留、刷新不丢失、无 provider 请求。配套恢复只验证同 profile 明确输入，不从 tasks 或旧品牌目录猜测。物理 spec 留在 conversation-session/manual-review/pending；真实 UI 结果与最终源码型检完成后记录，不自动转正。
+
+R1 验证记录（2026-10-21）：97项定向单元测试通过；同一旧库fixture的真实Electron shell/CDP UI与SQLite补证通过（3项目、2会话、pin/cwd、空项目及刷新）。WDIO两次在macOS加载入口遭遇EPERM，未进入case，provider零请求断言尚未执行，保持pending。报告：`docs/testing/upstream-v3.16.2-regressions/R1-project-seed.md`。

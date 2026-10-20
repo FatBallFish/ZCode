@@ -14,7 +14,10 @@ import type {
   RemoteProjectHost,
 } from "#src/remote-projects/contract.js";
 export { IRemoteProjectService } from "#src/remote-projects/contract.js";
-export { projectWorkspaceSettings } from "#src/remote-projects/workspace-settings.js";
+export {
+  projectWorkspaceSettings,
+  assertWorkspaceSettingsProjectSeed,
+} from "#src/remote-projects/workspace-settings.js";
 export {
   createRemoteProjectConnectionAdmission,
   remoteProjectHostIdForProfile,

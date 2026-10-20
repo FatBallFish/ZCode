@@ -65,10 +65,10 @@ import type { ModelSelectionView } from "@zcode/provider";
 import type { OffPeakClientConfig } from "./codingPlanSubscription.js";
 import {
   BIGMODEL_PROVIDER_ID,
+  MIKIKO_UPDATE_ENDPOINT_ORIGIN,
   BUILTIN_MODEL_PROVIDER_IDS,
   REQUEST_VERIFICATION_REQUIRED,
   CODING_PLAN_SYSTEM_BUSY,
-  buildRuntimeZCodeApiUrl,
   buildRuntimeCodingPlanApiUrl,
   isZaiCodingPlanProviderId,
   resolveBigModelApiOrigin,
@@ -88,7 +88,7 @@ import {
 
 const BIGMODEL_CODING_PLAN_API_PREFIX = "/api/biz";
 const ZAI_CODING_PLAN_PAY_API_PREFIX = "/api/pay";
-const ZCODE_CLIENT_CONFIG_API_PREFIX = "/api/v1/coding-plan/client/configs";
+const ZCODE_CLIENT_CONFIG_API_PREFIX = "/api/v1/client/configs";
 const REQUEST_TIMEOUT_MS = 15_000;
 const CLIENT_CONFIG_CACHE_TTL_MS = 60 * 60 * 1000;
 const CODING_PLAN_ZAI_OVERSEAS_PAYMENT_REQUIRED = "coding_plan_zai_overseas_payment_required";
@@ -441,7 +441,14 @@ export class BigModelCodingPlanSubscriptionProvider {
   }
 
   async getForceUpdateConfig(): Promise<ForceUpdateConfig | null> {
-    const payload = await this.getClientConfigs();
+    // 兼容 RPC 不能从官方账号缓存消费产品升级规则；实际桌面 gate 同样由自建 update 服务持有。
+    const url = new URL("/api/v1/client/configs", MIKIKO_UPDATE_ENDPOINT_ORIGIN);
+    url.searchParams.set("app_version", ZCODE_VERSION);
+    url.searchParams.set("platform", resolveClientPlatformKey());
+    const payload = await readCodingPlanApiJson<ZCodeClientConfigEnvelope>(this.apiClient, url, {
+      method: "GET",
+      timeoutMs: REQUEST_TIMEOUT_MS,
+    });
     return unwrapClientConfigForceUpdate(payload);
   }
 
@@ -771,8 +778,8 @@ export class BigModelCodingPlanSubscriptionProvider {
       return await this.clientConfigRequest;
     }
 
-    // client/configs 和其他 ZCode 平台接口必须共享运行时 endpoint；
-    // E2E/测试环境会通过 MIKIKO_BASE_URL 指向本地 mock，硬编码线上域名会让套餐状态不可控。
+    // 修复依据：自建专用套餐代理线上尚未部署而返回 404；Host 的官方账号配置
+    // 直接复用 account resolver，测试仍可显式注入 loopback，普通产品配置继续自建。
     const url = resolveCodingPlanClientConfigUrl(process.env);
     url.searchParams.set("app_version", ZCODE_VERSION);
     url.searchParams.set("platform", resolveClientPlatformKey());
@@ -981,7 +988,7 @@ export class BigModelCodingPlanSubscriptionProvider {
 }
 
 export function resolveCodingPlanClientConfigUrl(env: NodeJS.ProcessEnv): URL {
-  return new URL(buildRuntimeZCodeApiUrl(env, ZCODE_CLIENT_CONFIG_API_PREFIX));
+  return new URL(buildRuntimeCodingPlanApiUrl(env, ZCODE_CLIENT_CONFIG_API_PREFIX));
 }
 
 function resolveFallbackEnterpriseTeamPlanProduct(

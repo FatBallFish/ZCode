@@ -1,0 +1,24 @@
+{
+  "name": "image-search",
+  "version": "0.1.1",
+  "description": "Mikiko image search plugin using the official CodingPlan account backend.",
+  "description_i18n": {
+    "en": "Mikiko image search plugin using the official CodingPlan account backend.",
+    "zh-CN": "Mikiko 搜图插件，暂用官方 CodingPlan 账号后端检索插图与参考配图。"
+  },
+  "author": {
+    "name": "Mikiko"
+  },
+  "license": "Apache-2.0",
+  "mcpServers": {
+    "image_search": {
+      "type": "http",
+      "url": "https://zcode.z.ai/api/v1/mcp/server/image_search",
+      "auth": {
+        "type": "zcode_official",
+        "provider": "jwt_token"
+      },
+      "timeoutMs": 90000
+    }
+  }
+}

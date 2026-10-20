@@ -23,6 +23,7 @@ export type RemoteControlPhase =
   | { kind: "expired"; message?: string }
   | { kind: "desktop-disconnected" }
   | { kind: "failed" }
+  | { kind: "workspace-unavailable"; reason: "missing" | "remote" }
   | { kind: "page-outdated" };
 
 export interface RemoteControlQuery {
@@ -390,6 +391,34 @@ export function RemoteControlScreens({
 
   if (phase.kind === "failed") {
     return <ConnectionFailedScreen onRetry={onReconnect} />;
+  }
+
+  if (phase.kind === "workspace-unavailable") {
+    return (
+      <StatusCard
+        tone="neutral"
+        title={isZh() ? "请选择电脑端工作区" : "Select a workspace on your computer"}
+        description={
+          phase.reason === "remote"
+            ? isZh()
+              ? "当前远程工作区暂不支持此手机入口。请在电脑端切换到本地工作区后重试。"
+              : "This mobile entry cannot attach to the current remote workspace. Select a local workspace on your computer, then retry."
+            : isZh()
+              ? "请先在电脑端打开工作区，再回到这里重试。"
+              : "Open a workspace on your computer, then retry here."
+        }
+        action={
+          <button
+            type="button"
+            data-testid="remote-control-workspace-retry"
+            className="w-full rounded-lg bg-primary px-3 py-2.5 text-ui-sm font-medium text-primary-foreground"
+            onClick={onReconnect}
+          >
+            {isZh() ? "重试" : "Retry"}
+          </button>
+        }
+      />
+    );
   }
 
   return (

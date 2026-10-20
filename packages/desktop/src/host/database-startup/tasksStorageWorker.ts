@@ -1,6 +1,9 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { tasksStorageWorkerDataSchema } from "./contract.js";
-import { prepareTasksIndexStorage, createSettingService } from "@zcode/services/storage-startup";
+import {
+  prepareTasksIndexStorage,
+  createSettingServiceWithMigrations,
+} from "@zcode/services/storage-startup";
 import {
   classifyDatabaseStartupError,
   databaseStartupErrorDetails,
@@ -10,7 +13,7 @@ import {
 const data = tasksStorageWorkerDataSchema.parse(workerData);
 try {
   // Worker 必须携带旧设置完成项目迁移，否则后续 Host 只能看到已记账的空项目种子。
-  const settings = await createSettingService().get();
+  const settings = await createSettingServiceWithMigrations().readForProjectMigration();
   await prepareTasksIndexStorage(
     data.path,
     (phase, migration) => parentPort?.postMessage({ type: "progress", phase, migration }),

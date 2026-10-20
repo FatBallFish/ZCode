@@ -1,6 +1,30 @@
 # 手机远控（Mobile Remote Control）技术方案
 
-> 状态：设计定稿（未实施）。范围：v1 全中转 + v2 P2P 直连，单设备在线（后连踢前连）。
+## 2026-10-21 合入后入口修复：工作区 admission
+
+已确认线上自建票据与 RPC 连接成功后，RemoteControlApp 未向 Root 注入初始 workspace，且 `allowOpenWorkspace=false`；Root 的无工作区分支返回 null，表现为仅有中继徽标。relay 协议版本 1 的握手正常，不能把空页面归因于 Relay V2 或更换 relay。
+
+自建入口在 RPC 连通后读取同一个 Host settingService 已提交的窗口工作区投影，从 `lastActiveWorkspace` 取得 path/purpose 与已选 task；初始工作区明确后再进入 connected 并挂载 Root。重连和 P2P 换代均重新读取同一个 owner，不新建默认项目或 Agent，不把手机草稿写回桌面组织态。缺少目标时保留明确失败态，禁止“已连接但空白”。远程目标必须通过已有 source bridge 获得正确 scoped services；只有 local attachment 时不能按相同 path 猜测所属 Host。
+
+```mermaid
+sequenceDiagram
+  participant Phone as 自建手机入口
+  participant Host as 已有窗口 Host
+  participant Projection as Host settings 工作区投影
+  participant Root as 手机 Root
+  Phone->>Host: 票据 relay RPC attachment（replayable）
+  Phone->>Projection: get 已提交窗口投影
+  Projection-->>Phone: lastActiveWorkspace / lastActiveTask
+  Phone->>Phone: 验证 attachment scope 与目标一致
+  Phone->>Root: 同代 services + initial workspace / task
+  Root->>Host: 复用现有 runtime，读取 snapshot / gap repair
+```
+
+验收覆盖：持久化 session 已空但 active 投影存在、conversation/project 分类、同 cwd 远程身份不误接本地、P2P/重连读取与 stale generation 丢弃。需重新发布匹配当前桌面共享 UI 的自建手机静态页；不部署普通云服务。
+
+手机 UI 的 `IServiceAccessor.sub2ApiService` 明确设为缺席，不查询或订阅桌面专属 Sub2API 账号/完整 Key 服务；模型菜单的装饰性 relay badge 在此模式为空。复用现有可选能力合同，不向手机暴露新服务，也不把未知 channel 当网络故障反复重试。其他 service 引用仍来自同一 attachment；桌面 accessor、查询、订阅与错误行为不变。
+
+> 状态：已实现，持续维护。范围：自建全中转 + P2P 直连，单设备在线（后连踢前连）；文内 v2 指自建 P2P 演进，不是上游 Relay V2。
 > 关联约束：`AGENTS.md`「进程、协议与远程控制」「Workspace Identity」两节。
 > 本文档是实施的唯一契约来源：字段名、错误码、常量值、状态机以本文伪代码为准，实现不得偏离；发现设计缺陷先改本文再改代码。
 
@@ -764,7 +788,6 @@ Release 流水线（`.github/workflows/release-desktop.yml`）新增 `relay` job
 4. **部署顺序约定**：relay 先升（宽容解析保证兼容）→ 桌面 → Pages 手机页。
 5. **自动部署**：`.github/workflows/deploy-remote-control.yml`——push main 触发 relay→VPS(SSH secret RELAY_DEPLOY_KEY)、手机页→Pages(secret CLOUDFLARE_API_TOKEN)、update Worker 部署；secrets 未配置时对应 job 跳过。
 
-
 ## §23 账号直连（OIDC，2026-10-20 批次 4）
 
 ### 信任模型
@@ -779,11 +802,11 @@ Release 流水线（`.github/workflows/release-desktop.yml`）新增 `relay` job
 
 ### relay 账号端点
 
-| 端点 | 方法 | 说明 |
-| --- | --- | --- |
-| `/api/rc/account/devices` | GET | 已认领设备列表 + 在线状态（`desktopRoutes.has(mid)`） |
+| 端点                      | 方法         | 说明                                                                                             |
+| ------------------------- | ------------ | ------------------------------------------------------------------------------------------------ |
+| `/api/rc/account/devices` | GET          | 已认领设备列表 + 在线状态（`desktopRoutes.has(mid)`）                                            |
 | `/api/rc/account/connect` | POST `{mid}` | 归属+在线校验 → 复用 `issueSession`+`bindTicket` 直接签发 `sid`+`sessionToken`（跳过 HMAC 票据） |
-| `/api/rc/devices/claim` | POST `{mid}` | 独立认领（登录态变化后补认领） |
+| `/api/rc/devices/claim`   | POST `{mid}` | 独立认领（登录态变化后补认领）                                                                   |
 
 - CORS：`/api/rc/account/*` 收敛为 `https://remote.mikiko.ai` 白名单（其余 `/api/rc/*` 维持 `*`）。
 - `/healthz` 新增能力位 `accountApi: 1`，旧客户端无感。

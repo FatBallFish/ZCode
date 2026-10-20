@@ -1,5 +1,7 @@
 # 会话拖出侧栏 → 独立会话窗口打开
 
+2026-10-21 插件入口回归合同：独立会话窗口复用已有 Host 的服务与插件目录，在本窗口装配 PluginUiWorkspaceProvider，使用本窗口 useAppPanels 的 handleOpenPluginUi/handleOpenPluginMarket。推荐插件与“查看所有插件”都必须可用，打开的是本窗口的插件/市场 tab；不能转发至主窗口或新建 Host。所有请求保留 workspaceIdentity 与当前 parentSessionId。推荐列表不依赖主窗口当前会话，窗口之间面板状态不串扰。验收须从独立窗口真实根组件触发两个入口，使用隔离目录/服务 fixture，不修改个人数据或发模型请求。
+
 > 2026-10-13 定稿；2026-10-14 按自测反馈重做判定规则与轻量窗口形态。
 
 ## 交互语义（2026-10-14：文案与行为严格同源）

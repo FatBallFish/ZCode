@@ -15,6 +15,20 @@ const key = (entry: PersistedWorkspaceSessionEntry) =>
     : entry.workspaceIdentity?.trim() ||
       buildRemoteWorkspaceIdentity(entry.workspacePath, entry.target);
 
+/** 已错记空种子的本机库不能继续擦除尚存的旧清单；软删行是明确组织操作，必须传入。 */
+export function assertWorkspaceSettingsProjectSeed(
+  allProjects: readonly VirtualProject[],
+  settings: Pick<AppSettings, "lastWorkspaceSession">,
+): void {
+  if (
+    allProjects.length === 0 &&
+    settings.lastWorkspaceSession?.some(
+      (entry) => entry.kind === "local" && entry.workspacePurpose !== "conversation",
+    )
+  )
+    throw new Error("project.migration-seed-missing");
+}
+
 /** 单向兼容投影。输入必须是同一 SQLite 快照，不读取旧集合重建成员。 */
 export function projectWorkspaceSettings(
   projects: readonly VirtualProject[],

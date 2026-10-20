@@ -8687,6 +8687,9 @@ const enUS: Record<string, string> = {
   "settings.computerUse.composerEntry.saveFailed": "Failed to save: {error}",
   "settings.computerUse.pluginDisabledHint":
     "The Computer Use plugin is not enabled. Enable it in Plugins to use Computer Use.",
+  "settings.computerUse.buildUnavailable.title": "Computer Use is not included in this build",
+  "settings.computerUse.buildUnavailable.description":
+    "This Mikiko build does not include the Computer Use runtime or Helper. Granting permissions or restarting cannot enable this capability. Use a Mikiko build that includes Computer Use to continue.",
   "settings.computerUse.unsupported.title": "Computer Use is unavailable here",
   "settings.computerUse.unsupported.remoteDescription":
     "Computer Use is not yet supported for SSH, WSL, Docker, or other remote environments. Switch to a local macOS or Windows workspace.",

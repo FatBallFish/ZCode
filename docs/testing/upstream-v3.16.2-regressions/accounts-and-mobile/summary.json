@@ -1,0 +1,49 @@
+{
+  "accountChain": {
+    "success": true,
+    "numTotalTests": 285,
+    "numPassedTests": 285,
+    "numFailedTests": 0
+  },
+  "mobileContracts": {
+    "success": true,
+    "numTotalTests": 7,
+    "numPassedTests": 7,
+    "numFailedTests": 0
+  },
+  "coverage": {
+    "workspaceBootstrap": {
+      "statements": 100,
+      "branches": 100,
+      "functions": 100,
+      "lines": 100
+    },
+    "accountFiles": {
+      "lines": 69.5,
+      "scope": "NodeApiClient and subscription provider file-wide targeted coverage; not whole repo"
+    }
+  },
+  "deployment": {
+    "url": "https://8fe0dd3f.mikiko-remote.pages.dev",
+    "production": "https://remote.mikiko.ai",
+    "entryScript": "/assets/index-DuKkTtce.js",
+    "protocolVersion": 1,
+    "relayRedeployed": false,
+    "otherCloudServicesDeployed": false
+  },
+  "officialReadonly": {
+    "balanceWithoutSourceHeaders": {
+      "status": 400,
+      "code": 3001
+    },
+    "sameVersionWithSourceHeaders": {
+      "status": 200,
+      "code": 0
+    },
+    "appVersion": "1.1.3",
+    "personalSubscriptionQuerySucceeded": true,
+    "validCodingPlanConfirmed": true,
+    "resetOrClaimExecuted": false,
+    "modelInvoked": false
+  }
+}

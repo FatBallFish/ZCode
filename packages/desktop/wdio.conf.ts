@@ -1,4 +1,5 @@
 import { seedIntegrationAcceptanceFixture } from "./test/e2e/helpers/integration-acceptance-fixture.js";
+import { seedProjectSeedUpgradeFixture } from "./test/e2e/helpers/project-seed-upgrade-fixture.js";
 import { createConversationShareMockRoute } from "./test/e2e/helpers/conversation-share-mock-route.js";
 import {
   loadToolSearchResponses,
@@ -3204,6 +3205,7 @@ async function resetE2EHome(specs: string[] = []) {
   mkdirSync(E2E_HOME_DIR, { recursive: true });
   seedE2EStartupState(specs);
   await seedIntegrationAcceptanceFixture({ specs, homeDir: E2E_HOME_DIR });
+  await seedProjectSeedUpgradeFixture({ specs, homeDir: E2E_HOME_DIR });
   await seedRemoteOnboardingFixture({
     // 营销弹窗会抢占首次引导的焦点；该套件从已完成引导的账号开始，独立验证弹窗交付。
     enabled:

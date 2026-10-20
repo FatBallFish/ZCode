@@ -10,7 +10,10 @@ it("旧单 root 升级通过原入口的版本 CAS 解析真实 ID，迟到结�
   const dir = await mkdtemp(join(tmpdir(), "legacy-entry-"));
   const db = new DatabaseSync(":memory:");
   try {
-    await projectStorage.migrate(db, { backupDirectories: [dir] });
+    await projectStorage.migrate(db, {
+      settings: { recentProjects: [] },
+      backupDirectories: [dir],
+    });
     const service = createRemoteProjectService({ database: async () => db });
     await service.saveHost({ id: "remote:server:s", target: { kind: "docker", container: "s" } });
     const project = {
@@ -54,7 +57,10 @@ it("创建向导的旧 membership 不能在删除并重建 Host 后登记入口"
   const dir = await mkdtemp(join(tmpdir(), "late-entry-"));
   const db = new DatabaseSync(":memory:");
   try {
-    await projectStorage.migrate(db, { backupDirectories: [dir] });
+    await projectStorage.migrate(db, {
+      settings: { recentProjects: [] },
+      backupDirectories: [dir],
+    });
     const service = createRemoteProjectService({ database: async () => db });
     const target = { kind: "docker" as const, container: "s" };
     const old = await service.saveHost({ id: "remote:server:s", target });

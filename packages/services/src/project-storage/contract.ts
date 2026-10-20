@@ -10,6 +10,8 @@ export interface ProjectMigrationContext {
     AppSettings,
     "lastWorkspaceSession" | "recentProjects" | "sourceServers" | "connectionProfiles"
   >;
+  /** 仅首次本机迁移调用；读取设置 owner 的原始快照，不能递归执行项目投影。 */
+  loadSettings?: () => Promise<NonNullable<ProjectMigrationContext["settings"]>>;
   now?: () => number;
   warn?: (message: string, details?: Record<string, unknown>) => void;
 }

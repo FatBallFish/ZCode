@@ -2,6 +2,7 @@ import {
   createRemoteProjectService,
   IRemoteProjectService,
   projectWorkspaceSettings,
+  assertWorkspaceSettingsProjectSeed,
   readRemoteProjectDirectory,
 } from "#src/remote-projects/index.js";
 export {
@@ -602,7 +603,7 @@ import {
   resolveOfficialMcpCredentials,
 } from "./official-mcp/officialMcpCredentials.js";
 import {
-  createOfficialMcpTrustedOriginRegistry,
+  createCodingPlanMcpTrustedOriginRegistry,
   OFFICIAL_MCP_DEV_TRUSTED_ORIGINS_ENV,
   type ChatGPTAccountView,
 } from "@zcode/shared";
@@ -1228,6 +1229,10 @@ export function createLocalServices(options: {
   }) => Promise<{ workspacePath: string; workspaceIdentity: string } | null>;
   /** Host 装配层注入的设置权威；与网络 transport 必须来自同一 Window Host 生命周期。 */
   settingService?: ISettingService;
+  /** 与投影绑定使用同一设置 owner；首次项目迁移不能调用已投影的 get。 */
+  readForProjectMigration?: ReturnType<
+    typeof createSettingServiceWithMigrations
+  >["readForProjectMigration"];
   setWorkspaceProjection?: ReturnType<
     typeof createSettingServiceWithMigrations
   >["setWorkspaceProjection"];
@@ -1414,7 +1419,16 @@ export function createLocalServices(options: {
   const systemService = createSystemService();
   // onboarding 资格与任务列表共用同一份全局 tasks-index；repo 懒加载数据库，提前构造不会
   // 增加启动 I/O，后续 session syncer 也继续复用这一实例。
-  const taskIndexRepo = new TaskIndexRepo(undefined, options?.projectStorageHostId);
+  const taskIndexRepo = new TaskIndexRepo(
+    options?.readForProjectMigration ??
+      localSettings?.readForProjectMigration ??
+      (options?.setWorkspaceProjection
+        ? async () => {
+            throw new Error("project.migration-settings-reader-required");
+          }
+        : () => settingService.get()),
+    options?.projectStorageHostId,
+  );
   // onboarding 完成记录：userId 由登录态补全（apikey/未登录为 null），见 docs/onboarding-record-spec.md。
   const onboardingEvidenceLogger = createServiceLogger("onboardingRecordService");
   const onboardingRecordService = createOnboardingRecordService({
@@ -2251,11 +2265,10 @@ export function createLocalServices(options: {
         !options?.projectStorageHostId || options.projectStorageHostId === "local"
           ? readRemoteProjectDirectory(db)
           : { hosts: [], entries: [] };
-      const projection = projectWorkspaceSettings(
-        repository.readTree({ includeTasks: false }).projects,
-        directory,
-        settings,
-      );
+      const projects = repository.readTree({ includeTasks: false, includeDeleted: true }).projects;
+      if (!options?.projectStorageHostId || options.projectStorageHostId === "local")
+        assertWorkspaceSettingsProjectSeed(projects, settings);
+      const projection = projectWorkspaceSettings(projects, directory, settings);
       db.exec("COMMIT");
       return projection;
     } catch (error) {
@@ -2413,12 +2426,11 @@ export function createLocalServices(options: {
     }),
     // host 是身份权威边界：provenance/origin 必须在这里再校验一次，不能只依赖 agent
     // adapter 的 fetch wrapper。判定实现与 CLI 侧共用 @zcode/shared 的同一份，避免分叉。
-    // origin 解析复用 resolveCurrentZCodeEndpointOrigin——与闲时任务同口径（含 settings
-    // 覆盖），否则会出现"闲时任务能连、官方 MCP 连不上"。
-    // dev 开关必须同样传入，否则本地自测会被 host 单方面拒绝。
-    officialMcpTrustedOrigins: createOfficialMcpTrustedOriginRegistry({
+    // 修复依据：产品服务采用自建origin，官方MCP的JWT目的地必须独立按账号合同判定。
+    // 开发loopback仍需显式允许，不能把产品设置覆盖当作官方凭据授权。
+    officialMcpTrustedOrigins: createCodingPlanMcpTrustedOriginRegistry({
+      env: process.env,
       devTrustedOriginsRaw: process.env[OFFICIAL_MCP_DEV_TRUSTED_ORIGINS_ENV],
-      resolveZCodeApiOrigin: resolveCurrentZCodeEndpointOrigin,
     }),
     cuaOperationStateReporter: shouldEnableCuaOperationStateReporter({
       serviceAuthorityMode: options?.serviceAuthorityMode,

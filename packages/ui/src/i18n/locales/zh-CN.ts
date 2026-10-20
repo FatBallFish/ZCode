@@ -8238,6 +8238,9 @@ const zhCN: Record<string, string> = {
     "需先开启电脑控制，才能在输入框显示该按钮。",
   "settings.computerUse.composerEntry.saveFailed": "保存失败：{error}",
   "settings.computerUse.pluginDisabledHint": "电脑控制插件未启用。前往插件开启后即可使用电脑控制。",
+  "settings.computerUse.buildUnavailable.title": "此构建不包含电脑控制",
+  "settings.computerUse.buildUnavailable.description":
+    "当前 Mikiko 构建不包含 Computer Use 运行时或 Helper，授权或重启无法启用此能力。请使用包含电脑控制能力的 Mikiko 构建。",
   "settings.computerUse.unsupported.title": "当前环境暂不支持电脑控制",
   "settings.computerUse.unsupported.remoteDescription":
     "Computer Use 暂不支持 SSH、WSL、Docker 或其他远端环境。请切换到本机 macOS 或 Windows 工作区。",

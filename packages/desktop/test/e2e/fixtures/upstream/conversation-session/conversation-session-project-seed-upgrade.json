@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-project-seed-upgrade",
+  "spec": "./test/e2e/conversation-session/conversation-session-project-seed-upgrade.test.ts",
+  "fixtures": []
+}

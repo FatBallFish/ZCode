@@ -1,3 +1,4 @@
+import { resolveCodingPlanEndpointOrigin, type RuntimeZCodeEndpointEnv } from "./zcodeEndpoint.js";
 /* ZCode 官方 Server MCP 鉴权的共享常量与类型。
    放在 shared 是因为头集合有两个消费者且分属不同包：
    - `packages/services` 侧生产身份头；
@@ -269,4 +270,18 @@ export function createOfficialMcpTrustedOriginRegistry(
       });
     },
   };
+}
+
+/** 官方MCP身份只能发往账号服务；自建产品origin不构成官方凭据接收授权。 */
+export function createCodingPlanMcpTrustedOriginRegistry(
+  options: {
+    env?: RuntimeZCodeEndpointEnv;
+    devTrustedOriginsRaw?: string;
+  } = {},
+): OfficialMcpTrustedOriginRegistry {
+  return createOfficialMcpTrustedOriginRegistry({
+    devTrustedOriginsRaw: options.devTrustedOriginsRaw,
+    // 修复依据：产品API已自建，沿用产品origin会把官方JWT错误授予产品端点。
+    resolveZCodeApiOrigin: () => resolveCodingPlanEndpointOrigin(options.env ?? {}),
+  });
 }

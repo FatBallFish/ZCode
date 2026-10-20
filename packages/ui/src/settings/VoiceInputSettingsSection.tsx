@@ -5,7 +5,6 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AudioLines } from "lucide-react";
-import { completeNewModelSelection } from "@zcode/provider";
 import {
   DEFAULT_VOICE_MODEL_ID,
   ZCODE_AGENT_PROVIDER,
@@ -16,6 +15,7 @@ import { Button } from "@/components/ui/button.js";
 import { Switch } from "@/components/ui/switch.js";
 import { toast } from "@/components/ui/toast.js";
 import { ModelConfigSelect } from "@/ModelConfigSelect.js";
+import type { ComposerModelOptions } from "@/chat-input-toolbar/ComposerModelMenu.js";
 import { useModelSelectionView } from "@/hooks/useModelSelectionView.js";
 import { usePlatform } from "@/hooks/usePlatform.jsx";
 import { useSettings } from "@/hooks/useSettingService.js";
@@ -25,7 +25,6 @@ import { buildRegistryModelSelectGroups } from "@/lib/modelSelectionGroups.js";
 import { buildChatGPTAccountLabels, useChatGPTAccounts } from "@/hooks/useChatGPTAccounts.js";
 import { setPendingSettingsSection } from "@/lib/settingsNavigation.js";
 import { decodeCustomModelValue, encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
-import { parseModelPickerValue } from "@/lib/zcodeSessionProjection.js";
 import { useTabStore } from "@/store/TabStoreProvider.js";
 import { isWorkspaceTab } from "@/store/tabStore.js";
 import { SettingsGroupCard, SettingsRow } from "@/settings/SettingsPageParts.js";
@@ -114,6 +113,20 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
   }, [chatGPTAccountLabels, intl, modelSelectionView]);
 
   const cleanupEnabled = settings?.voiceCleanupEnabled === true;
+  // 同一基础选择器缺少 composerOptions 会进入旧悬浮子菜单；复用会话的供应商/模型视图。
+  // 整理只用最低思考档，设置页不提供会话级 effort/连接切换写入口。
+  const cleanupComposerOptions = useMemo<ComposerModelOptions>(
+    () => ({
+      providerLabel: intl.formatMessage({ id: "chat.toolbar.combined.provider" }),
+      modelsLabel: intl.formatMessage({ id: "chat.toolbar.combined.models" }),
+      effortLabel: intl.formatMessage({ id: "chat.toolbar.combined.effort" }),
+      selectModelLabel: intl.formatMessage({ id: "chat.toolbar.combined.selectModel" }),
+      levels: [],
+      value: "",
+      onValueChange: () => {},
+    }),
+    [intl],
+  );
   const normalizedCleanupValue = cleanupSelection
     ? encodeCustomModelValue(cleanupSelection.providerId, cleanupSelection.modelId)
     : "";
@@ -253,6 +266,7 @@ export function VoiceInputSettingsSection({ isDesktop }: { isDesktop: boolean })
           control={
             <ModelConfigSelect
               modelGroups={cleanupSelectGroups}
+              composerOptions={cleanupComposerOptions}
               normalizedValue={normalizedCleanupValue}
               triggerLabel={
                 cleanupSelection

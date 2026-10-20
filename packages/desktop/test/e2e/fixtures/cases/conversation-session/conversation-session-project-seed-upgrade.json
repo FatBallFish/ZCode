@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-project-seed-upgrade",
+  "spec": "./test/e2e/conversation-session/conversation-session-project-seed-upgrade.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-project-seed-upgrade.json"
+  ],
+  "fileFixtures": [
+    {
+      "path": "~/.mikiko/v2/tasks-index.sqlite",
+      "source": "created-by-spec",
+      "description": "Before Electron: legacy tasks schema plus explicit saved empty/pinned/normal roots; real startup migration owns conversion."
+    }
+  ],
+  "requests": [],
+  "providerRequestPolicy": "none",
+  "noProviderRequests": true
+}

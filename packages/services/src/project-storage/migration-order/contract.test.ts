@@ -183,6 +183,16 @@ describe("project-storage migration order", () => {
     async (settings) => {
       const { db, add, context } = await fixture();
       for (const path of ["/z", "/a", "/m"]) add(path, path);
+      if (settings === undefined) {
+        await expect(port.migrate(db, { ...context, settings })).rejects.toThrow(
+          "project.migration-settings-required",
+        );
+        expect(db.prepare("SELECT count(*) AS n FROM tasks").get()?.n).toBe(3);
+        expect(
+          db.prepare("SELECT 1 FROM sqlite_master WHERE name='projects'").get(),
+        ).toBeUndefined();
+        return;
+      }
       await port.migrate(db, { ...context, settings });
       const tree = port.repository(db).readTree();
       expect(tree.projects).toEqual([]);

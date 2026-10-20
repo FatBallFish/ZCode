@@ -53,6 +53,10 @@ import { ZCODE_OFFICIAL_PLUGIN_MARKETPLACE, isOfficialMarketplaceId } from "@zco
 import { ZCODE_CUA_OFFICIAL_PLUGIN_ID, isZCodeCuaInternalFeatureEnabled } from "@zcode/shared";
 import { resolveOfficialPluginRoots } from "./app/bundled-plugins.js";
 import {
+  bindOfficialPluginMcpRuntime,
+  type ImageSearchBackendPort,
+} from "./app/official-plugin-runtime.js";
+import {
   DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS,
   OFFICIAL_NODE_REPL_HOST_PLUGIN_NAME,
   OFFICIAL_PLUGIN_DEFINITIONS,
@@ -61,6 +65,8 @@ import { getCliStorageRoot, getPluginStorageRoot } from "./app/paths.js";
 import { withPluginStorageLock } from "./lib/plugin-storage-lock.js";
 
 export interface ResolveZCodePluginsOptions {
+  /** 默认官方 CodingPlan；未来自建实现通过显式端口接入，不复用官方鉴权。 */
+  imageSearchBackend?: ImageSearchBackendPort;
   configResult?: ConfigResult;
   env?: NodeJS.ProcessEnv;
   logger?: Logger;
@@ -252,7 +258,7 @@ function countVisibleMarketplacePlugins(
 export function resolveZCodePlugins(options: ResolveZCodePluginsOptions = {}): PluginLoadOutcome {
   const { configResult, pluginStorageRoot, workingDirectory } = resolvePluginContext(options);
 
-  return discoverNodePluginsSync({
+  const outcome = discoverNodePluginsSync({
     config: configResult.config.plugins,
     env: options.env ?? process.env,
     officialPluginRoots: resolveOfficialPluginRoots({
@@ -265,6 +271,10 @@ export function resolveZCodePlugins(options: ResolveZCodePluginsOptions = {}): P
     officialPluginsEnabledByDefault: DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS,
     storageRoot: pluginStorageRoot,
     workingDirectory,
+  });
+  return bindOfficialPluginMcpRuntime(outcome, {
+    env: options.env ?? process.env,
+    imageSearchBackend: options.imageSearchBackend,
   });
 }
 

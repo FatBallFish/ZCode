@@ -60,6 +60,7 @@ import type { MessageFileLinkTarget } from "@/components/ai-elements/message.js"
 import { createSessionPanelForwarder } from "@/v4/sessionWindowPanelBridge.js";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { PluginUiWorkspaceProvider } from "@/plugin-ui/index.js";
 
 const DEFAULT_LUCIDE_STROKE_WIDTH = 1.5;
 /** 会话窗口竖向布局的 panel id（聊天区 + 终端）。 */
@@ -202,6 +203,8 @@ function SessionWindowBody({
     handleOpenWhiteboard,
     handleOpenDeveloperTools,
     handleOpenNewSidePaneTab,
+    handleOpenPluginUi,
+    handleOpenPluginMarket,
     handleOpenFileManager,
     handleNavigateFileManager,
     handleOpenTerminalTab,
@@ -380,82 +383,136 @@ function SessionWindowBody({
   const [fileChangeFindActiveIndex] = useState(0);
   const [fileChangeFindNavigationRequestId] = useState(0);
 
+  // 新窗口缺少此 Provider 时插件推荐根本不挂载；动作继续归本窗口既有面板 owner。
   return (
-    <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
-      {/* 主题皮肤壁纸层垫底（z-0），内容包一层定位容器（z-[1]）保证绘制在壁纸之上。 */}
-      <AppWallpaperLayer />
-      <div className="relative z-[1] flex h-full min-h-0 w-full flex-col">
-        {/* Header 兼作窗口拖动区（内部 [app-region:drag]，按钮区 no-drag）。 */}
-        <WorkspaceHeader
-          variant="task"
-          workspaceAbsPath={workspacePath}
-          workspaceIdentity={workspaceIdentity}
-          projectName={getPathLeaf(workspacePath) || workspacePath}
-          activeTaskTitle={activeTaskTitle}
-          activeTaskChangeSummary={activeTaskChangeSummary}
-          hasUpdateReady={false}
-          activeTaskId={currentSessionId}
-          user={user}
-          activeTraceId={activeTraceId}
-          activeSessionId={activeSessionId}
-          activeTaskProvider={activeTaskProvider}
-          resolvedActiveTaskMeta={resolvedActiveTaskMeta}
-          sessionLogPath={taskSessionFile?.path ?? null}
-          nativeSessionLogProvider={taskNativeSessionLogFile.provider}
-          nativeSessionLogPath={taskNativeSessionLogFile.path}
-          nativeSessionLogExists={taskNativeSessionLogFile.exists}
-          nativeSessionLogLoading={taskNativeSessionLogFile.loading}
-          providerWorkspaceConfigPath={providerConfigFile.path}
-          providerWorkspaceConfigExists={providerConfigFile.exists}
-          providerWorkspaceConfigLoading={providerConfigFile.loading}
-          workspaceHeaderState={{
-            selectedProvider: workspaceShellZCodeState.selectedProvider,
-          }}
-          gitSummary={gitState.summary}
-          gitDirtyFileCount={gitDirtyFileCount}
-          isMacDesktop={isMacDesktop}
-          isWindowsDesktop={isWindowsDesktop}
-          isDesktop
-          // 无侧栏：让 Header 为 macOS 红绿灯 / Win&Linux 内联窗控预留左侧内边距。
-          isSidebarVisible={false}
-          compactWindowControlsInset
-          isTerminalOpen={isTerminalOpen}
-          isSidePaneOpen={isSidePaneOpen}
-          onRefreshGit={handleRefreshGit}
-          onToggleTerminal={() => setIsTerminalOpen((open) => !open)}
-          onToggleBrowser={handleToggleBrowser}
-          onToggleSidePane={handleToggleSidePaneCollapse}
-          onReloadSession={() => {}}
-          reloadSessionDisabled
-          onCreateTask={() => {}}
-          onOpenWorkspace={() => {}}
-        />
-        {/* 与主窗口 #content 同款桌面外衬（4px 间距 + 顶部拖动垫），让面板与窗口边缘
+    <PluginUiWorkspaceProvider onOpenSidePane={handleOpenPluginUi}>
+      <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
+        {/* 主题皮肤壁纸层垫底（z-0），内容包一层定位容器（z-[1]）保证绘制在壁纸之上。 */}
+        <AppWallpaperLayer />
+        <div className="relative z-[1] flex h-full min-h-0 w-full flex-col">
+          {/* Header 兼作窗口拖动区（内部 [app-region:drag]，按钮区 no-drag）。 */}
+          <WorkspaceHeader
+            variant="task"
+            workspaceAbsPath={workspacePath}
+            workspaceIdentity={workspaceIdentity}
+            projectName={getPathLeaf(workspacePath) || workspacePath}
+            activeTaskTitle={activeTaskTitle}
+            activeTaskChangeSummary={activeTaskChangeSummary}
+            hasUpdateReady={false}
+            activeTaskId={currentSessionId}
+            user={user}
+            activeTraceId={activeTraceId}
+            activeSessionId={activeSessionId}
+            activeTaskProvider={activeTaskProvider}
+            resolvedActiveTaskMeta={resolvedActiveTaskMeta}
+            sessionLogPath={taskSessionFile?.path ?? null}
+            nativeSessionLogProvider={taskNativeSessionLogFile.provider}
+            nativeSessionLogPath={taskNativeSessionLogFile.path}
+            nativeSessionLogExists={taskNativeSessionLogFile.exists}
+            nativeSessionLogLoading={taskNativeSessionLogFile.loading}
+            providerWorkspaceConfigPath={providerConfigFile.path}
+            providerWorkspaceConfigExists={providerConfigFile.exists}
+            providerWorkspaceConfigLoading={providerConfigFile.loading}
+            workspaceHeaderState={{
+              selectedProvider: workspaceShellZCodeState.selectedProvider,
+            }}
+            gitSummary={gitState.summary}
+            gitDirtyFileCount={gitDirtyFileCount}
+            isMacDesktop={isMacDesktop}
+            isWindowsDesktop={isWindowsDesktop}
+            isDesktop
+            // 无侧栏：让 Header 为 macOS 红绿灯 / Win&Linux 内联窗控预留左侧内边距。
+            isSidebarVisible={false}
+            compactWindowControlsInset
+            isTerminalOpen={isTerminalOpen}
+            isSidePaneOpen={isSidePaneOpen}
+            onRefreshGit={handleRefreshGit}
+            onToggleTerminal={() => setIsTerminalOpen((open) => !open)}
+            onToggleBrowser={handleToggleBrowser}
+            onToggleSidePane={handleToggleSidePaneCollapse}
+            onReloadSession={() => {}}
+            reloadSessionDisabled
+            onCreateTask={() => {}}
+            onOpenWorkspace={() => {}}
+          />
+          {/* 与主窗口 #content 同款桌面外衬（4px 间距 + 顶部拖动垫），让面板与窗口边缘
           以及彼此之间呈现并列关系而非嵌入。 */}
-        <div className="flex min-h-0 flex-1 flex-col p-1 pt-0">
-          <div className="h-1 w-full [app-region:drag]" />
-          {/* 水平分栏：会话列（聊天+终端）+ 侧面板；与主窗口 workspace-body-layout 同构。 */}
-          <ResizablePanelGroup
-            layoutId="session-window-main-layout"
-            panelIds={
-              hasOpenedSidePane ? SESSION_WINDOW_MAIN_PANEL_IDS : ["session-conversation-column"]
-            }
-            className="flex min-h-0 flex-1"
-          >
-            <ResizablePanel id="session-conversation-column" minSize="30%" className="min-h-0">
-              <ResizablePanelGroup
-                layoutId="session-window-body-layout"
-                panelIds={SESSION_WINDOW_BODY_PANEL_IDS}
-                orientation="vertical"
-                className="flex h-full min-h-0 flex-col"
-              >
-                <ResizablePanel id="session-chat" minSize="30%" className="min-h-0">
-                  {/* 会话区自带圆角边框（与主窗口 conversation section 同款）：侧面板/终端
+          <div className="flex min-h-0 flex-1 flex-col p-1 pt-0">
+            <div className="h-1 w-full [app-region:drag]" />
+            {/* 水平分栏：会话列（聊天+终端）+ 侧面板；与主窗口 workspace-body-layout 同构。 */}
+            <ResizablePanelGroup
+              layoutId="session-window-main-layout"
+              panelIds={
+                hasOpenedSidePane ? SESSION_WINDOW_MAIN_PANEL_IDS : ["session-conversation-column"]
+              }
+              className="flex min-h-0 flex-1"
+            >
+              <ResizablePanel id="session-conversation-column" minSize="30%" className="min-h-0">
+                <ResizablePanelGroup
+                  layoutId="session-window-body-layout"
+                  panelIds={SESSION_WINDOW_BODY_PANEL_IDS}
+                  orientation="vertical"
+                  className="flex h-full min-h-0 flex-col"
+                >
+                  <ResizablePanel id="session-chat" minSize="30%" className="min-h-0">
+                    {/* 会话区自带圆角边框（与主窗口 conversation section 同款）：侧面板/终端
                     可见时各自成框，形成并列组件的视觉边界。 */}
-                  <section
-                    data-workspace-conversation-frame="true"
-                    className={cn(
-                      "relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background",
+                    <section
+                      data-workspace-conversation-frame="true"
+                      className={cn(
+                        "relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background",
+                        isSidePaneVisible
+                          ? "rounded-[var(--workspace-panel-radius)] border border-border"
+                          : resolveWorkspaceShellWindowChromeClass({
+                              isMacDesktop,
+                              isWindowsDesktop,
+                              isLinuxDesktop: !isMacDesktop && !isWindowsDesktop,
+                              macOSMajorVersion: null,
+                              isWindowsMaximized: false,
+                              supportsNativeRoundedCorners: null,
+                            }),
+                        isTerminalVisible && "rounded-b-[var(--workspace-panel-radius)] border-b",
+                      )}
+                    >
+                      <V4WorkspaceChatArea
+                        workspacePath={workspacePath}
+                        workspaceIdentity={workspaceIdentity}
+                        isDesktop
+                        sessionId={currentSessionId}
+                        onSessionCreated={handleSessionCreated}
+                        onSessionDeleted={handleSessionDeleted}
+                        // 面板动作全部本地执行（2026-10-15 面板本地化）。
+                        onRefreshGit={handleRefreshGit}
+                        onOpenGitReview={handleOpenGitReview}
+                        onOpenBrowserUrl={handleOpenBrowserUrl}
+                        // automations 主视图只在主窗口承载，继续转发。
+                        onOpenAutomationsMain={(target) =>
+                          forwardPanel("onOpenAutomationsMain", target)
+                        }
+                        onOpenCodeViewer={handleOpenCodeViewer}
+                        onOpenFileLink={(target) => void handleOpenFileLink(target)}
+                        onOpenBackgroundBash={handleOpenBackgroundBash}
+                        onOpenSubagentSession={handleOpenSubagentSession}
+                        onOpenSubagentDirectory={handleOpenSubagentDirectory}
+                        onSyncSubagentSessionTabs={handleSyncSubagentSessionTabs}
+                        onOpenSelectionSideChat={handleOpenSelectionSideChat}
+                        onOpenPlanDetail={handleOpenPlanDetail}
+                        onOpenWorkflowRun={handleOpenWorkflowRun}
+                        onOpenWorkflowArtifact={handleOpenWorkflowArtifact}
+                        onOpenWorkflowRunDirectory={handleOpenWorkflowRunDirectory}
+                        onOpenWorkflowActorSession={handleOpenWorkflowActorSession}
+                        onOpenWorkflowWorkspace={handleOpenWorkflowWorkspace}
+                      />
+                    </section>
+                  </ResizablePanel>
+                  <AnimatedTerminalPanel
+                    services={services}
+                    workspaceAbsPath={workspacePath}
+                    workspaceIdentity={workspaceIdentity}
+                    openWorkspaceKeys={[workspacePath]}
+                    isVisible={isTerminalVisible}
+                    isWindowsDesktop={isWindowsDesktop}
+                    frameClassName={cn(
                       isSidePaneVisible
                         ? "rounded-[var(--workspace-panel-radius)] border border-border"
                         : resolveWorkspaceShellWindowChromeClass({
@@ -466,134 +523,84 @@ function SessionWindowBody({
                             isWindowsMaximized: false,
                             supportsNativeRoundedCorners: null,
                           }),
-                      isTerminalVisible && "rounded-b-[var(--workspace-panel-radius)] border-b",
+                      "rounded-t-[var(--workspace-panel-radius)] border-t",
                     )}
-                  >
-                    <V4WorkspaceChatArea
-                      workspacePath={workspacePath}
-                      workspaceIdentity={workspaceIdentity}
-                      isDesktop
-                      sessionId={currentSessionId}
-                      onSessionCreated={handleSessionCreated}
-                      onSessionDeleted={handleSessionDeleted}
-                      // 面板动作全部本地执行（2026-10-15 面板本地化）。
-                      onRefreshGit={handleRefreshGit}
-                      onOpenGitReview={handleOpenGitReview}
-                      onOpenBrowserUrl={handleOpenBrowserUrl}
-                      // automations 主视图只在主窗口承载，继续转发。
-                      onOpenAutomationsMain={(target) =>
-                        forwardPanel("onOpenAutomationsMain", target)
-                      }
-                      onOpenCodeViewer={handleOpenCodeViewer}
-                      onOpenFileLink={(target) => void handleOpenFileLink(target)}
-                      onOpenBackgroundBash={handleOpenBackgroundBash}
-                      onOpenSubagentSession={handleOpenSubagentSession}
-                      onOpenSubagentDirectory={handleOpenSubagentDirectory}
-                      onSyncSubagentSessionTabs={handleSyncSubagentSessionTabs}
-                      onOpenSelectionSideChat={handleOpenSelectionSideChat}
-                      onOpenPlanDetail={handleOpenPlanDetail}
-                      onOpenWorkflowRun={handleOpenWorkflowRun}
-                      onOpenWorkflowArtifact={handleOpenWorkflowArtifact}
-                      onOpenWorkflowRunDirectory={handleOpenWorkflowRunDirectory}
-                      onOpenWorkflowActorSession={handleOpenWorkflowActorSession}
-                      onOpenWorkflowWorkspace={handleOpenWorkflowWorkspace}
-                    />
-                  </section>
-                </ResizablePanel>
-                <AnimatedTerminalPanel
+                    panelRef={terminalPanelRef as RefObject<PanelImperativeHandle | null>}
+                    panelElementRef={terminalPanelElementRef}
+                    onClose={() => setIsTerminalOpen(false)}
+                    onOpenBrowserUrl={handleOpenBrowserUrl}
+                  />
+                </ResizablePanelGroup>
+              </ResizablePanel>
+              {hasOpenedSidePane ? (
+                <AnimatedSidePanePanel
                   services={services}
+                  isDesktop
+                  isWindowsDesktop={isWindowsDesktop}
+                  frameClassName="rounded-xl border border-border"
+                  showWindowControls={!isMacDesktop}
+                  isVisible={isSidePaneVisible}
+                  onCloseSidePane={handleToggleSidePaneCollapse}
+                  sidePaneState={sidePaneState}
+                  recentClosedSidePaneTabs={recentClosedSidePaneTabs}
+                  isBrowserOpen={isBrowserOpen}
+                  supportsEmbeddedBrowser
                   workspaceAbsPath={workspacePath}
                   workspaceIdentity={workspaceIdentity}
-                  openWorkspaceKeys={[workspacePath]}
-                  isVisible={isTerminalVisible}
-                  isWindowsDesktop={isWindowsDesktop}
-                  frameClassName={cn(
-                    isSidePaneVisible
-                      ? "rounded-[var(--workspace-panel-radius)] border border-border"
-                      : resolveWorkspaceShellWindowChromeClass({
-                          isMacDesktop,
-                          isWindowsDesktop,
-                          isLinuxDesktop: !isMacDesktop && !isWindowsDesktop,
-                          macOSMajorVersion: null,
-                          isWindowsMaximized: false,
-                          supportsNativeRoundedCorners: null,
-                        }),
-                    "rounded-t-[var(--workspace-panel-radius)] border-t",
-                  )}
-                  panelRef={terminalPanelRef as RefObject<PanelImperativeHandle | null>}
-                  panelElementRef={terminalPanelElementRef}
-                  onClose={() => setIsTerminalOpen(false)}
+                  activeTaskId={currentSessionId}
+                  sidePaneOwnerId={currentSessionId}
+                  gitState={gitState}
+                  activeGitSourceId={activeGitSourceId}
+                  panelRef={sidePanePanelRef as RefObject<PanelImperativeHandle | null>}
+                  panelElementRef={sidePanePanelElementRef}
+                  browserNavigationRequest={browserNavigationRequest}
+                  browserRestoreUrls={browserRestoreUrls}
+                  screenshotSurfaceRequest={screenshotSurfaceRequest}
+                  screenshotSurfaceTabId={screenshotSurfaceTabId}
+                  fileChangeFindActiveIndex={fileChangeFindActiveIndex}
+                  fileChangeFindNavigationRequestId={fileChangeFindNavigationRequestId}
+                  fileChangeFindQuery={fileChangeFindQuery}
+                  onFileChangeFindMatchCountChange={() => {}}
+                  onCloseCodeViewer={handleCloseCodeViewer}
+                  onCloseGit={handleCloseGit}
+                  onActivateTab={handleActivateSidePaneTab}
+                  onReorderTab={handleReorderSidePaneTab}
+                  onCloseTab={handleCloseSidePaneTab}
+                  onCloseOtherTabs={handleCloseOtherSidePaneTabs}
+                  onCloseAllTabs={handleCloseAllSidePaneTabs}
+                  onReopenClosedTab={handleReopenClosedSidePaneTab}
+                  onOpenBrowserTab={handleOpenBrowserTab}
+                  onOpenBrowserPermissionSettings={handleOpenBrowserPermissionSettings}
+                  onOpenWhiteboard={handleOpenWhiteboard}
+                  onOpenDeveloperTools={handleOpenDeveloperTools}
+                  onOpenNewTab={handleOpenNewSidePaneTab}
+                  onOpenPluginMarket={handleOpenPluginMarket}
+                  onOpenFileManager={handleOpenFileManager}
+                  onNavigateFileManager={handleNavigateFileManager}
+                  onOpenTerminalTab={handleOpenTerminalTab}
+                  onOpenReviewTab={handleToggleGit}
+                  onOpenSelectionSideConversation={handleOpenSelectionSideConversationLauncher}
+                  onRevealGitFileInTree={() => {}}
                   onOpenBrowserUrl={handleOpenBrowserUrl}
+                  onOpenCodeViewer={handleOpenCodeViewer}
+                  onOpenFileLink={(target) => void handleOpenFileLink(target)}
+                  onOpenBackgroundBash={handleOpenBackgroundBash}
+                  onOpenSubagentSession={handleOpenSubagentSession}
+                  onOpenWorkflowActorSession={handleOpenWorkflowActorSession}
+                  onOpenWorkflowWorkspace={handleOpenWorkflowWorkspace}
+                  onOpenWorkflowArtifact={handleOpenWorkflowArtifact}
+                  onOpenWorkflowRun={handleOpenWorkflowRun}
+                  onRefreshGit={handleRefreshGit}
+                  onBrowserNavigationRequestHandled={handleBrowserNavigationRequestHandled}
+                  onBrowserUrlChange={handleBrowserUrlChange}
+                  onBrowserPageMetadataChange={handleBrowserPageMetadataChange}
+                  onSelectGitSource={setGitSelectedSourceId}
                 />
-              </ResizablePanelGroup>
-            </ResizablePanel>
-            {hasOpenedSidePane ? (
-              <AnimatedSidePanePanel
-                services={services}
-                isDesktop
-                isWindowsDesktop={isWindowsDesktop}
-                frameClassName="rounded-xl border border-border"
-                showWindowControls={!isMacDesktop}
-                isVisible={isSidePaneVisible}
-                onCloseSidePane={handleToggleSidePaneCollapse}
-                sidePaneState={sidePaneState}
-                recentClosedSidePaneTabs={recentClosedSidePaneTabs}
-                isBrowserOpen={isBrowserOpen}
-                supportsEmbeddedBrowser
-                workspaceAbsPath={workspacePath}
-                workspaceIdentity={workspaceIdentity}
-                activeTaskId={currentSessionId}
-                sidePaneOwnerId={currentSessionId}
-                gitState={gitState}
-                activeGitSourceId={activeGitSourceId}
-                panelRef={sidePanePanelRef as RefObject<PanelImperativeHandle | null>}
-                panelElementRef={sidePanePanelElementRef}
-                browserNavigationRequest={browserNavigationRequest}
-                browserRestoreUrls={browserRestoreUrls}
-                screenshotSurfaceRequest={screenshotSurfaceRequest}
-                screenshotSurfaceTabId={screenshotSurfaceTabId}
-                fileChangeFindActiveIndex={fileChangeFindActiveIndex}
-                fileChangeFindNavigationRequestId={fileChangeFindNavigationRequestId}
-                fileChangeFindQuery={fileChangeFindQuery}
-                onFileChangeFindMatchCountChange={() => {}}
-                onCloseCodeViewer={handleCloseCodeViewer}
-                onCloseGit={handleCloseGit}
-                onActivateTab={handleActivateSidePaneTab}
-                onReorderTab={handleReorderSidePaneTab}
-                onCloseTab={handleCloseSidePaneTab}
-                onCloseOtherTabs={handleCloseOtherSidePaneTabs}
-                onCloseAllTabs={handleCloseAllSidePaneTabs}
-                onReopenClosedTab={handleReopenClosedSidePaneTab}
-                onOpenBrowserTab={handleOpenBrowserTab}
-                onOpenBrowserPermissionSettings={handleOpenBrowserPermissionSettings}
-                onOpenWhiteboard={handleOpenWhiteboard}
-                onOpenDeveloperTools={handleOpenDeveloperTools}
-                onOpenNewTab={handleOpenNewSidePaneTab}
-                onOpenFileManager={handleOpenFileManager}
-                onNavigateFileManager={handleNavigateFileManager}
-                onOpenTerminalTab={handleOpenTerminalTab}
-                onOpenReviewTab={handleToggleGit}
-                onOpenSelectionSideConversation={handleOpenSelectionSideConversationLauncher}
-                onRevealGitFileInTree={() => {}}
-                onOpenBrowserUrl={handleOpenBrowserUrl}
-                onOpenCodeViewer={handleOpenCodeViewer}
-                onOpenFileLink={(target) => void handleOpenFileLink(target)}
-                onOpenBackgroundBash={handleOpenBackgroundBash}
-                onOpenSubagentSession={handleOpenSubagentSession}
-                onOpenWorkflowActorSession={handleOpenWorkflowActorSession}
-                onOpenWorkflowWorkspace={handleOpenWorkflowWorkspace}
-                onOpenWorkflowArtifact={handleOpenWorkflowArtifact}
-                onOpenWorkflowRun={handleOpenWorkflowRun}
-                onRefreshGit={handleRefreshGit}
-                onBrowserNavigationRequestHandled={handleBrowserNavigationRequestHandled}
-                onBrowserUrlChange={handleBrowserUrlChange}
-                onBrowserPageMetadataChange={handleBrowserPageMetadataChange}
-                onSelectGitSource={setGitSelectedSourceId}
-              />
-            ) : null}
-          </ResizablePanelGroup>
+              ) : null}
+            </ResizablePanelGroup>
+          </div>
         </div>
       </div>
-    </div>
+    </PluginUiWorkspaceProvider>
   );
 }

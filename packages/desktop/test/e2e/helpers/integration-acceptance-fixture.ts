@@ -5,6 +5,7 @@ export const INTEGRATION_ACCEPTANCE_CASE_NAMES = [
   "conversation-session-integration-worktree-window",
   "conversation-session-integration-composer-stats-voice",
   "conversation-session-integration-skin-remote-entry",
+  "conversation-session-project-seed-upgrade",
 ] as const;
 
 /** 在runner清理/重建HOME后、Electron启动前调用，禁止测试App默认连接生产远控。 */

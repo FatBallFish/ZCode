@@ -19,7 +19,10 @@ it("projects the manager upgrade target with the runtime state", async () => {
     () => rm(directory, { recursive: true, force: true }),
   );
   db.exec("PRAGMA foreign_keys=ON");
-  await projectStorage.migrate(db, { backupDirectories: [directory] });
+  await projectStorage.migrate(db, {
+    settings: { recentProjects: [] },
+    backupDirectories: [directory],
+  });
   // 投影曾丢掉 upgradeTarget，桌面端过旧时详情入口只能回退成“更新远端”。
   const service = createRemoteProjectService({
     database: async () => db,

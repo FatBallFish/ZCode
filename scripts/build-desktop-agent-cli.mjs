@@ -2,6 +2,10 @@ import { access } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stageAgentBundle } from "../packages/desktop/scripts/stage-agent-bundle.mjs";
+import {
+  stageOfficialPlugins,
+  stageBundledSkillPack,
+} from "../packages/desktop/scripts/prepare-agent-node-bundle.mjs";
 import { runCommand } from "./spawn-command.mjs";
 
 // adapters tsc 在内存受限机器上会 OOM（exit 134），给整条构建链路提高堆上限。
@@ -113,11 +117,24 @@ async function verifyRequiredDevPluginRuntimeArtifacts() {
  *
  * dev 只跑宿主平台，所以 platformKey 直接取 process；打包链的跨平台 target 由它自己解析。
  */
-function stageDevAgentBundle() {
-  stageAgentBundle({
+async function stageDevAgentBundle() {
+  const { stagedBundlePath } = stageAgentBundle({
     repoRoot,
     platformKey: `${process.platform}-${process.arch}`,
   });
+  const options = { repoRoot, glmDir: dirname(stagedBundlePath) };
+  await stageOfficialPlugins(options);
+  await stageBundledSkillPack(options);
+}
+
+async function buildRequiredDevPluginRuntimes() {
+  for (const runtime of requiredDevPluginRuntimeBuilds) {
+    runCommand("pnpm", ["--filter", runtime.packageName, "build"], {
+      env: pnpmRunEnv,
+      stdio: "inherit",
+    });
+  }
+  await verifyRequiredDevPluginRuntimeArtifacts();
 }
 
 function runBootstrapWithRemoteBuild() {
@@ -152,7 +169,8 @@ function runBootstrapWithRemoteBuild() {
 
 if (useBootstrapWithRemoteBuild) {
   runBootstrapWithRemoteBuild();
-  stageDevAgentBundle();
+  await buildRequiredDevPluginRuntimes();
+  await stageDevAgentBundle();
   stageDevCuaPluginRuntime({ env: cuaPluginRuntimeStagingEnv });
   process.exit(0);
 }
@@ -174,7 +192,7 @@ if (!useTurboBuild) {
     env: pnpmRunEnv,
     stdio: "inherit",
   });
-  stageDevAgentBundle();
+  await stageDevAgentBundle();
   stageDevCuaPluginRuntime({ env: cuaPluginRuntimeStagingEnv });
   process.exit(0);
 }
@@ -196,5 +214,6 @@ runCommand(
     stdio: "inherit",
   },
 );
-stageDevAgentBundle();
+await buildRequiredDevPluginRuntimes();
+await stageDevAgentBundle();
 stageDevCuaPluginRuntime({ env: cuaPluginRuntimeStagingEnv });

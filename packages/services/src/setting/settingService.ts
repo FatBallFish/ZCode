@@ -216,6 +216,8 @@ export function createSettingService(): ISettingService {
 /** Host 私有迁移入口，不加入 Setting RPC；普通 get/update 从不等待 OAuth 查询。 */
 export function createSettingServiceWithMigrations(): {
   service: ISettingService;
+  /** Host 私有启动端口；不执行目录投影，不写设置，不加入 Setting RPC。 */
+  readForProjectMigration: () => Promise<AppSettings>;
   setWorkspaceProjection: (
     reader: (settings: AppSettings) => Promise<WorkspaceSettingsProjection>,
   ) => void;
@@ -393,6 +395,18 @@ export function createSettingServiceWithMigrations(): {
   let migrationComplete = false;
   return {
     service,
+    async readForProjectMigration() {
+      await updateQueue;
+      try {
+        // 项目种子必须先于组织投影读取；普通 get 的默认值/投影不能当作旧清单事实。
+        // 损坏文件直接失败，保留原文件；只有明确不存在才是合法的新安装空设置。
+        const raw = JSON.parse(await readFile(settingsFile, "utf8"));
+        return appSettingsSchema.parse(migrateLegacyAccountConnectionSettings(raw));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return defaultSettings();
+        throw error;
+      }
+    },
     setWorkspaceProjection(reader) {
       if (workspaceProjection) throw new Error("settings.workspace-projection-already-bound");
       workspaceProjection = reader;

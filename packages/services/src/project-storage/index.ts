@@ -16,6 +16,7 @@ import {
   PROJECT_SCHEMA_SQL,
   TASK_PROJECT_COLUMNS,
 } from "#src/project-storage/schema.js";
+import { tableExists } from "#src/project-storage/schema.js";
 
 export type {
   ProjectMigrationContext,
@@ -23,6 +24,18 @@ export type {
 } from "#src/project-storage/contract.js";
 export const projectStorage: ProjectStorageContract = {
   migrate: async (db, context) => {
+    const alreadySeeded =
+      tableExists(db, "schema_migration") &&
+      db
+        .prepare("SELECT 1 FROM schema_migration WHERE id IN ('0005_projects','0001_projects')")
+        .get();
+    if (!alreadySeeded && (context.hostId ?? "local") === "local") {
+      // 首次迁移缺少旧清单时记账为空，会让后续桌面跳过种子并把原设置投影擦空。
+      // 必须先读取设置 owner 的无投影快照；不改已发布 SQL/checksum 或重跑旧迁移。
+      const settings = context.settings ?? (await context.loadSettings?.());
+      if (!settings) throw new Error("project.migration-settings-required");
+      context = { ...context, settings };
+    }
     let firstProjectMigration = false;
     const result = await sqliteMigrations.migrate(
       db,

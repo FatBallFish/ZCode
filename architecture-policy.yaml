@@ -926,6 +926,7 @@ modules:
       - packages/ui/src/SessionWindowRoot.tsx
     managed: true
     requires:
+      - plugin-ui
       - services
       - shared
       - ui

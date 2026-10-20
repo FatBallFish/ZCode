@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { defineConfig } from "tsup";
 import { getBuildMetadata } from "./scripts/build-metadata.mjs";
 import { resolveDesktopProductFlavor } from "./scripts/desktop-product-identity.mjs";
+import { isRealComputerUseProducerInstalled } from "./scripts/computer-use-producer.mjs";
 const { copyGenUiRuntimeAssets } = await import(
   pathToFileURL(resolve(import.meta.dirname, "scripts/gen-ui-runtime-assets.mjs")).href
 );
@@ -214,6 +215,10 @@ function createSharedDefines() {
 function createMainDefines() {
   return {
     ...createSharedDefines(),
+    // 占位包仍有公开 broker 导出，不能据此把不存在的 Helper 显示为“启动中”。
+    __MIKIKO_COMPUTER_USE_AVAILABLE__: JSON.stringify(
+      isRealComputerUseProducerInstalled({ desktopPackageRoot: import.meta.dirname }),
+    ),
     // 正式安装包无法继承 GitLab Runner 或开发终端环境。这里只把 CI 提供的低权限写入配置
     // 编译进 Desktop Main，再由既有 Main -> Host -> Agent 安全边界定向传递。
     __ZCODE_PACKAGED_AGENT_TELEMETRY_ENV__: JSON.stringify(

@@ -1,0 +1,54 @@
+{
+  "observedAt": "2026-10-20T21:55:27.820565+00:00",
+  "profile": "existing Mikiko profile",
+  "projects": 21,
+  "navigationButtonCounts": {
+    "sidebar": 1,
+    "back": 1,
+    "forward": 1
+  },
+  "computerUse": {
+    "buildUnavailableVisible": true,
+    "misleadingStartupVisible": false,
+    "grantButtonCount": 0
+  },
+  "mcp": {
+    "documents": "connected",
+    "pdf": "connected",
+    "presentations": "connected",
+    "spreadsheets": "connected",
+    "image_search": "connected"
+  },
+  "pdf": {
+    "welcomeRendered": true,
+    "oldConnectionUnavailableError": false,
+    "screenshot": "desktop-pdf-panel.png"
+  },
+  "voiceCleanup": {
+    "enabledBeforeTest": true,
+    "modelMenuOpened": true,
+    "legacySubmenus": 0,
+    "selectionChanged": false
+  },
+  "standaloneSession": {
+    "launchers": 18,
+    "marketRootRendered": true,
+    "marketError": false,
+    "createdWindowClosedAfterTest": true
+  },
+  "account": {
+    "currentPlanCard": true,
+    "quotaTiles": true,
+    "failedStatus": false,
+    "modelCatalogVisible": true,
+    "resetOrClaimExecuted": false,
+    "modelInvoked": false,
+    "imageSearchInvoked": false
+  },
+  "checks": {
+    "typecheckExit": 0,
+    "lintExit": 0,
+    "lintWarnings": 173,
+    "architectureViolations": 0
+  }
+}

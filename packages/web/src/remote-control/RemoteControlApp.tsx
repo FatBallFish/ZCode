@@ -8,6 +8,12 @@ import {
 } from "@zcode/shared/remote-control";
 import { AppErrorBoundary, Root, ZCodeIntlProvider } from "@zcode/ui";
 import {
+  readSelfHostedRemoteWorkspace,
+  createSelfHostedRemoteUiServices,
+  SelfHostedRemoteWorkspaceError,
+  type SelfHostedRemoteWorkspace,
+} from "../self-hosted-remote/index.js";
+import {
   ConnectionBadge,
   isZh,
   parseRemoteControlQuery,
@@ -67,7 +73,11 @@ export function RemoteControlApp({
   const [phase, setPhase] = useState<RemoteControlPhase>({ kind: "landing" });
   const [progressStep, setProgressStep] = useState<ConnectStep>("verify");
   const [progressFailed, setProgressFailed] = useState(false);
-  const [services, setServices] = useState<WebServiceAccessor | null>(null);
+  const [connection, setConnection] = useState<{
+    services: WebServiceAccessor;
+    workspace: SelfHostedRemoteWorkspace;
+  } | null>(null);
+  const services = connection?.services ?? null;
   const [generation, setGeneration] = useState(0);
   const connectToken = useRef(0);
   /** onClose 已判定终态（被踢/失效/被电脑断开）：catch 分支不得覆盖、不得再重试 bind（spec §21.6）。 */
@@ -85,6 +95,23 @@ export function RemoteControlApp({
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const servicesRef = useRef<WebServiceAccessor | null>(null);
   servicesRef.current = services;
+
+  const admitWorkspace = useCallback(async (accessor: WebServiceAccessor, myToken: number) => {
+    // 修复依据：Root 不再有“打开工作区”空态，而手机禁止自行打开工作区；
+    // RPC 已连通但不传初始目标会返回 null。读取同一 Host 的 active 投影后再原子挂载。
+    const settings = await accessor.settingService.get();
+    if (connectToken.current !== myToken) return false;
+    try {
+      const workspace = readSelfHostedRemoteWorkspace(settings);
+      setConnection({ services: createSelfHostedRemoteUiServices(accessor), workspace });
+      return true;
+    } catch (error) {
+      if (!(error instanceof SelfHostedRemoteWorkspaceError)) throw error;
+      terminalRef.current = true;
+      setPhase({ kind: "workspace-unavailable", reason: error.reason });
+      return false;
+    }
+  }, []);
 
   const probeLatency = useCallback(() => {
     const accessor = servicesRef.current;
@@ -214,7 +241,7 @@ export function RemoteControlApp({
       reconnectAttempt.current = 0;
       relayFailureCount.current = 0;
       setProgressStep("attach");
-      setServices(accessor);
+      if (!(await admitWorkspace(accessor, myToken))) return;
       setGeneration((value) => value + 1);
       setConnectedSince(Date.now());
       setLatencyMs(null);
@@ -227,7 +254,7 @@ export function RemoteControlApp({
           relayWsBase: relayWsBaseRef.current,
           sid: queryRef.current?.sid ?? "",
           token,
-        }).then((session) => {
+        }).then(async (session) => {
           if (connectToken.current !== myToken) {
             return;
           }
@@ -235,10 +262,19 @@ export function RemoteControlApp({
             p2pFailureCount.current += 1;
             return;
           }
+          const p2pServices = connectViaProtocol(session.protocol);
+          try {
+            if (!(await admitWorkspace(p2pServices, myToken))) {
+              session.dispose();
+              return;
+            }
+          } catch {
+            session.dispose();
+            p2pFailureCount.current += 1;
+            return; // 工作区投影读取失败保留已验证的中继连接。
+          }
           p2pFailureCount.current = 0;
           p2pSession.current = session;
-          const p2pServices = connectViaProtocol(session.protocol);
-          setServices(p2pServices);
           setGeneration((value) => value + 1);
           setTransport("p2p");
           connectToken.current += 1; // 中转管道进入被替代状态，其 close 回调不再驱动重连。
@@ -309,7 +345,7 @@ export function RemoteControlApp({
         }
       }, delay);
     }
-  }, [bind]);
+  }, [bind, admitWorkspace]);
 
   useEffect(() => {
     if (phase.kind !== "connecting") {
@@ -352,6 +388,7 @@ export function RemoteControlApp({
             <Root
               key={`remote-control-${generation}`}
               services={services}
+              {...connection?.workspace}
               platform={platform}
               preferDirectoryBrowser
               supportsEmbeddedBrowser={false}

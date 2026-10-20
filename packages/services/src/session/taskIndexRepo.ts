@@ -25,6 +25,7 @@ import { createServiceLogger } from "#src/logger/serviceLogger.js";
 import { getTasksIndexDatabasePath, getZCodeDataRootDir } from "#src/paths.js";
 import { projectStorage, type ProjectMigrationContext } from "#src/project-storage/index.js";
 import { runTasksDatabaseMigrations } from "#src/session/tasksDatabase/migrations.js";
+import { createSettingServiceWithMigrations } from "#src/setting/settingService.js";
 
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
@@ -325,7 +326,10 @@ export class TaskIndexRepo {
   private readonly writeChains = new Map<string, Promise<void>>();
 
   constructor(
-    private readonly migrationSettings?: ProjectMigrationContext["settings"],
+    private readonly migrationSettings:
+      | ProjectMigrationContext["settings"]
+      | ProjectMigrationContext["loadSettings"] = createSettingServiceWithMigrations()
+      .readForProjectMigration,
     private readonly storageHostId?: string,
     private readonly startupDbPath?: string,
     private readonly startupBusyTimeoutMs = 5000,
@@ -394,7 +398,9 @@ export class TaskIndexRepo {
     }
     const taskMigration = await runTasksDatabaseMigrations(this.db, path);
     const migration = await projectStorage.migrate(this.getDatabase(), {
-      settings: this.migrationSettings,
+      settings: typeof this.migrationSettings === "function" ? undefined : this.migrationSettings,
+      loadSettings:
+        typeof this.migrationSettings === "function" ? this.migrationSettings : undefined,
       hostId: this.storageHostId,
       backupDirectories: [join(getZCodeDataRootDir(), "backup")],
       warn: (message, details) => createServiceLogger("project-migration").warn(message, details),

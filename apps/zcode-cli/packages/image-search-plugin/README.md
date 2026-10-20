@@ -1,8 +1,8 @@
-# Image Search for ZCode
+# Image Search for Mikiko
 
 [中文文档](./README_CN.md)
 
-This plugin registers the official ZCode image search MCP server, so the agent can look up
+This Mikiko plugin currently uses the official CodingPlan image search MCP backend, so the agent can look up
 illustrations and reference images while producing documents, slides, posters, or web pages.
 
 ## Components
@@ -11,10 +11,9 @@ illustrations and reference images while producing documents, slides, posters, o
 
 ## Requirements
 
-- A ZCode session signed in to an account that can reach `${ZCODE_BASE_URL}`; the server uses
-  official ZCode JWT authentication, so no manual token or API key is needed.
-- Network access to the ZCode API endpoint.
-- Start a new ZCode session after installing or updating the plugin.
+- A Mikiko session signed in to a current Zhipu BigModel or Z.ai account. The official CodingPlan backend checks account entitlement and quota; no manual token or API key is needed.
+- Network access to the official CodingPlan endpoint. Mikiko product cloud settings do not change this account destination.
+- Start a new Mikiko session after installing or updating the plugin.
 
 ## Usage
 
@@ -26,5 +25,7 @@ them when you want image search available during document production.
 ## Notes
 
 - The plugin only declares an MCP server; it ships no commands, skills, hooks, or agents.
-- Search results come from a third-party image index through the ZCode service. Check the license of
+- Calls fail explicitly when the account is unavailable; paid search is never sent anonymously.
+- A custom backend port is reserved for future implementations and does not inherit official account authentication.
+- Search results come from a third-party image index through the CodingPlan service. Check the license of
   any image before using it in a published deliverable.

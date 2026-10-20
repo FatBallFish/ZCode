@@ -3786,6 +3786,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
           service: settingService,
           prepareLegacyAccountConnections,
           setWorkspaceProjection,
+          readForProjectMigration,
         } = createSettingServiceWithMigrations();
         const hostApiNetworkTransport = createHostApiNetworkTransport(async () => {
           const settings = await settingService.get();
@@ -3821,6 +3822,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
                     })
                   : Promise.resolve(null),
               setWorkspaceProjection,
+              readForProjectMigration,
               remoteProjectConnection: {
                 connectHost: async (host) => {
                   if (host.target?.kind === "server") {

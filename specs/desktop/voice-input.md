@@ -1,5 +1,7 @@
 # 会话语音输入（本地 ASR + 可选 LLM 整理）
 
+2026-10-21 UI 回归合同：整理模型选择使用会话 `ModelConfigSelect` 的 `ComposerModelMenu` 供应商/模型两层视图，不能落回旧供应商悬浮子菜单。候选仍来自本地 workspace 的 ModelSelectionView（账号、自定义、中转站和 ChatGPT 标签全部保留）；选中模型只更新 voiceCleanupSelection，不切换会话连接、不发模型请求。整理用途仍锁定所选模型的最低思考档，不展示可调思考滑杆。禁用整理时入口禁用，设置页始终显示当前模型名。浅/深主题、两种语言及自定义分组选择都需真实 UI 验证。
+
 - 状态：v1 实现中（2026-10-11）
 - 前置调研：`specs/desktop/voice-input-research.md`
 - 相关模块：`packages/shared`（协议/设置/模型清单）、`packages/desktop`（main 语音服务 + utilityProcess 引擎 worker + preload）、`packages/ui`（设置页、会话框麦克风、语音浮窗、语义整理）

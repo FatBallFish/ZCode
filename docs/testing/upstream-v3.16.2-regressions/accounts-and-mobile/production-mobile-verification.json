@@ -1,0 +1,18 @@
+{
+  "desktopAccountServiceAbsent": true,
+  "entryScript": "index-DuKkTtce.js",
+  "hasEditor": true,
+  "hasTransportBadge": true,
+  "origin": "https://remote.mikiko.ai",
+  "readOnlyRpc": {
+    "activeKind": "local",
+    "settingsSucceeded": true,
+    "systemInfoSucceeded": true,
+    "workspaceMatchesProjection": true
+  },
+  "transport": "直连",
+  "viewport": {
+    "height": 852,
+    "width": 393
+  }
+}

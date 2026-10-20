@@ -5,3 +5,13 @@ export { resolveDefaultZCodeAgentCommand } from "#src/zcode-agent/zcodeAgentProc
 export { resolveZCodeAgentSpawnCwd } from "#src/zcode-agent/zcodeAgentSpawnCwd.js";
 
 export { createSettingService } from "#src/setting/settingService.js";
+export { createSettingServiceWithMigrations } from "#src/setting/settingService.js";
+export {
+  planProjectSeedRecovery,
+  applyProjectSeedRecovery,
+  fingerprintProjectDatabase,
+} from "#src/project-storage/project-seed-recovery.js";
+export type {
+  ProjectSeedRecoveryFiles,
+  ProjectSeedRecoveryPlan,
+} from "#src/project-storage/project-seed-recovery.js";

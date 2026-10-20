@@ -1,5 +1,7 @@
 // Node Test 与 Vitest 分开收集；产品回归不因 runner 不同而从全量门禁消失。
 export const NODE_UNIT_TEST_FILES = [
+  "scripts/test/isolated-test-runner.test.mjs",
+  "scripts/test/desktop-agent-plugin-assets.test.mjs",
   "scripts/test/third-party-graph-resource.test.mjs",
   "packages/desktop/test/desktop-pet/petAnimator.test.ts",
   "packages/desktop/test/desktop-pet/petManifest.test.ts",

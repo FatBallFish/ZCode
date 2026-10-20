@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "numTotalTests": 58,
+  "numPassedTests": 58,
+  "numFailedTests": 0,
+  "isolation": "scripts/run-isolated-tests.mjs",
+  "workers": 1,
+  "realOfficeStdio": ["pdf", "presentations", "spreadsheets"],
+  "officeChecks": ["initialize", "tools/list UI metadata", "panel resource", "UI script resource"],
+  "imageBackend": "official-coding-plan",
+  "imageChecks": [
+    "unavailable account produces 0 loopback requests",
+    "HTTP SDK initialize",
+    "tools/list",
+    "tools/call fake response",
+    "resources/read fake panel",
+    "identity header on every request",
+    "custom backend strips official auth and provenance",
+    "real .mikiko-plugin manifest discovery"
+  ],
+  "realImageSearchInvoked": false,
+  "personalCacheOrDatabaseModified": false,
+  "typecheck": {
+    "bootstrap": "exit 0",
+    "adapters": "exit 0"
+  },
+  "targetLint": {
+    "errors": 0,
+    "existingWarnings": 3,
+    "note": "Root default ignores apps/zcode-cli. Targeted run reused root rules with only ignorePatterns removed in temporary config."
+  },
+  "runtimeSourceFrozen": true
+}

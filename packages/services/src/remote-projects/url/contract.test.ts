@@ -18,7 +18,10 @@ async function fixture() {
   db.exec("PRAGMA foreign_keys=ON");
   const directory = await mkdtemp(join(tmpdir(), "remote-project-test-"));
   directories.push(directory);
-  await projectStorage.migrate(db, { backupDirectories: [directory] });
+  await projectStorage.migrate(db, {
+    settings: { recentProjects: [] },
+    backupDirectories: [directory],
+  });
   const afterChange = vi.fn();
   const service = createRemoteProjectService({
     database: async () => db,

@@ -12,10 +12,11 @@
 // 远端（SSH/WSL/Docker）没有 Electron，由 Source Server archive 自带目标 Node，互不影响。
 
 // 修复原因：bootstrap 清理旧插件 dist 时使用 rmSync，漏导入会在构建前抛出 ReferenceError。
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { access, cp, mkdir, rm } from "node:fs/promises";
 import { runCommand } from "../../../scripts/spawn-command.mjs";
 import { stageAgentBundle } from "./stage-agent-bundle.mjs";
 import {
@@ -99,7 +100,7 @@ const browserUseRequiredRuntimePaths = [
 // 文档插件（documents / pdf / presentations / spreadsheets）的查看面板由共享包
 // @zcode/office-runtime 构建进各插件 dist/；插件包自身没有 TypeScript 源码。
 const officeViewerRuntimePaths = ["dist/server.mjs", "dist/ui/assets.json", "dist/ui/panel.html"];
-const officialPluginPackages = [
+export const officialPluginPackages = [
   {
     packageName: "@zcode/android-emulator-plugin",
     relativePath: "apps/zcode-cli/packages/android-emulator-plugin",
@@ -282,6 +283,7 @@ const bundledSkillPack = {
 };
 const includedOfficialPluginTopLevelPaths = new Set([
   ".mcp.json",
+  ".mikiko-plugin",
   ".zcode-plugin",
   "README.md",
   // Electron 生产资源复制有独立白名单，遗漏 agents 会让首启 filesystem seed 永久缺少子代理。
@@ -383,57 +385,86 @@ function stageBundle() {
   stageAgentBundle({ repoRoot, platformKey });
 }
 
-function stageOfficialPlugins() {
-  for (const plugin of officialPluginPackages) {
-    const sourceRoot = resolve(repoRoot, plugin.relativePath);
-    const manifestPath = resolve(sourceRoot, ".zcode-plugin", "plugin.json");
-    if (!existsSync(manifestPath)) {
-      throw new Error(`[prepare:agent-bundle] missing official plugin manifest: ${manifestPath}`);
-    }
+async function assetExists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT" || error.code === "ENOTDIR") return false;
+    throw error;
+  }
+}
 
-    const targetRoot = resolve(glmDir, plugin.stagedPath);
-    mkdirSync(targetRoot, { recursive: true });
+/** 同一资产暂存入口服务Dev与正式打包，不依赖用户插件缓存填补构建缺口。 */
+export async function stageOfficialPlugins({
+  repoRoot: sourceRepoRoot = repoRoot,
+  glmDir: targetGlmDir = glmDir,
+  log = console.log,
+} = {}) {
+  for (const plugin of officialPluginPackages) {
+    const sourceRoot = resolve(sourceRepoRoot, plugin.relativePath);
+    let manifestPath;
+    for (const name of [".mikiko-plugin", ".zcode-plugin"]) {
+      const candidate = resolve(sourceRoot, name, "plugin.json");
+      if (await assetExists(candidate)) {
+        manifestPath = candidate;
+        break;
+      }
+    }
+    if (!manifestPath) {
+      throw new Error(`[prepare:agent-bundle] missing official plugin manifest: ${sourceRoot}`);
+    }
+    for (const relativePath of plugin.requiredRuntimePaths ?? []) {
+      if (!(await assetExists(resolve(sourceRoot, relativePath)))) {
+        throw new Error(`[prepare:agent-bundle] missing official plugin runtime: ${relativePath}`);
+      }
+    }
+    const targetRoot = resolve(targetGlmDir, plugin.stagedPath);
+    // 修复原因：跨品牌重建若保留上代manifest，发现优先级会继续命中已失效入口。
+    await rm(targetRoot, { recursive: true, force: true });
+    await mkdir(targetRoot, { recursive: true });
     for (const entryName of includedOfficialPluginTopLevelPaths) {
       const sourcePath = resolve(sourceRoot, entryName);
-      if (!existsSync(sourcePath)) continue;
-      cpSync(sourcePath, resolve(targetRoot, entryName), {
+      if (!(await assetExists(sourcePath))) continue;
+      await cp(sourcePath, resolve(targetRoot, entryName), {
         recursive: true,
         filter: shouldCopyOfficialPluginAsset,
       });
     }
     for (const relativePath of plugin.requiredSeedPaths ?? []) {
-      const stagedAssetPath = resolve(targetRoot, ...relativePath.split("/"));
-      if (!existsSync(stagedAssetPath)) {
+      if (!(await assetExists(resolve(targetRoot, relativePath)))) {
         throw new Error(
-          `[prepare:agent-bundle] missing staged official plugin seed asset: ${stagedAssetPath}`,
+          `[prepare:agent-bundle] missing staged official plugin seed asset: ${relativePath}`,
         );
       }
     }
-    console.log(`[prepare:agent-bundle] staged official plugin ${plugin.stagedPath}`);
+    log(`[prepare:agent-bundle] staged official plugin ${plugin.stagedPath}`);
   }
 }
 
-function stageBundledSkillPack() {
-  const sourceRoot = resolve(repoRoot, bundledSkillPack.relativePath);
-  const targetRoot = resolve(glmDir, bundledSkillPack.stagedPath);
-  mkdirSync(targetRoot, { recursive: true });
+export async function stageBundledSkillPack({
+  repoRoot: sourceRepoRoot = repoRoot,
+  glmDir: targetGlmDir = glmDir,
+  log = console.log,
+} = {}) {
+  const sourceRoot = resolve(sourceRepoRoot, bundledSkillPack.relativePath);
+  const targetRoot = resolve(targetGlmDir, bundledSkillPack.stagedPath);
+  await rm(targetRoot, { recursive: true, force: true });
+  await mkdir(targetRoot, { recursive: true });
   for (const entryName of bundledSkillPack.topLevelPaths) {
     const sourcePath = resolve(sourceRoot, entryName);
-    if (!existsSync(sourcePath)) continue;
-    cpSync(sourcePath, resolve(targetRoot, entryName), {
+    if (!(await assetExists(sourcePath))) continue;
+    await cp(sourcePath, resolve(targetRoot, entryName), {
       recursive: true,
       filter: shouldCopyOfficialPluginAsset,
     });
   }
   for (const relativePath of bundledSkillPack.requiredPaths) {
-    const stagedAssetPath = resolve(targetRoot, ...relativePath.split("/"));
-    if (!existsSync(stagedAssetPath)) {
-      throw new Error(
-        `[prepare:agent-bundle] missing staged bundled skill asset: ${stagedAssetPath}`,
-      );
+    if (!(await assetExists(resolve(targetRoot, relativePath)))) {
+      throw new Error(`[prepare:agent-bundle] missing staged bundled skill asset: ${relativePath}`);
     }
   }
-  console.log(`[prepare:agent-bundle] staged bundled skill pack ${bundledSkillPack.stagedPath}`);
+  log(`[prepare:agent-bundle] staged bundled skill pack ${bundledSkillPack.stagedPath}`);
 }
 
 function stageSharpForNodeReplPlugin() {
@@ -492,10 +523,13 @@ function stageKoffiForCuaPlugin() {
 // 让 Electron Node 运行 zcode.cjs 时复用同一套 filesystem seed 逻辑。
 // browser-use runtime 的声明生成依赖 @zcode/core/dist。CI 干净检出没有该产物，
 // 必须先构建 CLI 依赖，再构建官方插件；开发机残留的 dist 曾掩盖这个顺序问题。
-buildCliBundle();
-buildOfficialPluginRuntimes();
-stageBundle();
-stageOfficialPlugins();
-stageBundledSkillPack();
-stageKoffiForCuaPlugin();
-stageSharpForNodeReplPlugin();
+// Dev只复用资产暂存函数；import不能执行打包、构建或改写运行中的bundle。
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  buildCliBundle();
+  buildOfficialPluginRuntimes();
+  stageBundle();
+  await stageOfficialPlugins();
+  await stageBundledSkillPack();
+  stageKoffiForCuaPlugin();
+  stageSharpForNodeReplPlugin();
+}
