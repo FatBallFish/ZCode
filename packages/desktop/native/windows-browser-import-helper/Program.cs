@@ -110,7 +110,7 @@ internal static class Program
         {
             request = ReadBoundedLine(Console.In);
             ValidateImportRequest(request);
-            pipeName = "zcode-browser-import-broker-" + Guid.NewGuid().ToString("N");
+            pipeName = "mikiko-browser-import-broker-" + Guid.NewGuid().ToString("N");
             token = CreateToken();
             pipe = CreatePipeServer(pipeName, true);
         }
@@ -346,8 +346,8 @@ internal static class Program
         StreamWriter brokerWriter,
         int brokerPid)
     {
-        string serviceName = "ZCodeBrowserImport_" + Guid.NewGuid().ToString("N");
-        string pipeName = "zcode-browser-import-system-" + Guid.NewGuid().ToString("N");
+        string serviceName = "MikikoBrowserImport_" + Guid.NewGuid().ToString("N");
+        string pipeName = "mikiko-browser-import-system-" + Guid.NewGuid().ToString("N");
         string token = CreateToken();
         IntPtr scm = IntPtr.Zero;
         IntPtr service = IntPtr.Zero;

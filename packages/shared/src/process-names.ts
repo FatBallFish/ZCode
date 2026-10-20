@@ -11,7 +11,9 @@ function sanitizeProcessNameSegment(value: string | null | undefined): string | 
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-+|-+$/g, "")
+    // 展示标签也可能来自旧 provider/窗口名；仅归一显示，不修改业务身份或路径。
+    .replace(/(^|-)(?:zcode|z-?ai|glm|bigmodel|zhipu(?:ai)?)(?=-|$)/g, "$1mikiko");
   if (!normalized) {
     return null;
   }

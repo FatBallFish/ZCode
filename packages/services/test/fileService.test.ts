@@ -1084,6 +1084,35 @@ describe("fileService", () => {
         expect(entries.map((e) => e.relativePath)).toEqual([".gitignore", "ok.txt"]);
       });
 
+      it("brands new templates and preserves legacy marker sections during sync/reset", async () => {
+        const rootPath = makeTempDir("mikiko-legacy-ignore-");
+        const service = createFileService();
+        const initial = await service.readWorkspaceFileSearchIgnore({ rootPath });
+        expect(initial.content).toContain("# Mikiko 工作区文件搜索忽略规则");
+        expect(initial.content).not.toContain("ZCode");
+        const legacy = initial.content
+          .replace("Mikiko 默认排除规则", "ZCode 默认排除规则")
+          .replace("node_modules/\n", "")
+          .concat("private-assets/\n!keep.txt\n");
+        await service.writeWorkspaceFileSearchIgnore({ rootPath, content: legacy });
+        writeFileSync(join(rootPath, ".gitignore"), "new-output/\n");
+        const synced = await service.applyWorkspaceFileSearchIgnoreTransform({
+          rootPath,
+          transform: "sync-gitignore",
+        });
+        expect(synced.content).toContain("Mikiko 默认排除规则");
+        expect(synced.content).not.toContain("node_modules/");
+        expect(synced.content).toContain("private-assets/\n!keep.txt");
+        await service.writeWorkspaceFileSearchIgnore({ rootPath, content: legacy });
+        const reset = await service.applyWorkspaceFileSearchIgnoreTransform({
+          rootPath,
+          transform: "reset-defaults",
+        });
+        expect(reset.content).toContain("node_modules/");
+        expect(reset.content).toContain("private-assets/\n!keep.txt");
+        expect(existsSync(join(rootPath, ".zcodeignore"))).toBe(false);
+      });
+
       it("syncs only the gitignore section while keeping defaults and custom rules", async () => {
         const rootPath = makeTempDir("zcode-file-service-section-sync-");
         writeFileSync(join(rootPath, ".gitignore"), "out/\n");

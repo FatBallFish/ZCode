@@ -170,7 +170,7 @@ async function createPreparedOwner(
     runtimeSurface:
       options.runtimeSurface ?? resolveRuntimeSurface(env.MIKIKO_TELEMETRY_RUNTIME_SURFACE),
     serviceInstanceId: randomUUID(),
-    serviceName: env.OTEL_SERVICE_NAME?.trim() || "zcode-cli-agent",
+    serviceName: env.OTEL_SERVICE_NAME?.trim() || "mikiko-cli-agent",
   };
   try {
     const { createOwnedAgentTelemetryRuntime } = await import("./otlp-exporter.js");

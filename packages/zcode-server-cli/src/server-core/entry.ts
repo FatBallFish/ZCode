@@ -1,3 +1,6 @@
+// 自有可编译入口统一产品进程名，不依赖 Node/Electron 可执行文件的名称。
+process.title = "mikiko-server-core";
+
 import { runServerCore } from "./core.js";
 
 const generation = Number(process.argv[2] ?? 0);

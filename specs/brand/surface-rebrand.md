@@ -5,6 +5,10 @@
 
 ## 1. 进程名（ps/活动监视器可见）
 
+2026-10-21 复核补漏：自有源码可编译的 Windows 浏览器导入辅助程序和 macOS 窗口位置辅助程序分别使用 `mikiko-browser-import-helper.exe` 与 `mikiko-window-bounds`；构建、缺失检测、打包、签名及启动路径必须同步。Windows 辅助程序的自建管道/服务/manifest 身份也使用 Mikiko；安全校验和内部握手协议保持兼容。Electron、Node、第三方工具与无法重编译的官方 Computer Use producer 不修改二进制身份。
+
+自有 Server CLI、Server Core、HTTP/stdio Server 和 relay 入口设置 `mikiko-` 进程标题。进程展示标签中的旧产品词 ZCode/Zai 归一为 Mikiko，不改变 provider ID、工作区路径或任何业务身份。
+
 - 统一前缀 `zcode-` → `mikiko-`：`packages/shared/src/process-names.ts`
   `ZCODE_PROCESS_PREFIX = "mikiko"`（常量名保持代码符号不变）。host
   （mikiko-host-local-N）、renderer（mikiko-renderer-*）、agent、utility 全部经
@@ -93,6 +97,10 @@ GitHub Actions（release-desktop.yml）、docs/specs 活文档与 NSIS/CMake 定
   `__ZCODE_*__`、window 全局 `__ZCODE_*__` 与 `ZCODE_*` error-code 常量值（plan §5）。
 
 ## 3. 落盘文件/目录名
+
+2026-10-21 复核确认：App 默认配置/项目索引仍归 `~/.mikiko/v2`，Agent 配置/会话仍归 `~/.mikiko/cli`；本次不修改路径解析、配置路由或用户设置。工作区忽略文件仍为 `.mikikoignore`，缺失时继续只在内存读取 `.gitignore` 与默认规则，不重新启用自动创建。新增模板和默认分区标记使用 Mikiko 文案；同步/恢复必须同时识别旧 ZCode 分区标记，保留旧文件的自定义规则与默认规则编辑。用户现有文件不批量改写。
+
+忽略规则实现登记为 `workspace-file-ignore` 受管模块，文件服务经其公开入口调用。规则内容仍以工作区文件为唯一事实；模块提供无状态解析/变换和既有原子文件 IO，不引入第二份配置缓存或写入路径，不改变 FileService RPC。
 
 | 项                                      | 改动                                                                                                                                                                                                                                                                                                                                     |
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

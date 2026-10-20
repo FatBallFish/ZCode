@@ -12,13 +12,13 @@
 
 ## 0. 前置条件
 
-| 依赖     | 要求                                                                  |
-| -------- | --------------------------------------------------------------------- |
-| 操作系统 | macOS（arm64 机器可直接打 arm64 和 x64 双架构包，CI 即是这么做的）    |
-| Xcode CLT| `xcode-select --install`（提供 `codesign` / `security` / `xcrun`）    |
-| Node     | 24.14.0（以 `mise.toml` 为准）                                        |
-| pnpm     | 10.33.2（以 `mise.toml` / `package.json` 的 packageManager 为准）     |
-| 磁盘     | 打包含 Electron 下载与 asar 解包重打包，建议预留 ≥ 10 GB             |
+| 依赖      | 要求                                                               |
+| --------- | ------------------------------------------------------------------ |
+| 操作系统  | macOS（arm64 机器可直接打 arm64 和 x64 双架构包，CI 即是这么做的） |
+| Xcode CLT | `xcode-select --install`（提供 `codesign` / `security` / `xcrun`） |
+| Node      | 24.14.0（以 `mise.toml` 为准）                                     |
+| pnpm      | 10.33.2（以 `mise.toml` / `package.json` 的 packageManager 为准）  |
+| 磁盘      | 打包含 Electron 下载与 asar 解包重打包，建议预留 ≥ 10 GB           |
 
 工具链就绪（仓库使用 mise 管理）：
 
@@ -63,11 +63,11 @@ pnpm bundle:desktop -- --os mac --arch x64
 
 产物位置（`packages/desktop/dist/`）：
 
-| 内容                 | 路径                                                |
-| -------------------- | --------------------------------------------------- |
-| arm64 应用目录       | `packages/desktop/dist/mac-arm64/Mikiko.app`        |
-| x64 应用目录         | `packages/desktop/dist/mac/Mikiko.app`              |
-| DMG 安装包           | `packages/desktop/dist/Mikiko-<version>-mac-<arch>.dmg` |
+| 内容           | 路径                                                    |
+| -------------- | ------------------------------------------------------- |
+| arm64 应用目录 | `packages/desktop/dist/mac-arm64/Mikiko.app`            |
+| x64 应用目录   | `packages/desktop/dist/mac/Mikiko.app`                  |
+| DMG 安装包     | `packages/desktop/dist/Mikiko-<version>-mac-<arch>.dmg` |
 
 无签名模式（不设置第 3 节的任何签名变量）下，CI 的健康基线是
 **bundle 全程约 6–12 分钟**（electron-builder 下载 Electron 约 10s、
@@ -138,7 +138,7 @@ spctl -a -vv -t exec mac-arm64/Mikiko.app
 cd packages/desktop/dist/mac-arm64/Mikiko.app/Contents/Resources
 for bin in glm/packages/zcode-cua-plugin/node_modules/koffi/build/koffi/*/koffi.node \
            tools/bfs/bfs tools/ripgrep/rg tools/ugrep/ugrep \
-           macos-window-bounds/zcode-window-bounds; do
+           macos-window-bounds/mikiko-window-bounds; do
   [ -f "$bin" ] || continue
   printf '%-90s ' "$bin"
   codesign -dv "$bin" 2>&1 | grep -E "Authority=|adhoc|code object is not signed" | head -1 || echo "未签名"
@@ -281,7 +281,7 @@ security show-keychain-info build-mac-sign.keychain-db
 1. **runner 镜像变更**：10-15 之前签名链路不存在，所有失败集中在 10-19；若本地
    一切正常，优先对比 `macos-latest` 镜像版本（run 页面 Environment/runner 面板）。
 2. **linker-signed adhoc 二进制**：arm64 上唯一必挂的文件是
-   `macos-window-bounds/zcode-window-bounds`（linker 签名的通用二进制），对这类
+   `macos-window-bounds/mikiko-window-bounds`（linker 签名的通用二进制），对这类
    文件 `codesign --force` 重签前需先 `codesign --remove-signature`（`dfe823b0`
    尝试过但当天被 revert，未单独验证过该假设）。
 3. **分区列表配方**：`set-key-partition-list -S apple-tool:,apple: -k ""` 是标准
@@ -290,12 +290,12 @@ security show-keychain-info build-mac-sign.keychain-db
 
 ### 6.4 判定标准
 
-| 本地现象                              | 结论                                      |
-| ------------------------------------- | ----------------------------------------- |
-| 路线 B（登录 keychain）正常、路线 C 挂 | 临时 keychain 配方/环境问题               |
-| 路线 B 也挂                           | 本机 keychain 有重复身份/授权弹窗问题     |
-| 两者都正常                            | GitHub runner 环境问题（对比镜像版本）    |
-| 仅个别二进制挂（zcode-window-bounds） | linker-signed 重签问题，先 remove 再签    |
+| 本地现象                               | 结论                                   |
+| -------------------------------------- | -------------------------------------- |
+| 路线 B（登录 keychain）正常、路线 C 挂 | 临时 keychain 配方/环境问题            |
+| 路线 B 也挂                            | 本机 keychain 有重复身份/授权弹窗问题  |
+| 两者都正常                             | GitHub runner 环境问题（对比镜像版本） |
+| 仅个别二进制挂（mikiko-window-bounds） | linker-signed 重签问题，先 remove 再签 |
 
 ## 7. 常见问题
 
@@ -310,10 +310,10 @@ security show-keychain-info build-mac-sign.keychain-db
 
 ## 8. 本地步骤与 CI 的对应关系
 
-| 本地（本文）               | CI（release-desktop.yml）                          |
-| -------------------------- | -------------------------------------------------- |
-| 第 1 节 pnpm install       | `Install dependencies`                             |
-| 第 4 节临时 keychain 三步  | `Prepare macOS signing identity`                   |
-| 第 2/3 节 bundle 命令      | `Bundle desktop installers`（`pnpm bundle:desktop -- --os mac --arch <arch>`） |
-| 第 5 节 notarize-macos.sh  | `Notarize macOS DMG`（含 `SIGN_RUNTIME_DIR` 导出） |
-| 第 4 节末尾还原命令        | `Cleanup macOS signing keychain`                   |
+| 本地（本文）              | CI（release-desktop.yml）                                                      |
+| ------------------------- | ------------------------------------------------------------------------------ |
+| 第 1 节 pnpm install      | `Install dependencies`                                                         |
+| 第 4 节临时 keychain 三步 | `Prepare macOS signing identity`                                               |
+| 第 2/3 节 bundle 命令     | `Bundle desktop installers`（`pnpm bundle:desktop -- --os mac --arch <arch>`） |
+| 第 5 节 notarize-macos.sh | `Notarize macOS DMG`（含 `SIGN_RUNTIME_DIR` 导出）                             |
+| 第 4 节末尾还原命令       | `Cleanup macOS signing keychain`                                               |

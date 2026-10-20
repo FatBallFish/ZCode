@@ -1,3 +1,6 @@
+// 自有可编译入口统一产品进程名，不依赖 Node/Electron 可执行文件的名称。
+process.title = "mikiko-server";
+
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runServerCli } from "./cli.js";

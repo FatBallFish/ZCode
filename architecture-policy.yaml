@@ -1188,6 +1188,17 @@ modules:
       adapters: .
     owner: remote-runtime
 
+  # workspace-file-ignore：现有忽略规则实现受管，保持 FileService 单一入口与原子 IO。
+  - id: workspace-file-ignore
+    roots: [packages/services/src/workspace-file-ignore]
+    managed: true
+    requires: [services]
+    publicEntrypoints:
+      - packages/services/src/workspace-file-ignore/index.ts
+      - packages/services/src/workspace-file-ignore/contract.ts
+    layers: { adapters: . }
+    owner: desktop-settings
+
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。
   # 基于领先 staging 很多的分支开工时，merge-base 之前的"新增"文件不应被追溯。

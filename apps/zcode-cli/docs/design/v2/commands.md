@@ -4,7 +4,7 @@
 
 CLI 命令名继续保持 `zcode`，用于兼容现有 npm `bin`、脚本、help 和文档示例。操作系统可见的 Node 进程名必须统一设置为 `zcode-cli`，避免通过 `ps`、Activity Monitor、任务管理器或 ZCode app-server 父进程管理面板观察时只看到 `node` 或不稳定的脚本名。
 
-入口层必须在加载 bootstrap、TUI、provider、storage 或其它可能启动异步任务的模块之前设置 `process.title = "zcode-cli"`。该行为不新增 `ZCODE_*` 环境变量，也不依赖当前平台 shell、二进制文件名或用户启动方式；普通 Node bundle、`tsx` 开发入口和 SEA binary 都应共享同一个进程名常量。
+入口层必须在加载 bootstrap、TUI、provider、storage 或其它可能启动异步任务的模块之前设置 `process.title = "mikiko-cli"`。该行为不新增 `ZCODE_*` 环境变量，也不依赖当前平台 shell、二进制文件名或用户启动方式；普通 Node bundle、`tsx` 开发入口和 SEA binary 都应共享同一个进程名常量。
 
 `zcode doctor --json` 必须同时报告 `cli.processName` 和 `runtime.processTitle`，普通 `zcode doctor` 输出也应展示当前进程名，便于脚本和人工诊断验证实际运行进程已经应用该契约。
 
@@ -88,7 +88,7 @@ ZCode app-server 的 command 广播使用 `available_commands_update` session up
 CLI process identity 测试覆盖：
 
 - 入口层设置的进程名常量为 `zcode-cli`，且普通命令名仍为 `zcode`。
-- `zcode doctor --json` 输出 `cli.processName = "zcode-cli"` 和 `runtime.processTitle = "zcode-cli"`。
+- `zcode doctor --json` 输出 `cli.processName = "mikiko-cli"` 和 `runtime.processTitle = "mikiko-cli"`。
 - 普通 `zcode doctor` 输出包含当前进程名，方便手动诊断。
 
 Headless `--prompt` 测试覆盖：

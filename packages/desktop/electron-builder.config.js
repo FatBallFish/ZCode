@@ -68,7 +68,7 @@ const workspaceRoot = resolve(import.meta.dirname, "../..");
 const desktopPackageRoot = import.meta.dirname;
 // Computer Use Helper（macOS .app、Windows runtime）只随真实 producer 打包；开源占位包下跳过随包资源与校验。
 const shouldPackageComputerUseHelper = isRealComputerUseProducerInstalled({ desktopPackageRoot });
-const HELPER_FILENAME = "zcode-browser-import-helper.exe";
+const HELPER_FILENAME = "mikiko-browser-import-helper.exe";
 const runtimeModuleLookupRoots = [
   desktopPackageRoot,
   workspaceRoot,
@@ -743,8 +743,8 @@ export default {
             // CUA 权限浮窗的吸附数据源（CGWindowListCopyWindowInfo，不需要任何 TCC 权限）。
             // 主进程按 process.resourcesPath 解析；缺失时 watcher fail-open，浮窗仍可用
             // 只是不吸附，所以这里不做存在性断言。
-            from: "resources/macos-window-bounds/zcode-window-bounds",
-            to: "macos-window-bounds/zcode-window-bounds",
+            from: "resources/macos-window-bounds/mikiko-window-bounds",
+            to: "macos-window-bounds/mikiko-window-bounds",
           },
         ]
       : []),

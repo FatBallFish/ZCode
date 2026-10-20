@@ -26,7 +26,7 @@ import {
   readWorkspaceFileSearchIgnore,
   transformWorkspaceFileSearchIgnore,
   writeWorkspaceFileSearchIgnore,
-} from "./workspaceFileIgnore.js";
+} from "#src/workspace-file-ignore/index.js";
 import { createServiceLogger } from "../logger/serviceLogger.js";
 import { getConversationWorkspaceDir } from "../paths.js";
 const DEFAULT_TEXT_READ_BYTES = 128 * 1024;

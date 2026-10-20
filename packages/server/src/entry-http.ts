@@ -1,3 +1,6 @@
+// 自有可编译入口统一产品进程名，不依赖 Node/Electron 可执行文件的名称。
+process.title = "mikiko-http-server";
+
 import {
   createServerHostServices,
   createTopicResourcePeers,

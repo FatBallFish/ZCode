@@ -51,7 +51,7 @@ describe("macOS CI 签名生命周期", () => {
     const resources = join(out, "Mikiko.app/Contents/Resources");
     await macho(join(resources, "glm/pkg/koffi.node"));
     await macho(join(resources, "tools/rg"));
-    await macho(join(resources, "macos-window-bounds/zcode-window-bounds"));
+    await macho(join(resources, "macos-window-bounds/mikiko-window-bounds"));
     await writeFile(join(resources, "tools/readme.txt"), "plain text");
     if (process.platform !== "win32") {
       await macho(join(out, "outside.node"));

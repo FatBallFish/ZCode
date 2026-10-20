@@ -284,7 +284,8 @@ function createDragPanelForSession(
 
 /** 生产走签名包内的 extraResources；dev 走 checkout 里的构建产物。 */
 function resolveWindowBoundsBinaryPath(): string {
-  const relative = join("macos-window-bounds", "zcode-window-bounds");
+  // 自建 Swift 辅助程序与构建/签名配置同步改名，不依赖官方 Helper 身份。
+  const relative = join("macos-window-bounds", "mikiko-window-bounds");
   return app.isPackaged
     ? join(process.resourcesPath, relative)
     : join(import.meta.dirname, "..", "..", "resources", relative);

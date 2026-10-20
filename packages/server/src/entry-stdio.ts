@@ -1,3 +1,6 @@
+// 自有可编译入口统一产品进程名，不依赖 Node/Electron 可执行文件的名称。
+process.title = "mikiko-stdio-server";
+
 import { migrateApplicationStorage, createSettingService } from "@zcode/services/node";
 import { disposeServiceResourcesAndWait, getAppConfigDir } from "@zcode/services/node";
 import type { IChannel } from "@zcode/rpc";
