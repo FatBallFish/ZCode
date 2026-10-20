@@ -2820,26 +2820,32 @@ export function createLocalServices(options: {
         // 迁移失败不阻断登录；本地档案保留，下次登录自动重试。
       });
   });
-  // E.4 远控设备认领：Mikiko ID 登录后，host 进程读 userData 下的远控设备文件获取 mid，
-  // 直接 HTTP 调 relay /api/rc/devices/claim。避免了 main↔host IPC 桥——host 已有网络
-  // 能力且文件系统共享。mid 文件由 main 进程的 wiring.ts 写入（deviceCredentials.ts），
-  // 此处只读，不修改（单一所有者不变）。
-  sub2ApiService.onOIDCLoginCompleted(async () => {
+  // E.4 远控设备认领：host 进程读 userData 下的远控设备文件获取 mid，
+  // 直接 HTTP 调 relay /api/rc/devices/claim（带重试，因为 main 进程的设备注册可能滞后）。
+  async function claimRemoteControlDevice(retriesLeft = 3): Promise<void> {
     try {
       const mid = await readRemoteControlDeviceMid();
       if (!mid) return;
       const token = await sub2ApiService.getOIDCAccessToken("mikikocc");
       if (!token) return;
-      await fetch("https://ws.mikiko.ai/api/rc/devices/claim", {
+      const response = await fetch("https://ws.mikiko.ai/api/rc/devices/claim", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
         body: JSON.stringify({ mid }),
         signal: AbortSignal.timeout(10_000),
       });
+      if (!response.ok && response.status === 404 && retriesLeft > 0) {
+        // 设备尚未注册（main 进程的 wiring 可能还在启动）——5s 后重试。
+        setTimeout(() => void claimRemoteControlDevice(retriesLeft - 1), 5_000).unref?.();
+      }
     } catch {
-      // 远控认领失败不阻断登录；下次登录或远控重连时重试。
+      // 认领失败不阻断；下次登录或重连时重试。
     }
-  });
+  }
+  // 登录时触发
+  sub2ApiService.onOIDCLoginCompleted(() => void claimRemoteControlDevice());
+  // App 重启时也触发（已有 OIDC session 的设备需要补认领——relay 是内存态，重启后绑定丢失）
+  void claimRemoteControlDevice();
   services
     .register(IProviderSettingsService, providerRuntime.providerSettings)
     .register(IModelSelectionService, providerRuntime.modelSelection)
@@ -3066,6 +3072,13 @@ async function readRemoteControlDeviceMid(): Promise<string | null> {
       "Library",
       "Application Support",
       "Electron",
+      "remote-control-device.json",
+    ),
+    joinPath(
+      homedir(),
+      "Library",
+      "Application Support",
+      "ZCode E2E",
       "remote-control-device.json",
     ),
   ].filter((path) => path.length > "remote-control-device.json".length);
