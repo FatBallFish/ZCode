@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 工单列表+详情抽屉+评论时间轴集中一页（方案 D.5/D.6）；拆散需要共享 detail 状态与刷新联动。 */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   api,

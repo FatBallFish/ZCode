@@ -25,6 +25,7 @@ import {
   resolveWebRemoteControlRelayWsUrl,
 } from "@zcode/shared";
 import { RemoteControlApp } from "./remote-control/RemoteControlApp.js";
+import { RemoteDevicesPage } from "./remote-control/RemoteDevicesPage.js";
 import { WebCallbackPage } from "./auth/WebCallbackPage.js";
 import { WebLoggedInWaitingPage } from "./auth/WebLoggedInWaitingPage.js";
 import { WebLoginPage } from "./auth/WebLoginPage.js";
@@ -2436,6 +2437,16 @@ async function bootstrapWebApp() {
   // > 构建期注入 > 同源（本地调试经 vite proxy）；域名迁移免重新构建手机页。
   // 判定须带 ws 参数：自建 relay 签发的票据必带 relay WS 基址，与上游 /remote 链路
   //（同样使用 sid/hash 布局但不带 ws）区分，避免误劫持上游流。
+  // Mikiko ID 设备列表页（方案 E.5）：/remote/devices 独立路由（票据入口之前）。
+  if (
+    window.location.pathname === "/remote/devices" ||
+    window.location.pathname === "/remote/devices/callback"
+  ) {
+    document.title = "Mikiko - Devices";
+    root.render(<RemoteDevicesPage />);
+    return;
+  }
+
   if (params.has("sid") && params.has("hash") && params.has("ws")) {
     const ticketWs = params.get("ws")?.trim() ?? "";
     const relayWsBase =
