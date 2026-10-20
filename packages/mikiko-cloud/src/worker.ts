@@ -136,7 +136,38 @@ export default {
       if (url.pathname === "/healthz") {
         return jsonResponse({ ok: true, version: SERVICE_VERSION });
       }
-      if (url.pathname.startsWith("/api/v1/shares/")) {
+      // ── zcode.z.ai 代理（2026-10-20 远控页面 CORS 修复）──
+  // 远控连接后 renderer 在手机浏览器中运行，直接 fetch zcode.z.ai 被浏览器 CORS 拦截。
+  // Worker 代理此端点并以 * CORS 返回，renderer 的 CodingPlan/订阅请求改走 agent.mikiko.ai。
+  // 仅代理只读 GET 端点（client/configs、zcode-plan/billing/*）；OAuth 等写操作仍直连官方。
+  if (
+    request.method === "GET" &&
+    (url.pathname === "/api/v1/client/configs" ||
+     url.pathname.startsWith("/api/v1/zcode-plan/billing/"))
+  ) {
+    const upstream = new URL(`https://zcode.z.ai${url.pathname}${url.search}`);
+    const proxyResponse = await fetch(upstream.toString(), {
+      method: "GET",
+      headers: {
+        // 透传必要头；不透传 Authorization（代理是公开只读的）。
+        ...(request.headers.get("accept") ? { accept: request.headers.get("accept")! } : {}),
+      },
+      signal: AbortSignal.timeout(15_000),
+    }).catch(() => null);
+    if (proxyResponse === null) {
+      return jsonResponse({ error: "upstream_unavailable" }, 502);
+    }
+    const body = await proxyResponse.text();
+    return new Response(body, {
+      status: proxyResponse.status,
+      headers: {
+        "content-type": proxyResponse.headers.get("content-type") ?? "application/json",
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=300",
+      },
+    });
+  }
+  if (url.pathname.startsWith("/api/v1/shares/")) {
         return handleShareRequest({ request, env, url, origin: url.origin });
       }
       // Bug 上报客户端端点（specs/mikiko-cloud/feedback-tickets.md）：设备 token 鉴权在模块内。
