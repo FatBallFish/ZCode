@@ -164,6 +164,13 @@ export default {
   if (url.pathname === "/admin.html" || url.pathname === "/admin.html/") {
     return Response.redirect(url.origin + "/admin/", 301);
   }
+  // admin SPA HTML 不缓存（hash 文件名资产自带 immutable，但 HTML 必须每次取最新引用）。
+  if (url.pathname === "/admin/" || url.pathname === "/admin") {
+    const assetResponse = await env.ASSETS.fetch(new Request(url.origin + "/admin/index.html", request));
+    const headers = new Headers(assetResponse.headers);
+    headers.set("Cache-Control", "no-cache, must-revalidate");
+    return new Response(assetResponse.body, { status: assetResponse.status, headers });
+  }
  return env.ASSETS.fetch(new URL(location, url.origin));
         }
         return page;
