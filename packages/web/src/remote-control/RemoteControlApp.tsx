@@ -54,9 +54,11 @@ function phoneWsUrl(relayWsBase: string, sid: string, token: string): string {
 export function RemoteControlApp({
   relayWsBase,
   platform,
+  preAuthorized,
 }: {
   relayWsBase: string;
   platform: IPlatformService;
+  preAuthorized?: { sid: string; sessionToken: string };
 }) {
   const [query] = useState<RemoteControlQuery | null>(() => parseRemoteControlQuery());
   const queryRef = useRef<RemoteControlQuery | null>(query);
@@ -314,6 +316,12 @@ export function RemoteControlApp({
       return;
     }
     void (async () => {
+      if (preAuthorized) {
+        sessionToken.current = preAuthorized.sessionToken;
+        queryRef.current = { sid: preAuthorized.sid, hash: "", t: Date.now(), mid: "", name: "" };
+        await connect();
+        return;
+      }
       const bound = await bind();
       if (!bound) {
         setProgressFailed(true);

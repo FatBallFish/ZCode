@@ -1,3 +1,4 @@
+import { RemoteControlApp } from "./RemoteControlApp.js";
 /**
  * remote.mikiko.ai 设备列表页（方案 E.5）：Mikiko ID 登录 → 查看已认领设备 → 发起远控。
  *
@@ -42,6 +43,7 @@ export function RemoteDevicesPage(): React.JSX.Element {
   const [devices, setDevices] = useState<RemoteDeviceInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [connectingMid, setConnectingMid] = useState<string | null>(null);
+  const [connected, setConnected] = useState<{ sid: string; sessionToken: string } | null>(null);
 
   useEffect(() => {
     void bootstrap();
@@ -125,7 +127,7 @@ export function RemoteDevicesPage(): React.JSX.Element {
       // 复用既有 RemoteControlApp 连接器：直接跳到票据入口形态（sid+token），
       // 但用 account connect 签发的凭证替代 HMAC 票据参数。
       const connectUrl = `${currentOrigin()}?sid=${encodeURIComponent(result.sid)}&hash=${encodeURIComponent(result.sessionToken)}&t=${Date.now()}&mid=${encodeURIComponent(mid)}&ws=${encodeURIComponent(RELAY_WS_BASE)}`;
-      window.location.href = connectUrl;
+      setConnected({ sid: result.sid, sessionToken: result.sessionToken });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
       setPhase("ready");
@@ -171,6 +173,16 @@ export function RemoteDevicesPage(): React.JSX.Element {
           使用 Mikiko ID 登录
         </button>
       </div>
+    );
+  }
+
+  if (connected) {
+    return (
+      <RemoteControlApp
+        relayWsBase={RELAY_WS_BASE}
+        platform={{} as never}
+        preAuthorized={{ sid: connected.sid, sessionToken: connected.sessionToken }}
+      />
     );
   }
 
