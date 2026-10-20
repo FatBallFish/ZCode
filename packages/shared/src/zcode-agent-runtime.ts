@@ -29,7 +29,8 @@ export const ZCODE_AGENT_RUNTIME: ZCodeAgentRuntimeDescriptor = {
   bundledResourceDir: "glm",
   version: "0.13.3",
   spawnArgs: ["app-server", "--stdio"],
-  nativeConfigDir: ".zcode/cli",
+  // Host 必须读取 CLI 已使用的 Mikiko 配置根；旧目录由 services 的只迁缺失目标规则兼容。
+  nativeConfigDir: ".mikiko/cli",
   nativeConfigFileName: "config.json",
   missingBinaryMessage:
     "[Mikiko Agent] glm binary 未找到，请设置 MIKIKO_AGENT_WORKDIR、MIKIKO_AGENT_BINARY_PATH 或先准备 GLM 运行时资源",

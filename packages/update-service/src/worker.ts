@@ -134,11 +134,17 @@ async function handleDownload(env: Env, url: URL, request: Request): Promise<Res
   if (object == null) {
     return jsonResponse({ error: "not_found", key }, 404);
   }
+  // 索引在同版本恢复发布时可更新；归档/组件按内容寻址，仍维持不可变缓存。
+  const mutableIndex =
+    key === "mikiko/server/catalog.json" ||
+    /^mikiko\/electron\/releases\/[^/]+\/source-server-release\.json$/u.test(key);
   const headers = new Headers({
     "content-type": object.httpMetadata?.contentType ?? "application/octet-stream",
     "accept-ranges": "bytes",
     // 安装包内容按版本寻址，不可变。
-    "cache-control": "public, max-age=31536000, immutable",
+    "cache-control": mutableIndex
+      ? "no-cache, must-revalidate"
+      : "public, max-age=31536000, immutable",
     etag: object.httpEtag,
   });
   if (range && object.range) {

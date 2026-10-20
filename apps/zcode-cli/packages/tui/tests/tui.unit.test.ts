@@ -55,7 +55,7 @@ test("normalizes prompt input for the shell", () => {
   );
 });
 
-test("renders a ZCODE logo placeholder for an empty transcript", () => {
+test("renders a MIKIKO logo placeholder for an empty transcript", () => {
   const [child] = reactElementChildren(
     ContentPane({ copy: EN_COPY, focused: false, messages: [] }),
   );

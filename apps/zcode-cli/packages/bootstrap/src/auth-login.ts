@@ -37,7 +37,7 @@ import {
 import { createConfig } from "@zcode/adapters/config";
 import { createNodeHttpClientAdapter } from "@zcode/adapters/http";
 import type { EnvRecord } from "@zcode/adapters/model";
-import { buildZCodeEndpointUrls, resolveRuntimeZCodeEndpointOrigin } from "@zcode/shared";
+import { buildZCodeEndpointUrls, resolveCodingPlanEndpointOrigin } from "@zcode/shared";
 import { setTimeout as delay } from "node:timers/promises";
 import { createStandaloneAccountIdentityFromSecret } from "./app/standalone-account-provider-runtime.js";
 import { throwIfAborted, waitWithAbort } from "./auth-login-abort.js";
@@ -216,15 +216,12 @@ export async function configureCodingPlanApiKey(
 
 function createOAuthClient(options: LoginZCodeCliOptions, env: EnvRecord): CliOAuthClient {
   return createCliOAuthClient({
+    // CodingPlan 账号是保留的官方服务，不能跟随普通产品云默认地址。
     baseUrl:
-      options.baseUrl ?? buildZCodeEndpointUrls(resolveCliZCodeEndpointOrigin(env)).apiBaseUrl,
+      options.baseUrl ?? buildZCodeEndpointUrls(resolveCodingPlanEndpointOrigin(env)).apiBaseUrl,
     providerId: options.providerId ?? "zai",
     httpClient: options.httpClient ?? createDefaultHttpClient(env),
   });
-}
-
-function resolveCliZCodeEndpointOrigin(env: EnvRecord): string {
-  return resolveRuntimeZCodeEndpointOrigin(env);
 }
 
 function createDefaultHttpClient(env: EnvRecord) {

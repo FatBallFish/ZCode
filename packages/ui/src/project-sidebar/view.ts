@@ -215,7 +215,7 @@ export function mergeProjectTrees(
     if (!retainedHosts.has(entry.hostId)) continue;
     const tree = remote.get(entry.hostId);
     const resolved = tree && resolveEntryProject(entry, tree);
-    const project: VirtualProject = resolved ?? {
+    const source: VirtualProject = resolved ?? {
       id: entry.projectId ?? `legacy:${entry.id}`,
       hostId: entry.hostId,
       name: entry.name,
@@ -227,10 +227,13 @@ export function mergeProjectTrees(
       createdAt: 0,
       updatedAt: 0,
     };
+    const project =
+      entry.initialPosition == null ? source : { ...source, position: entry.initialPosition };
     const key = projectKey(project);
     if (!availability.has(key)) projects.push(project);
     availability.set(key, {
       entryId: entry.id,
+      ...(entry.initialPosition == null ? {} : { upgradeEntryId: entry.id }),
       online: Boolean(resolved),
       ...(!resolved && tree ? { unresolved: true } : {}),
     });

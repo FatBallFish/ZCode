@@ -306,12 +306,13 @@ export function disabledNetworkCaptureStatus(): NetworkCaptureStatus {
 export function createNetworkCaptureServiceFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): NetworkCaptureService | undefined {
-  if (isDisabled(env.ZCODE_DEBUG_NETWORK_CAPTURE)) return undefined;
+  // 新命名优先，旧环境仅作读取兼容；诊断输出仍统一为 Mikiko。
+  if (isDisabled((env.MIKIKO_DEBUG_NETWORK_CAPTURE ?? env.ZCODE_DEBUG_NETWORK_CAPTURE))) return undefined;
   return new NetworkCaptureService({
-    host: env.ZCODE_DEBUG_NETWORK_HOST || undefined,
-    port: parsePositiveInteger(env.ZCODE_DEBUG_NETWORK_PORT) ?? DEFAULT_PORT,
-    caDir: env.ZCODE_DEBUG_NETWORK_CA_DIR || undefined,
-    maxEntries: parsePositiveInteger(env.ZCODE_DEBUG_NETWORK_MAX_ENTRIES) ?? DEFAULT_MAX_ENTRIES,
+    host: (env.MIKIKO_DEBUG_NETWORK_HOST ?? env.ZCODE_DEBUG_NETWORK_HOST) || undefined,
+    port: parsePositiveInteger((env.MIKIKO_DEBUG_NETWORK_PORT ?? env.ZCODE_DEBUG_NETWORK_PORT)) ?? DEFAULT_PORT,
+    caDir: (env.MIKIKO_DEBUG_NETWORK_CA_DIR ?? env.ZCODE_DEBUG_NETWORK_CA_DIR) || undefined,
+    maxEntries: parsePositiveInteger((env.MIKIKO_DEBUG_NETWORK_MAX_ENTRIES ?? env.ZCODE_DEBUG_NETWORK_MAX_ENTRIES)) ?? DEFAULT_MAX_ENTRIES,
   });
 }
 

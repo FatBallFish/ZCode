@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// 协议 handler 只从 workspace 推导 storageRoot，user config 仍解析到 ~/.zcode/cli/config.json
+// 协议 handler 只从 workspace 推导 storageRoot，user config 仍解析到 ~/.mikiko/cli/config.json
 // （getDefaultConfigPath 无 env 覆盖）。为隔离 restore/overview 的 user-config 往返，把 node:os
-// 的 homedir 重定向到一次性临时目录；tmpdir 等其余实现保留原值。这样 resolvePath("~/.zcode/cli")
+// 的 homedir 重定向到一次性临时目录；tmpdir 等其余实现保留原值。这样 resolvePath("~/.mikiko/cli")
 // 落到隔离目录，绝不触碰真实 HOME。
 // 回归原因：vi.mock 会提升到普通 const 初始化之前；临时 HOME 也必须通过 vi.hoisted
 // 提前建立，否则 mock factory 读取 FAKE_HOME 时会命中 TDZ，导致整个 suite 无法收集。
@@ -40,6 +40,7 @@ import { getCliStorageRoot, getPluginStorageRoot } from "../src/app/paths.js";
 import { installZCodeMarketplacePlugin } from "../src/plugins.js";
 import {
   addPluginMarketplace,
+  describePlugin,
   getPluginsOverview,
   installPlugin,
   listPlugins,
@@ -100,6 +101,87 @@ describe("plugins protocol contracts", () => {
       expect(await mutation).toBe("rejected");
     } finally {
       releaseLock();
+      await blocker;
+      if (previousStorageDir === undefined) delete process.env.MIKIKO_STORAGE_DIR;
+      else process.env.MIKIKO_STORAGE_DIR = previousStorageDir;
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("describes a cached marketplace candidate while a long install holds the storage lock", async () => {
+    const root = await mkdtemp(join(tmpdir(), "zcode-protocol-describe-lock-"));
+    const previousStorageDir = process.env.MIKIKO_STORAGE_DIR;
+    process.env.MIKIKO_STORAGE_DIR = join(root, "storage");
+    const pluginStorageRoot = getPluginStorageRoot(
+      getCliStorageRoot(process.env.MIKIKO_STORAGE_DIR),
+    );
+    const marketplaceDir = join(pluginStorageRoot, "marketplaces", "e2e-describe");
+    await writeTestFile(
+      join(marketplaceDir, "marketplace.json"),
+      JSON.stringify({ name: "e2e-describe", plugins: [{ name: "local", source: "./local" }] }),
+    );
+    await writeTestFile(
+      join(marketplaceDir, "local", "skills", "describe-marker", "SKILL.md"),
+      "---\nname: describe-marker\ndescription: Describe marker\n---\n",
+    );
+    const lock = Promise.withResolvers<void>();
+    const entered = Promise.withResolvers<void>();
+    // 模拟长时间安装占住存储锁：详情读取已缓存 manifest 时不能排在它后面。
+    const blocker = withPluginStorageLock(pluginStorageRoot, async () => {
+      entered.resolve();
+      await lock.promise;
+    });
+    try {
+      await entered.promise;
+      const result = await Promise.race([
+        describePlugin({} as ZCodeProtocolAgentServerContext, {
+          workspace: { workspacePath: root, workspaceKey: root },
+          marketplace: "e2e-describe",
+          pluginName: "local",
+        }),
+        new Promise<"blocked">((resolve) => setTimeout(() => resolve("blocked"), 1000)),
+      ]);
+      expect(result).not.toBe("blocked");
+      expect(JSON.stringify(result)).toContain("describe-marker");
+    } finally {
+      lock.resolve();
+      await blocker;
+      if (previousStorageDir === undefined) delete process.env.MIKIKO_STORAGE_DIR;
+      else process.env.MIKIKO_STORAGE_DIR = previousStorageDir;
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("keeps describe behind the storage lock when the marketplace manifest must be written", async () => {
+    const root = await mkdtemp(join(tmpdir(), "zcode-protocol-describe-fetch-lock-"));
+    const previousStorageDir = process.env.MIKIKO_STORAGE_DIR;
+    process.env.MIKIKO_STORAGE_DIR = join(root, "storage");
+    const pluginStorageRoot = getPluginStorageRoot(
+      getCliStorageRoot(process.env.MIKIKO_STORAGE_DIR),
+    );
+    const lock = Promise.withResolvers<void>();
+    const entered = Promise.withResolvers<void>();
+    const blocker = withPluginStorageLock(pluginStorageRoot, async () => {
+      entered.resolve();
+      await lock.promise;
+    });
+    try {
+      await entered.promise;
+      const describe = describePlugin({} as ZCodeProtocolAgentServerContext, {
+        workspace: { workspacePath: root, workspaceKey: root },
+        marketplace: "missing-marketplace",
+        pluginName: "missing",
+      }).then(() => "resolved");
+      expect(
+        await Promise.race([
+          describe,
+          new Promise<"blocked">((resolve) => setTimeout(() => resolve("blocked"), 50)),
+        ]),
+      ).toBe("blocked");
+      lock.resolve();
+      expect(await describe).toBe("resolved");
+    } finally {
+      lock.resolve();
       await blocker;
       if (previousStorageDir === undefined) delete process.env.MIKIKO_STORAGE_DIR;
       else process.env.MIKIKO_STORAGE_DIR = previousStorageDir;
@@ -190,7 +272,7 @@ describe("plugins protocol contracts", () => {
     const pluginRoot = join(root, "plugins", "workspace-demo");
     try {
       await writeTestFile(
-        join(root, ".zcode", "config.json"),
+        join(root, ".mikiko", "config.json"),
         JSON.stringify({ plugins: { dirs: [pluginRoot], enabledPlugins: { "workspace-demo@inline": false } } }),
       );
       await writeTestFile(
@@ -220,7 +302,7 @@ describe("plugins protocol contracts", () => {
   it("keeps the User projection independent from Workspace enable overrides", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-plugin-config-view-"));
     const pluginId = "skill-creator@zcode-plugins-official";
-    const userConfigPath = join(FAKE_HOME, ".zcode", "cli", "config.json");
+    const userConfigPath = join(FAKE_HOME, ".mikiko", "cli", "config.json");
     try {
       await writeTestFile(
         userConfigPath,
@@ -229,7 +311,7 @@ describe("plugins protocol contracts", () => {
         }),
       );
       await writeTestFile(
-        join(root, ".zcode", "config.json"),
+        join(root, ".mikiko", "config.json"),
         JSON.stringify({
           plugins: { enabledPlugins: { [pluginId]: false } },
         }),
@@ -272,7 +354,7 @@ describe("plugins protocol contracts", () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-plugin-option-source-view-"));
     const pluginRoot = join(root, "user-plugin");
     const pluginId = "option-source-view@inline";
-    const userConfigPath = join(FAKE_HOME, ".zcode", "cli", "config.json");
+    const userConfigPath = join(FAKE_HOME, ".mikiko", "cli", "config.json");
     try {
       await writeTestFile(
         join(pluginRoot, ".claude-plugin", "plugin.json"),
@@ -313,7 +395,7 @@ describe("plugins protocol contracts", () => {
     const pluginId = "missing-fixture@personal-market";
     try {
       await writeTestFile(
-        join(root, ".zcode", "config.json"),
+        join(root, ".mikiko", "config.json"),
         JSON.stringify({
           plugins: { enabledPlugins: { [pluginId]: true } },
         }),
@@ -559,11 +641,11 @@ describe("updatePlugin handler diagnostics", () => {
 // restoreBuiltinPlugin / overview 走真实 bootstrap 路径：storageRoot 由 MIKIKO_STORAGE_DIR
 // 锚定（storage.dir 以 "cli" 结尾时 getCliStorageRoot 原样返回，pluginStorageRoot =
 // <storageDir>/plugins）；suppressedBuiltins 必须写到 handler 实际解析的 user config，即
-// ~/.zcode/cli/config.json（文件头部已把 homedir 重定向到 FAKE_HOME，故落在隔离目录）。
+// ~/.mikiko/cli/config.json（文件头部已把 homedir 重定向到 FAKE_HOME，故落在隔离目录）。
 describe("restoreBuiltinPlugin handler", () => {
   const noopContext = {} as unknown as ZCodeProtocolAgentServerContext;
   const builtinId = "skill-creator@zcode-plugins-official";
-  const userConfigPath = join(FAKE_HOME, ".zcode", "cli", "config.json");
+  const userConfigPath = join(FAKE_HOME, ".mikiko", "cli", "config.json");
   let previousStorageDir: string | undefined;
 
   beforeEach(() => {

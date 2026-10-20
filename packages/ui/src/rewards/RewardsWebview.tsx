@@ -1,3 +1,4 @@
+import { shouldExposeE2EStoreBridge } from "@/lib/e2eStoreBridge.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildRewardsUrl,
@@ -38,7 +39,19 @@ export function RewardsWebview({ onClose }: { onClose: () => void }) {
     ? "zai-dark"
     : "zai-light";
   const env = import.meta.env;
-  const policy = { dev: env.DEV, e2e: env.VITE_ZCODE_E2E_STORE_BRIDGE === "1" };
+  const policy = {
+    dev: env.DEV,
+    e2e: shouldExposeE2EStoreBridge({
+      VITE_MIKIKO_E2E_STORE_BRIDGE:
+        typeof env.VITE_MIKIKO_E2E_STORE_BRIDGE === "string"
+          ? env.VITE_MIKIKO_E2E_STORE_BRIDGE
+          : undefined,
+      VITE_ZCODE_E2E_STORE_BRIDGE:
+        typeof env.VITE_ZCODE_E2E_STORE_BRIDGE === "string"
+          ? env.VITE_ZCODE_E2E_STORE_BRIDGE
+          : undefined,
+    }),
+  };
   const [url] = useState(() =>
     buildRewardsUrl(
       resolveRewardsOrigin({

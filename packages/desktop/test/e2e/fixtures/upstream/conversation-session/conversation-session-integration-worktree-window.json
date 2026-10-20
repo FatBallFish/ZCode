@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-integration-worktree-window",
+  "spec": "./test/e2e/conversation-session/conversation-session-integration-worktree-window.test.ts",
+  "fixtures": [
+    {
+      "id": "conversation-session-integration-worktree-window-title",
+      "description": "INT-E2E-01 common deterministic response",
+      "metadata": {
+        "kind": "common",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "已确认合入验收仅验证Host/CLI/UI的状态与真实IO，模型选择性不属于验收；使用隔离loopback确定性响应，禁止生产账号和收费模型。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Generate a concise title", "E2E_INTEGRATION_WORKTREE_WINDOW"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "conversation-session-integration-worktree-window-title",
+          "inputTokens": 80,
+          "outputTokens": 12,
+          "text": "{\"title\": \"INT-E2E-01 Mikiko integration\"}"
+        }
+      }
+    },
+    {
+      "id": "conversation-session-integration-worktree-window-main",
+      "description": "INT-E2E-01 main deterministic response",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "已确认合入验收仅验证Host/CLI/UI的状态与真实IO，模型选择性不属于验收；使用隔离loopback确定性响应，禁止生产账号和收费模型。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "lastUserMessageIncludes": ["E2E_INTEGRATION_WORKTREE_WINDOW"],
+        "bodyExcludes": ["Generate a concise title", "CRITICAL: Respond with TEXT ONLY"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "conversation-session-integration-worktree-window-main",
+          "inputTokens": 80,
+          "outputTokens": 12,
+          "text": "INTEGRATION_WORKTREE_OK"
+        }
+      }
+    }
+  ]
+}

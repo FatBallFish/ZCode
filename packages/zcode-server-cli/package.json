@@ -7,7 +7,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./main": "./src/main.ts"
+    "./main": "./src/main.ts",
+    "./runtime-manifest": "./src/runtime/manifest.ts",
+    "./release-catalog": "./src/contracts.ts"
   },
   "scripts": {
     "build": "tsup",

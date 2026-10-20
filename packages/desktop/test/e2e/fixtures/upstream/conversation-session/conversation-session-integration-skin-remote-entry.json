@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-integration-skin-remote-entry",
+  "spec": "./test/e2e/conversation-session/conversation-session-integration-skin-remote-entry.test.ts",
+  "fixtures": []
+}

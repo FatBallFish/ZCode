@@ -98,8 +98,16 @@ describe("desktop renderer Vite dependency aliases", () => {
       "silent",
     );
 
-    expect(result?.config.plugins?.some((plugin) => plugin.name === "zcode:pdfjs-cmaps")).toBe(
-      true,
+    // 插件分为 build 资产输出与 serve 中间件；Vite 允许嵌套 PluginOption 数组。
+    const plugins = (result?.config.plugins ?? []).flat(Infinity) as Array<{
+      name?: string;
+      apply?: unknown;
+    }>;
+    expect(plugins).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "mikiko:pdfjs-cmaps-build", apply: "build" }),
+        expect.objectContaining({ name: "mikiko:pdfjs-cmaps-serve", apply: "serve" }),
+      ]),
     );
   });
 
@@ -147,6 +155,28 @@ describe("desktop renderer Vite dependency aliases", () => {
     expect(result?.config.define).toMatchObject({
       __ZCODE_ENV__: JSON.stringify("production"),
       __ZCODE_PRODUCT_FLAVOR__: JSON.stringify("preview"),
+    });
+  });
+});
+
+describe("Mikiko E2E renderer bridge flag compatibility", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it.each([
+    ["1", "0", "1"],
+    ["", "1", ""],
+  ])("new=%s legacy=%s resolves both injected keys to %s", async (current, legacy, expected) => {
+    vi.stubEnv("VITE_MIKIKO_E2E_STORE_BRIDGE", current);
+    vi.stubEnv("VITE_ZCODE_E2E_STORE_BRIDGE", legacy);
+    const desktopRoot = resolve(import.meta.dirname, "..");
+    const result = await loadConfigFromFile(
+      { command: "build", mode: "production", isPreview: false, isSsrBuild: false },
+      resolve(desktopRoot, "vite.config.ts"),
+      desktopRoot,
+      "silent",
+    );
+    expect(result?.config.define).toMatchObject({
+      "import.meta.env.VITE_MIKIKO_E2E_STORE_BRIDGE": JSON.stringify(expected),
+      "import.meta.env.VITE_ZCODE_E2E_STORE_BRIDGE": JSON.stringify(expected),
     });
   });
 });

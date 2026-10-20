@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-integration-skin-remote-entry",
+  "spec": "./test/e2e/conversation-session/conversation-session-integration-skin-remote-entry.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-integration-skin-remote-entry.json"
+  ],
+  "fileFixtures": [
+    {
+      "path": "~/.mikiko/v2/theme-skins/<generated>/theme.json",
+      "source": "created-by-spec",
+      "description": "Required .e2e-home-integration-*; real temporary Git, SQLite, worktree registry or theme JSON evidence."
+    }
+  ],
+  "requests": [],
+  "providerRequestPolicy": "none",
+  "noProviderRequests": true
+}

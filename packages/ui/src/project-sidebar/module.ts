@@ -12,6 +12,7 @@ export const projectSidebarModule = {
     "web-remote-control-ui",
     "remote-connection-flow",
     "worktree-ui-state",
+    "workbench-drag",
   ],
   provides: ["project-sidebar"],
   publicEntrypoints: [

@@ -163,8 +163,12 @@ export default defineConfig(({ mode }) => {
   });
   const e2eCoverageEnabled =
     env.ZCODE_E2E_COVERAGE === "1" || process.env.ZCODE_E2E_COVERAGE === "1";
+  // 新旧测试键必须落到同一布尔值；旧值不能复活被新键显式关闭的store探针。
   const e2eStoreBridgeEnabled =
-    env.VITE_ZCODE_E2E_STORE_BRIDGE === "1" || process.env.VITE_ZCODE_E2E_STORE_BRIDGE === "1";
+    (process.env.VITE_MIKIKO_E2E_STORE_BRIDGE ??
+      env.VITE_MIKIKO_E2E_STORE_BRIDGE ??
+      process.env.VITE_ZCODE_E2E_STORE_BRIDGE ??
+      env.VITE_ZCODE_E2E_STORE_BRIDGE) === "1";
   const zcodeEndpointOrigin = resolveZCodeEndpointOrigin({
     env: zcodeEnv,
     envBaseOrigin:
@@ -217,6 +221,9 @@ export default defineConfig(({ mode }) => {
         env.VITE_REWARDS_WEBVIEW_ORIGIN ?? process.env.VITE_REWARDS_WEBVIEW_ORIGIN ?? "",
       ),
       // Bugfix: E2E store bridge 只能由 WDIO 专用变量打开，避免把 MIKIKO_ENV=test 产品环境误当成测试运行态。
+      "import.meta.env.VITE_MIKIKO_E2E_STORE_BRIDGE": JSON.stringify(
+        e2eStoreBridgeEnabled ? "1" : "",
+      ),
       "import.meta.env.VITE_ZCODE_E2E_STORE_BRIDGE": JSON.stringify(
         e2eStoreBridgeEnabled ? "1" : "",
       ),

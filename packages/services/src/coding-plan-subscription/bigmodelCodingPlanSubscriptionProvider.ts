@@ -69,6 +69,7 @@ import {
   REQUEST_VERIFICATION_REQUIRED,
   CODING_PLAN_SYSTEM_BUSY,
   buildRuntimeZCodeApiUrl,
+  buildRuntimeCodingPlanApiUrl,
   isZaiCodingPlanProviderId,
   resolveBigModelApiOrigin,
   resolveZaiBusinessBaseUrl,
@@ -265,7 +266,10 @@ export class BigModelCodingPlanSubscriptionProvider {
 
   async getManualClaimPlanPreviews(): Promise<ManualClaimPlanPreviewSnapshot> {
     const token = (await this.credentialService.load(ZCODE_JWT_TOKEN_KEY))?.trim();
-    const url = new URL(buildRuntimeZCodeApiUrl(process.env, "/api/v1/zcode-plan/billing/preview"));
+    // 套餐预览携带官方账号凭据，不得跟随自建产品云的通用 origin。
+    const url = new URL(
+      buildRuntimeCodingPlanApiUrl(process.env, "/api/v1/zcode-plan/billing/preview"),
+    );
     url.searchParams.set("app_version", ZCODE_VERSION);
     url.searchParams.set("platform", resolveClientPlatformKey());
     const payload = await readCodingPlanApiJson<RemoteEnvelope<ManualClaimPlanPreviewPayload>>(
@@ -332,7 +336,7 @@ export class BigModelCodingPlanSubscriptionProvider {
       Omit<RemoteEnvelope<ManualClaimPlanClaimPayload>, "code"> & { code?: number | string }
     >(
       this.apiClient,
-      new URL(buildRuntimeZCodeApiUrl(process.env, "/api/v1/zcode-plan/billing/claim")),
+      new URL(buildRuntimeCodingPlanApiUrl(process.env, "/api/v1/zcode-plan/billing/claim")),
       {
         method: "POST",
         headers: {

@@ -7,7 +7,7 @@ import { inspectZCodeSkill, listZCodeSkills } from "../src/skills.js";
 describe("inspectZCodeSkill", () => {
   it("loads one discovered skill through the configured skill adapter", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-bootstrap-skill-"));
-    const skillDir = join(dir, ".zcode", "skills", "demo");
+    const skillDir = join(dir, ".mikiko", "skills", "demo");
 
     try {
       await mkdir(skillDir, { recursive: true });

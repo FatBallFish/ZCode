@@ -25,6 +25,36 @@ function createPlan(overrides: Record<string, unknown> = {}) {
 }
 
 describe("Windows E2E shard runner", () => {
+  it("uses Mikiko isolation inputs and gives legacy helpers the same allocated paths", () => {
+    const plan = createPlan({
+      env: {
+        MIKIKO_E2E_RUN_ID: "mikiko-run",
+        ZCODE_E2E_RUN_ID: "stale-run",
+        MIKIKO_E2E_HOME_DIR: join(desktopDir, ".e2e-home-integration-new"),
+        ZCODE_E2E_HOME_DIR: join(desktopDir, ".e2e-home-old"),
+        MIKIKO_E2E_ARTIFACT_DIR: join(desktopDir, "new-artifacts"),
+        MIKIKO_E2E_NETWORK_CAPTURE_DIR: join(desktopDir, "new-network"),
+        MIKIKO_E2E_SHARD_TOTAL: "2",
+      },
+    });
+    expect(plan.runId).toBe("mikiko-run");
+    expect(plan.shardTotal).toBe(2);
+    for (const child of plan.children) {
+      for (const suffix of [
+        "HOME_DIR",
+        "RUN_ID",
+        "ARTIFACT_DIR",
+        "NETWORK_CAPTURE_DIR",
+        "SKIP_BUILD",
+        "SKIP_AGENT_BUILD",
+      ]) {
+        expect(child.env[`MIKIKO_E2E_${suffix}`]).toBe(child.env[`ZCODE_E2E_${suffix}`]);
+      }
+      expect(child.env.MIKIKO_E2E_HOME_DIR).toContain(".e2e-home-integration-new");
+      expect(child.env.MIKIKO_E2E_ARTIFACT_DIR).toContain("new-artifacts");
+    }
+  });
+
   it("derives disjoint paths from automatic run IDs while preserving an explicit run ID", () => {
     const timestamp = new Date("2026-07-11T00:30:00.123Z");
     vi.useFakeTimers();

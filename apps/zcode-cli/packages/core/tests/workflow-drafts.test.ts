@@ -28,7 +28,7 @@ describe("writeWorkflowDraft", () => {
     return join(cwd, WORKFLOW_DRAFTS_DIR);
   }
 
-  it("落在 .zcode/workflow-drafts/<slug>.dwf.ts，内容逐字节", async () => {
+  it("落在 .mikiko/workflow-drafts/<slug>.dwf.ts，内容逐字节", async () => {
     const source = 'phase("检查");\nreturn 1;\n';
     const written = await writeWorkflowDraft({ cwd, name: "pr-review", source });
     expect(written?.path).toBe(join(draftsDir(), "pr-review.dwf.ts"));
@@ -93,9 +93,9 @@ describe("writeWorkflowDraft", () => {
   });
 
   it("写不进去时返回 undefined 而不是抛：调用方退回旧文案，工具调用照常完成", async () => {
-    // `.zcode` 是个普通文件 → mkdir 报 ENOTDIR。只读目录在部分平台 / root 下不成立，
+    // `.mikiko` 是个普通文件 → mkdir 报 ENOTDIR。只读目录在部分平台 / root 下不成立，
     // 这一种在三个平台上都成立。
-    writeFileSync(join(cwd, ".zcode"), "not a directory", "utf8");
+    writeFileSync(join(cwd, ".mikiko"), "not a directory", "utf8");
     await expect(
       writeWorkflowDraft({ cwd, name: "x", source: "return 1;" }),
     ).resolves.toBeUndefined();

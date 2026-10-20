@@ -1,0 +1,610 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-20T17:19:03.227167+00:00",
+  "result": "passed",
+  "exitCode": 0,
+  "command": "env -u VITEST_MAX_WORKERS CI=1 mise exec -- pnpm --dir apps/zcode-cli test --continue=always",
+  "workingDirectory": "/Users/fatballfish/.codex/worktrees/integrate-upstream-v3-16-2/ZCode",
+  "runtime": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "node": "24.14.0",
+    "pnpm": "10.33.2",
+    "vitest": "4.1.7",
+    "turbo": "2.9.14"
+  },
+  "defaultResources": {
+    "turboConcurrency": 1,
+    "vitestMaxWorkers": 1,
+    "nodeTestConcurrency": 2,
+    "explicitOverridesSupported": true,
+    "testTimeoutsChanged": false
+  },
+  "entryCoverage": {
+    "pretestModelOptionMapBuild": true,
+    "dependencyBuilds": true,
+    "allDefaultTestTasks": true,
+    "bothNodeAndVitestRunners": true,
+    "existingSrcSideVitestFilesAdded": 10,
+    "cliModeMenuAndSeaAssetTestsAddedToDefaultChain": true,
+    "temporaryFiltersOrExcludesUsedForAcceptance": false
+  },
+  "taskTotals": {
+    "successful": 42,
+    "total": 42,
+    "cached": 24,
+    "fresh": 18,
+    "byKind": {
+      "build": {
+        "total": 24,
+        "cached": 24,
+        "fresh": 0
+      },
+      "test": {
+        "total": 18,
+        "cached": 0,
+        "fresh": 18
+      }
+    },
+    "note": "build任务及SDK脚本验证均不计为测试用例；Node wrapper合同4项在Turbo图之外单独计入测试总数。"
+  },
+  "testCaseTotals": {
+    "total": 13004,
+    "passed": 12964,
+    "failed": 0,
+    "skipped": 40,
+    "cancelled": 0,
+    "todo": 0
+  },
+  "wrapperContract": {
+    "execution": "fresh",
+    "entry": "scripts/run-tests.test.mjs",
+    "runners": [
+      {
+        "engine": "node:test",
+        "tests": {
+          "total": 4,
+          "passed": 4,
+          "failed": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        }
+      }
+    ]
+  },
+  "packages": [
+    {
+      "package": "@zcode/adapters",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 158,
+            "failed": 0,
+            "skipped": 0,
+            "total": 158
+          },
+          "tests": {
+            "passed": 2297,
+            "skipped": 4,
+            "failed": 0,
+            "todo": 0,
+            "total": 2301
+          },
+          "entry": "test:vitest"
+        },
+        {
+          "engine": "node:test",
+          "tests": {
+            "total": 9,
+            "passed": 9,
+            "failed": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "entry": "test:node"
+        }
+      ],
+      "taskId": "@zcode/adapters#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/android-emulator-plugin",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "total": 1
+          },
+          "tests": {
+            "passed": 12,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 12
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/android-emulator-plugin#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/bootstrap",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 231,
+            "skipped": 3,
+            "failed": 0,
+            "total": 234
+          },
+          "tests": {
+            "passed": 3092,
+            "skipped": 15,
+            "failed": 0,
+            "todo": 0,
+            "total": 3107
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/bootstrap#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/browser-use-plugin",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 3,
+            "failed": 0,
+            "skipped": 0,
+            "total": 3
+          },
+          "tests": {
+            "passed": 3,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 3
+          },
+          "entry": "test:vitest"
+        },
+        {
+          "engine": "node:test",
+          "tests": {
+            "total": 7,
+            "passed": 7,
+            "failed": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "entry": "test:external-cdp"
+        },
+        {
+          "engine": "node:test",
+          "tests": {
+            "total": 3,
+            "passed": 3,
+            "failed": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "entry": "test:external-cdp-cache"
+        }
+      ],
+      "taskId": "@zcode/browser-use-plugin#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/cli",
+      "runners": [
+        {
+          "engine": "node:test",
+          "tests": {
+            "total": 520,
+            "passed": 520,
+            "failed": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "entry": "test:node"
+        },
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "total": 1
+          },
+          "tests": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 1
+          },
+          "entry": "test:vitest"
+        }
+      ],
+      "taskId": "@zcode/cli#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/contracts",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 43,
+            "failed": 0,
+            "skipped": 0,
+            "total": 43
+          },
+          "tests": {
+            "passed": 335,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 335
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/contracts#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/core",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 279,
+            "failed": 0,
+            "skipped": 0,
+            "total": 279
+          },
+          "tests": {
+            "passed": 4181,
+            "skipped": 21,
+            "failed": 0,
+            "todo": 0,
+            "total": 4202
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/core#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/dynamic-workflow",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 38,
+            "failed": 0,
+            "skipped": 0,
+            "total": 38
+          },
+          "tests": {
+            "passed": 1983,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 1983
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/dynamic-workflow#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/dynamic-workflow-runtime",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 16,
+            "failed": 0,
+            "skipped": 0,
+            "total": 16
+          },
+          "tests": {
+            "passed": 98,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 98
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/dynamic-workflow-runtime#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/i18n",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "total": 1
+          },
+          "tests": {
+            "passed": 4,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 4
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/i18n#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/ios-simulator-plugin",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "total": 1
+          },
+          "tests": {
+            "passed": 5,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 5
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/ios-simulator-plugin#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/node-repl-host",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 6,
+            "failed": 0,
+            "skipped": 0,
+            "total": 6
+          },
+          "tests": {
+            "passed": 51,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 51
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/node-repl-host#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/office-runtime",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 15,
+            "failed": 0,
+            "skipped": 0,
+            "total": 15
+          },
+          "tests": {
+            "passed": 75,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 75
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/office-runtime#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/plugin-creator-plugin",
+      "runners": [
+        {
+          "engine": "node:test",
+          "tests": {
+            "total": 8,
+            "passed": 8,
+            "failed": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/plugin-creator-plugin#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/telemetry",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 9,
+            "failed": 0,
+            "skipped": 0,
+            "total": 9
+          },
+          "tests": {
+            "passed": 42,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 42
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/telemetry#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/tui",
+      "runners": [
+        {
+          "engine": "node:test",
+          "tests": {
+            "total": 217,
+            "passed": 217,
+            "failed": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "@zcode/tui#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "@zcode/zcode-cua-plugin",
+      "runners": [
+        {
+          "engine": "script-validator",
+          "entry": "node scripts/check-sdk.mjs",
+          "result": "passed",
+          "includedInTestCaseCount": false
+        }
+      ],
+      "taskId": "@zcode/zcode-cua-plugin#test",
+      "execution": "fresh"
+    },
+    {
+      "package": "debug",
+      "runners": [
+        {
+          "engine": "vitest",
+          "files": {
+            "passed": 4,
+            "failed": 0,
+            "skipped": 0,
+            "total": 4
+          },
+          "tests": {
+            "passed": 17,
+            "failed": 0,
+            "skipped": 0,
+            "todo": 0,
+            "total": 17
+          },
+          "entry": "test"
+        }
+      ],
+      "taskId": "debug#test",
+      "execution": "fresh"
+    }
+  ],
+  "skippedCoverage": {
+    "countedAsPassed": false,
+    "unchangedExistingGates": true,
+    "files": [
+      {
+        "package": "@zcode/adapters",
+        "file": "tests/exec.test.ts",
+        "skippedTests": 3,
+        "reason": "3项 Windows / Windows Git Bash 条件场景；当前验收平台为 macOS。"
+      },
+      {
+        "package": "@zcode/adapters",
+        "file": "tests/windows-job-object.test.ts",
+        "skippedTests": 1,
+        "reason": "Windows Job Object 原生执行场景；当前验收平台为 macOS。"
+      },
+      {
+        "package": "@zcode/bootstrap",
+        "file": "tests/compacted-full-history-cold-hydration.perf.test.ts",
+        "skippedTests": 1,
+        "reason": "性能复现显式门控 ZCODE_PERF_REPRO 本轮未启用。"
+      },
+      {
+        "package": "@zcode/bootstrap",
+        "file": "tests/embedded-search-native.e2e.test.ts",
+        "skippedTests": 6,
+        "reason": "本轮未向测试任务注入 MIKIKO_BFS_BINARY / MIKIKO_RG_BINARY / MIKIKO_UGREP_BINARY，原生搜索 E2E 门控关闭。"
+      },
+      {
+        "package": "@zcode/bootstrap",
+        "file": "tests/workflow-driver.live.test.ts",
+        "skippedTests": 8,
+        "reason": "真实模型调用为 opt-in；ZCODE_WORKFLOW_LIVE_TEST 与真实模型配置本轮未启用。"
+      },
+      {
+        "package": "@zcode/core",
+        "file": "tests/read-tool-contract.test.ts",
+        "skippedTests": 13,
+        "reason": "既有严格 Read 合同为 opt-in，ZCODE_RUN_READ_STRICT_CONTRACT 本轮未启用。"
+      },
+      {
+        "package": "@zcode/core",
+        "file": "tests/workflow-script-path.test.ts",
+        "skippedTests": 1,
+        "reason": "Windows 跨盘符场景；当前验收平台为 macOS。"
+      },
+      {
+        "package": "@zcode/core",
+        "file": "tests/write-tool-contract.test.ts",
+        "skippedTests": 7,
+        "reason": "既有严格 Write 合同为 opt-in，ZCODE_RUN_WRITE_STRICT_CONTRACT 本轮未启用。"
+      }
+    ]
+  },
+  "evidence": {
+    "rawLog": "/tmp/mikiko-cli-full-default-worker1-final.log",
+    "rawLogSha256": "3d2bed083ad09736a2fc41b1fb009c9d2afc3119b5f26237d4f0661d942fa8a8",
+    "duration": "24m4.551s",
+    "preflightLogs": [
+      "/tmp/mikiko-plugins-whole-single-worker.log",
+      "/tmp/mikiko-adapters-whole-single-worker.log",
+      "/tmp/mikiko-bootstrap-whole-single-worker.log",
+      "/tmp/mikiko-cli-runner-contract.log"
+    ],
+    "preservation": "原始日志由主任务复制到主工作区忽略证据目录；复制后按SHA256核对。"
+  },
+  "notes": [
+    "所有18个Turbo test任务均为fresh执行；24个cached任务全部为build。",
+    "原5秒测试时限和功能断言未放宽；默认逐包/单Vitest worker避免真实文件和子进程测试争用。",
+    "适配层env-config仅在本轮期间完成纯格式规范化：503个有效TypeScript token及AST相同，只新增一个可选call尾逗号；证明见/tmp/mikiko-env-format-proof.log。",
+    "测试新增的迁移fixture改用各自临时磁盘目录并afterEach清理；本轮自有backup产物已清理。",
+    "本报告不将Windows原生、未启用的严格Read/Write合同、性能复现、原生搜索及真实模型调用门控计为通过。"
+  ]
+}

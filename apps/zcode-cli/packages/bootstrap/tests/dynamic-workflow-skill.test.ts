@@ -171,7 +171,10 @@ describe("bundled dynamic-workflows skill", () => {
 
     // 双向对齐：技能目录里的每个文件都是必需资产（bundled-skills.ts 缺一拒绝整包），
     // 契约里也不得残留已不存在的文件（否则 stage/SEA 构建永远失败）。
-    const pinned = new Set(BUNDLED_SKILL_PACK_REQUIRED_PATHS);
+    // Pack 同时包含 create-pet；此合同只比较当前 workflow 技能的双向文件集合。
+    const pinned = new Set(
+      BUNDLED_SKILL_PACK_REQUIRED_PATHS.filter((path) => path.startsWith(`skills/${SKILL_NAME}/`)),
+    );
     for (const name of SKILL_FILES) expect(pinned).toContain(`skills/${SKILL_NAME}/${name}`);
     expect(pinned.size).toBe(SKILL_FILES.length);
   });
@@ -435,7 +438,7 @@ describe("bundled dynamic-workflows skill", () => {
     // 完整示例（2026-09-21 起在 examples.md §5）按条流水：确认者链在各自文件的评审之后，名字带路径
     // 与序号；旧的屏障式阶段名不再出现。SKILL.md §11 只留指路。
     expect(skill).toContain("## 11. A complete example");
-    expect(skill).toContain("`${ZCODE_SKILL_DIR}/examples.md` §5");
+    expect(skill).toContain("`${MIKIKO_SKILL_DIR}/examples.md` §5");
     const movedExample = await readSkillFile("examples.md");
     expect(movedExample).toContain("## 5. Changed-file review with confirmation as reviews land");
     expect(movedExample).toContain("confirmer-${p}-${index}");
@@ -458,13 +461,13 @@ describe("bundled dynamic-workflows skill", () => {
   });
 
   // 脚本文件（docs/dynamic-workflow/launch.md「Script files」）：每次提交的脚本都有一个磁盘文件，
-  // 内联脚本由工具写进 `.zcode/workflow-drafts/<slug>.dwf.ts`，诊断按文件行号给出，之后的每一次
+  // 内联脚本由工具写进 `.mikiko/workflow-drafts/<slug>.dwf.ts`，诊断按文件行号给出，之后的每一次
   // 修订都是「改那个文件 + 用 `path` 重新提交」。这三句是承重话，必须逐字在 skill 里：模型一旦回到
   // 整段重贴，就同时踩中两个实测代价——约两万 token 的脚本重新流式输出会被部分 provider 卡死，
   // 而 run 真正出错时脚本正文往往已被 compaction 丢出上下文，只有文件还在。
   it("teaches the script-file loop: edit the file, resubmit by path", async () => {
     const skill = await readSkillFile("SKILL.md");
-    expect(skill).toContain(".zcode/workflow-drafts/");
+    expect(skill).toContain(".mikiko/workflow-drafts/");
     expect(skill).toContain("{path}:L{line}:C{column} {message}");
     expect(skill).toContain(
       "**Edit that file and resubmit with `path`. Do not paste the script inline again**",

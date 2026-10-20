@@ -11,12 +11,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 const serverEntry = join(root, "server", "entry-http.js");
 const webRoot = join(root, "web");
-const agentEntry = join(root, "agent", "zcode.cjs");
+const agentEntry = join(root, "agent", "mikiko.cjs");
 
 function usage() {
   return `Usage:
-  zcode --web [--host <host>] [--port <port>] [--workspace <path>] [--open|--no-open] [--token <token>|--no-token]
-  zcode --version
+  mikiko --web [--host <host>] [--port <port>] [--workspace <path>] [--open|--no-open] [--token <token>|--no-token]
+  mikiko --version
 `;
 }
 
@@ -182,11 +182,11 @@ async function serve(options) {
       PORT: String(port),
       MIKIKO_AGENT_SERVER_ARGS_JSON: JSON.stringify([agentEntry, "app-server", "--stdio"]),
       MIKIKO_AGENT_SERVER_COMMAND: process.execPath,
-      ZCODE_SERVER_HOST: options.host,
-      ZCODE_SERVER_WORKSPACE: options.workspace,
-      ZCODE_WEB_STATIC_ROOT: webRoot,
+      MIKIKO_SERVER_HOST: options.host,
+      MIKIKO_SERVER_WORKSPACE: options.workspace,
+      MIKIKO_WEB_STATIC_ROOT: webRoot,
       // 显式关闭 token 时必须清空继承值，否则 --no-token 仍会开启后端鉴权。
-      ZCODE_SERVER_AUTH_TOKEN: token,
+      MIKIKO_SERVER_AUTH_TOKEN: token,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -209,7 +209,7 @@ async function serve(options) {
   });
 
   console.log("");
-  console.log("ZCode Web is running");
+  console.log("Mikiko Web is running");
   console.log(`Local:   ${localUrl}`);
   if (options.host === "0.0.0.0" || options.host === "::") {
     for (const url of networkUrls(port, token)) {
@@ -260,7 +260,7 @@ try {
     else await serve(options);
   } else {
     if (argv.length === 1 && ["--help", "-h"].includes(argv[0])) {
-      console.log("Web mode: zcode --web [options] (zcode --web --help for details)\n");
+      console.log("Web mode: mikiko --web [options] (mikiko --web --help for details)\n");
     }
     // CLI 自启动子进程依赖 argv[1]；统一指向真正的 Agent 入口，保留 TTY 与所有原始参数。
     process.argv[1] = agentEntry;

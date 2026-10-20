@@ -32,7 +32,7 @@ describe("remoteCdn", () => {
         env: "production",
         version: "0.0.0-test",
       }),
-    ).toEqual(["https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test"]);
+    ).toEqual(["https://agent-dl.mikiko.ai/mikiko/electron/releases/0.0.0-test"]);
   });
 
   it("MIKIKO_CDN_BASE_URL 优先于缺省基址", () => {
@@ -42,7 +42,7 @@ describe("remoteCdn", () => {
         env: "production",
         version: "0.0.0-test",
       }),
-    ).toEqual(["https://cdn.mikiko.example/assets/zcode/electron/releases/0.0.0-test"]);
+    ).toEqual(["https://cdn.mikiko.example/assets/mikiko/electron/releases/0.0.0-test"]);
   });
 
   it("显式覆盖 CDN 基址时不再读取环境与缺省值，并归一化尾斜杠", () => {
@@ -59,6 +59,6 @@ describe("remoteCdn", () => {
   it("未传版本时使用当前应用版本", () => {
     const urls = resolveRemoteCdnBaseUrls({ env: "production" });
     expect(urls).toHaveLength(1);
-    expect(urls[0]).toMatch(/\/zcode\/electron\/releases\/[^/]+$/u);
+    expect(urls[0]).toMatch(/\/mikiko\/electron\/releases\/[^/]+$/u);
   });
 });

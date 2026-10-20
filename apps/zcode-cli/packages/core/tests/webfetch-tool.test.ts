@@ -52,7 +52,7 @@ describe("WebFetch tool", () => {
       expect.objectContaining({
         headers: {
           Accept: "text/markdown, text/html, */*",
-          "User-Agent": expect.any(String),
+          "User-Agent": "Mikiko-WebFetch/0.1 (+https://mikiko.ai; coding-agent-cli)",
         },
         method: "GET",
         redirect: "manual",

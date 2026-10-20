@@ -112,7 +112,13 @@ import { OFFICIAL_PLUGIN_DEFINITIONS } from "../src/app/official-plugin-definiti
 import { resolveZCodePlugins } from "../src/plugins.js";
 
 const OFFICIAL_CACHE_ROOT = join("cache", "zcode-plugins-official");
-const BROWSER_CACHE_SUFFIX = join(OFFICIAL_CACHE_ROOT, "browser-use", "0.5.1");
+const browserDefinition = OFFICIAL_PLUGIN_DEFINITIONS.find(({ name }) => name === "browser-use");
+if (!browserDefinition) throw new Error("browser-use definition is missing");
+const BROWSER_CACHE_SUFFIX = join(
+  OFFICIAL_CACHE_ROOT,
+  browserDefinition.name,
+  browserDefinition.version,
+);
 const ANDROID_CACHE_SUFFIX = join(OFFICIAL_CACHE_ROOT, "android-emulator", "0.1.0");
 const SKILL_CREATOR_CACHE_SUFFIX = join(OFFICIAL_CACHE_ROOT, "skill-creator", "0.1.0");
 const ANDROID_MANIFEST_SUFFIX = join(ANDROID_CACHE_SUFFIX, ".zcode-plugin", "plugin.json");
@@ -187,7 +193,7 @@ describe("bundled official plugin cache resilience", () => {
     const storageRoot = await createStorageRoot(cleanups);
     resolveOfficialPluginRoots({ storageRoot });
     const browserRoot = join(storageRoot, BROWSER_CACHE_SUFFIX);
-    const markerPath = join(browserRoot, ".zcode-plugin-seed.json");
+    const markerPath = join(browserRoot, ".mikiko-plugin-seed.json");
     const staleMarker = `${await readFile(markerPath, "utf8")}\n`;
     await writeFile(markerPath, staleMarker.replace('"hash": "', '"hash": "stale-'));
     const logger = createLogger();
@@ -438,7 +444,7 @@ describe("bundled official plugin cache resilience", () => {
     const storageRoot = await createStorageRoot(cleanups);
     resolveOfficialPluginRoots({ storageRoot });
     const browserRoot = join(storageRoot, BROWSER_CACHE_SUFFIX);
-    const markerPath = join(browserRoot, ".zcode-plugin-seed.json");
+    const markerPath = join(browserRoot, ".mikiko-plugin-seed.json");
     const staleMarker = `${await readFile(markerPath, "utf8")}\n`;
     await writeFile(markerPath, staleMarker.replace('"hash": "', '"hash": "stale-'));
     faults.moveTargetSuffix = BROWSER_CACHE_SUFFIX;
@@ -455,7 +461,7 @@ describe("bundled official plugin cache resilience", () => {
     const storageRoot = await createStorageRoot(cleanups);
     resolveOfficialPluginRoots({ storageRoot });
     const browserRoot = join(storageRoot, BROWSER_CACHE_SUFFIX);
-    const markerPath = join(browserRoot, ".zcode-plugin-seed.json");
+    const markerPath = join(browserRoot, ".mikiko-plugin-seed.json");
     const staleMarker = `${await readFile(markerPath, "utf8")}\n`;
     await writeFile(markerPath, staleMarker.replace('"hash": "', '"hash": "stale-'));
     faults.promoteCurrentTargetSuffix = BROWSER_CACHE_SUFFIX;

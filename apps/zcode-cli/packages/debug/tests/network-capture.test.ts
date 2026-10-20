@@ -5,12 +5,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  createNetworkCaptureServiceFromEnv,
   extractAttribution,
   NetworkCaptureService,
   sanitizeHeaders,
 } from "../server/network-capture.js";
 
 describe("network capture", () => {
+  it("prefers Mikiko debug settings while retaining legacy reads", () => {
+    expect(createNetworkCaptureServiceFromEnv({ MIKIKO_DEBUG_NETWORK_CAPTURE: "0" })).toBeUndefined();
+    const service = createNetworkCaptureServiceFromEnv({ MIKIKO_DEBUG_NETWORK_HOST: "127.0.0.2", ZCODE_DEBUG_NETWORK_HOST: "127.0.0.3", MIKIKO_DEBUG_NETWORK_PORT: "18991", MIKIKO_DEBUG_NETWORK_MAX_ENTRIES: "7" });
+    expect(service?.getStatus()).toMatchObject({ host: "127.0.0.2", port: 18991, maxEntries: 7 });
+    expect(createNetworkCaptureServiceFromEnv({ ZCODE_DEBUG_NETWORK_CAPTURE: "0" })).toBeUndefined();
+  });
   it("extracts only trace attribution from headers and query parameters", () => {
     const url = new URL(
       "https://api.example.test/v1/chat?session_id=session-query&trace_id=trace-query",

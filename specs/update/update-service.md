@@ -61,3 +61,7 @@ App(electron-updater + manifestUpdateProvider)
 2. 上传完成后 publish-update-feed.mjs 自动调用 `/admin/prune` 清理旧版本：默认保留最近 3 版（`--keep-versions N` 可调）；prune 失败（如 Worker 未更新到含该端点的版本）只告警不阻塞发布。
 3. 强更/灰度：`curl -X PUT .../admin/configs -H "X-Publish-Token: ..." -d '{...}'`。
 4. 回滚：重发旧版 manifest（yml）即可——因此保留 ≥2 个历史版本的安装包文件。
+
+## Source Server 自建资源缓存（2026-10-20 集成）
+
+新版Desktop descriptor与CLI catalog从同一已校验四平台SourceServer集合发布。`mikiko/server/catalog.json`及版本目录的`source-server-release.json`是可更新索引，下载Worker必须返回`no-cache, must-revalidate`；不能沿用安装包一年的immutable缓存。SHA寻址的归档/组件继续长缓存。上传者只在对象上传并验证后发布两个索引；失败不得发布指向缺失对象的目录。

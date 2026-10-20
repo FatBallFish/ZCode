@@ -9,13 +9,24 @@ import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { spawnCancellableStep, startStepExecution } from "./e2e-step-process.mjs";
-import {
-  hasRequiredSshE2EEnvironment,
-  isSshFormalSpec,
-} from "./e2e-formal-spec-selection.mjs";
+import { hasRequiredSshE2EEnvironment, isSshFormalSpec } from "./e2e-formal-spec-selection.mjs";
 
 const RUNNER_SHARD_ARG_PREFIX = "--shards=";
 const DEFAULT_SPEC_DURATION_PROFILE_PATH = "test/e2e/spec-duration-weights.json";
+
+function withE2EBrandAliases(env) {
+  const normalized = { ...env };
+  // 修复原因：上游 reporter 仍消费旧测试键，新 WDIO 消费 Mikiko 键；父 runner
+  // 必须在分配 HOME/run/artifact 后双写同一值，避免不同进程操作不同的隔离目录。
+  for (const key of Object.keys(env)) {
+    if (!/^(?:MIKIKO|ZCODE)_E2E_/u.test(key)) continue;
+    const suffix = key.replace(/^(?:MIKIKO|ZCODE)_E2E_/u, "");
+    const value = env[`MIKIKO_E2E_${suffix}`] ?? env[`ZCODE_E2E_${suffix}`];
+    normalized[`MIKIKO_E2E_${suffix}`] = value;
+    normalized[`ZCODE_E2E_${suffix}`] = value;
+  }
+  return normalized;
+}
 
 function readPositiveInteger(value, source) {
   if (!/^\d+$/u.test(value ?? "") || Number(value) <= 0) {
@@ -66,6 +77,7 @@ export function resolveWindowsE2EShardTotal({
   logicalCpuCount = cpus().length,
   totalMemoryBytes = totalmem(),
 }) {
+  env = withE2EBrandAliases(env);
   const { explicitShardTotal } = splitRunnerArgs(args);
   const hasNativeShard = args.some((arg) => arg === "--shard" || arg.startsWith("--shard="));
   const isCaptureRun = env.E2E_PROVIDER_HTTP_MODE?.trim() === "capture";
@@ -166,6 +178,7 @@ function createBuildEnv(env) {
   return {
     ...buildEnv,
     PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false",
+    VITE_MIKIKO_E2E_STORE_BRIDGE: "1",
     VITE_ZCODE_E2E_STORE_BRIDGE: "1",
     // Windows full E2E 反复执行时复用 Turbo 内容缓存；冷缓存仍按依赖图构建，
     // targeted/non-Windows 路径不会经过父 runner 的 sharded build env。
@@ -184,6 +197,7 @@ export function createWindowsE2EShardPlan({
   runIdTimestamp = new Date(),
   weightedSpecBuckets,
 }) {
+  env = withE2EBrandAliases(env);
   const { wdioArgs } = splitRunnerArgs(args);
   const shardTotal = resolveWindowsE2EShardTotal({ args, env, platform });
   // 修复原因：只有 ISO 毫秒的自动 ID 会让同毫秒启动的 runner 共享 HOME/artifact/network。
@@ -247,26 +261,26 @@ export function createWindowsE2EShardPlan({
       : sharded
         ? join(desktopDir, `.e2e-home-${runId}-shard-${shardIndex}`)
         : join(desktopDir, `.e2e-home-${runId}`);
-    const childEnv = {
+    const childEnv = withE2EBrandAliases({
       ...env,
-      ZCODE_E2E_HOME_DIR: childHomeDir,
-      ZCODE_E2E_RUN_ID: childRunId,
-      ZCODE_E2E_ARTIFACT_DIR: artifactDir,
-      ZCODE_E2E_NETWORK_CAPTURE_DIR: sharded
+      MIKIKO_E2E_HOME_DIR: childHomeDir,
+      MIKIKO_E2E_RUN_ID: childRunId,
+      MIKIKO_E2E_ARTIFACT_DIR: artifactDir,
+      MIKIKO_E2E_NETWORK_CAPTURE_DIR: sharded
         ? join(artifactDir, "network-capture")
         : resolve(
             env.ZCODE_E2E_NETWORK_CAPTURE_DIR?.trim() || join(artifactDir, "network-capture"),
           ),
       ...(sharded
         ? {
-            ZCODE_E2E_SKIP_BUILD: "1",
-            ZCODE_E2E_SKIP_AGENT_BUILD: "1",
+            MIKIKO_E2E_SKIP_BUILD: "1",
+            MIKIKO_E2E_SKIP_AGENT_BUILD: "1",
           }
         : {}),
       ...(useWeightedSpecBuckets
-        ? { ZCODE_E2E_SPEC: weightedSpecBuckets[offset].specs.join(",") }
+        ? { MIKIKO_E2E_SPEC: weightedSpecBuckets[offset].specs.join(",") }
         : {}),
-    };
+    });
 
     return {
       id: shardName,
@@ -464,6 +478,7 @@ export async function runWindowsE2EShards({
   platform = process.platform,
   repoRoot = resolve(desktopDir, "../.."),
 } = {}) {
+  env = withE2EBrandAliases(env);
   const shardTotal = resolveWindowsE2EShardTotal({ args, env, platform });
   const useHistoricalWeights =
     shardTotal > 1 &&

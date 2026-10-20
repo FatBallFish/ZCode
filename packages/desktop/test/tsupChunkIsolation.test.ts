@@ -119,6 +119,12 @@ describe("desktop tsup chunk isolation", () => {
     ]);
   });
 
+  it("自建CDN域缺省与Source Server发布合同使用同一Mikiko目录", () => {
+    expect(resolveBuildRemoteCdnReleaseRoots({ CDN_DOMAIN: "agent-dl.mikiko.ai" })).toEqual([
+      "https://agent-dl.mikiko.ai/mikiko/electron/releases",
+    ]);
+  });
+
   it("remote runtime CDN 根的路径前缀数量不匹配时应失败", () => {
     expect(() =>
       resolveBuildRemoteCdnReleaseRoots({
@@ -182,7 +188,7 @@ describe("desktop tsup chunk isolation", () => {
       const defines = getDefines(entry);
       expect(defines).toHaveProperty("__ZCODE_ENV__");
       expect(defines).toHaveProperty("__ZCODE_PRODUCT_FLAVOR__");
-      expect(["\"production\"", "\"preview\""]).toContain(defines.__ZCODE_PRODUCT_FLAVOR__);
+      expect(['"production"', '"preview"']).toContain(defines.__ZCODE_PRODUCT_FLAVOR__);
     }
   });
 

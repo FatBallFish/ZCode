@@ -210,7 +210,10 @@ describe("官方 Server MCP 额度汇总", () => {
           },
         })),
       },
-      env: {} as NodeJS.ProcessEnv,
+      env: {
+        MIKIKO_ENV: "production",
+        MIKIKO_BASE_URL: "https://private-product.example",
+      } as NodeJS.ProcessEnv,
       requestScope: {
         organizationId: "org-z",
         projectId: "project-z",
@@ -219,6 +222,7 @@ describe("官方 Server MCP 额度汇总", () => {
     });
 
     expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toBe("https://zcode.z.ai/api/v1/mcp/usage");
     expect(requests[0]?.headers).toEqual({
       Authorization: "Bearer zcode-jwt",
       "X-Bigmodel-Authorization": "Bearer zai-maas-jwt",

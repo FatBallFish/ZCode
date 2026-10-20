@@ -26,11 +26,11 @@ describe("createZCodeApp workspace Hook admission", () => {
     const userConfigPath = join(root, "home", "config.json");
     const storageRoot = join(root, "storage");
     await mkdir(join(workspace, ".git"), { recursive: true });
-    await mkdir(join(workspace, ".zcode"), { recursive: true });
+    await mkdir(join(workspace, ".mikiko"), { recursive: true });
     await mkdir(join(root, "home"), { recursive: true });
     await writeFile(userConfigPath, JSON.stringify({ storage: { dir: storageRoot } }));
     await writeFile(
-      join(workspace, ".zcode", "config.json"),
+      join(workspace, ".mikiko", "config.json"),
       JSON.stringify({
         hooks: {
           enabled: true,
@@ -142,11 +142,11 @@ describe("createZCodeApp workspace Hook admission", () => {
     const userConfigPath = join(root, "home", "config.json");
     const storageRoot = join(root, "storage");
     await mkdir(join(workspace, ".git"), { recursive: true });
-    await mkdir(join(workspace, ".zcode"), { recursive: true });
+    await mkdir(join(workspace, ".mikiko"), { recursive: true });
     await mkdir(join(root, "home"), { recursive: true });
     await writeFile(userConfigPath, JSON.stringify({ storage: { dir: storageRoot } }));
     await writeFile(
-      join(workspace, ".zcode", "config.json"),
+      join(workspace, ".mikiko", "config.json"),
       JSON.stringify({
         hooks: {
           enabled: true,
@@ -224,11 +224,11 @@ describe("createZCodeApp workspace Hook admission", () => {
     const userConfigPath = join(root, "home", "config.json");
     const storageRoot = join(root, "storage");
     await mkdir(join(workspace, ".git"), { recursive: true });
-    await mkdir(join(workspace, ".zcode"), { recursive: true });
+    await mkdir(join(workspace, ".mikiko"), { recursive: true });
     await mkdir(join(root, "home"), { recursive: true });
     await writeFile(userConfigPath, JSON.stringify({ storage: { dir: storageRoot } }));
     await writeFile(
-      join(workspace, ".zcode", "config.json"),
+      join(workspace, ".mikiko", "config.json"),
       JSON.stringify({
         hooks: {
           enabled: true,
@@ -349,11 +349,11 @@ describe("createZCodeApp workspace Hook admission", () => {
     const userConfigPath = join(root, "home", "config.json");
     const storageRoot = join(root, "storage");
     await mkdir(join(workspace, ".git"), { recursive: true });
-    await mkdir(join(workspace, ".zcode"), { recursive: true });
+    await mkdir(join(workspace, ".mikiko"), { recursive: true });
     await mkdir(join(root, "home"), { recursive: true });
     await writeFile(userConfigPath, JSON.stringify({ storage: { dir: storageRoot } }));
     await writeFile(
-      join(workspace, ".zcode", "config.json"),
+      join(workspace, ".mikiko", "config.json"),
       JSON.stringify({
         hooks: {
           enabled: true,
@@ -434,11 +434,11 @@ describe("createZCodeApp workspace Hook admission", () => {
     const userConfigPath = join(root, "home", "config.json");
     const storageRoot = join(root, "storage");
     await mkdir(join(workspace, ".git"), { recursive: true });
-    await mkdir(join(workspace, ".zcode"), { recursive: true });
+    await mkdir(join(workspace, ".mikiko"), { recursive: true });
     await mkdir(join(root, "home"), { recursive: true });
     await writeFile(userConfigPath, JSON.stringify({ storage: { dir: storageRoot } }));
     await writeFile(
-      join(workspace, ".zcode", "config.json"),
+      join(workspace, ".mikiko", "config.json"),
       JSON.stringify({
         hooks: {
           enabled: true,

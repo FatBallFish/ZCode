@@ -17,7 +17,7 @@ import com.example.zcode_mobile.remote.RemoteControlRecentLink
 import com.example.zcode_mobile.remote.RemoteControlRecentLinksStore
 import com.example.zcode_mobile.remote.RemoteControlUrlPolicy
 import com.example.zcode_mobile.ui.RemoteControlApp
-import com.example.zcode_mobile.ui.theme.ZcodemobileTheme
+import com.example.zcode_mobile.ui.theme.MikikoMobileTheme
 
 class MainActivity : ComponentActivity() {
     private var remoteUrl by mutableStateOf<String?>(null)
@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
         launchRemoteUrl?.let { openRemoteUrl(it) }
 
         setContent {
-            ZcodemobileTheme {
+            MikikoMobileTheme {
                 RemoteControlApp(
                     remoteUrl = remoteUrl,
                     recentLinks = recentLinks,
@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
             return null
         }
 
-        intent.getStringExtra(RemoteControlKeepAliveService.EXTRA_REMOTE_URL)?.let { raw ->
+        RemoteControlKeepAliveService.readRemoteUrl(intent)?.let { raw ->
             RemoteControlUrlPolicy.resolve(raw)?.let { return it }
         }
         intent.data?.let { uri ->

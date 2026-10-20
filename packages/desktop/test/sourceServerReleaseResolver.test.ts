@@ -1,5 +1,8 @@
+import { createServer } from "node:http";
+import { once } from "node:events";
+import { resolveRemoteCdnBaseUrls } from "../src/main/remoteCdn.js";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -237,4 +240,50 @@ describe("Source Server release resolver", () => {
     expect(remoteAssetFetch).toHaveBeenCalled();
     expect(directFetch).not.toHaveBeenCalled();
   });
+});
+
+it("通过真实HTTP按Mikiko版本根读取descriptor并校验下载的archive，不请求官方CDN", async () => {
+  const cache = await mkdtemp(join(tmpdir(), "mikiko-source-distribution-http-"));
+  const contents = "Mikiko isolated Source Server archive evidence";
+  const prefix = `/mikiko/electron/releases/${ZCODE_VERSION}`;
+  const paths: string[] = [];
+  const server = createServer((request, response) => {
+    paths.push(request.url ?? "");
+    if (request.url === `${prefix}/source-server-release.json`) {
+      response.setHeader("content-type", "application/json");
+      response.end(JSON.stringify(descriptor(contents)));
+    } else if (request.url === `${prefix}/${fileName}`) {
+      response.setHeader("content-type", "application/octet-stream");
+      response.end(contents);
+    } else {
+      response.writeHead(404);
+      response.end("unexpected route");
+    }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Missing isolated HTTP port");
+  const origin = `http://127.0.0.1:${address.port}`;
+  vi.stubEnv("MIKIKO_CDN_BASE_URL", origin);
+  try {
+    const roots = resolveRemoteCdnBaseUrls({ version: ZCODE_VERSION });
+    expect(roots).toEqual([`${origin}${prefix}`]);
+    const release = await resolveSourceServerReleaseAsset(
+      probe,
+      {
+        remoteCdnBaseUrls: roots,
+        remoteCacheDir: cache,
+      },
+      target,
+    );
+    expect(paths).toEqual([`${prefix}/source-server-release.json`, `${prefix}/${fileName}`]);
+    expect(release.sha256).toBe(sha256(contents));
+    expect(await readFile(release.localArchivePath!, "utf8")).toBe(contents);
+  } finally {
+    vi.unstubAllEnvs();
+    server.closeAllConnections();
+    await new Promise<void>((done) => server.close(() => done()));
+    await rm(cache, { recursive: true, force: true });
+  }
 });

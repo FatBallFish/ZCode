@@ -22,7 +22,7 @@ import { createVoiceMicPermission } from "./voiceMicPermission.js";
 
 export function spawnVoiceEngineWorker(modulePath: string): VoiceEngineChildProcess {
   return utilityProcess.fork(modulePath, [], {
-    serviceName: "zcode-voice-engine",
+    serviceName: "mikiko-voice-engine",
     execArgv: ["--no-warnings"],
   });
 }

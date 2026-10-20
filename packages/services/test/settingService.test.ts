@@ -486,7 +486,7 @@ describe("settingService", () => {
       locale: "zh-CN",
       localePreference: "system",
       taskAutoArchiveEnabled: false,
-      taskAutoArchiveOlderThanDays: 7,
+      taskAutoArchiveOlderThanDays: 30,
       messageStreamShowReasoning: true,
       messageStreamShowReasoningMigrationInitialized: true,
       messageStreamShowTodos: false,
@@ -987,9 +987,9 @@ describe("settingService", () => {
     const settingsFile = join(home, ".mikiko", "v2", "setting.json");
     const service = await createSettingServiceInHome(home);
 
-    await service.update({ zcodeEndpointOrigin: "https://zcode.z.ai/path" });
+    await service.update({ zcodeEndpointOrigin: "https://custom-api.example/path" });
     await expect(service.get()).resolves.toMatchObject({
-      zcodeEndpointOrigin: "https://zcode.z.ai",
+      zcodeEndpointOrigin: "https://custom-api.example",
     });
 
     await service.update({ zcodeEndpointOrigin: "" });

@@ -12,6 +12,6 @@ test("sets the visible process name before running commands", async () => {
   const payload = JSON.parse(stdout);
 
   assert.equal(payload.cli.name, "zcode");
-  assert.equal(payload.cli.processName, "zcode-cli");
-  assert.equal(payload.runtime.processTitle, "zcode-cli");
+  assert.equal(payload.cli.processName, "mikiko-cli");
+  assert.equal(payload.runtime.processTitle, "mikiko-cli");
 });

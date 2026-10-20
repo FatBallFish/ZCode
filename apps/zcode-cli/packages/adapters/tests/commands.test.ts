@@ -7,7 +7,7 @@ import { createNodeCustomCommandAdapter } from "../src/commands/index.js";
 describe("NodeCustomCommandAdapter", () => {
   it("discovers project custom commands with frontmatter", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-commands-"));
-    const commandDir = join(dir, ".zcode", "commands", "frontend");
+    const commandDir = join(dir, ".mikiko", "commands", "frontend");
 
     try {
       await mkdir(commandDir, { recursive: true });
@@ -40,7 +40,7 @@ describe("NodeCustomCommandAdapter", () => {
 
   it("filters out commands disabled via config (enable:false path)", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-commands-"));
-    const commandDir = join(dir, ".zcode", "commands");
+    const commandDir = join(dir, ".mikiko", "commands");
     const disabledPath = join(commandDir, "disabled.md");
 
     try {
@@ -72,7 +72,7 @@ describe("NodeCustomCommandAdapter", () => {
 
   it("loads custom command body without frontmatter", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-commands-"));
-    const commandDir = join(dir, ".zcode", "commands");
+    const commandDir = join(dir, ".mikiko", "commands");
 
     try {
       await mkdir(commandDir, { recursive: true });
@@ -94,7 +94,7 @@ describe("NodeCustomCommandAdapter", () => {
 
   it("discovers command names with underscores", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-commands-"));
-    const commandDir = join(dir, ".zcode", "commands");
+    const commandDir = join(dir, ".mikiko", "commands");
 
     try {
       await mkdir(commandDir, { recursive: true });
@@ -112,8 +112,8 @@ describe("NodeCustomCommandAdapter", () => {
 
   it("keeps the higher-priority duplicate command", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-commands-"));
-    const projectDir = join(dir, ".zcode", "commands");
-    const userDir = join(dir, "home", ".zcode", "commands");
+    const projectDir = join(dir, ".mikiko", "commands");
+    const userDir = join(dir, "home", ".mikiko", "commands");
 
     try {
       await mkdir(projectDir, { recursive: true });
@@ -152,15 +152,15 @@ describe("NodeCustomCommandAdapter", () => {
     }
   });
 
-  it("merges .zcode/commands and .agents/commands with .zcode winning duplicates", async () => {
+  it("merges .mikiko/commands and .agents/commands with .mikiko winning duplicates", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-commands-"));
-    const zcodeDir = join(dir, ".zcode", "commands");
+    const zcodeDir = join(dir, ".mikiko", "commands");
     const agentsDir = join(dir, ".agents", "commands");
 
     try {
       await mkdir(zcodeDir, { recursive: true });
       await mkdir(agentsDir, { recursive: true });
-      await writeCommand(zcodeDir, "dup", "From .zcode");
+      await writeCommand(zcodeDir, "dup", "From .mikiko");
       await writeCommand(agentsDir, "dup", "From .agents");
       await writeCommand(agentsDir, "agents-only", "Agents only");
 
@@ -170,7 +170,7 @@ describe("NodeCustomCommandAdapter", () => {
       expect(outcome.commands.map((command) => command.name)).toEqual(["agents-only", "dup"]);
       expect(outcome.commands.map((command) => command.description)).toEqual([
         "Agents only",
-        "From .zcode",
+        "From .mikiko",
       ]);
       expect(outcome.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
         "custom_command_duplicate_name",
@@ -184,7 +184,7 @@ describe("NodeCustomCommandAdapter", () => {
     // 旧逻辑只检查 entry.isFile() 会漏掉 symlink（readdir 报告为 isSymbolicLink()）。
     const dir = await mkdtemp(join(tmpdir(), "zcode-commands-"));
     const sourceDir = join(dir, "source");
-    const commandDir = join(dir, ".zcode", "commands");
+    const commandDir = join(dir, ".mikiko", "commands");
 
     try {
       await mkdir(sourceDir, { recursive: true });
@@ -212,7 +212,7 @@ describe("NodeCustomCommandAdapter", () => {
   it("discovers commands inside a symlinked directory", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-commands-"));
     const sourceDir = join(dir, "source-commands");
-    const commandRoot = join(dir, ".zcode", "commands");
+    const commandRoot = join(dir, ".mikiko", "commands");
 
     try {
       await mkdir(sourceDir, { recursive: true });
@@ -232,7 +232,7 @@ describe("NodeCustomCommandAdapter", () => {
 
   it("skips dangling command symlinks without failing the scan", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-commands-"));
-    const commandDir = join(dir, ".zcode", "commands");
+    const commandDir = join(dir, ".mikiko", "commands");
 
     try {
       await mkdir(commandDir, { recursive: true });
@@ -262,9 +262,9 @@ it("附加目录命令使用目录限定名并保留原 cwd 命令", async () =>
     const main = join(root, "frontend"),
       extra = join(root, "backend");
     for (const dir of [main, extra]) {
-      await mkdir(join(dir, ".zcode", "commands"), { recursive: true });
+      await mkdir(join(dir, ".mikiko", "commands"), { recursive: true });
       await writeFile(
-        join(dir, ".zcode", "commands", "review.md"),
+        join(dir, ".mikiko", "commands", "review.md"),
         `---\ndescription: review\n---\n${dir}`,
       );
     }

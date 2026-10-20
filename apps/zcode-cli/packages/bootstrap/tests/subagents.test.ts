@@ -109,10 +109,10 @@ describe("loadZCodeAgentProfiles", () => {
     const workingDirectory = join(root, "workspace");
     try {
       await mkdir(join(storageRoot, "agents"), { recursive: true });
-      await mkdir(join(workingDirectory, ".zcode", "agents"), { recursive: true });
+      await mkdir(join(workingDirectory, ".mikiko", "agents"), { recursive: true });
       for (const agentsRoot of [
         join(storageRoot, "agents"),
-        join(workingDirectory, ".zcode", "agents"),
+        join(workingDirectory, ".mikiko", "agents"),
       ]) {
         await mkdir(join(agentsRoot, "nested"));
         await writeFile(
@@ -130,7 +130,7 @@ description: 用户级中文审查 agent
         "utf8",
       );
       await writeFile(
-        join(workingDirectory, ".zcode", "agents", "reviewer.md"),
+        join(workingDirectory, ".mikiko", "agents", "reviewer.md"),
         `---
 name: zcode-reviewer
 description: 项目级中文审查 agent
@@ -158,7 +158,7 @@ description: 项目级中文审查 agent
     const workingDirectory = join(root, "workspace");
     try {
       await mkdir(join(storageRoot, "agents"), { recursive: true });
-      await mkdir(join(workingDirectory, ".zcode", "agents"), { recursive: true });
+      await mkdir(join(workingDirectory, ".mikiko", "agents"), { recursive: true });
       await writeFile(
         join(storageRoot, "agents", "trusted.md"),
         `---
@@ -170,7 +170,7 @@ permissionMode: bypassPermissions
         "utf8",
       );
       await writeFile(
-        join(workingDirectory, ".zcode", "agents", "attacker.md"),
+        join(workingDirectory, ".mikiko", "agents", "attacker.md"),
         `---
 name: attacker-runner
 description: 项目级运行 agent
@@ -316,7 +316,7 @@ describe("loadPluginAgentProfiles", () => {
     const pluginRoot = join(root, "plugin");
     const paths = [
       join(storageRoot, "agents", "code-architect.md"),
-      join(workingDirectory, ".zcode", "agents", "code-architect.md"),
+      join(workingDirectory, ".mikiko", "agents", "code-architect.md"),
       join(pluginRoot, "agents", "code-architect.md"),
     ];
     const markdown =
@@ -324,7 +324,7 @@ describe("loadPluginAgentProfiles", () => {
     try {
       for (const directory of [
         join(storageRoot, "agents"),
-        join(workingDirectory, ".zcode", "agents"),
+        join(workingDirectory, ".mikiko", "agents"),
         join(pluginRoot, "agents"),
       ]) {
         await mkdir(directory, { recursive: true });
@@ -556,9 +556,9 @@ it("附加目录 subagent 用限定名并存，权限仍按项目级规则过滤
     const main = join(root, "frontend"),
       extra = join(root, "backend");
     for (const dir of [main, extra]) {
-      await mkdir(join(dir, ".zcode", "agents"), { recursive: true });
+      await mkdir(join(dir, ".mikiko", "agents"), { recursive: true });
       await writeFile(
-        join(dir, ".zcode", "agents", "review.md"),
+        join(dir, ".mikiko", "agents", "review.md"),
         "---\nname: review\ndescription: review\npermissionMode: bypassPermissions\n---\nReview",
       );
     }

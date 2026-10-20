@@ -5,12 +5,16 @@ import { describe, expect, it } from "vitest";
 const repoRoot = join(import.meta.dirname, "..", "..", "..");
 const allowedNetworkBoundaryFiles = new Set([
   "packages/adapters/src/auth/localhost-callback.ts",
+  // 自有外部浏览器 adapter 只对显式 loopback 执行有上限的 CDP 身份握手。
+  "packages/adapters/src/browser/external-endpoint.ts",
   "packages/adapters/src/http/index.ts",
   // 仅使用 node:http 的状态码/类型，不执行网络请求。
   "packages/adapters/src/http/public-egress-policy.ts",
   // 通过调用方注入的 fetch 执行正式 Adapter 网络边界。
   "packages/adapters/src/model/model-option-map-fetch.ts",
   "packages/adapters/src/model/provider-endpoint-routing-fetch.ts",
+  // ChatGPT adapter 的 curl 不可用回退由该传输 owner 统一执行，Core 不发起网络。
+  "packages/adapters/src/model/chatgpt-responses-transport.ts",
   // 只读 node:http 的 IncomingMessage 类型，把已到手的响应交给 http/index.ts 与 proxy-fetch.ts，不发请求。
   "packages/adapters/src/network/incoming-response.ts",
   "packages/adapters/src/network/proxy-fetch.ts",

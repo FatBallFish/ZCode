@@ -172,3 +172,5 @@
 ## Mikiko 上游 3.16.2 集成验收（2026-10-20）
 
 采用新的 ProjectTree / project-sidebar 作为组织态唯一投影。保留工作树真实 workspaceIdentity/cwd、根项目聚合、路径菜单、置顶项目层级、归档和拖出开窗；投影不得变更运行时归属。独立窗口附着已有 Host，面板仍在各窗口本地渲染；未读按 task identity 去重，不引入第二份事实。手机远控继续自建服务，禁止装配 Relay V2；新增可见配置和路径使用 Mikiko。验收同时覆盖桌面 continuous 与手机 replayable 恢复，主/独立窗切换与关闭不改变共享会话运行时。
+
+3.16.2 新的主窗口/完整视图共用顶栏避让计算，但独立会话窗继续使用 compactWindowControlsInset：macOS 仅让开红绿灯，Windows/Linux 不引入主窗口左侧浮层留白。完整视图与独立原生会话窗共存，均复用原 Host/session，不接纳隐藏 pane 的迟到拖放。

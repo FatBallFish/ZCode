@@ -1,3 +1,6 @@
+// @vitest-environment jsdom
+import { render, cleanup } from "@testing-library/react";
+import { ConversationPanePresentationContext } from "@/side-pane-full-view/conversationPanePresentation.js";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -46,7 +49,10 @@ function resetWorkbenchState(): void {
 
 describe("V4WorkspaceChatArea draft drag/drop", () => {
   beforeEach(resetWorkbenchState);
-  afterEach(resetWorkbenchState);
+  afterEach(() => {
+    cleanup();
+    resetWorkbenchState();
+  });
 
   it("allows dropping a sidebar session beside a draft primary pane without creating a group", () => {
     renderToStaticMarkup(
@@ -74,4 +80,41 @@ describe("V4WorkspaceChatArea draft drag/drop", () => {
     });
     expect(useWorkbenchGroupStore.getState().activeGroupId).toBeNull();
   });
+});
+
+it("keeps the existing split layout mounted but disables hidden/floating pane drops", () => {
+  resetWorkbenchState();
+  usePaneLayoutStore
+    .getState()
+    .splitPane(V4_PRIMARY_PANE_ID, "row", { workspacePath: "/workspace" });
+  const before = leafPaneIds(usePaneLayoutStore.getState().root);
+  const { container } = render(
+    createElement(
+      ConversationPanePresentationContext.Provider,
+      {
+        value: {
+          presentation: "floating",
+          reportFloatingStatus: () => {},
+          reportComposerDockHeight: () => {},
+        },
+      },
+      createElement(V4WorkspaceChatArea, { sessionId: null, workspacePath: "/workspace" }),
+    ),
+  );
+  expect(leafPaneCapture.props).toHaveLength(2);
+  expect(leafPaneCapture.props.filter((pane) => pane.hidden)).toHaveLength(1);
+  for (const pane of leafPaneCapture.props) {
+    expect(pane.canSplit).toBe(false);
+    expect(pane.onDropSession).toBeUndefined();
+    expect(pane.canDropSession).toBeUndefined();
+  }
+  expect(container.querySelector('[data-testid="mock-divider"]')).toBeNull();
+  expect(leafPaneIds(usePaneLayoutStore.getState().root)).toEqual(before);
+  leafPaneCapture.props = [];
+  cleanup();
+  render(createElement(V4WorkspaceChatArea, { sessionId: null, workspacePath: "/workspace" }));
+  expect(leafPaneCapture.props.every((pane) => !pane.hidden && Boolean(pane.onDropSession))).toBe(
+    true,
+  );
+  resetWorkbenchState();
 });

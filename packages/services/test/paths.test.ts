@@ -31,6 +31,37 @@ afterEach(() => {
 });
 
 describe("paths", () => {
+  it("Host provider config 与 CLI 共用 Mikiko 目录，旧配置仅在目标缺失时迁入", async () => {
+    const home = makeTempHome();
+    process.env.HOME = home;
+    const legacy = join(home, ".zcode", "cli");
+    mkdirSync(legacy, { recursive: true });
+    writeFileSync(join(legacy, "config.json"), '{"provider":"legacy-fixture"}');
+    vi.resetModules();
+    const { getProviderWorkspaceConfigDir } = await import("../src/paths.js");
+    const actual = getProviderWorkspaceConfigDir();
+    expect(actual).toBe(join(home, ".mikiko", "cli"));
+    expect(readFileSync(join(actual, "config.json"), "utf8")).toBe('{"provider":"legacy-fixture"}');
+    expect(readFileSync(join(legacy, "config.json"), "utf8")).toBe('{"provider":"legacy-fixture"}');
+  });
+
+  it("读取 provider config 不以旧配置覆盖 Mikiko 中已经保存的配置", async () => {
+    const home = makeTempHome();
+    process.env.HOME = home;
+    const current = join(home, ".mikiko", "cli");
+    const legacy = join(home, ".zcode", "cli");
+    mkdirSync(current, { recursive: true });
+    mkdirSync(legacy, { recursive: true });
+    writeFileSync(join(current, "config.json"), '{"provider":"current-fixture"}');
+    writeFileSync(join(legacy, "config.json"), '{"provider":"legacy-fixture"}');
+    vi.resetModules();
+    const { getProviderWorkspaceConfigDir } = await import("../src/paths.js");
+    expect(getProviderWorkspaceConfigDir()).toBe(current);
+    expect(readFileSync(join(current, "config.json"), "utf8")).toBe(
+      '{"provider":"current-fixture"}',
+    );
+  });
+
   it("copyDataDirectory 会复制普通文件并跳过 workspace 里的共享目录软链", async () => {
     const oldBase = makeTempHome();
     const newBase = makeTempHome();

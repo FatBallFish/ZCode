@@ -9,6 +9,8 @@ import { fetchReleaseCatalog, fetchReleaseJson, ReleaseDownloader } from "./rele
 import { ReleaseInstaller } from "./releaseInstaller.js";
 import { ReleaseManager } from "./releaseManager.js";
 
+const DEFAULT_SERVER_RELEASE_MANIFEST_URL = "https://agent-dl.mikiko.ai/mikiko/server/catalog.json";
+
 export type UpdatePreparation =
   | { status: "up-to-date"; version: string }
   | { status: "prepared"; version: string; discard: () => Promise<void> }
@@ -35,7 +37,11 @@ function isStalePending(pending: ReleaseManifest, current: ReleaseManifest): boo
     return true;
   // 只清理不可能比 current 更新的遗留候选；未来版本的 pending 仍保留，供用户在
   // catalog 暂时回滚或离线时显式应用。
-  return pending.version.localeCompare(current.version, undefined, { numeric: true }) <= 0;
+  return (
+    pending.version.localeCompare(current.version, undefined, {
+      numeric: true,
+    }) <= 0
+  );
 }
 
 function createPreparedReleaseDiscarder(input: {
@@ -64,7 +70,12 @@ function createPreparedReleaseDiscarder(input: {
 }
 
 export async function prepareOnlineUpdate(layout: ServerLayout): Promise<UpdatePreparation> {
-  const catalogUrl = process.env.MIKIKO_SERVER_RELEASE_MANIFEST_URL?.trim();
+  // 未配置时使用自建发行目录；显式空值仍表示旧有的离线 pending 模式。
+  const configuredCatalog = process.env.MIKIKO_SERVER_RELEASE_MANIFEST_URL;
+  const catalogUrl =
+    configuredCatalog === undefined
+      ? DEFAULT_SERVER_RELEASE_MANIFEST_URL
+      : configuredCatalog.trim();
   if (!catalogUrl) {
     const pending = await new ReleaseManager(layout).readPending();
     if (!pending) {
@@ -177,7 +188,11 @@ async function prepareComponentUpdate(input: {
     (input.current.components ?? []).map((component) => [component.id, component]),
   );
   if (!remoteManifest.components) return null;
-  const changed: Array<{ componentId: string; sha256: string; archivePath: string }> = [];
+  const changed: Array<{
+    componentId: string;
+    sha256: string;
+    archivePath: string;
+  }> = [];
   const temporaryDir = await mkdtemp(join(tmpdir(), "mikiko-server-components-"));
   const cache = new ComponentCache(input.layout);
   try {
@@ -209,7 +224,11 @@ async function prepareComponentUpdate(input: {
           target: input.target,
           temporaryDir,
         }));
-      changed.push({ componentId: component.id, sha256: component.sha256, archivePath: cached });
+      changed.push({
+        componentId: component.id,
+        sha256: component.sha256,
+        archivePath: cached,
+      });
     }
     const releaseId = `${input.release.version}-${input.target}-${input.release.archiveSha256.slice(0, 12)}`;
     const releaseDir = join(input.layout.releasesDir, releaseId);

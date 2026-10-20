@@ -16,7 +16,7 @@
  *   --keep-versions 发布后自动清理 R2 旧版本，保留最近 N 版（默认 3，R2 免费档 10GB 配额）。
  */
 
-import { createHash } from "node:crypto";
+import { createUpdatePublishTransport } from "./update-publish-transport.mjs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -33,106 +33,16 @@ const endpoint = readArg("endpoint") ?? "https://agent-update.mikiko.ai";
 const downloadOrigin = readArg("download-origin") ?? "https://agent-dl.mikiko.ai";
 const releaseNotesPath = readArg("release-notes");
 const token = process.env.UPDATE_PUBLISH_TOKEN;
-const MULTIPART_THRESHOLD = 90 * 1024 * 1024;
 
 if (!version || !token) {
   console.error("需要 --version 与环境变量 UPDATE_PUBLISH_TOKEN");
   process.exit(1);
 }
 
-async function publishBytes(path, body, contentType, multipartKey) {
-  if (body.byteLength <= MULTIPART_THRESHOLD) {
-    const response = await fetchWithRetry(
-      `${endpoint}${path}`,
-      {
-        method: "PUT",
-        headers: { "x-publish-token": token, "content-type": contentType },
-        body,
-      },
-      path,
-    );
-    if (!response.ok) {
-      throw new Error(`上传失败 ${path}: ${response.status} ${await response.text()}`);
-    }
-    return;
-  }
-  // 分片：init → parts → complete。
-  const init = await fetchWithRetry(
-    `${endpoint}/admin/multipart/init`,
-    {
-      method: "POST",
-      headers: { "x-publish-token": token, "content-type": "application/json" },
-      body: JSON.stringify({ key: multipartKey, contentType }),
-    },
-    "multipart init",
-  );
-  const initBody = await init.json();
-  if (!init.ok) {
-    throw new Error(`multipart init 失败: ${init.status} ${JSON.stringify(initBody)}`);
-  }
-  const partSize = 80 * 1024 * 1024;
-  const parts = [];
-  for (let offset = 0, number = 1; offset < body.byteLength; offset += partSize, number++) {
-    const chunk = body.subarray(offset, Math.min(offset + partSize, body.byteLength));
-    const partResponse = await fetchWithRetry(
-      `${endpoint}/admin/multipart/${initBody.uploadId}/${number}?key=${encodeURIComponent(multipartKey)}`,
-      {
-        method: "PUT",
-        headers: { "x-publish-token": token, "content-type": "application/octet-stream" },
-        body: chunk,
-      },
-      `分片 ${number}`,
-    );
-    const partBody = await partResponse.json();
-    if (!partResponse.ok) {
-      throw new Error(`分片 ${number} 失败: ${partResponse.status} ${JSON.stringify(partBody)}`);
-    }
-    parts.push({ etag: partBody.etag, partNumber: number });
-    console.log(`  part ${number}/${Math.ceil(body.byteLength / partSize)} 上传完成`);
-  }
-  const complete = await fetchWithRetry(
-    `${endpoint}/admin/multipart/complete`,
-    {
-      method: "POST",
-      headers: { "x-publish-token": token, "content-type": "application/json" },
-      body: JSON.stringify({ uploadId: initBody.uploadId, key: multipartKey, parts }),
-    },
-    "multipart complete",
-  );
-  if (!complete.ok) {
-    throw new Error(`multipart complete 失败: ${complete.status} ${await complete.text()}`);
-  }
-}
-
-/**
- * 上传重试（2026-09-24）：100-190MB 安装包经 Workers multipart 上传时，单连接
- * 偶发 CF 边缘断流（CI 实测 500 part_failed "Network connection lost"、本地实测
- * EPIPE），一条分片失败就整体退出会让发布半途而废且只能人工补发。网络类失败
- * 与 5xx 按 2s/4s/8s 退避重试 3 次；4xx 是确定性错误（鉴权/参数），原样抛出。
- */
-// R2 multipart 分片偶发边缘 503；增加到 5 次只影响网络失败，不会重复确定性 4xx 请求。
-async function fetchWithRetry(url, init, label, attempts = 5) {
-  let lastError;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      const response = await fetch(url, init);
-      if (response.status < 500) {
-        return response;
-      }
-      lastError = new Error(`${label}: HTTP ${response.status}`);
-      console.warn(`  ${lastError.message}，${attempt < attempts ? "退避重试" : "放弃"}`);
-    } catch (error) {
-      lastError = error;
-      console.warn(
-        `  ${label} 网络异常（${error.cause?.code ?? error.message}），${attempt < attempts ? "退避重试" : "放弃"}`,
-      );
-    }
-    if (attempt < attempts) {
-      await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** (attempt - 1)));
-    }
-  }
-  throw lastError;
-}
+const { publishBytes, fetchWithRetry } = createUpdatePublishTransport({
+  endpoint,
+  token,
+});
 
 async function statFileOrNull(filePath) {
   try {
@@ -206,14 +116,22 @@ async function main() {
    */
   if (archDirs.length > 0) {
     const keyMap = [
-      { dir: "installers-mac-arm64", file: "latest-mac.yml", keys: ["latest-mac-arm64.yml"] },
+      {
+        dir: "installers-mac-arm64",
+        file: "latest-mac.yml",
+        keys: ["latest-mac-arm64.yml"],
+      },
       {
         dir: "installers-mac-x64",
         file: "latest-mac.yml",
         keys: ["latest-mac-x64.yml", "latest-mac.yml"],
       },
       { dir: "installers-win-x64", file: "latest.yml", keys: ["latest.yml"] },
-      { dir: "installers-win-arm64", file: "latest.yml", keys: ["latest-arm64.yml"] },
+      {
+        dir: "installers-win-arm64",
+        file: "latest.yml",
+        keys: ["latest-arm64.yml"],
+      },
       {
         dir: "installers-linux-x64",
         file: "latest-linux.yml",
@@ -304,7 +222,10 @@ async function main() {
         `${websiteEndpoint}/api/v1/admin/release-notes`,
         {
           method: "PUT",
-          headers: { "x-publish-token": websiteToken, "content-type": "application/json" },
+          headers: {
+            "x-publish-token": websiteToken,
+            "content-type": "application/json",
+          },
           body: JSON.stringify({ version, markdown: releaseNotesMarkdown }),
         },
         "官网更新日志",

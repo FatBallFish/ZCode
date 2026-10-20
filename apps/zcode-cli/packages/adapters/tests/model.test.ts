@@ -540,6 +540,8 @@ describe("Model", () => {
         receivedHeaders.push(options.headers);
         return {
           fullStream: (async function* () {
+            // 此用例验证鉴权，提供真实文本，避免命中独立空回重试策略。
+            yield { type: "text-delta", id: "text", text: "streamed" };
             yield {
               type: "finish",
               finishReason: "stop",

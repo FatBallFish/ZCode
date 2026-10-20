@@ -18,13 +18,13 @@ class RemoteControlKeepAliveService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val remoteUrl = intent?.getStringExtra(EXTRA_REMOTE_URL).orEmpty()
-        ensureNotificationChannel()
+        val remoteUrl = readRemoteUrl(intent).orEmpty()
+        val channelId = ensureNotificationChannel()
 
         // Bugfix: 纯浏览器后台后 WebView/JS/WebSocket 容易被系统暂停或回收。
         // 前台服务不能保证 WebView socket 永不断，但能给远控会话一个用户可见的保活边界，
         // 降低进程被杀概率；真正的状态恢复仍交给 web 端 replayable snapshot 协议完成。
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.ic_stat_remote_control)
             .setContentTitle(getString(R.string.remote_keep_alive_title))
             .setContentText(getString(R.string.remote_keep_alive_text))
@@ -52,24 +52,23 @@ class RemoteControlKeepAliveService : Service() {
         super.onDestroy()
     }
 
-    private fun ensureNotificationChannel() {
+    private fun ensureNotificationChannel(): String {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return
+            return CHANNEL_ID
         }
         val manager = getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) {
-            return
-        }
-
-        val channel = NotificationChannel(
+        // 旧 channel 的 importance 包含用户授权选择，升级只更新可见名称/说明，不重置该选择。
+        val existing = manager.getNotificationChannel(CHANNEL_ID)
+            ?: manager.getNotificationChannel(LEGACY_CHANNEL_ID)
+        val channel = existing ?: NotificationChannel(
             CHANNEL_ID,
             getString(R.string.remote_keep_alive_channel),
             NotificationManager.IMPORTANCE_LOW,
-        ).apply {
-            description = getString(R.string.remote_keep_alive_channel_description)
-            setShowBadge(false)
-        }
+        ).apply { setShowBadge(false) }
+        channel.name = getString(R.string.remote_keep_alive_channel)
+        channel.description = getString(R.string.remote_keep_alive_channel_description)
         manager.createNotificationChannel(channel)
+        return channel.id
     }
 
     private fun createContentIntent(remoteUrl: String): PendingIntent {
@@ -86,9 +85,14 @@ class RemoteControlKeepAliveService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_ID = "zcode_remote_control"
+        private const val CHANNEL_ID = "mikiko_remote_control"
+        private const val LEGACY_CHANNEL_ID = "zcode_remote_control"
         private const val NOTIFICATION_ID = 1001
-        const val EXTRA_REMOTE_URL = "com.example.zcode_mobile.remote.REMOTE_URL"
+        const val EXTRA_REMOTE_URL = "ai.mikiko.remote.REMOTE_URL"
+        private const val LEGACY_EXTRA_REMOTE_URL = "com.example.zcode_mobile.remote.REMOTE_URL"
+
+        fun readRemoteUrl(intent: Intent?): String? =
+            intent?.getStringExtra(EXTRA_REMOTE_URL) ?: intent?.getStringExtra(LEGACY_EXTRA_REMOTE_URL)
 
         fun start(context: Context, remoteUrl: String) {
             val intent = Intent(context, RemoteControlKeepAliveService::class.java)

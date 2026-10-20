@@ -144,7 +144,7 @@ describe("providerRuntimeResolver workspace config dir identity", () => {
     }
   });
 
-  it("GLM 配置目录由 ZCode Agent home 统一承载，不再按 workspaceIdentity 计算", () => {
+  it("GLM 配置目录由 Mikiko Agent home 统一承载，不再按 workspaceIdentity 计算", () => {
     const home = mkdtempSync(join(tmpdir(), "zcode-agent-resolver-home-"));
     createdDirs.push(home);
     process.env.HOME = home;
@@ -155,7 +155,7 @@ describe("providerRuntimeResolver workspace config dir identity", () => {
     const workspaceIdentity = "remote:ssh:localhost:2223:dev:/home/dev";
 
     expect(resolveProviderConfigDir("glm", workspacePath, workspaceIdentity)).toBe(
-      join(home, ".zcode", "cli"),
+      join(home, ".mikiko", "cli"),
     );
   });
 });

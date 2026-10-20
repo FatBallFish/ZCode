@@ -414,14 +414,14 @@ describe("session persistence", () => {
     const configPath = join(tempRoot, "config.json");
     const enabledSkillPath = join(
       tempRoot,
-      ".zcode",
+      ".mikiko",
       "skills",
       "enabled-runtime-skill",
       "SKILL.md",
     );
     const disabledSkillPath = join(
       tempRoot,
-      ".zcode",
+      ".mikiko",
       "skills",
       "disabled-runtime-skill",
       "SKILL.md",
@@ -2415,7 +2415,7 @@ describe("session persistence", () => {
         "user",
       ]);
       expect(capturedMessages.map((message) => message.content)).toEqual([
-        expect.stringContaining("You are ZCode"),
+        expect.stringContaining("You are Mikiko"),
         // 修复原因：resume 使用现行 static # Harness + dynamic # Environment prompt 布局。
         expect.stringContaining("# Harness"),
         expect.stringContaining("# Environment"),
@@ -2510,7 +2510,7 @@ describe("session persistence", () => {
         SessionEventType.SessionResumed,
       ]);
       expect(capturedMessages.map((message) => message.content)).toEqual([
-        expect.stringContaining("You are ZCode"),
+        expect.stringContaining("You are Mikiko"),
         expect.stringContaining("# Harness"),
         expect.stringContaining("# Communicating with the user"),
         expect.stringContaining("The following skills are available"),

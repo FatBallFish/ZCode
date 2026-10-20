@@ -746,7 +746,7 @@ seed that surveys and ends in a tail hole, grown fill by fill — is `examples.m
 ## 13. After you submit
 
 Compilation happens first. **Diagnostics mean nothing ran**, and they name the file your
-script is in: an inline `script` is written under `.zcode/workflow-drafts/` before it is
+script is in: an inline `script` is written under `.mikiko/workflow-drafts/` before it is
 compiled and the response hands you the path; a `path` submission is that file already. Each
 diagnostic reads `{path}:L{line}:C{column} {message}`, counted in the file.
 **Edit that file and resubmit with `path`. Do not paste the script inline again**: the
@@ -798,7 +798,7 @@ on disk has not moved. Edit it in place and pass `path`; pass `script` only for 
 genuinely new. A `path` whose bytes still equal what the run ran is refused as
 `script_unchanged` — your `Edit` did not land — with nothing stopped and nothing created.
 
-**Editing a draft asks nothing.** `.zcode/workflow-drafts/` is machine-owned and
+**Editing a draft asks nothing.** `.mikiko/workflow-drafts/` is machine-owned and
 git-ignored, so an `Edit` under it opens no confirmation window; the window still stands
 between the file and the run, so fix the file freely and let the submission be what the
 user answers.
@@ -1070,7 +1070,7 @@ Compilation errors come back as diagnostics, counted in the script's file (§13)
 **Three sources; pass exactly one.**
 
 - `script`: a one-off workflow written inline. It is saved to a file under
-  `.zcode/workflow-drafts/` and the result names that file, compiled or not; revise it by
+  `.mikiko/workflow-drafts/` and the result names that file, compiled or not; revise it by
   editing the file and resubmitting with `path` (§13).
 - `saved`: a workflow saved in this project or globally, by name —
   `saved: { name: "pr-review", args: { pr: "123" } }`; arguments are validated against its
@@ -1523,8 +1523,8 @@ settles. Do not wait for it or poll it with `TaskOutput`.
 
 Saves a script with its metadata so it can be run again by name — through `CreateWorkflow`'s
 `saved` source, discovered with `ListSavedWorkflows`. Project definitions go in
-`.zcode/workflows/<name>.dwf.ts`, committed with the repository; global definitions go in
-`~/.zcode/workflows/<name>.dwf.ts` and are available from every project on this machine.
+`.mikiko/workflows/<name>.dwf.ts`, committed with the repository; global definitions go in
+`~/.mikiko/workflows/<name>.dwf.ts` and are available from every project on this machine.
 
 **When to call it.**
 
@@ -1590,7 +1590,7 @@ is what a resume replays, an amend revises and `SaveWorkflow` keeps.
 - `run_id` and `hole_id` (required): from the notification or `GetWorkflowRun`; the hole id
   is the site id (`hole#21b40fca`), not the name.
 - `script` or `path`, never both: the body's statements only. An inline `script` is written to
-  a fill file under `.zcode/workflow-drafts/` before it is compiled and the result names it;
+  a fill file under `.mikiko/workflow-drafts/` before it is compiled and the result names it;
   `path` is usually that file after an `Edit`, and bytes equal to the last rejected attempt
   are refused as `fill_unchanged`.
 

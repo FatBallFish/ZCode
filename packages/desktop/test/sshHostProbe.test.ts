@@ -17,7 +17,7 @@ it("Host 探针只读 Main 指标，不打开资源管理器或切换业务窗�
           name: "zcode-host-local-1",
           serviceName: "node.mojom.NodeService",
         },
-        { pid: 33, type: "Utility", name: "zcode-cron-scheduler" },
+        { pid: 33, type: "Utility", name: "mikiko-cron-scheduler" },
       ],
     },
   };

@@ -241,8 +241,8 @@ describe("subagent provider-visible prompt assembly", () => {
     expectSystemMessagesCached(childRequests[0]);
     const systems = systemContents(childRequests[0]);
     expect(systems.map((content) => content.endsWith("\n"))).toEqual([false, false]);
-    expect(systems[0]).toBe("You are ZCode, an interactive coding agent");
-    expect(systems[1]).toMatch(/^\nYou are ZCode Explore/u);
+    expect(systems[0]).toBe("You are Mikiko, an interactive coding agent");
+    expect(systems[1]).toMatch(/^\nYou are Mikiko Explore/u);
     expect(systems[1]).toContain("READ-ONLY MODE");
     expect(systems[1]).toContain("\n\nNotes:");
     expect(systems[1]).toContain("Agent threads always have their cwd reset between bash calls");
@@ -340,8 +340,8 @@ describe("subagent provider-visible prompt assembly", () => {
     expectSystemMessagesCached(childRequests[0]);
     const systems = systemContents(childRequests[0]);
     expect(systems).toHaveLength(2);
-    expect(systems[0]).toBe("You are ZCode, an interactive coding agent");
-    expect(systems[1]).toContain("You are an agent for ZCode CLI");
+    expect(systems[0]).toBe("You are Mikiko, an interactive coding agent");
+    expect(systems[1]).toContain("You are an agent for Mikiko CLI");
     expect(systems[1]).toContain("Complete the task fully—don't gold-plate");
     expect(systems[1]).toContain("the caller will relay this to the user");
     expect(systems[1]).not.toContain("fully--don't gold-plate");
@@ -442,7 +442,7 @@ describe("subagent provider-visible prompt assembly", () => {
       expectSystemMessagesCached(childRequests[0]);
       const systems = systemContents(childRequests[0]);
       expect(systems).toHaveLength(2);
-      expect(systems[0]).toBe("You are ZCode, an interactive coding agent");
+      expect(systems[0]).toBe("You are Mikiko, an interactive coding agent");
       expect(systems[1]).toMatch(
         /^\nYou are a focused code researcher\. Return concise findings\.\n\nNotes:/u,
       );
@@ -471,7 +471,7 @@ describe("subagent provider-visible prompt assembly", () => {
     expectSystemMessagesCached({ messages: result.systemMessages });
     const systems = systemContents({ messages: result.systemMessages });
     expect(systems).toHaveLength(2);
-    expect(systems[0]).toBe("You are ZCode, an interactive coding agent");
+    expect(systems[0]).toBe("You are Mikiko, an interactive coding agent");
     expect(systems[1]).toMatch(/^\n\nNotes:/u);
     expect(systems[1]).toContain(
       "\n\nHere is useful information about the environment you are running in:",
@@ -670,7 +670,7 @@ describe("subagent provider-visible prompt assembly", () => {
       expectSystemMessagesCached(request);
       const systems = systemContents(request);
       expect(systems).toHaveLength(2);
-      expect(systems[0]).toBe("You are ZCode, an interactive coding agent");
+      expect(systems[0]).toBe("You are Mikiko, an interactive coding agent");
       expect(systems[1]).toMatch(
         /^\nYou are a focused child agent\. Keep the result concise\.\n\nNotes:/u,
       );
@@ -682,7 +682,7 @@ describe("subagent provider-visible prompt assembly", () => {
       expect(allMessageText(request)).not.toContain(
         "You help the user with software engineering work in the current workspace.",
       );
-      expect(allMessageText(request)).not.toContain("# ZCode Desktop Context");
+      expect(allMessageText(request)).not.toContain("# Mikiko Desktop Context");
     }
   });
 });

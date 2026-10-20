@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-integration-composer-stats-voice",
+  "spec": "./test/e2e/conversation-session/conversation-session-integration-composer-stats-voice.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-integration-composer-stats-voice.json"
+  ],
+  "fileFixtures": [
+    {
+      "path": "~/.mikiko/v2/tasks-index.sqlite",
+      "source": "created-by-spec",
+      "description": "Required .e2e-home-integration-*; real temporary Git, SQLite, worktree registry or theme JSON evidence."
+    }
+  ],
+  "requests": [
+    {
+      "id": "conversation-session-integration-composer-stats-voice-title",
+      "description": "INT-E2E-02 common deterministic response",
+      "kind": "common",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "已确认合入验收仅验证Host/CLI/UI的状态与真实IO，模型选择性不属于验收；使用隔离loopback确定性响应，禁止生产账号和收费模型。"
+    },
+    {
+      "id": "conversation-session-integration-composer-stats-voice-main",
+      "description": "INT-E2E-02 main deterministic response",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "已确认合入验收仅验证Host/CLI/UI的状态与真实IO，模型选择性不属于验收；使用隔离loopback确定性响应，禁止生产账号和收费模型。"
+    }
+  ]
+}

@@ -109,7 +109,7 @@ describe("cold hydration wire payload upper bound", () => {
     ["ASCII", { kind: "deltas", deltas: [{ text: "plain text" }] }],
     ["中文", { text: "冷启动恢复" }],
     ["emoji", { text: "ready 🚀" }],
-    ["JSON 转义", { text: "quote: \\\" slash: \\\\ newline:\n tab:\t" }],
+    ["JSON 转义", { text: 'quote: \\" slash: \\\\ newline:\n tab:\t' }],
     ["未配对 surrogate", { text: "\ud800" }],
   ])("cold-only byte length 对 %s 保持 shared 精确结果", (_name, value) => {
     expect(coldHydrationJsonByteLength(value)).toBe(utf8JsonByteLength(value));
@@ -194,7 +194,10 @@ describe("cold hydration wire payload upper bound", () => {
       wireByteProbe.snapshotBytesOverride = null;
     }
 
-    expect(wireByteProbe.snapshotSequences).toEqual([0, to, to + 1]);
+    // 新增 stats 初始化会在首个 checkpoint 产生一次安全的额外精确测量。
+    expect(wireByteProbe.snapshotSequences).toEqual(
+      headroomBytes === 1 ? [0, from, to, to + 1] : [0, from, to + 1],
+    );
     expect(publisher.getSnapshot()).toEqual(strict.getSnapshot());
     expect(
       publisher.subscribe({

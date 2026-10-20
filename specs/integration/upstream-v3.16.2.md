@@ -6,7 +6,8 @@
 
 1. 手机远控保持当前自建 relay、Mikiko ID、设备认领/直连、扫码与 P2P 能力。上游 Relay V2 不采用、不装配，不以它替换自建协议；其专属模块列入明确排除台账。通用任务/恢复修复仍需适配并回归。
 2. 更新/远端资源下载、bug 上报、需求反馈、分享、客户端功能配置等产品云端接口全部使用自有品牌与自建服务。只有官方 CodingPlan 账号体系及它完成账号业务必需的供应商接口继续保持官方合同。普通产品服务不能借此例外回流官方端点。
-3. 新功能的产品侧环境变量、配置名、文件名、目录路径、进程名、可见文案和安装身份统一 Mikiko。包 scope、TypeScript 内部符号、不可见协议判别器与第三方品牌不做机械替换；可对外配置/运行的名字不属于内部符号豁免。
+
+生产模式下，任意自建产品域（包括 `MIKIKO_BASE_URL` 自定义部署）均不改变官方 CodingPlan OAuth、套餐计费/领取及官方 MCP 套餐额度的来源，不能向产品域转发官方账号凭据。由共享 account resolver 唯一决定该来源；非生产显式测试 origin、loopback 回放与账户工厂的明确 baseUrl 注入保留测试合同。公共功能配置仍自建，套餐静态配置使用已有专用只读代理，不能把普通产品 client/configs 当账号配置。3. 新功能的产品侧环境变量、配置名、文件名、目录路径、进程名、可见文案和安装身份统一 Mikiko。包 scope、TypeScript 内部符号、不可见协议判别器与第三方品牌不做机械替换；可对外配置/运行的名字不属于内部符号豁免。
 
 ## 路径和远端兼容
 
@@ -46,6 +47,8 @@ flowchart LR
 - 按 integration-cases 的已确认场景执行单元、集成、E2E；必须运行 typecheck/lint/架构检查，真实记录失败和环境限制。
 
 ## 手机 E2E fixture 合同
+
+此节的 HMAC fixture 只覆盖遗留 transport 的通用恢复适配。当前生产侧栏入口是 `RemoteControlDialog → remoteControl/service → relay-server` 的自建票据链，不能用旧 dialog/旧 HMAC fixture 冒充当前产品手机配对/P2P/账号认领已验证。当前数据面由真实 relay-server WS/票据/RPC Node E2E 验证，桌面入口由 Electron 验证；手机真机及 Mikiko ID 认领另列未执行边界。
 
 上游移动项目/未读/会话恢复用例继续验证同一 Host 与 replayable 语义，但 fixture 必须采用
 自建 HMAC `device_register_init → auth_init/challenge/response → data` 协议，禁止通过

@@ -6,6 +6,7 @@ import {
   DEFAULT_ZAI_OAUTH_CLIENT_ID,
   DEFAULT_ZAI_OAUTH_ORIGIN,
   DEFAULT_ZCODE_ENDPOINT_ORIGIN,
+  CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN,
   TEST_BIGMODEL_API_ORIGIN,
   TEST_ZAI_BUSINESS_BASE_URL,
   TEST_ZAI_OAUTH_CLIENT_ID,
@@ -15,6 +16,7 @@ import {
   buildBigModelCodingPlanTeamManageUrl,
   buildBigModelApiUrl,
   buildRuntimeZCodeApiUrl,
+  buildRuntimeCodingPlanApiUrl,
   buildRuntimeZaiBusinessUrl,
   buildRuntimeZaiOAuthUrl,
   buildRuntimeZCodeEndpointUrls,
@@ -22,6 +24,7 @@ import {
   normalizeZCodeEndpointOrigin,
   resolveBigModelApiOrigin,
   resolveRuntimeProductEndpointConfig,
+  resolveCodingPlanEndpointOrigin,
   resolveWebRemoteControlRelayWsUrl,
   resolveZaiBusinessBaseUrl,
   resolveZaiOAuthClientId,
@@ -31,6 +34,37 @@ import {
 import { appSettingsPatchSchema, appSettingsSchema } from "../src/validationAppSettings.js";
 
 describe("zcodeEndpoint", () => {
+  it.each(["https://agent.mikiko.ai", "https://private-product.example"])(
+    "生产产品域 %s 不改变官方 CodingPlan 账户来源",
+    (origin) => {
+      const env = { MIKIKO_ENV: "production", MIKIKO_BASE_URL: origin };
+      expect(resolveCodingPlanEndpointOrigin(env)).toBe(CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN);
+      expect(buildRuntimeZCodeApiUrl(env, "/api/v1/client/configs")).toBe(
+        `${origin}/api/v1/client/configs`,
+      );
+      expect(buildRuntimeCodingPlanApiUrl(env, "/api/v1/zcode-plan/billing/claim")).toBe(
+        `${CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN}/api/v1/zcode-plan/billing/claim`,
+      );
+      expect(buildRuntimeZCodeEndpointUrls(env).zcodePlanBillingCurrentUrl).toBe(
+        `${CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN}/api/v1/zcode-plan/billing/current`,
+      );
+      expect(
+        resolveRuntimeProductEndpointConfig(env).zcodeEndpointUrls.zcodePlanOpenAiBaseUrl,
+      ).toBe(`${CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN}/api/v1/zcode-plan`);
+      expect(buildZCodeEndpointUrls(origin).zcodePlanOpenAiBaseUrl).toBe(
+        `${CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN}/api/v1/zcode-plan`,
+      );
+    },
+  );
+
+  it("显式非生产账户测试源保留回放合同", () => {
+    const env = { MIKIKO_ENV: "test", MIKIKO_BASE_URL: "https://account-test.example" };
+    expect(resolveCodingPlanEndpointOrigin(env)).toBe("https://account-test.example");
+    expect(buildRuntimeZCodeEndpointUrls(env).zcodePlanBillingCurrentUrl).toBe(
+      "https://account-test.example/api/v1/zcode-plan/billing/current",
+    );
+  });
+
   it("defaults to the scoped origin in every env without env base url", () => {
     expect(resolveZCodeEndpointOrigin({ env: "test" })).toBe(TEST_ZCODE_ENDPOINT_ORIGIN);
     expect(resolveZCodeEndpointOrigin({ env: "production" })).toBe(DEFAULT_ZCODE_ENDPOINT_ORIGIN);

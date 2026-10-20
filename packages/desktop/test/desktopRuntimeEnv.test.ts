@@ -314,10 +314,10 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
       expect(dirs.mockCdnDir).toMatch(/[\\/]mock-cdn$/);
       expect(dirs.sourceServerArtifactPolicy).toBe("development-content-addressed");
       expect(dirs.remoteCdnBaseUrl).toBe(
-        "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
+        "https://agent-dl.mikiko.ai/mikiko/electron/releases/0.0.0-test",
       );
       expect(dirs.remoteCdnBaseUrls).toEqual([
-        "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
+        "https://agent-dl.mikiko.ai/mikiko/electron/releases/0.0.0-test",
       ]);
       expect(dirs.remoteCacheDir).toMatch(/[\\/]userData[\\/]remote-assets-cache$/);
     });
@@ -334,10 +334,10 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
       expect(dirs.mockCdnDir).toBeUndefined();
       expect(dirs.sourceServerArtifactPolicy).toBe("development-content-addressed");
       expect(dirs.remoteCdnBaseUrl).toBe(
-        "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
+        "https://agent-dl.mikiko.ai/mikiko/electron/releases/0.0.0-test",
       );
       expect(dirs.remoteCdnBaseUrls).toEqual([
-        "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
+        "https://agent-dl.mikiko.ai/mikiko/electron/releases/0.0.0-test",
       ]);
       expect(dirs.remoteCacheDir).toMatch(/[\\/]userData[\\/]remote-assets-cache$/);
     });
@@ -353,10 +353,10 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
     expect(dirs.mockCdnDir).toBeUndefined();
     expect(dirs.sourceServerArtifactPolicy).toBeUndefined();
     expect(dirs.remoteCdnBaseUrl).toBe(
-      "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
+      "https://agent-dl.mikiko.ai/mikiko/electron/releases/0.0.0-test",
     );
     expect(dirs.remoteCdnBaseUrls).toEqual([
-      "https://agent-dl.mikiko.ai/zcode/electron/releases/0.0.0-test",
+      "https://agent-dl.mikiko.ai/mikiko/electron/releases/0.0.0-test",
     ]);
     expect(dirs.remoteCacheDir).toMatch(/[\\/]userData[\\/]remote-assets-cache$/);
   });

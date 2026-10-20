@@ -494,7 +494,8 @@ describe("createWebRemoteControlManager external relay", () => {
     await manager.start(1, { workspacePath: "/workspace/demo" });
     const status = manager.getStatus(1);
 
-    expect(getLatestTransportOptions()?.relayWsUrl).toBe("ws://localhost:3030/api/v1/remote/ws2");
+    // 用户排除上游 Relay V2；保留的 HMAC manager 必须使用通用自建 /ws 合同。
+    expect(getLatestTransportOptions()?.relayWsUrl).toBe("ws://localhost:3030/ws");
     expect(status.qrUrl).toContain("http://localhost:3030/remote/v3?");
   });
 

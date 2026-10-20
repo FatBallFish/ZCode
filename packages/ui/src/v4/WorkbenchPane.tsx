@@ -51,7 +51,6 @@ import {
   type PaneBinding,
   type PaneSplitSide,
   type PaneWorkspaceScope,
-  type SplitDirection,
 } from "@/v4/paneLayoutStore.js";
 import type { WorkbenchSessionBinding } from "@/v4/workbenchGroupStore.js";
 import {
@@ -75,6 +74,7 @@ import type {
 
 interface ChatPaneShellProps {
   containerRef?: (element: HTMLDivElement | null) => void;
+  hidden?: boolean;
   paneId: string;
   focused: boolean;
   /** 单 pane 布局时不画焦点框（无歧义，避免视觉噪音）。 */
@@ -119,6 +119,7 @@ function dropPreviewClassName(side: PaneSplitSide): string {
  */
 const ChatPaneShell = memo(function ChatPaneShell({
   containerRef,
+  hidden = false,
   paneId,
   focused,
   showFocusIndicator,
@@ -150,6 +151,7 @@ const ChatPaneShell = memo(function ChatPaneShell({
       style={style}
       className={cn(
         "absolute flex min-h-0 min-w-0 flex-col",
+        hidden && "hidden",
         showFocusIndicator && focused && "ring-1 ring-inset ring-[var(--color-brand)]",
       )}
     >
@@ -312,6 +314,7 @@ export interface WorkbenchShellBinding {
 
 export interface WorkbenchLeafPaneProps {
   paneId: string;
+  hidden?: boolean;
   rect: RectExpr;
   focused: boolean;
   showFocusIndicator: boolean;
@@ -323,7 +326,6 @@ export interface WorkbenchLeafPaneProps {
   primaryBinding?: WorkbenchSessionBinding | null;
   shell: WorkbenchShellBinding;
   onFocusRequest: (paneId: string) => void;
-  onSplit?: (paneId: string, direction: SplitDirection, scope: PaneWorkspaceScope) => void;
   onClosePane: (paneId: string) => void;
   onConfirmRestoredSession: (paneId: string) => void;
   onBindSession: (paneId: string, sessionId: string) => boolean | void;
@@ -347,6 +349,7 @@ function workspaceBadgeFor(scope: PaneWorkspaceScope): PaneWorkspaceBadge {
 
 export function WorkbenchLeafPane({
   paneId,
+  hidden = false,
   rect,
   focused,
   showFocusIndicator,
@@ -356,7 +359,6 @@ export function WorkbenchLeafPane({
   primaryBinding,
   shell,
   onFocusRequest,
-  onSplit,
   onClosePane,
   onConfirmRestoredSession,
   onBindSession,
@@ -390,12 +392,6 @@ export function WorkbenchLeafPane({
 
   const style = useMemo(() => rectStyle(rect), [rect]);
 
-  const handleSplitRight = useCallback(() => {
-    onSplit?.(paneId, "row", scope);
-  }, [onSplit, paneId, scope]);
-  const handleSplitDown = useCallback(() => {
-    onSplit?.(paneId, "column", scope);
-  }, [onSplit, paneId, scope]);
   const handleClosePane = useCallback(() => {
     onClosePane(paneId);
   }, [onClosePane, paneId]);
@@ -439,7 +435,7 @@ export function WorkbenchLeafPane({
   );
   const handleDragOver = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
-      if (!onDropSession || !canSplit) {
+      if (hidden || !onDropSession || !canSplit) {
         return;
       }
       const payload = parseWorkbenchSessionDragPayload(event.dataTransfer);
@@ -461,7 +457,7 @@ export function WorkbenchLeafPane({
       event.dataTransfer.dropEffect = "copy";
       setDropSide(side);
     },
-    [canDropSession, canSplit, onDropSession],
+    [canDropSession, canSplit, hidden, onDropSession],
   );
   const handleDragLeave = useCallback((event: DragEvent<HTMLDivElement>) => {
     const relatedTarget = event.relatedTarget;
@@ -472,7 +468,7 @@ export function WorkbenchLeafPane({
   }, []);
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
-      if (!onDropSession || !canSplit) {
+      if (hidden || !onDropSession || !canSplit) {
         setDropSide(null);
         return;
       }
@@ -492,7 +488,7 @@ export function WorkbenchLeafPane({
       event.stopPropagation();
       onDropSession(paneId, side, payload);
     },
-    [canDropSession, canSplit, dropSide, onDropSession, paneId],
+    [canDropSession, canSplit, dropSide, hidden, onDropSession, paneId],
   );
   const pointerDropTargetRef = useRef<HTMLDivElement | null>(null);
   const setPointerDropTargetRef = useCallback((element: HTMLDivElement | null) => {
@@ -500,7 +496,7 @@ export function WorkbenchLeafPane({
   }, []);
   useEffect(() => {
     const element = pointerDropTargetRef.current;
-    if (!element || !onDropSession || !canSplit) {
+    if (hidden || !element || !onDropSession || !canSplit) {
       return undefined;
     }
     return registerWorkbenchPointerDropTarget(element, {
@@ -508,7 +504,7 @@ export function WorkbenchLeafPane({
       onPreview: setDropSide,
       onDrop: (side, payload) => onDropSession(paneId, side, payload),
     });
-  }, [canDropSession, canSplit, onDropSession, paneId]);
+  }, [canDropSession, canSplit, hidden, onDropSession, paneId]);
 
   // 分屏高亮区活动上报：拖出新窗口引导（workbenchWindowDragOut）在命中分屏区时
   // 必须让位给既有的半区高亮，避免两套引导同时出现。
@@ -542,6 +538,7 @@ export function WorkbenchLeafPane({
   return (
     <ChatPaneShell
       containerRef={setPointerDropTargetRef}
+      hidden={hidden}
       paneId={paneId}
       focused={focused}
       showFocusIndicator={showFocusIndicator}
@@ -588,8 +585,6 @@ export function WorkbenchLeafPane({
           onSessionDeleted={handleSessionDeleted}
           focused={focused}
           allowEscapeStopOutsidePane={shell.allowEscapeStopOutsidePane}
-          onSplitRight={canSplit && onSplit ? handleSplitRight : undefined}
-          onSplitDown={canSplit && onSplit ? handleSplitDown : undefined}
           onClosePane={isPrimary ? undefined : handleClosePane}
           workspaceBadge={!isPrimary && !isShellWorkspace ? workspaceBadgeFor(scope) : undefined}
           draftComposerHeader={isPrimary && !primaryBinding ? shell.draftComposerHeader : undefined}

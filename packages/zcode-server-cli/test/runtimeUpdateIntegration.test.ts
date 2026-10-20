@@ -264,6 +264,8 @@ describe.skipIf(process.platform === "win32")("runtime update integration", () =
       ...process.env,
       NODE_OPTIONS: [process.env.NODE_OPTIONS, "--import", "tsx"].filter(Boolean).join(" "),
       MIKIKO_SERVER_SKIP_SERVICE_REGISTRATION: "1",
+      // 此用例预置本地 pending release，只验证交接，不访问正式发行目录。
+      MIKIKO_SERVER_RELEASE_MANIFEST_URL: "",
       ZCODE_TEST_CORE_VERSION: ZCODE_VERSION,
       ZCODE_TEST_WIRING_OUTPUT: wiringOutput,
     };

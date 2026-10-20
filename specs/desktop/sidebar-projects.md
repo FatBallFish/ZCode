@@ -62,3 +62,21 @@
 采用新的 ProjectTree / project-sidebar 作为组织态唯一投影。保留工作树真实 workspaceIdentity/cwd、根项目聚合、路径菜单、置顶项目层级、归档和拖出开窗；投影不得变更运行时归属。独立窗口附着已有 Host，面板仍在各窗口本地渲染；未读按 task identity 去重，不引入第二份事实。手机远控继续自建服务，禁止装配 Relay V2；新增可见配置和路径使用 Mikiko。验收同时覆盖桌面 continuous 与手机 replayable 恢复，主/独立窗切换与关闭不改变共享会话运行时。
 
 刷新恢复只有 workspace 选择桶时仍展示当前任务；窗口级 lastActiveTaskSelection 建立后按完整 workspace identity+taskId 投影，防止根项目与工作树旧桶双高亮。远端断连徽标同时覆盖普通/时间线行；手机禁用桌面 hover/focus 的合成状态切换。未读点统一现行 icon-blue 语义 token。
+
+## 上游 3.16.2 的有意适配：分屏保留与完整视图
+
+上游此版本下线会话菜单分屏和拖到对话区分屏，Mikiko 保留已有二开分屏/拖出窗口能力，分类为 adapted。继续使用单一 workbench placement/DnD owner；不得并存第二套布局状态。新增完整视图采用上游浮动焦点呈现：仅焦点 pane 显示，其他 pane 保持挂载但隐藏，隐藏 pane 不注册 drop target；浮动单会话视图不接纳分屏，退出后还原已有布局。桌面拖拽先由可见 pane 分屏消费，未命中且拖出所属范围才开独立会话窗。
+
+```mermaid
+sequenceDiagram
+  participant Row as Sidebar row
+  participant DnD as Single workbench DnD owner
+  participant Layout as Pane/group layout owner
+  participant Window as Existing Host window attachment
+  Row->>DnD: full workspace identity + session
+  alt visible normal pane accepts split
+    DnD->>Layout: existing placement command
+  else outside source scope and no pane consumed
+    DnD->>Window: open session window
+  end
+```

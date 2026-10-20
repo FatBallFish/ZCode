@@ -141,6 +141,7 @@ modules:
       - web-remote-control-ui
       - remote-connection-flow
       - worktree-ui-state
+      - workbench-drag
     publicEntrypoints:
       - packages/ui/src/project-sidebar/index.tsx
       - packages/ui/src/project-sidebar/contract.ts
@@ -1026,6 +1027,67 @@ modules:
     layers:
       adapters: .
     owner: desktop
+  # side-pane-full-view：由 architecture:adopt 登记
+  - id: side-pane-full-view
+    roots:
+      - packages/ui/src/side-pane-full-view
+    managed: true
+    requires:
+      - shared
+      - ui
+    publicEntrypoints:
+      - packages/ui/src/side-pane-full-view/index.ts
+      - packages/ui/src/side-pane-full-view/contract.ts
+    layers:
+      ui: .
+    owner: conversation
+  # ui-e2e-diagnostics：由 architecture:adopt 登记
+  - id: ui-e2e-diagnostics
+    roots:
+      - packages/ui/src/e2e-diagnostics
+      - packages/ui/src/lib/e2eStoreBridge.ts
+    managed: true
+    requires: []
+    publicEntrypoints:
+      - packages/ui/src/e2e-diagnostics/index.ts
+      - packages/ui/src/e2e-diagnostics/contract.ts
+      - packages/ui/src/lib/e2eStoreBridge.ts
+    layers:
+      ui: .
+    owner: desktop-testing
+  # workbench-drag：由 architecture:adopt 登记
+  - id: workbench-drag
+    roots:
+      - packages/ui/src/workbench-drag
+      - packages/ui/src/v4/workbenchDragDrop.ts
+      - packages/ui/src/v4/workbenchPointerDragDrop.ts
+      - packages/ui/src/v4/workbenchPointerPositionTracker.ts
+      - packages/ui/src/v4/workbenchWindowDragOut.ts
+    managed: true
+    requires:
+      - ui
+    publicEntrypoints:
+      - packages/ui/src/workbench-drag/index.ts
+      - packages/ui/src/workbench-drag/contract.ts
+      - packages/ui/src/v4/workbenchDragDrop.ts
+      - packages/ui/src/v4/workbenchPointerDragDrop.ts
+      - packages/ui/src/v4/workbenchPointerPositionTracker.ts
+      - packages/ui/src/v4/workbenchWindowDragOut.ts
+    layers:
+      ui: .
+    owner: conversation
+  # mikiko-update-http：由 architecture:adopt 登记
+  - id: mikiko-update-http
+    roots:
+      - packages/update-service/src
+    managed: true
+    requires: []
+    publicEntrypoints:
+      - packages/update-service/src/contract.ts
+      - packages/update-service/src/worker.ts
+    layers:
+      adapters: .
+    owner: product-updates
 
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。
@@ -1041,6 +1103,10 @@ global:
   acceptedUpstreamSnapshot: scripts/architecture/upstream-snapshot.json
 
 exceptions:
+  - id: side-pane-full-view-shortcut-command-edit
+    rule: unmanaged-new-file
+    paths: [packages/shared/src/shortcutCommands.ts]
+    reason: 已准入的快捷键命令表只追加一条 toggleSidePaneFullView 命令（Side Pane 完整视图，docs/ui/side-pane-full-view.md）；命令表仍是唯一数据源，签名与模块边界不变，接管整个 shared 包不在本次范围内。
   - id: opensource-cua-test-project-config
     rule: unmanaged-new-file
     paths: [packages/zcode-cua/vitest.config.ts]
@@ -1174,3 +1240,10 @@ exceptions:
     paths:
       - packages/web/src/webRemoteControlTransport.ts
     reason: 41fbf6fd 回滚锚点中已存在的自建 relay transport 为 1110 行；握手、配对、心跳、挂起恢复与 pending request 由单一 transport owner 持有。本次适配保留既有职责，当前约 1107 行，不为行数机械拆分状态；仅此存量文件适用，新增模块/文件仍遵守 800 行约束。
+  - id: workflow-mode-user-choice-unmanaged-edit
+    rule: unmanaged-new-file
+    paths:
+      - packages/shared/src/dynamic-workflow-feature.ts
+      - packages/ui/src/settings/DynamicWorkflowModeSetting.tsx
+      - packages/ui/src/store/dynamicWorkflowAvailabilityStore.ts
+    reason: Admitted upstream files edited only to let the user's dynamic workflow mode choice always win and keep the settings row visible; adopting packages/shared/src and packages/ui/src needs a separate module boundary refactor.

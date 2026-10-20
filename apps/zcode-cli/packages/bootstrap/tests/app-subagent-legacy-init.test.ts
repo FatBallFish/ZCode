@@ -22,7 +22,7 @@ describe("App 初始化旧 Subagent 身份", () => {
   // 真实文件迁移与 App 初始化在高负载下可能超过默认 5 秒，保留全部迁移顺序断言。
   it("用户目录完成原地迁移再构造 Runtime；项目文件不迁移也不暗中换身份", async () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-subagent-init-"));
-    const directory = join(root, ".zcode", "agents");
+    const directory = join(root, ".mikiko", "agents");
     const file = join(directory, "legacy.md");
     const markdown =
       "---\nname: legacy\ndescription: legacy profile\nmodel: builtin:zai-coding-plan/glm-4.6\nthoughtLevel: high\n---\nreview";

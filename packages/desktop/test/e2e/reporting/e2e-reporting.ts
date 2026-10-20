@@ -197,14 +197,20 @@ const DEFAULT_PROCESS_SAMPLE_INTERVAL_MS = 3000;
 
 export function createE2EReporter(options: E2EReporterOptions) {
   const startedAt = new Date();
-  const runId = sanitizeFilePart(process.env.ZCODE_E2E_RUN_ID?.trim() || formatRunId(startedAt));
+  const runId = sanitizeFilePart(
+    (process.env.MIKIKO_E2E_RUN_ID ?? process.env.ZCODE_E2E_RUN_ID)?.trim() ||
+      formatRunId(startedAt),
+  );
+  // 修复原因：直接 WDIO 入口也必须初始化新品牌键，不能依赖外层 shard wrapper。
+  process.env.MIKIKO_E2E_RUN_ID = runId;
   process.env.ZCODE_E2E_RUN_ID = runId;
 
   const artifactDir = resolve(
-    process.env.ZCODE_E2E_ARTIFACT_DIR?.trim() ||
+    (process.env.MIKIKO_E2E_ARTIFACT_DIR ?? process.env.ZCODE_E2E_ARTIFACT_DIR)?.trim() ||
       resolve(options.desktopDir, ".e2e-artifacts", runId),
   );
   process.env.ZCODE_E2E_ARTIFACT_DIR = artifactDir;
+  process.env.MIKIKO_E2E_ARTIFACT_DIR = artifactDir;
 
   const perfDir = resolve(artifactDir, "perf");
   const testsPath = resolve(artifactDir, "test-results.ndjson");
@@ -327,11 +333,13 @@ export function createE2EReporter(options: E2EReporterOptions) {
     beforeSession(cid: string, specs: string[]) {
       ensureDirs();
       process.env.ZCODE_E2E_WORKER_ID = cid;
+      process.env.MIKIKO_E2E_WORKER_ID = cid;
       nodeCoverage.beforeSession();
       const runtimeLogDir = resolve(artifactDir, "runtime-logs", sanitizeFilePart(cid));
       // 修复原因：并行 WDIO worker 若共享同一个按日日志文件，失败 case 只能按时间猜测
       // 来源且会串入其他 worker。测试态将 desktop 与 agent 日志落到 worker 专属目录。
       process.env.ZCODE_E2E_RUNTIME_LOG_DIR = resolve(runtimeLogDir, "desktop");
+      process.env.MIKIKO_E2E_RUNTIME_LOG_DIR = resolve(runtimeLogDir, "desktop");
       process.env.MIKIKO_LOG_DIR = resolve(runtimeLogDir, "agent");
       appendJsonLine(resolve(artifactDir, "workers.ndjson"), {
         capturedAt: new Date().toISOString(),

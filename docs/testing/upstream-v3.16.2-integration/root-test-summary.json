@@ -1,0 +1,85 @@
+{
+  "source": {
+    "upstream": "075fde8429f15bc5baa018f4605ea776770dbf8d",
+    "customRollback": "4a971eaac771363da0aa8fe69571ca4d9b1463eb"
+  },
+  "method": "8 complete unit shards + serial projects; final full-file regression results replace earlier failing file results; current Vitest inventory compared by absolute file path",
+  "discoveredFiles": 2097,
+  "coveredFiles": 2097,
+  "missingFiles": [],
+  "passedCases": 20185,
+  "skippedCases": 9,
+  "failedCases": 0,
+  "whollySkippedFiles": [
+    "packages/desktop/test/windowsInstallerNshSmoke.test.ts",
+    "packages/desktop/test/windowsInstallerPreserveFiles.test.ts"
+  ],
+  "skips": [
+    {
+      "file": "packages/desktop/test/windowsInstallResourceLocks.test.ts",
+      "test": "windows install resource locks does not report the PowerShell query process as a resource lock"
+    },
+    {
+      "file": "packages/desktop/test/windowsInstallerNshSmoke.test.ts",
+      "test": "Windows installer.nsh smoke compiles with electron-builder NSIS and preserves shortcut intent"
+    },
+    {
+      "file": "packages/services/test/subagentRuntimeConfigWatcher.test.ts",
+      "test": "native subagent Host watchers does not merge distinct agents and AGENTS directories on a case-sensitive filesystem"
+    },
+    {
+      "file": "packages/desktop/test/upstreamReplayServer.test.ts",
+      "test": "Upstream replay server ends the provider response when a persistently locked artifact cannot be replaced"
+    },
+    {
+      "file": "packages/desktop/test/powershell-command.test.ts",
+      "test": "powershell-command Windows PowerShell 能还原带空格和脚本元字符的动态值"
+    },
+    {
+      "file": "packages/desktop/test/powershell-command.test.ts",
+      "test": "powershell-command Windows PowerShell 在 PSModulePath 被污染时仍加载系统 Security 模块"
+    },
+    {
+      "file": "packages/desktop/test/e2eAtomicJsonFile.test.ts",
+      "test": "Desktop E2E atomic JSON file waits until a Windows reader releases the previous capture artifact"
+    },
+    {
+      "file": "packages/desktop/test/windowsInstallerPreserveFiles.test.ts",
+      "test": "Windows installer file ownership preserves files that are absent from the ownership manifest"
+    },
+    {
+      "file": "packages/services/test/zcodeStdioTransport.test.ts",
+      "test": "ZCodeStdioTransport Windows 根进程异常退出后仍按 ParentProcessId 回收 task tree"
+    }
+  ],
+  "nodeRunner": {
+    "passed": 338,
+    "failed": 0,
+    "skipped": 0,
+    "log": "/tmp/mikiko-final-node.log"
+  },
+  "reports": [
+    "/tmp/mikiko-final-unit-shard1.json",
+    "/tmp/mikiko-final-unit-shard2.json",
+    "/tmp/mikiko-final-unit-shard3.json",
+    "/tmp/mikiko-final-unit-shard4.json",
+    "/tmp/mikiko-final-unit-shard5.json",
+    "/tmp/mikiko-final-unit-shard6.json",
+    "/tmp/mikiko-final-unit-shard7.json",
+    "/tmp/mikiko-final-unit-shard8.json",
+    "/tmp/mikiko-final-serial.json",
+    "/tmp/mikiko-final-regressions.json",
+    "/tmp/mikiko-final-remote-dev-regression.json",
+    "/tmp/mikiko-final-provider-regression.json",
+    "/tmp/mikiko-cache-env-final.json",
+    "/tmp/mikiko-format-regressions.json"
+  ],
+  "formatOnlyRegression": {
+    "files": 4,
+    "passed": 24,
+    "failed": 0,
+    "log": "/tmp/mikiko-format-regressions.log",
+    "countedAgain": false
+  },
+  "evidenceArchive": "/Users/fatballfish/Documents/Projects/ClientProjects/ZCode/packages/desktop/.e2e-artifacts/upstream-v3.16.2-integration/verification"
+}

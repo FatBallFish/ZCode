@@ -704,7 +704,7 @@ private fun createRemoteControlWebView(
             allowFileAccess = false
             allowContentAccess = false
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            userAgentString = "$userAgentString ZCodeAndroid/${BuildConfig.VERSION_NAME}"
+            userAgentString = "MikikoAndroid/${BuildConfig.VERSION_NAME} $userAgentString"
         }
         webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -730,7 +730,7 @@ private fun createRemoteControlWebView(
 
                 val resolved = RemoteControlUrlPolicy.resolve(request.url)
                 if (resolved != null) {
-                    if (request.url.scheme == "zcode") {
+                    if (request.url.toString() != resolved) {
                         view.loadUrl(resolved)
                         return true
                     }

@@ -166,7 +166,29 @@ async function streamResponseFor(apiType: ApiType) {
               usage: response.usage,
             },
           ]
-        : [{ type: "response.completed", response }];
+        : [
+            {
+              type: "response.output_item.added",
+              output_index: 0,
+              item: { ...response.output[0], status: "in_progress", content: [] },
+            },
+            {
+              type: "response.content_part.added",
+              item_id: "msg_fixture",
+              output_index: 0,
+              content_index: 0,
+              part: { type: "output_text", text: "", annotations: [] },
+            },
+            {
+              type: "response.output_text.delta",
+              item_id: "msg_fixture",
+              output_index: 0,
+              content_index: 0,
+              delta: "ok",
+            },
+            { type: "response.output_item.done", output_index: 0, item: response.output[0] },
+            { type: "response.completed", response },
+          ];
   return new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), {
     headers: { "content-type": "text/event-stream" },
   });
@@ -185,10 +207,10 @@ describe("模型请求默认 Header：Bootstrap → Adapter → 真实 SDK", () 
         } else await model.generateText(requestInput);
         expect(requests).toHaveLength(1);
         const headers = requests[0]!.headers;
-        expect(headers.get("user-agent")).toContain(`ZCode/${CLIENT_VERSION}`);
+        expect(headers.get("user-agent")).toContain(`Mikiko/${CLIENT_VERSION}`);
         expect(headers.get("x-zcode-app-version")).toBe(CLIENT_VERSION);
         expect(headers.get("x-title")).toBe("Z Code@electron");
-        expect(headers.get("http-referer")).toBe("https://zcode.z.ai");
+        expect(headers.get("http-referer")).toBe("https://agent.mikiko.ai");
         expect(headers.get("x-zcode-agent")).toBe("glm");
         expect(headers.get("x-release-channel")).toBe("production");
         for (const key of [
@@ -232,7 +254,7 @@ describe("模型请求默认 Header：Bootstrap → Adapter → 真实 SDK", () 
     await model.generateText(requestInput);
     expect(requests[0]!.headers.get("x-title")).toBe("User Title");
     expect(requests[0]!.headers.get("user-agent")).toMatch(/^Custom\/1(?: |$)/);
-    expect(requests[0]!.headers.get("user-agent")).not.toContain("ZCode/");
+    expect(requests[0]!.headers.get("user-agent")).not.toContain("Mikiko/");
     expect(requests[0]!.headers.get("x-openrouter-title")).toBe("User Router");
     expect(requests[0]!.headers.get("http-referer")).toBe("https://user.example.test");
     expect(headers["x-title"]).toBe("User Title");
@@ -257,7 +279,7 @@ describe("模型请求默认 Header：Bootstrap → Adapter → 真实 SDK", () 
     const { model, requests } = createFixture(options);
     await model.generateText(requestInput);
     expect(requests[0]!.headers.get("user-agent")).toContain(
-      `ZCode/${options.expected ?? "unknown"}`,
+      `Mikiko/${options.expected ?? "unknown"}`,
     );
     expect(requests[0]!.headers.get("x-zcode-app-version")).toBe(options.expected ?? null);
     expect(requests[0]!.headers.get("x-title")).toBe(`Z Code@${options.sourceTitle}`);

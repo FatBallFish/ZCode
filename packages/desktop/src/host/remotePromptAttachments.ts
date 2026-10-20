@@ -4,7 +4,9 @@ import type { TraceId, ZCodePromptAttachment } from "@zcode/shared";
 import { randomUUID } from "node:crypto";
 
 export const REMOTE_PROMPT_ATTACHMENT_ROOT = "~/.mikiko/tmp/prompt-attachments";
-const REMOTE_PROMPT_ATTACHMENT_RELATIVE_ROOT = ".zcode/tmp/prompt-attachments";
+// 双写根目录曾使上传落到旧品牌目录而去重/清理按新根判断；HOME展开必须复用公开根。
+const REMOTE_PROMPT_ATTACHMENT_RELATIVE_ROOT = REMOTE_PROMPT_ATTACHMENT_ROOT.slice("~/".length);
+const LEGACY_REMOTE_PROMPT_ATTACHMENT_RELATIVE_ROOT = ".zcode/tmp/prompt-attachments";
 
 export interface RemotePromptAttachmentMaterializeInput {
   taskId?: string;
@@ -55,7 +57,15 @@ export async function materializeRemotePromptAttachments(
     }
 
     const remoteRoot = await getRemoteRoot();
-    if (isRemotePromptAttachmentPath(localPath, remoteRoot)) {
+    // 旧版曾将已接受附件实际写入远端 .zcode；重试必须保留该远端引用，不能
+    // 误当桌面本地文件重新上传。只读兼容限同一远端 HOME，不扩大 cleanup 删除根。
+    const legacyRemoteRoot =
+      remoteRoot.slice(0, -REMOTE_PROMPT_ATTACHMENT_RELATIVE_ROOT.length) +
+      LEGACY_REMOTE_PROMPT_ATTACHMENT_RELATIVE_ROOT;
+    if (
+      isRemotePromptAttachmentPath(localPath, remoteRoot) ||
+      isPathInRoot(localPath, legacyRemoteRoot)
+    ) {
       nextAttachments.push(attachment);
       continue;
     }

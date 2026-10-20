@@ -98,7 +98,7 @@ const SOURCE_DERIVED_READ_SHORT_DESCRIPTION = [
   "- Results are returned using cat -n format, with line numbers starting at 1",
   "- Reads images (PNG, JPG, …) and presents them visually.",
   // video 输入一期新增能力行：Read 支持读取视频作为模型输入。
-  "- Reads videos (MP4, MOV, WEBM, …) and presents them as video input (subject to ZCode's video input limit).",
+  "- Reads videos (MP4, MOV, WEBM, …) and presents them as video input (subject to Mikiko's video input limit).",
   "- Reading a directory, a missing file, or an empty file returns an error or system reminder rather than content.",
   "- Do NOT re-read a file you just edited to verify — Edit/Write would have errored if the change failed, and the harness tracks file state for you.",
 ].join("\n");
@@ -350,7 +350,7 @@ describe("tool contract declarations", () => {
       "Use SendMessage with the agent's ID to continue a previously spawned agent with its context intact; a new Agent call starts fresh.",
     );
     expect(agentDescription).toContain(
-      "Each agent type's model, reasoning effort, and tools come from its definition (`.zcode/agents/*.md` frontmatter).",
+      "Each agent type's model, reasoning effort, and tools come from its definition (`.mikiko/agents/*.md` frontmatter).",
     );
     expect(agentDescription).not.toContain("ID or name");
     expect(agentDescription).not.toContain(".claude/agents");

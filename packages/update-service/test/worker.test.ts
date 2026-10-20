@@ -186,3 +186,28 @@ describe("/admin/prune 旧版本清理（R2 配额）", () => {
     }
   });
 });
+
+describe("Source Server mutable indexes", () => {
+  for (const key of [
+    "mikiko/server/catalog.json",
+    "mikiko/electron/releases/1.1.3/source-server-release.json",
+  ]) {
+    it(`revalidates ${key} instead of caching an upgrade index for a year`, async () => {
+      const response = await worker.fetch(
+        new Request(`https://agent-dl.mikiko.ai/${key}`),
+        createEnv({ [key]: "{}" }),
+      );
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("cache-control"), "no-cache, must-revalidate");
+    });
+  }
+  it("keeps content addressed archives immutable", async () => {
+    const key = "mikiko/server/objects/abc/mikiko-server-linux-arm64.tar.gz";
+    const response = await worker.fetch(
+      new Request(`https://agent-dl.mikiko.ai/${key}`),
+      createEnv({ [key]: "archive" }),
+    );
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("cache-control") ?? "", /immutable/);
+  });
+});

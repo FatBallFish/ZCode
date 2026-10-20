@@ -19,15 +19,15 @@ describe("dev desktop remote production-like script", () => {
     );
   });
 
-  it("macOS 默认应复用正式版 ZCode remote cache", () => {
+  it("macOS 默认应复用正式版 Mikiko remote cache", () => {
     expect(resolveProductionRemoteAssetCacheDir({}, "darwin", "/Users/alice")).toBe(
-      "/Users/alice/Library/Application Support/ZCode/remote-assets-cache",
+      "/Users/alice/Library/Application Support/Mikiko/remote-assets-cache",
     );
   });
 
-  it("Linux 默认应复用正式版 ZCode remote cache", () => {
+  it("Linux 默认应复用正式版 Mikiko remote cache", () => {
     expect(resolveProductionRemoteAssetCacheDir({}, "linux", "/home/alice")).toBe(
-      "/home/alice/.config/ZCode/remote-assets-cache",
+      "/home/alice/.config/Mikiko/remote-assets-cache",
     );
     expect(
       resolveProductionRemoteAssetCacheDir(
@@ -35,17 +35,17 @@ describe("dev desktop remote production-like script", () => {
         "linux",
         "/home/alice",
       ),
-    ).toBe("/home/alice/.config-custom/ZCode/remote-assets-cache");
+    ).toBe("/home/alice/.config-custom/Mikiko/remote-assets-cache");
   });
 
-  it("Windows 默认应复用正式版 ZCode remote cache", () => {
+  it("Windows 默认应复用正式版 Mikiko remote cache", () => {
     expect(
       resolveProductionRemoteAssetCacheDir(
         { APPDATA: "C:\\Users\\Alice\\AppData\\Roaming" },
         "win32",
         "C:\\Users\\Alice",
       ),
-    ).toBe("C:\\Users\\Alice\\AppData\\Roaming\\ZCode\\remote-assets-cache");
+    ).toBe("C:\\Users\\Alice\\AppData\\Roaming\\Mikiko\\remote-assets-cache");
   });
 
   it("启动 env 应强制走 CDN，并允许显式 cache 覆盖", () => {

@@ -161,7 +161,7 @@ export const officialSeaPlugins = [
     rootPath: join("packages", "browser-use-plugin"),
     // SEA 清单仍指向旧版时，runtime 会与官方 definition 精确匹配失败，
     // 导致发布产物不 seed browser-use，进而无法装配宿主 node_repl MCP。
-    version: "0.5.1",
+    version: "0.5.2",
   },
   {
     marketplace: "zcode-plugins-official",

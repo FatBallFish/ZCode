@@ -9,7 +9,7 @@
 import { z } from "zod";
 import {
   MCP_USAGE_QUOTA_LIMIT_TYPE,
-  buildRuntimeZCodeApiUrl,
+  buildRuntimeCodingPlanApiUrl,
   type ApiClient,
   type UsageMcpQuotaScope,
   type UsageMcpQuotaSnapshot,
@@ -207,7 +207,8 @@ export async function fetchMcpQuotaSnapshot(params: {
     return null;
   }
 
-  const url = buildRuntimeZCodeApiUrl(params.env, MCP_USAGE_PATH);
+  // 此处使用官方套餐 JWT/组织头；产品云端配置不能改写账号额度请求的目标。
+  const url = buildRuntimeCodingPlanApiUrl(params.env, MCP_USAGE_PATH);
   const headers = buildOfficialMcpAuthHeaders(outcome.snapshot);
   let payload: unknown;
   let requestId: string | null = null;

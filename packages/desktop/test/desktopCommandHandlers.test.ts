@@ -365,6 +365,12 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     await vi.waitFor(() => expect(BrowserWindowMock).toHaveBeenCalledTimes(1));
     const promptWindow = browserWindowInstances[0];
     expect(promptWindow?.loadURL).toHaveBeenCalledWith(expect.stringContaining("data:text/html"));
+    const html = decodeURIComponent(
+      String(promptWindow?.loadURL.mock.calls[0]?.[0]).split(",").slice(1).join(","),
+    );
+    expect(html).toContain("<title>Mikiko Endpoint</title>");
+    expect(html).toContain('placeholder="https://agent.mikiko.ai"');
+    expect(html).not.toContain("https://zcode.z.ai");
 
     promptWindow?.emitTitle(
       "mikiko-endpoint-submit:" + encodeURIComponent("http://localhost:3030/path"),
@@ -375,6 +381,26 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
       zcodeEndpointOrigin: "http://localhost:3030",
     });
     expect(onZCodeEndpointChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("Mikiko endpoint cancellation closes the modal without persisting a value", async () => {
+    const { executeDesktopCommand } = await import("../src/main/desktopCommandHandlers.js");
+    const options = createCommandOptions({});
+    const pending = executeDesktopCommand({
+      ...options,
+      command: DesktopCommandIds.SetZCodeEndpointCustom,
+    });
+    await vi.waitFor(() => expect(BrowserWindowMock).toHaveBeenCalledOnce());
+    const promptWindow = browserWindowInstances[0]!;
+    const html = decodeURIComponent(
+      String(promptWindow.loadURL.mock.calls[0]?.[0]).split(",").slice(1).join(","),
+    );
+    expect(html).toContain("mikiko-endpoint-cancel");
+    expect(html).not.toContain("zcode-endpoint-cancel");
+    promptWindow.emitTitle("mikiko-endpoint-cancel");
+    await pending;
+    expect(options.settingService.update).not.toHaveBeenCalled();
+    expect(promptWindow.close).toHaveBeenCalledOnce();
   });
 
   it("系统缩放命令会限制在缩小 3 档和放大 5 档之间", async () => {

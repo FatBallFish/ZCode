@@ -598,10 +598,10 @@ test("includes the pinned Playwright runtime required by headless Browser Use", 
   }
 });
 
-test("keeps the Browser Use SEA release at 0.5.1 with complete runtime assets", async () => {
+test("keeps the Browser Use SEA release at 0.5.2 with complete runtime assets", async () => {
   const root = join(import.meta.dirname, "../../..");
   const browserUsePlugin = officialSeaPlugins.find((plugin) => plugin.name === "browser-use");
-  assert.equal(browserUsePlugin?.version, "0.5.1");
+  assert.equal(browserUsePlugin?.version, "0.5.2");
   assert.deepEqual(browserUsePlugin?.requiredRuntimePaths, [
     "scripts/browser-client.mjs",
     "docs/api.json",
@@ -625,15 +625,15 @@ test("keeps the Browser Use SEA release at 0.5.1 with complete runtime assets", 
       sea: browserUsePlugin.version,
     },
     {
-      manifest: "0.5.1",
-      package: "0.5.1",
-      sea: "0.5.1",
+      manifest: "0.5.2",
+      package: "0.5.2",
+      sea: "0.5.2",
     },
   );
   // Bug 原因：新增录屏能力时重写了整段插件描述，并把原生 WebM 误写成 MP4。
   assert.equal(
     pluginManifest.description,
-    "Built-in browser automation runtime and guidance for Desktop IAB and explicitly enabled CLI-managed headless CDP: open, navigate, inspect, click, type, screenshot, record workspace WebM videos, and verify web pages and local dev targets.",
+    "Built-in browser automation runtime and guidance for Desktop IAB, the user's own external Chromium (CDP, default port 9333), and explicitly enabled CLI-managed headless CDP: open, navigate, inspect, click, type, screenshot, record workspace WebM videos, and verify web pages and local dev targets.",
   );
 });
 
@@ -644,7 +644,17 @@ test("keeps SEA official plugin versions aligned with package and plugin manifes
       await readFile(join(root, plugin.rootPath, "package.json"), "utf8"),
     );
     const pluginManifest = JSON.parse(
-      await readFile(join(root, plugin.rootPath, ".zcode-plugin", "plugin.json"), "utf8"),
+      await readFile(
+        join(
+          root,
+          plugin.rootPath,
+          ["documents", "pdf", "presentations", "spreadsheets"].includes(plugin.name)
+            ? ".mikiko-plugin"
+            : ".zcode-plugin",
+          "plugin.json",
+        ),
+        "utf8",
+      ),
     );
 
     assert.deepEqual(
@@ -735,7 +745,7 @@ test("includes bundled official plugin assets", async () => {
     assert.equal(browserUsePaths.has("scripts/computer-use-client.mjs"), false);
     // CUA 的文档同理：唯一那份属于 computer-use 插件。
     assert.equal(browserUsePaths.has("docs/computer-use.md"), false);
-    assert.equal(documentPaths.has(".zcode-plugin/plugin.json"), true);
+    assert.equal(documentPaths.has(".mikiko-plugin/plugin.json"), true);
     assert.equal(documentPaths.has("skills/docx/SKILL.md"), true);
     assert.equal(documentPaths.has("skills/docx-viewer/SKILL.md"), true);
     assert.equal(documentPaths.has("skills/pdf/SKILL.md"), true);

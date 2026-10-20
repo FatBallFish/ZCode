@@ -54,7 +54,7 @@ describe("workspace hook Settings/Runtime dual builder digest parity (D17 runtim
     const home = makeRoot();
     const workspace = makeRoot();
     await mkdir(join(workspace, ".git"));
-    const userConfigPath = join(home, ".zcode", "cli", "config.json");
+    const userConfigPath = join(home, ".mikiko", "cli", "config.json");
     await writeJson(userConfigPath, { hooks: { enabled: true, timeoutMs: 30_000 } });
     await writeJson(join(workspace, "zcode.json"), {
       hooks: {
@@ -69,7 +69,7 @@ describe("workspace hook Settings/Runtime dual builder digest parity (D17 runtim
         },
       },
     });
-    await writeJson(join(workspace, ".zcode", "config.json"), {
+    await writeJson(join(workspace, ".mikiko", "config.json"), {
       hooks: {
         enabled: true,
         events: {
@@ -135,7 +135,7 @@ describe("workspace hook Settings/Runtime dual builder digest parity (D17 runtim
     // snapshot_mismatch（2026-08-10 UAT 实测）。这里锁住导出值与快照的一致性，
     // 使复用成为结构性约束，而不是两处推导恰好相等的巧合。
     const workspace = makeRoot();
-    await writeJson(join(workspace, ".zcode", "config.json"), {
+    await writeJson(join(workspace, ".mikiko", "config.json"), {
       hooks: {
         enabled: true,
         // 刻意偏离默认值：单层重建会退回 60_000 / 32_768，从而暴露分叉。
@@ -208,7 +208,7 @@ describe("workspace hook Settings/Runtime dual builder digest parity (D17 runtim
     const workspace = makeRoot();
     await mkdir(join(workspace, ".git"));
     await writeFile(join(workspace, "zcode.json"), "{broken", "utf8");
-    await writeJson(join(workspace, ".zcode", "config.json"), {
+    await writeJson(join(workspace, ".mikiko", "config.json"), {
       hooks: {
         enabled: true,
         events: {

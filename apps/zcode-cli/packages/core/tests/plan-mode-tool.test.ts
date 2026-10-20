@@ -14,10 +14,7 @@ import {
 } from "@zcode/contracts";
 import { PermissionService, defaultPermissionConfig } from "../src/permission/service.js";
 import { createToolExecutor } from "../src/tool/executor.js";
-import {
-  enterPlanModeToolEntry,
-  exitPlanModeToolEntry,
-} from "../src/tool/handlers/plan-mode.js";
+import { enterPlanModeToolEntry, exitPlanModeToolEntry } from "../src/tool/handlers/plan-mode.js";
 import { createToolRegistry } from "../src/tool/registry.js";
 import { MemoryFileSystem } from "./memory-test-utils.js";
 
@@ -145,7 +142,7 @@ describe("plan mode tools", () => {
     expect(result.modelContent).toContain("User has approved your plan");
     expect(result.modelContent).toContain("## Approved Plan");
     expect(
-      fileSystemPort.files["/workspace/project/.zcode/plans/plan-sess_exit-plan-mode.md"],
+      fileSystemPort.files["/workspace/project/.mikiko/plans/plan-sess_exit-plan-mode.md"],
     ).toBe("\n  1. Update the service boundary\n2. Add tests\n\n");
     expect(mode).toBe("build");
     expect(prePlanMode).toBeUndefined();

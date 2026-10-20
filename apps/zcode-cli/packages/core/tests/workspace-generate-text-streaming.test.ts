@@ -220,7 +220,7 @@ describe("workspace generateText streaming aggregation", () => {
     });
 
     expect(receivedRequest?.messages).toEqual([
-      { role: "system", content: "You are ZCode connectivity probe." },
+      { role: "system", content: "You are Mikiko connectivity probe." },
       { role: "user", content: "hi" },
     ]);
     expect(receivedRequest?.tools).toBeUndefined();

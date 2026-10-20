@@ -220,16 +220,20 @@ describe("official MCP trust: host and agent must agree on the ZCode API origin"
     const injected = resolveRuntimeZCodeEndpointOrigin(hostEnv, {
       overrideOrigin: SETTINGS_ORIGIN,
     });
-    expect(injected).toBe("https://zcode.z.ai");
+    // 旧官方产品默认会规范到自建域；Host 与 CLI 必须一致信任实际产品入口。
+    expect(injected).toBe("https://agent.mikiko.ai");
 
     const agentEnv = { ...hostEnv, ...buildAgentEndpointOriginEnv(injected) };
     const host = hostRegistry(hostEnv, SETTINGS_ORIGIN);
     const agent = agentRegistry(agentEnv);
 
-    for (const origin of ["https://zcode.z.ai", SETTINGS_ORIGIN]) {
+    for (const origin of ["https://agent.mikiko.ai", "https://zcode.z.ai", SETTINGS_ORIGIN]) {
       expect(await verdict(agent, origin)).toBe(await verdict(host, origin));
     }
-    expect(await verdict(host, "https://zcode.z.ai")).toBe(true);
+    expect(await verdict(host, "https://agent.mikiko.ai")).toBe(true);
+    expect(await verdict(agent, "https://agent.mikiko.ai")).toBe(true);
+    expect(await verdict(host, "https://zcode.z.ai")).toBe(false);
+    expect(await verdict(agent, "https://zcode.z.ai")).toBe(false);
     expect(await verdict(host, SETTINGS_ORIGIN)).toBe(false);
   });
 });

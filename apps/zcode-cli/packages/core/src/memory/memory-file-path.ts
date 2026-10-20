@@ -14,6 +14,9 @@ const SENSITIVE_MEMORY_PATH_SEGMENTS = new Set([
   "config",
   "objects",
   "refs",
+  // 品牌更名不能移除第三方及历史配置保护；只新增当前 Mikiko 目录。
+  ".claude",
+  ".zcode",
   ".mikiko",
   "skills",
   "commands",

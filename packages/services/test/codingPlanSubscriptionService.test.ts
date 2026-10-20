@@ -54,6 +54,40 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
     vi.unstubAllEnvs();
   });
 
+  it("自建产品域不接收官方套餐 preview/claim 的账号凭据", async () => {
+    vi.stubEnv("MIKIKO_ENV", "production");
+    vi.stubEnv("MIKIKO_BASE_URL", "https://private-product.example");
+    const apiClient: ApiClient = {
+      request: vi.fn(async (url) =>
+        createJsonResponse(
+          String(url).includes("/preview")
+            ? { code: 0, data: { plans: [] } }
+            : { code: 1003, data: null },
+        ),
+      ),
+    };
+    const provider = new BigModelCodingPlanSubscriptionProvider({
+      apiClient,
+      credentialService: { load: vi.fn(async () => "official-account-fixture") },
+    });
+    await provider.getManualClaimPlanPreviews();
+    await provider.claimManualPlan({ planId: "fixture-plan" });
+    const calls = vi.mocked(apiClient.request).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls.map(([url]) => new URL(String(url)).origin)).toEqual([
+      "https://zcode.z.ai",
+      "https://zcode.z.ai",
+    ]);
+    expect(calls.map(([url]) => new URL(String(url)).pathname)).toEqual([
+      "/api/v1/zcode-plan/billing/preview",
+      "/api/v1/zcode-plan/billing/claim",
+    ]);
+    expect(calls[0]?.[1]?.headers).toEqual({ Authorization: "Bearer official-account-fixture" });
+    expect(calls[1]?.[1]?.headers).toMatchObject({
+      Authorization: "Bearer official-account-fixture",
+    });
+  });
+
   it("off-peak mock 直接使用 Built-in 模型，不等待远端 client config", async () => {
     vi.stubEnv("ZCODE_OFFPEAK_MOCK", "1");
     const apiClient: ApiClient = {
@@ -92,6 +126,7 @@ describe("BigModelCodingPlanSubscriptionProvider", () => {
   });
 
   it("读取手动领取 preview 并归一化 plans", async () => {
+    vi.stubEnv("MIKIKO_ENV", "test");
     vi.stubEnv("MIKIKO_ENDPOINT_ORIGIN", "https://preview.example.com");
     // Bugfix: 开发机 ambient MIKIKO_BASE_URL 优先级高于 MIKIKO_ENDPOINT_ORIGIN，置空避免 preview 域被生产域覆盖
     vi.stubEnv("MIKIKO_BASE_URL", "");

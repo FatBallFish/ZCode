@@ -271,7 +271,7 @@ echo ""
 
 # ── Step 2i: Font Installation (from CDN) ──
 echo "--- [9/10] Font Installation ---"
-FONT_CDN_BASE="https://z-cdn.chatglm.cn/office-skill/fonts"
+FONT_CDN_BASE="https://agent-dl.mikiko.ai/mikiko/office-skill/fonts"
 FONT_LIST="$SCRIPT_DIR/font_list.txt"
 
 if [ "$PLATFORM" = "mac" ]; then
@@ -305,7 +305,9 @@ else
             fi
             
             # URL-encode special chars (brackets)
-            encoded=$(echo "$rel_path" | sed 's/\[/%5B/g; s/\]/%5D/g; s/ /%20/g')
+            # 历史清单使用系统绝对路径；下载仅取 CDN 相对路径，不影响本地检测。
+            cdn_relative="${rel_path#/usr/share/fonts/truetype/}"
+            encoded=$(echo "$cdn_relative" | sed 's/\[/%5B/g; s/\]/%5D/g; s/ /%20/g')
             url="$FONT_CDN_BASE/$encoded"
             
             if curl -fSL --connect-timeout 15 --retry 2 -o "$USER_FONT_DIR/$fname" "$url" 2>/dev/null; then

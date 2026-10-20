@@ -4,7 +4,9 @@ import type { RuntimeConfigPatch, SupportedLocale, UiLocale } from "@zcode/contr
 import type { ZCodeAppOptions } from "./types.js";
 
 export function isMessageEnabled(env: NodeJS.ProcessEnv): boolean {
-  return env.ZCODE_MESSAGE_ENABLED === "1" || env.ZCODE_MESSAGE_ENABLED === "true";
+  // 新品牌显式关闭必须覆盖历史开关，保持升级时只有一份配置事实。
+  const value = env.MIKIKO_MESSAGE_ENABLED ?? env.ZCODE_MESSAGE_ENABLED;
+  return value === "1" || value === "true";
 }
 
 export function createConfigCliOverrides(options: ZCodeAppOptions): RuntimeConfigPatch | undefined {

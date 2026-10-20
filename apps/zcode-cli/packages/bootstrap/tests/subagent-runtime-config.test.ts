@@ -14,7 +14,7 @@ describe("runtime subagent source parsing", () => {
     const parsed = parseRuntimeSubagentConfig({
       documents: [
         {
-          path: "/project/.zcode/agents/reviewer.md",
+          path: "/project/.mikiko/agents/reviewer.md",
           source: "project",
           content:
             "---\nname: reviewer\ndescription: Review\npermissionMode: bypassPermissions\nmodel: custom:provider:model\nthoughtLevel: high\ntools: Read, Grep\n---\nNEW_PROMPT",
@@ -66,7 +66,7 @@ describe("subagent initialization source", () => {
       const configPath = join(root, "config.json");
       const logDir = join(root, "logs");
       const invalidDocument = {
-        path: join(workspace, ".zcode", "agents", "invalid.md"),
+        path: join(workspace, ".mikiko", "agents", "invalid.md"),
         source: "project" as const,
         content: "This document intentionally lacks frontmatter",
       };
@@ -119,7 +119,7 @@ describe("subagent initialization source", () => {
       let creating: ReturnType<typeof createRegistryBackedTestApp> | undefined;
       try {
         await mkdir(join(storage, "agents"), { recursive: true });
-        await mkdir(join(workspace, ".zcode", "agents"), { recursive: true });
+        await mkdir(join(workspace, ".mikiko", "agents"), { recursive: true });
         if (source === "files") await writeFile(invalidDocument.path, invalidDocument.content);
         await writeFile(
           configPath,

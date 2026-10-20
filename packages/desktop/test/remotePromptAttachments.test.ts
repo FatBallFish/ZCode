@@ -5,6 +5,7 @@ import type { ZCodePromptAttachment } from "@zcode/shared";
 import {
   REMOTE_PROMPT_ATTACHMENT_ROOT,
   buildRemotePromptAttachmentPath,
+  cleanupRemotePromptAttachment,
   materializeRemotePromptAttachments,
 } from "../src/host/remotePromptAttachments.js";
 
@@ -63,7 +64,7 @@ describe("remote prompt attachment materialization", () => {
 
     const remotePath = upload.mock.calls[0]?.[1] ?? "";
     expect(remotePath).toMatch(
-      /^\/home\/tester\/\.zcode\/tmp\/prompt-attachments\/trace-abc-123\/[A-Za-z0-9._-]+\/01-pasted-text\.txt$/,
+      /^\/home\/tester\/\.mikiko\/tmp\/prompt-attachments\/trace-abc-123\/[A-Za-z0-9._-]+\/01-pasted-text\.txt$/,
     );
     expect(upload).toHaveBeenCalledWith(hostPath, remotePath);
     expect(exec.mock.calls[0]?.[0]).toBe('printf %s "$HOME"');
@@ -109,7 +110,7 @@ describe("remote prompt attachment materialization", () => {
   it("skips attachments that already point at the resolved remote materialization directory", async () => {
     const upload = vi.fn(async (_localPath: string, _remotePath: string) => undefined);
     const exec = vi.fn(async (_command: string) => createClosedStream("/home/tester"));
-    const remotePath = "/home/tester/.zcode/tmp/prompt-attachments/trace/01-image.png";
+    const remotePath = "/home/tester/.mikiko/tmp/prompt-attachments/trace/01-image.png";
     const attachments: ZCodePromptAttachment[] = [
       {
         kind: "image",
@@ -158,6 +159,54 @@ describe("remote prompt attachment materialization", () => {
         { backend: { exec, upload } },
       ),
     ).rejects.toThrow("远端附件上传失败：secret.txt");
+  });
+
+  it("preserves already materialized legacy remote paths without reuploading them as host files", async () => {
+    const upload = vi.fn(async () => undefined);
+    const exec = vi.fn(async () => createClosedStream("/home/tester"));
+    const remotePath = "/home/tester/.zcode/tmp/prompt-attachments/old/01-file.txt";
+    const attachments: ZCodePromptAttachment[] = [
+      { kind: "file", filename: "file.txt", localPath: remotePath, mimeType: "text/plain" },
+    ];
+    const result = await materializeRemotePromptAttachments(
+      { content: `read ${remotePath}`, traceId: "retry", attachments },
+      { backend: { exec, upload } },
+    );
+    expect(result.uploadedCount).toBe(0);
+    expect(result.attachments).toBe(attachments);
+    expect(result.content).toBe(`read ${remotePath}`);
+    expect(upload).not.toHaveBeenCalled();
+    expect(exec).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "/home/other/.zcode/tmp/prompt-attachments/01-file.txt",
+    "/home/tester/.zcode/tmp/prompt-attachments-other/01-file.txt",
+  ])("does not treat a different legacy root as already materialized: %s", async (localPath) => {
+    const upload = vi.fn(async (_localPath: string, _remotePath: string) => undefined);
+    const exec = vi.fn(async () => createClosedStream("/home/tester"));
+    const result = await materializeRemotePromptAttachments(
+      {
+        content: localPath,
+        traceId: "new",
+        attachments: [{ kind: "file", filename: "file.txt", localPath, mimeType: "text/plain" }],
+      },
+      { backend: { exec, upload } },
+    );
+    expect(result.uploadedCount).toBe(1);
+    expect(upload.mock.calls[0]?.[0]).toBe(localPath);
+    expect(upload.mock.calls[0]?.[1]).toContain("/home/tester/.mikiko/tmp/prompt-attachments/");
+  });
+
+  it.each([
+    "/home/tester/.zcode/tmp/prompt-attachments/old/01-file.txt",
+    "/home/other/.mikiko/tmp/prompt-attachments/01-file.txt",
+    "/home/tester/.mikiko/tmp/prompt-attachments-other/01-file.txt",
+  ])("does not expand the cleanup deletion root to %s", async (remotePath) => {
+    const exec = vi.fn(async () => createClosedStream("/home/tester"));
+    await cleanupRemotePromptAttachment({ exec }, remotePath);
+    expect(exec.mock.calls).toHaveLength(1);
+    expect(exec.mock.calls[0]).toEqual(['printf %s "$HOME"']);
   });
 
   it("builds private safe remote paths", () => {

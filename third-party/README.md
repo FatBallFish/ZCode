@@ -48,6 +48,8 @@ ugrep 的 BSD-3-Clause 版权、条件和免责声明完整保留。ripgrep 保�
 
 ## 已明确的资料边界
 
+- 锁文件生产图与实装生产图依次读取，继续逐版本严格对账；避免并发两个全量 `pnpm ls` 耗尽主机文件句柄。资源回归通过隔离的真实子进程验证两个读取都执行且不重叠，不修改系统句柄限制。
+- 2026-10-20 集成：`rrweb`、`rrweb-snapshot`、`rrdom`、`@rrweb/types`、`@rrweb/utils` 的 npm `2.0.0` 元数据均指向 `c826076ce529c411b32372d540e70a8a3a9577c2`；归档缺少完整许可，已在 `npm-overrides.json` 登记该固定提交的仓库 LICENSE 原文及 SHA-256。未用其他版本或自行编写的 MIT 文本替代发布来源。
 - ARMS 按当前生产依赖图进入声明，部分原始材料仍待补齐；不沿用其他分支已移除它的结论。`@dukelib/sheets-wasm@0.1.21` 已取得 `wasm-v0.1.21` 对应 commit 的原始 LICENSE。
 - 当前有 21 个包未取得对应版本的完整 LICENSE 文件，保留发布方许可标识、可取得的 README 许可段及标准条款，逐项记录在 `npm-overrides.json` 的 `evidenceKind` 字段。`reviewEvidence` 保存本次 npm 归档哈希及可取得的固定上游树证据。标准条款不能冒称上游原始版权声明；它们继续出现在清单的 `reviewRequired`，严格检查失败。其中 6 个是 sharp 预编译的 `@img/sharp-libvips-*`（只由真实 Computer Use 包引入）：发布方只声明 LGPL-3.0-or-later，并在 README 许可段列出 aom、cairo、glib 等约 28 个内置库，各内置库对应版本的原文尚未收集；标准条款取自 SPDX license-list-data v3.27.0（其 LGPL-3.0 文本已内含 GPL-3.0 全文）。
 - `embedded-components.json` 记录 Canvas 0.1.100 的 Skia 子模块和 quickjs-wasi 2.2.0 的 QuickJS-NG 子模块固定 revision 及完整原文。现已补充固定 Skia DEPS 中的字体、图片、压缩库材料，以及 QuickJS 的 WASI libc、LLVM runtime、Mbed TLS、Project Everest 和 Ada URL parser 材料；`buildEvidence` 保存构建脚本和 SDK submodule 来源，按原文字节校验。Mbed TLS 采用 Apache-2.0 选项，FreeType 采用 FTL 选项。各平台最终二进制、Rust/C++ 运行库及全部嵌套依赖的对应关系仍未完成核验，两项 reviewRequired 保留。

@@ -39,6 +39,7 @@
   `DefaultConfig.storage.dir` / `storage.sessionDbPath`。`storage.dir` 是 plugins 存储、
   skills 存储、MCP 存储、model-io、memory、session db 等派生目录的唯一事实源。
 - Agent config.json 位置：`adapters/src/config/file-config.adapter.ts` 的 `DEFAULT_BASE_DIR`。
+- Desktop/Host 读取同一配置的位置由 `ZCODE_AGENT_RUNTIME.nativeConfigDir = ".mikiko/cli"` 描述；不能继续指向 `.zcode/cli`，否则旧路径存在时会掩盖读写分离。已有 `migrateLegacyZCodeProviderConfig` 只在新配置缺失时复制旧文件，保留旧文件，且不覆盖用户已保存的新配置。
 - Host 轨迹读取根：`packages/services/src/zcode-agent/modelTrajectoryFileTail.ts` 的
   `resolveModelIODirs()`（`~/.mikiko/cli/{debug,rollout}`，本次无需改动）。
 

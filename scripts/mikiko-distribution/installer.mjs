@@ -48,7 +48,7 @@ exec node "$INSTALL_DIR/current/bin/mikiko.mjs" "\\$@"
 SH
 chmod +x "$BIN_DIR/mikiko"
 
-echo "ZCode $VERSION installed."
+echo "Mikiko $VERSION installed."
 echo "Run: mikiko (TUI) or mikiko --web (Web)"
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "inputHashEncoding": "UTF-8 with CRLF normalized to LF; notice and source snapshot hashes remain byte-exact",
   "scope": "Production dependency union across current workspace projects, copied source/assets and native tools; not a per-installer SBOM or a certification of all licensing obligations.",
-  "noticesSha256": "a762a71f8de6eeb35aacf87f03ee0c903b2871ad87d4ce85e53e8f7f82825d34",
+  "noticesSha256": "02b8ce4df8e9047708a39f235f41e693ad2b75ea82f2d2d0b2b554bbf0fd3d30",
   "inputs": {
     ".agents/skills/agent-browser/references/authentication.md": "e2c3b0f4a1dc1368dee821f03c000d818a48421d09f3872525dddffe73f2112b",
     ".agents/skills/agent-browser/references/commands.md": "17522fc56d742663f47231ff06c4811abc87e12c7f78e11f94d253ddd540a909",
@@ -225,17 +225,17 @@
     ".agents/skills/react-best-practices/rules/server-serialization.md": "f4c7d68b29c82381baad059c4a7f09e868e71ec9c3115a26ad3ae7d24c0dfe1f",
     ".agents/skills/react-best-practices/SKILL.md": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355",
     "apps/dev-docs/package.json": "3830c01890b83081debf6596aceb19734924f43b4dee2111c5ea85584f3e944b",
-    "apps/zcode-cli/package.json": "f4622eb66460133ac75eba76135a022f12078bf7182ecc02379b15a9f7c68615",
-    "apps/zcode-cli/packages/adapters/package.json": "12316ccf002e19a4fbc6536007b2e89ded5704a8f757baeec4dc83d47c0ea345",
+    "apps/zcode-cli/package.json": "c28c50a4fa66b69961cd11eb2ca38e611c2ad4a12f2141157dcbe64231ff9d10",
+    "apps/zcode-cli/packages/adapters/package.json": "755d9f119d267d8985c1ed6aff90a07f45e5dd9332afd52ea8c75dde3fe012ed",
     "apps/zcode-cli/packages/android-emulator-plugin/package.json": "96ecaa9ce091e13f7e508b0aed8ab116360b40ba21dc1be78c906b2eebbf5571",
-    "apps/zcode-cli/packages/bootstrap/package.json": "554ddd3fc3a017e1bde9af23477d7cff16d4e86b63f3faeda19ce3af7f1edee8",
-    "apps/zcode-cli/packages/browser-use-plugin/package.json": "53a2c64811fbb85a8a88bf22ac2b42dbca7a283e3c83f0ebd24601889223741d",
-    "apps/zcode-cli/packages/cli/package.json": "c7f319da5c9c354b891c2741a119276ab0abeea82c8d1e14585d14661fb1175c",
+    "apps/zcode-cli/packages/bootstrap/package.json": "ac905c04ae73500c18667d8b93262fce9be8b5657dcc52e1a9434911df94f161",
+    "apps/zcode-cli/packages/browser-use-plugin/package.json": "f1e994594dbd3cba0f944469e7c7b437c9ea3bf715dcc17ddc83b718b6546749",
+    "apps/zcode-cli/packages/cli/package.json": "ffc4c449c6ec6446e94e60e8e0874f6176609f9a6728a7fae8a3e311242e17c5",
     "apps/zcode-cli/packages/contracts/package.json": "d71e04825072c7407dcc3e1fcca3d8b9221cfac411ea58a024998a57cb579029",
-    "apps/zcode-cli/packages/core/package.json": "e70205607c75f7fb51cd1815ff3d411d7ea63bef6a0148f3a698229c30189d32",
+    "apps/zcode-cli/packages/core/package.json": "dfa32e69d680c579f94edc7f29579ae95dcbae5fd886feb5818a7e69f43b71f1",
     "apps/zcode-cli/packages/core/src/tool/handlers/generated/bash-command-registry.ts": "60fa5acd9f5c357f4e51b1d1e944ee39da92680e4bc5e98dd708f1457fcf612b",
     "apps/zcode-cli/packages/debug/package.json": "0cf03ea1dd384546319e8f301e99c2b668c7c15271f5d38d5a3b0526c24a3279",
-    "apps/zcode-cli/packages/documents-plugin/package.json": "7ce3663e5e14ff8f4e9c2c456e0e023c1228ca0823518e56073fdc1149389ff7",
+    "apps/zcode-cli/packages/documents-plugin/package.json": "7651c19f61ab18f80f3be3de62e12e1a221e44009e1454f46f06f79c2cb045aa",
     "apps/zcode-cli/packages/dynamic-workflow-runtime/package.json": "700fb16f330bee73cd84d6e1fc8609663faf14ffa2108415e3bfb267ae9bcb3a",
     "apps/zcode-cli/packages/dynamic-workflow/package.json": "9edb746ae170418d81c4431dc16533e814bf3a97e4693a2a94f06b4516151a95",
     "apps/zcode-cli/packages/i18n/package.json": "cd51fc9cda66d726ab54f9821ff748bc150bf4bd84143bb7c8aa9b712a7e6c61",
@@ -243,18 +243,18 @@
     "apps/zcode-cli/packages/ios-simulator-plugin/package.json": "fc38d3f6d88598f2c84aced1dfbbef0682addc54e477500dbe323e829c74217a",
     "apps/zcode-cli/packages/node-repl-host/package.json": "3b8fafd78a122a59eb7941e7ef44f62fbacdc75b344aa5859f814c250f9de4d8",
     "apps/zcode-cli/packages/office-runtime/package.json": "c51046c5646a0670e554ac4b5949c70cc029c1ba94a5ee3b277b26208e2b4063",
-    "apps/zcode-cli/packages/pdf-plugin/package.json": "63588284641c57e2d7a6b8ff5826cdcb451a5b21f7bc91d6f544ef535d36bc14",
+    "apps/zcode-cli/packages/pdf-plugin/package.json": "96c30934857c6d728477b20d070410a9bbe7f62b06b168ce731f615794cdee2b",
     "apps/zcode-cli/packages/plugin-creator-plugin/package.json": "17ab1504c465c165b013f983270f54868aa282538557bf6f935daac153e46ba6",
-    "apps/zcode-cli/packages/presentations-plugin/package.json": "8c8bc559c98ca67cbe95616032589d14425dc85fae309a824101efc1a021e861",
+    "apps/zcode-cli/packages/presentations-plugin/package.json": "70859455d545a884880de26c4b6c532a3b1089a57fbf48a61d6a7ed13a64f431",
     "apps/zcode-cli/packages/restore-legacy-sessions-plugin/package.json": "ee180a70bc31e945dfa798fd2592a3150cd2e55d546d44be361a90a24cb33fd3",
     "apps/zcode-cli/packages/shared-types/package.json": "6616fb50cf5b4b854273d09411f38857c17df5d4b4abebdfe5d9601e7341e451",
     "apps/zcode-cli/packages/skill-creator-plugin/package.json": "9477f2dbaf0de233856a8d71f8aa1e4fac95e189358887df5c3b7c13672727a6",
-    "apps/zcode-cli/packages/spreadsheets-plugin/package.json": "b293c49125bfb98e5798210fb773f71266d725867c97e9b01442f1ae3a530228",
+    "apps/zcode-cli/packages/spreadsheets-plugin/package.json": "59e2dd77914ac38f522d9819168b50d6483e4370e347fedbe58ca2addb179f57",
     "apps/zcode-cli/packages/superpowers-plugin/LICENSE": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400",
     "apps/zcode-cli/packages/superpowers-plugin/package.json": "003495dd8441f4a9b017931e081770a157fa48b895752d0cfe7487d437507685",
     "apps/zcode-cli/packages/swift-bridge/package.json": "958674fcd44c789564ee672b0e6c687f1f900f4286174280700ddfb442d23906",
     "apps/zcode-cli/packages/telemetry/package.json": "2c7efa1d5b42700400b971fff61314c7277f5e05b5f96f48b7d50c9ccf11772e",
-    "apps/zcode-cli/packages/tui/package.json": "303b8c2f0eb3f8ea0476935f452dd0d2c620ac52587ebb08b24a193f3e3658e0",
+    "apps/zcode-cli/packages/tui/package.json": "6fefe72a654862361065a1db9876933aac8e83b4b0a69e72566db32db7b3a3fc",
     "apps/zcode-cli/packages/visualize-plugin/package.json": "f38e0334cd743a4ca15cf8884ca563aaf0b37bccbdfca63505f56f84f5576971",
     "apps/zcode-cli/packages/zcode-cua-plugin/package.json": "d923446edcf3277fe30375a6db251612515ef5e42f6d0d290549ccf80982d879",
     "apps/zcode-cli/packages/zcode-guide-plugin/package.json": "b6b6c4a0097496f5bf8848ad4fecea1c2e9f8a94d4a3b962217a74a6253deacf",
@@ -433,9 +433,9 @@
     "docs/knip/docs/src/styles/theme-light.css": "e2e85900fd43b5b563f56b9ce7e2a09f07d7420a78e80f0133efffeb8fce2aa0",
     "docs/knip/docs/src/util/post.ts": "6d7c45bd29035a73f1b67d24524760c7e317f367d32216de2c9a240dda7a40d1",
     "docs/knip/docs/tsconfig.json": "662b1f10a5e572b49a45669e4be9ee46c22f987dcf277c204948777b367df1cd",
-    "package.json": "5478869d5c059fd7bff95c6388b908df899473a7d337dbe9a4c86a9758d366d5",
+    "package.json": "3b2bfb9a1bc0a88b1afc09033e4785859e9267096aff747a9a5d95eeccd75e99",
     "packages/client/package.json": "e76f441549130dc3e5e68072a36b6cb9044e19a6625f1e813f19a4def2b1b689",
-    "packages/desktop/package.json": "1e63b8bd7bcb43da9e29bab8c073de1b6eb7dadeca7eb8aed3529565ea2ca422",
+    "packages/desktop/package.json": "5caa24a1375419725244da9267fcc8315188ba2458ae5eaf4451529005f4f7ea",
     "packages/desktop/src/renderer/public/material-icons/3d.svg": "9527b849f0fba57ca7640e2717b3a19cb5f5e046712cbbd8b75d73af338c68fb",
     "packages/desktop/src/renderer/public/material-icons/abap.svg": "1335bd7eb9a0ed49deb622330d680c2e97731726a7a5eee8e4f46dc1e5db4de4",
     "packages/desktop/src/renderer/public/material-icons/abc.svg": "d1a68020e8f020ef29dca5f94dc8613b7ae8fb5b212d8b1cc23b0f975ac7acda",
@@ -1584,9 +1584,12 @@
     "packages/desktop/src/renderer/public/material-icons/zip.svg": "dad79a45f756542d37abd422502ecfbea15720b92ea1c9d80ef0439ab6b9448a",
     "packages/e2e-report/package.json": "4619226682bcfd35b3e20c0dbbe16d6c1474a532fbd3fcadc06646dc3cb323eb",
     "packages/formal-proof/package.json": "ccfbc2908b846d96a053ba348b0cabeccf76a6dffc126a0326e228f3af92aaaf",
+    "packages/mikiko-cloud/admin/package.json": "b7c779e0ecb2f436521a7459884c0833734a5f76f946d685fc5d7da3095d8301",
+    "packages/mikiko-cloud/package.json": "fb49a5fad0041c57e512c129760d17fd0b16dd71687266ed541df6552683f173",
     "packages/model-option-map/package.json": "9ba8537bca94b388eca39307ebb3ab85c473f01fa51368162be5b3bc303315ee",
     "packages/provider-node/package.json": "b9b475a0f8cd0822980e64013f8b41139082ede376868051480702ead2913cb8",
     "packages/provider/package.json": "0f52edde6ef9712efc10dfccf12a918255f5be4a0379b5c8693fab79abacf2fc",
+    "packages/relay-server/package.json": "43a44275a709740df4d9ff6b41961912ead7bceb78944464d4412f2ec5ea58e6",
     "packages/rpc/examples/01-basic-ipc.ts": "bb4423c1642918846010f9307262c379536ca9541d79df6ebba120b5cf792f3e",
     "packages/rpc/examples/02-proxy-channel.ts": "66dda9aec12cd46da8a56560cb765a3de590917bbc40f329185e6fd05a388fff",
     "packages/rpc/examples/03-ipc-server-client.ts": "9b873f565b4a3426ee3a5338a975cb6ab76e29af094cf6bbee4f7030f872f758",
@@ -1599,7 +1602,7 @@
     "packages/rpc/src/channelServer.ts": "e93d30ddd347d2558960072219b5667cc940f39e2955440f4ae3db6a96a726e1",
     "packages/rpc/src/delayedChannel.ts": "e7607b7fe9f35c742db206df90852e2ccafb75abc088606cf1ddbae801574ecf",
     "packages/rpc/src/foundation.ts": "b4874401965e7bad7e84245a2fc5960657a349b146f355ac7343562fa724da9f",
-    "packages/rpc/src/index.ts": "6a5adcfb0e6c7a7d385e10fede09c3e9c808e3555c27b938091868cdf0c3fbef",
+    "packages/rpc/src/index.ts": "d291fdc1416bb661294f6e44c660f0375919941b4ff24ec0b52d4d2d8600ca79",
     "packages/rpc/src/ipc.ts": "2ec3dfe0654a68300dbed7afd5ac436b563abf983d6e0f59a2b028469fdf71ef",
     "packages/rpc/src/logging-middleware.ts": "20edfd8e5d054097186f2498ec4e9c08c61740ed003fc69eecea8176a15fe025",
     "packages/rpc/src/network-telemetry-middleware.ts": "18a7cde46e6c65e0138af0623d07bf883ce278acf44654bc5144ecaadd36a536",
@@ -1609,12 +1612,12 @@
     "packages/rpc/src/remote.ts": "a11e072d5df7e1c1ce64814a68f72afc081246b364f0da409b5c9d22bc815957",
     "packages/rpc/src/serialization.ts": "e949418e1cd17cc863c147fc8d1ff15237e1b5f0cb8e3344fd2a9ccfae9d54e7",
     "packages/server/package.json": "a93f2ae701d5a105618b7c71fe645123b7078dff136382854e07389b7eecbbfd",
-    "packages/services/package.json": "08ea06b5adac4515f771daf5068eb33353c59979768eb1eb0c64fc066354a24a",
+    "packages/services/package.json": "b167c2e4b07b91655eb4064947a4ac94e933e2af75220b149bf5fcc2e555deea",
     "packages/share-ui/package.json": "bf4e08759bc010d24d2559aa82a538832bee7c749c07c230158ee8d810cfdf41",
-    "packages/shared/package.json": "75d61b530bda3441611d433007a86ae51283a0637247e179becc6947260430fd",
+    "packages/shared/package.json": "7205937f2dcfd2404d952c8988acf8620bcc475a5741daf3df58c7b8c2b55444",
     "packages/shared/src/zcode-protocol-v4/wire-codec.ts": "ac2494a3acc795c809c94ee9393f50271a9c2a0fd33813459e5ab93842ceef75",
     "packages/stream-animate/package.json": "31cb25ed87e64dbcd695bbc932729ac30499107d45f747b96a5c3de832afdc28",
-    "packages/ui/package.json": "06c26cbfcb4eb44a193c4e69eb9cfb8d14a7aee55d243a9c226c424ee1bdd24a",
+    "packages/ui/package.json": "81bdcba555146581e0bc4e26c026a794ac09195888dbdd5ae81279620a7e30b2",
     "packages/ui/src/components/ai-elements/agent.tsx": "830e7ea9e927de1524851337f1d35bda0e5690e3e4fa307fff854b60006b16c7",
     "packages/ui/src/components/ai-elements/artifact.tsx": "7d73f08864d6280ac86c77d32e56d0e702f8aa6208e5910820139d0fb08ce64c",
     "packages/ui/src/components/ai-elements/attachments.tsx": "7a847ce6c8ac9dc630481a82dd20a5e9e00949bf710a41fea1d32a18123011d8",
@@ -1643,8 +1646,8 @@
     "packages/ui/src/components/ai-elements/markdown-image.tsx": "aedf797b19d4f5d37fc7e8833b2824a9d1a1a4fca440b69519b43a43eb122e90",
     "packages/ui/src/components/ai-elements/markdown-list.tsx": "ecf50ad4f48cd460ddcf90db7b463671f915d8c22c7cb8e7760ff3b02282c7f1",
     "packages/ui/src/components/ai-elements/markdown-table.tsx": "612d78092eaeb950931070fff2a194a244e84c5c2d63c6df645e6b91391953da",
-    "packages/ui/src/components/ai-elements/mermaid-block.tsx": "4cc6783097a6ecbb1896ee1f3dd1d89115ca81f3efb15d9fbabcf448063818ae",
-    "packages/ui/src/components/ai-elements/message.tsx": "6c35829ed11321e850cd59e20c1c88fdd452e8e2d9b5da45f808371021aabf99",
+    "packages/ui/src/components/ai-elements/mermaid-block.tsx": "6c27de385d9df792fdd4877bd213b73420e69b03abd99ed327885d85997588f8",
+    "packages/ui/src/components/ai-elements/message.tsx": "d60b5da570e347fecf1f51328a490766fa351e8a8a5d03ecb58add42d341b7fd",
     "packages/ui/src/components/ai-elements/mic-selector.tsx": "e6249c6380a9aa768a411b7fc05e57388b7dc8a6e2afae687250d33ce9bb54db",
     "packages/ui/src/components/ai-elements/model-selector.tsx": "745414195be63160ab61efadc8352c2c6a28d3ba53107896c146a499c0847b99",
     "packages/ui/src/components/ai-elements/node.tsx": "d7b68c41717a509bd9063f0a9fc0c4525ceb2b23bae4028bcd49ec949fc6268f",
@@ -1691,10 +1694,10 @@
     "packages/ui/src/components/ui/code-viewer.tsx": "dfccd2feaccc62af84f3e92dc5b8e25e7025b6c64cbd16f177586b1dc763affe",
     "packages/ui/src/components/ui/collapsible.tsx": "fcb5125c2c0e824e8b75e3b9c164011bac7a4c602ff83cf0937b71620ee77d92",
     "packages/ui/src/components/ui/command.tsx": "7c754bc80704163ce505d08d961a5a4b3e57107e7d53ea319483a896d448cbdb",
-    "packages/ui/src/components/ui/context-menu.tsx": "3820461fd68ca7a345fc919ab356bdefbbead23abb3ac0f4e8d46898f7522a6f",
+    "packages/ui/src/components/ui/context-menu.tsx": "dab64bb5f9d2d54054752ae5f7768353297029192cfd29608e6d16aaa5c7d0b3",
     "packages/ui/src/components/ui/dialog.tsx": "fb2decab75993205ec5670acbd5b8b7dfc9b1518d3acb457ddde7edd1984d44e",
     "packages/ui/src/components/ui/diff-viewer.tsx": "f02208b316e6dc4043ed1794455422bc74cdd521285fcac5a2c0d589c2eb9af2",
-    "packages/ui/src/components/ui/dropdown-menu.tsx": "61fb51b98cf76207dfe5e86e6baf6e2d5ef0f77698377b2c332066a4b9e2da60",
+    "packages/ui/src/components/ui/dropdown-menu.tsx": "d532b25313ced539d8c2a48bdc9450786bc02f67307932c8228d120147d14bca",
     "packages/ui/src/components/ui/flip-metric-value.tsx": "ce2d6cf063003e1023191b0fa4e3eb9b365e04a14eb0d498b897326600bf4071",
     "packages/ui/src/components/ui/floating-particles.tsx": "88250e9104721c35f6119e9ffadac4c9795c798976cf06c0e4f4e584e8195fd2",
     "packages/ui/src/components/ui/GlmMonochromeIcon.tsx": "f1691224d23be4359e1a79bcd81b9dd5ee19c0177b3a4bf750332c620b98ae5c",
@@ -1724,12 +1727,14 @@
     "packages/ui/src/components/ui/textarea.tsx": "a839574ce1301fbaa9ba917fdb980900eb9118bffa7c6c4e469f3293b122ed30",
     "packages/ui/src/components/ui/toast.tsx": "e8db1fb2da2fec35c99146a75698aa071b354d67c1211c8774145791b96ee51f",
     "packages/ui/src/components/ui/tooltip.tsx": "b385da0f882ef4a44c101051107a670c42f7b347b86ef8ca0dba40369ed34d3b",
+    "packages/ui/src/components/ui/TurnstileWidget.tsx": "b5889e4e6e113176524c2e34236a0f4979ad0196daefbba322fef513b4845018",
     "packages/ui/src/components/ui/usePdfZoomOverlay.ts": "c8c91b003ce2fded32c7a2369dc6eac43aa4b9dc9c830a0f5ceccb21d366b610",
-    "packages/ui/src/components/ui/ZCodeAboutLogo.tsx": "1e5b7c2e8a9dc98a3c597cbe34122521319eaeb89825e4c41641e77715d1407a",
-    "packages/ui/src/lib/builtinSkillI18n.ts": "c4df1dae0eaf5d65cc2cbf28ff162993f0d2bb1c482e8cb52a5e222f7778ab12",
-    "packages/ui/src/styles.css": "ae1c3575fa770258bba05afb5a0ebbeda59ecbd8b4cfa9d0355b5fbfd8dcbd8b",
+    "packages/ui/src/components/ui/ZCodeAboutLogo.tsx": "f98cf9491e8dc7745f0292d3b71307181f844be9f72995c4f8ef689e28c76a74",
+    "packages/ui/src/lib/builtinSkillI18n.ts": "210036a91dabc0314a3cfb9edc6ca426d201ad627fec0df7aa19af44204b95d9",
+    "packages/ui/src/styles.css": "219fee5a4794f435fde285196736b3a8727277c02ebfa200440093a1b6f7bc37",
+    "packages/update-service/package.json": "55369fca01533bfb59671e3d645902c848cdf4b79afb3d6c7ad2ccc2c147548f",
     "packages/web-share/package.json": "4865c14968b96d355c45c2edf612443f79d6d05cfbe433a28374e19b1b0c9d88",
-    "packages/web/package.json": "b3170c61d819fe1ab7ed7ebbb3ec9fbacfa1d2c75a32060a263006bac81c4411",
+    "packages/web/package.json": "72630b72f898e37a7e60b847593487c933cf4dd998c446047195f76a6357e00b",
     "packages/web/public/material-icons/3d.svg": "9527b849f0fba57ca7640e2717b3a19cb5f5e046712cbbd8b75d73af338c68fb",
     "packages/web/public/material-icons/abap.svg": "1335bd7eb9a0ed49deb622330d680c2e97731726a7a5eee8e4f46dc1e5db4de4",
     "packages/web/public/material-icons/abc.svg": "d1a68020e8f020ef29dca5f94dc8613b7ae8fb5b212d8b1cc23b0f975ac7acda",
@@ -2877,15 +2882,16 @@
     "packages/web/public/material-icons/zig.svg": "37be0ce02cf471b18d86150b3c38e80caa7c16c49a15078e7db6f1f41788d101",
     "packages/web/public/material-icons/zip.svg": "dad79a45f756542d37abd422502ecfbea15720b92ea1c9d80ef0439ab6b9448a",
     "packages/zcode-cua/package.json": "794687f6e1bf78cc4838e776263908223e2df0a79e15d867a655b112f123ce20",
-    "packages/zcode-server-cli/package.json": "698f659142ac592cddba0e0f9b1ea932a8c1ac7d8ee3d049c5defe2a493b9235",
+    "packages/zcode-server-cli/package.json": "f57a84a399158dbdf1addbfd5049bcb20f15acde1b4ec9050467e608f612e6e7",
     "patches/@ai-sdk__anthropic@3.0.81.patch": "d3a7c381eba7f5157f765a0528003af17cf84544911dfb7412c7800168e01c18",
     "patches/@ai-sdk__openai-compatible@2.0.60.patch": "9632fe9d821b3dc20939ae509cc35b968d90d018bbd1d812390718898182a38b",
     "patches/@arms__rum-electron@0.0.3.patch": "36855354851ea495bc47a03340b0484ff62836b739cad56904b8a69f18e2ae97",
+    "patches/@material__material-color-utilities@0.4.0.patch": "b1ce5dea9a31733ac3ddd4b236a80185e050df5f98e48bb7fd93f8ccf3f58378",
     "patches/@radix-ui__react-collapsible@1.1.12.patch": "4b7b3781f603e111bb33aef9c4b1694ac9bacd3dff47692606de9876d4631164",
     "patches/vitest@4.1.7.patch": "11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0",
     "patches/wdio-electron-service@9.2.1.patch": "52481dae5e76772fcb8c2a9ff42feb3d0e1478e28815a4b975c81b9287e3385f",
-    "pnpm-lock.yaml": "fd40401fa31a01d21fff8e5cf11d816cc225d81f2e11994663c27cdd8fc0a1bd",
-    "pnpm-workspace.yaml": "ddf4d195a433a1fae0a991462b9b19281435d7055d768d2a2942de8f4aff89f3",
+    "pnpm-lock.yaml": "19dab5fe7656a256ee5390d20f0fa07dc91341b49416e2ed9bbc444b4ec3daf7",
+    "pnpm-workspace.yaml": "561ddb43cedeccb474296fd570bcd70fdaa6ef19e2f8574dac10b7353aedc0e0",
     "scripts/license-texts/Apache-2.0.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "scripts/native-search-tools-config.mjs": "06e9d2b066a22f4bb731fb7356d786b52cf08e20dd6faf91e1a82b167d7462e8",
     "scripts/remote-native-search-tools-config.mjs": "2ddb7054e219ea487596cbdcb83d5c7eac9f239cfe169cfac22e3759d95d7c35",
@@ -3006,7 +3012,7 @@
     "third-party/native-search/licenses/f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af.txt": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af",
     "third-party/native-search/licenses/f9c375a1be4a41f7b70301dd83c91cb89e41567478859b77eef375a52d782505.txt": "f9c375a1be4a41f7b70301dd83c91cb89e41567478859b77eef375a52d782505",
     "third-party/native-search/sources.json": "5e1aedef96227f4deefe6f07cda644bd25e638443e86e93ddb2e9578a73d9609",
-    "third-party/npm-overrides.json": "7218355ca434ddaa1ec9d97af813e82d222ccba61ab00f12d7194c49ceeeaa1f",
+    "third-party/npm-overrides.json": "3a038f01679c0b5eb01b8fc0088a987b1997651c0563ba09e5e9919ad5161e17",
     "third-party/runtime/node-22.16.0-LICENSE.txt": "1ae62e2015784ba438db7b04ebd33f3c4ff3efdb824c111c4ececd99945fd52d",
     "third-party/runtime/node-24.14.0-LICENSE.txt": "4573185d56580da2b890ba34a85a409257640f1c5632eade4300137266194d18",
     "third-party/runtime/sources.json": "b27bc8d81aeb71108e523602364ffbb6a1b19c2d5d47733fd43094b769006741",
@@ -4978,6 +4984,18 @@
       ]
     },
     {
+      "name": "@material/material-color-utilities",
+      "version": "0.4.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/material-foundation/material-color-utilities.git",
+      "notices": [
+        {
+          "member": "LICENSE",
+          "sha256": "8ded460ad5bd3ab9082eaa2f7502cc9bb621eaff87cecc55d823f21758707cea"
+        }
+      ]
+    },
+    {
       "name": "@mbears/opentui-core-darwin-arm64",
       "version": "0.2.15",
       "license": "MIT",
@@ -6587,7 +6605,7 @@
       "repository": "git+https://github.com/rrweb-io/rrweb.git",
       "notices": [
         {
-          "member": "https://raw.githubusercontent.com/rrweb-io/rrweb/%40rrweb%2Ftypes%402.0.0/LICENSE",
+          "member": "https://raw.githubusercontent.com/rrweb-io/rrweb/c826076ce529c411b32372d540e70a8a3a9577c2/LICENSE",
           "sha256": "e49e62397b603438476e0d6b5ca3b6e6d4f23a80594e596aff29ac04fa3e1b1c"
         }
       ]
@@ -6599,7 +6617,7 @@
       "repository": "git+https://github.com/rrweb-io/rrweb.git",
       "notices": [
         {
-          "member": "https://raw.githubusercontent.com/rrweb-io/rrweb/%40rrweb%2Futils%402.0.0/LICENSE",
+          "member": "https://raw.githubusercontent.com/rrweb-io/rrweb/c826076ce529c411b32372d540e70a8a3a9577c2/LICENSE",
           "sha256": "e49e62397b603438476e0d6b5ca3b6e6d4f23a80594e596aff29ac04fa3e1b1c"
         }
       ]
@@ -10590,6 +10608,10 @@
       "license": "MIT",
       "repository": "https://github.com/electron/electron",
       "notices": [
+        {
+          "member": "dist/LICENSE",
+          "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d"
+        },
         {
           "member": "LICENSE",
           "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d"
@@ -17067,7 +17089,7 @@
       "repository": "git+https://github.com/rrweb-io/rrweb.git",
       "notices": [
         {
-          "member": "https://raw.githubusercontent.com/rrweb-io/rrweb/rrdom%402.0.0/LICENSE",
+          "member": "https://raw.githubusercontent.com/rrweb-io/rrweb/c826076ce529c411b32372d540e70a8a3a9577c2/LICENSE",
           "sha256": "e49e62397b603438476e0d6b5ca3b6e6d4f23a80594e596aff29ac04fa3e1b1c"
         }
       ]
@@ -17079,7 +17101,7 @@
       "repository": "git+https://github.com/rrweb-io/rrweb.git",
       "notices": [
         {
-          "member": "https://raw.githubusercontent.com/rrweb-io/rrweb/rrweb-snapshot%402.0.0/LICENSE",
+          "member": "https://raw.githubusercontent.com/rrweb-io/rrweb/c826076ce529c411b32372d540e70a8a3a9577c2/LICENSE",
           "sha256": "e49e62397b603438476e0d6b5ca3b6e6d4f23a80594e596aff29ac04fa3e1b1c"
         }
       ]
@@ -17091,7 +17113,7 @@
       "repository": "git+ssh://git@github.com/rrweb-io/rrweb.git",
       "notices": [
         {
-          "member": "https://raw.githubusercontent.com/rrweb-io/rrweb/rrweb%402.0.0/LICENSE",
+          "member": "https://raw.githubusercontent.com/rrweb-io/rrweb/c826076ce529c411b32372d540e70a8a3a9577c2/LICENSE",
           "sha256": "e49e62397b603438476e0d6b5ca3b6e6d4f23a80594e596aff29ac04fa3e1b1c"
         }
       ]
@@ -17385,6 +17407,78 @@
         {
           "member": "README.md (license section)",
           "sha256": "04014660b7a26fb2d0ea658f99485c05085e0afd0cd629317b0fd7d940a4b4be"
+        }
+      ]
+    },
+    {
+      "name": "sherpa-onnx-darwin-arm64",
+      "version": "1.13.8",
+      "license": "Apache-2.0",
+      "repository": "git+https://github.com/csukuangfj/sherpa-onnx.git",
+      "notices": [
+        {
+          "member": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "sherpa-onnx-darwin-x64",
+      "version": "1.13.8",
+      "license": "Apache-2.0",
+      "repository": "git+https://github.com/csukuangfj/sherpa-onnx.git",
+      "notices": [
+        {
+          "member": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "sherpa-onnx-linux-arm64",
+      "version": "1.13.8",
+      "license": "Apache-2.0",
+      "repository": "git+https://github.com/csukuangfj/sherpa-onnx.git",
+      "notices": [
+        {
+          "member": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "sherpa-onnx-linux-x64",
+      "version": "1.13.8",
+      "license": "Apache-2.0",
+      "repository": "git+https://github.com/csukuangfj/sherpa-onnx.git",
+      "notices": [
+        {
+          "member": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "sherpa-onnx-node",
+      "version": "1.13.8",
+      "license": "Apache-2.0",
+      "repository": "git+https://github.com/csukuangfj/sherpa-onnx.git",
+      "notices": [
+        {
+          "member": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "sherpa-onnx-win-x64",
+      "version": "1.13.8",
+      "license": "Apache-2.0",
+      "repository": "git+https://github.com/csukuangfj/sherpa-onnx.git",
+      "notices": [
+        {
+          "member": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
         }
       ]
     },
@@ -18066,14 +18160,10 @@
     },
     {
       "name": "tinyexec",
-      "version": "1.1.1",
+      "version": "1.2.4",
       "license": "MIT",
       "repository": "git+https://github.com/tinylibs/tinyexec.git",
       "notices": [
-        {
-          "member": "dist/LICENSES.txt",
-          "sha256": "538cf6250ba4f1ecf9986515e6db7885fd8f28892ab593f4f3dfb78a5deb6159"
-        },
         {
           "member": "LICENSE",
           "sha256": "f95f668fe64081ddb4153b322e34fdd719b991285ed08177d5ad7133b7988d92"
@@ -19791,8 +19881,12 @@
           "sha256": "5b5d554e2ad0c8e095258d70e5c3f35f58b9340a850c767f7b76bbe19c3b42d0"
         },
         {
+          "file": "packages/ui/src/components/ui/TurnstileWidget.tsx",
+          "sha256": "b5889e4e6e113176524c2e34236a0f4979ad0196daefbba322fef513b4845018"
+        },
+        {
           "file": "packages/ui/src/components/ui/ZCodeAboutLogo.tsx",
-          "sha256": "1e5b7c2e8a9dc98a3c597cbe34122521319eaeb89825e4c41641e77715d1407a"
+          "sha256": "f98cf9491e8dc7745f0292d3b71307181f844be9f72995c4f8ef689e28c76a74"
         },
         {
           "file": "packages/ui/src/components/ui/accordion.tsx",
@@ -19852,7 +19946,7 @@
         },
         {
           "file": "packages/ui/src/components/ui/context-menu.tsx",
-          "sha256": "3820461fd68ca7a345fc919ab356bdefbbead23abb3ac0f4e8d46898f7522a6f"
+          "sha256": "dab64bb5f9d2d54054752ae5f7768353297029192cfd29608e6d16aaa5c7d0b3"
         },
         {
           "file": "packages/ui/src/components/ui/dialog.tsx",
@@ -19864,7 +19958,7 @@
         },
         {
           "file": "packages/ui/src/components/ui/dropdown-menu.tsx",
-          "sha256": "61fb51b98cf76207dfe5e86e6baf6e2d5ef0f77698377b2c332066a4b9e2da60"
+          "sha256": "d532b25313ced539d8c2a48bdc9450786bc02f67307932c8228d120147d14bca"
         },
         {
           "file": "packages/ui/src/components/ui/flip-metric-value.tsx",
@@ -19980,7 +20074,7 @@
         },
         {
           "file": "packages/ui/src/styles.css",
-          "sha256": "ae1c3575fa770258bba05afb5a0ebbeda59ecbd8b4cfa9d0355b5fbfd8dcbd8b"
+          "sha256": "219fee5a4794f435fde285196736b3a8727277c02ebfa200440093a1b6f7bc37"
         }
       ]
     },
@@ -20254,11 +20348,11 @@
         },
         {
           "file": "packages/ui/src/components/ai-elements/mermaid-block.tsx",
-          "sha256": "4cc6783097a6ecbb1896ee1f3dd1d89115ca81f3efb15d9fbabcf448063818ae"
+          "sha256": "6c27de385d9df792fdd4877bd213b73420e69b03abd99ed327885d85997588f8"
         },
         {
           "file": "packages/ui/src/components/ai-elements/message.tsx",
-          "sha256": "6c35829ed11321e850cd59e20c1c88fdd452e8e2d9b5da45f808371021aabf99"
+          "sha256": "d60b5da570e347fecf1f51328a490766fa351e8a8a5d03ecb58add42d341b7fd"
         },
         {
           "file": "packages/ui/src/components/ai-elements/mic-selector.tsx",
@@ -30242,7 +30336,7 @@
         },
         {
           "file": "packages/rpc/src/index.ts",
-          "sha256": "6a5adcfb0e6c7a7d385e10fede09c3e9c808e3555c27b938091868cdf0c3fbef"
+          "sha256": "d291fdc1416bb661294f6e44c660f0375919941b4ff24ec0b52d4d2d8600ca79"
         },
         {
           "file": "packages/rpc/src/ipc.ts",
@@ -30315,7 +30409,7 @@
       "files": [
         {
           "file": "packages/ui/src/lib/builtinSkillI18n.ts",
-          "sha256": "c4df1dae0eaf5d65cc2cbf28ff162993f0d2bb1c482e8cb52a5e222f7778ab12"
+          "sha256": "210036a91dabc0314a3cfb9edc6ca426d201ad627fec0df7aa19af44204b95d9"
         },
         {
           "file": "apps/zcode-cli/packages/superpowers-plugin/LICENSE",
@@ -31452,6 +31546,11 @@
       "package": "@ai-sdk/anthropic@3.0.81",
       "file": "patches/@ai-sdk__anthropic@3.0.81.patch",
       "sha256": "d3a7c381eba7f5157f765a0528003af17cf84544911dfb7412c7800168e01c18"
+    },
+    {
+      "package": "@material/material-color-utilities@0.4.0",
+      "file": "patches/@material__material-color-utilities@0.4.0.patch",
+      "sha256": "b1ce5dea9a31733ac3ddd4b236a80185e050df5f98e48bb7fd93f8ccf3f58378"
     }
   ],
   "exceptions": [

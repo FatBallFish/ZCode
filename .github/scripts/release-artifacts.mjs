@@ -2,7 +2,7 @@
 /** 恢复只能读取同一 tag 的原始构建与该 sourceRunId 的状态；不要通过重跑编译恢复公证。 */
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { verifyReleaseInstallers } from "../../packages/desktop/scripts/macos-notarization.mjs";
 const exec = promisify(execFile);
@@ -21,12 +21,75 @@ if (
   throw new Error("Original run/tag identity mismatch");
 if (!run.path?.startsWith(".github/workflows/release-desktop.yml"))
   throw new Error("Source must be a desktop release build");
+
+async function downloadSourceServer(destination) {
+  const original = JSON.parse(
+    await gh([
+      "api",
+      `repos/${repository}/contents/.github/workflows/release-desktop.yml?ref=${run.head_sha}`,
+    ]),
+  );
+  if (original.encoding !== "base64" || typeof original.content !== "string") {
+    throw new Error("Cannot inspect original Source Server build contract");
+  }
+  const workflow = Buffer.from(original.content, "base64").toString("utf8");
+  // 旧发布可继续恢复原桌面包；只有原提交声明过 Source Server 构建才要求相应 artifact。
+  // 缺少新增 artifact 绝不能转去编译当前 HEAD 或借用其他 run。
+  if (!/^ {2}source-server:\s*$/mu.test(workflow)) {
+    if (process.env.GITHUB_OUTPUT)
+      await writeFile(process.env.GITHUB_OUTPUT, "available=false\n", {
+        flag: "a",
+      });
+    console.log(
+      "Legacy release source predates Source Server artifacts; skipping Source Server publication without rebuilding HEAD",
+    );
+    return;
+  }
+  await mkdir(destination, { recursive: true });
+  try {
+    await gh([
+      "run",
+      "download",
+      sourceRunId,
+      "--repo",
+      repository,
+      "--name",
+      "source-server-release",
+      "--dir",
+      destination,
+    ]);
+  } catch (cause) {
+    throw new Error(
+      `Cannot restore Source Server artifact from original run ${sourceRunId}; no rebuild performed`,
+      { cause },
+    );
+  }
+  const build = JSON.parse(await readFile(join(destination, "source-server-build.json"), "utf8"));
+  if (
+    build.schemaVersion !== 1 ||
+    build.sourceRunId !== sourceRunId ||
+    build.commit !== run.head_sha ||
+    build.tag !== run.head_branch ||
+    build.version !== run.head_branch.slice(1)
+  ) {
+    throw new Error("Source Server original build identity mismatch");
+  }
+  if (process.env.GITHUB_OUTPUT)
+    await writeFile(process.env.GITHUB_OUTPUT, `available=true\ncommit=${run.head_sha}\n`, {
+      flag: "a",
+    });
+}
+
 if (mode === "validate") {
   if (process.env.GITHUB_OUTPUT)
-    await writeFile(process.env.GITHUB_OUTPUT, `commit=${run.head_sha}\n`, { flag: "a" });
+    await writeFile(process.env.GITHUB_OUTPUT, `commit=${run.head_sha}\n`, {
+      flag: "a",
+    });
   console.log(
     `Release source validated: run=${sourceRunId} tag=${run.head_branch} commit=${run.head_sha}`,
   );
+} else if (mode === "download-source-server") {
+  await downloadSourceServer(resolve(targetDir));
 } else if (mode === "restore-state") {
   if (!["arm64", "x64"].includes(arch)) throw new Error("Invalid state architecture");
   const pages = JSON.parse(

@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -11,11 +14,18 @@ const SELECTION = "0020_provider_model_selection";
 const REASONING = "0022_backfilled_session_reasoning";
 const APPLIED_AT = 1_000;
 const databases: DatabaseSync[] = [];
+const directories: string[] = [];
+const databasePaths = new WeakMap<DatabaseSync, string>();
 const checksum = (sql: string) => createHash("sha256").update(sql.trim()).digest("hex");
 const legacy = { providerID: "builtin:bigmodel-coding-plan", modelID: "glm-5.3", variant: "high" };
 
-function createFixture() {
-  const db = new DatabaseSync(":memory:");
+async function createFixture() {
+  // 迁移会备份历史表；磁盘 fixture 让备份留在可回收的测试临时目录。
+  const directory = await mkdtemp(join(tmpdir(), "mikiko-frozen-migration-"));
+  directories.push(directory);
+  const path = join(directory, "session.sqlite");
+  const db = new DatabaseSync(path);
+  databasePaths.set(db, path);
   databases.push(db);
   db.exec(
     "PRAGMA foreign_keys=ON; CREATE TABLE schema_migration(id TEXT PRIMARY KEY, checksum TEXT NOT NULL, app_version TEXT, time_applied INTEGER NOT NULL)",
@@ -128,9 +138,12 @@ function seedSelections(db: DatabaseSync) {
   ).run("bad-part", "bad-json", "bad", 1, 2, "{");
 }
 
-afterEach(() => {
+afterEach(async () => {
   vi.restoreAllMocks();
   for (const db of databases.splice(0)) db.close();
+  await Promise.all(
+    directories.splice(0).map((path) => rm(path, { recursive: true, force: true })),
+  );
 });
 
 describe("Todo144：启动 runner 保持冻结迁移合同", () => {
@@ -138,49 +151,54 @@ describe("Todo144：启动 runner 保持冻结迁移合同", () => {
     "%s 启动执行原迁移：所有行、JSON、旧字段、时间与账本一致",
     async (mode) => {
       vi.spyOn(Date, "now").mockReturnValue(APPLIED_AT);
-      const oldDb = createFixture();
-      const nextDb = createFixture();
+      const oldDb = await createFixture();
+      const nextDb = await createFixture();
       for (const db of [oldDb, nextDb]) seedSelections(db);
       applyFrozen(oldDb);
-      if (mode === "async") await runSqliteSessionMigrationsAsync(nextDb, ":memory:");
-      else await runSqliteSessionMigrations(nextDb, ":memory:");
+      if (mode === "async")
+        await runSqliteSessionMigrationsAsync(nextDb, databasePaths.get(nextDb)!);
+      else await runSqliteSessionMigrations(nextDb, databasePaths.get(nextDb)!);
       expect(snapshot(nextDb)).toEqual(snapshot(oldDb));
       expect(nextDb.prepare("SELECT count(*) AS n FROM part").get()?.n).toBe(109);
     },
   );
 
   it("已迁移的原账本可反复读取；用户清空新选择后不重迁", async () => {
-    const db = createFixture();
+    const db = await createFixture();
     seedSelections(db);
     applyFrozen(db);
     db.exec("UPDATE session_entry SET data=json_set(data,'$.modelSelection',NULL)");
     const before = snapshot(db);
-    await runSqliteSessionMigrations(db, ":memory:");
+    await runSqliteSessionMigrations(db, databasePaths.get(db)!);
     applyFrozen(db);
     expect(snapshot(db)).toEqual(before);
   });
 
   it("checksum 不符仍失败并回滚，不篡改账本", async () => {
-    const db = createFixture();
+    const db = await createFixture();
     applyFrozen(db);
     db.prepare("UPDATE schema_migration SET checksum='changed' WHERE id=?").run(SELECTION);
     const before = snapshot(db);
-    await expect(runSqliteSessionMigrations(db, ":memory:")).rejects.toThrow(/checksum mismatch/);
+    await expect(runSqliteSessionMigrations(db, databasePaths.get(db)!)).rejects.toThrow(
+      /checksum mismatch/,
+    );
     expect(snapshot(db)).toEqual(before);
   });
 
   it("原 SQL 遇到 trigger 拒绝写入时整笔回滚，重试可恢复", async () => {
-    const db = createFixture();
+    const db = await createFixture();
     seedSelections(db);
     db.exec(
       "CREATE TRIGGER reject_part BEFORE UPDATE ON part BEGIN SELECT RAISE(ABORT,'fixture failure'); END",
     );
     const before = snapshot(db);
-    await expect(runSqliteSessionMigrations(db, ":memory:")).rejects.toThrow(/migration/);
+    await expect(runSqliteSessionMigrations(db, databasePaths.get(db)!)).rejects.toThrow(
+      /migration/,
+    );
     expect(snapshot(db)).toEqual(before);
     expect(db.isTransaction).toBe(false);
     db.exec("DROP TRIGGER reject_part");
-    await runSqliteSessionMigrations(db, ":memory:");
+    await runSqliteSessionMigrations(db, databasePaths.get(db)!);
     expect(db.prepare("SELECT 1 FROM schema_migration WHERE id=?").get(REASONING)).toBeDefined();
   });
 });

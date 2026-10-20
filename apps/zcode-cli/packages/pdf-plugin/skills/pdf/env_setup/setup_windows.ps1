@@ -254,7 +254,7 @@ Write-Host ""
 
 # ── Step 2h: Font Installation (from CDN) ──
 Write-Host "--- [8/9] Font Installation ---"
-$FontCdnBase = "https://z-cdn.chatglm.cn/office-skill/fonts"
+$FontCdnBase = "https://agent-dl.mikiko.ai/mikiko/office-skill/fonts"
 $FontList = Join-Path $ScriptDir "font_list.txt"
 
 $UserFontDir = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\Fonts"
@@ -282,7 +282,9 @@ if (Test-Path $Marker) {
                 continue
             }
             
-            $encoded = $relPath -replace '\[','%5B' -replace '\]','%5D' -replace ' ','%20'
+            # 历史清单的系统前缀不能直接拼进 CDN URL。
+            $cdnRelative = $relPath -replace '^/usr/share/fonts/truetype/', ''
+            $encoded = $cdnRelative -replace '\[','%5B' -replace '\]','%5D' -replace ' ','%20'
             $url = "$FontCdnBase/$encoded"
             
             try {

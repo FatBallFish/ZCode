@@ -5,6 +5,17 @@ import { describe, expect, it } from "vitest";
 import { createConfig, parseEnvConfig } from "../src/config/index.js";
 
 describe("env model config", () => {
+  it("reads Mikiko storage and network configuration", () => {
+    expect(parseEnvConfig({ MIKIKO_STORAGE_DIR: "/mikiko", MIKIKO_HTTP_PROXY: "http://proxy.test" })).toEqual({ storage: { dir: "/mikiko" }, network: { httpProxy: "http://proxy.test" } });
+  });
+  it.each([false, true])("prefers Mikiko env regardless of insertion order (%s)", (reverse) => {
+    const entries = [["MIKIKO_STORAGE_DIR", "/new"], ["ZCODE_STORAGE_DIR", "/old"]];
+    expect(parseEnvConfig(Object.fromEntries(reverse ? entries.reverse() : entries)).storage?.dir).toBe("/new");
+    expect(parseEnvConfig({ ZCODE_STORAGE_DIR: "/old" }).storage?.dir).toBe("/old");
+  });
+  it("honors an explicit namespace without reading defaults", () => {
+    expect(parseEnvConfig({ MIKIKO_STORAGE_DIR: "/new", ZCODE_STORAGE_DIR: "/old", CUSTOM_STORAGE_DIR: "/custom" }, { prefix: "CUSTOM_" }).storage?.dir).toBe("/custom");
+  });
   it("ignores legacy model environment variables", () => {
     const config = parseEnvConfig({
       ZCODE_API_KEY: "secret",

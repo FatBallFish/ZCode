@@ -7,18 +7,14 @@ import { createProviderEndpointRoutingSourceHeaders } from "../src/provider-endp
 const tempDirs: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(
-    tempDirs.splice(0).map((dir) => rm(dir, { force: true, recursive: true })),
-  );
+  await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { force: true, recursive: true })));
 });
 
 describe("createProviderEndpointRoutingSourceHeaders", () => {
   it("adds runtime attribution and reuses an existing deviceMid for the config GET", async () => {
-    const dataBaseDir = await mkdtemp(
-      join(tmpdir(), "zcode-routing-source-headers-"),
-    );
+    const dataBaseDir = await mkdtemp(join(tmpdir(), "zcode-routing-source-headers-"));
     tempDirs.push(dataBaseDir);
-    const stateDir = join(dataBaseDir, ".zcode", "v2");
+    const stateDir = join(dataBaseDir, ".mikiko", "v2");
     await mkdir(stateDir, { recursive: true });
     await writeFile(
       join(stateDir, "telemetry-state.json"),
@@ -31,14 +27,14 @@ describe("createProviderEndpointRoutingSourceHeaders", () => {
       env: {
         MIKIKO_DATA_BASE_DIR: dataBaseDir,
         MIKIKO_ENV: "test",
-        MIKIKO_TEST_BASE_URL: "https://routing-config.example.test",
+        MIKIKO_BASE_URL: "https://routing-config.example.test",
       },
       sourceTitle: "electron",
     });
 
     expect(headers).toMatchObject({
       "HTTP-Referer": "https://routing-config.example.test",
-      "User-Agent": "ZCode/1.2.3",
+      "User-Agent": "Mikiko/1.2.3",
       "X-Client-Language": expect.any(String),
       "X-Client-Timezone": expect.any(String),
       "X-Device-Mid": "mid-routing-1",
@@ -53,9 +49,7 @@ describe("createProviderEndpointRoutingSourceHeaders", () => {
   });
 
   it("defaults to CLI attribution and does not create a missing device identity", async () => {
-    const dataBaseDir = await mkdtemp(
-      join(tmpdir(), "zcode-routing-no-device-mid-"),
-    );
+    const dataBaseDir = await mkdtemp(join(tmpdir(), "zcode-routing-no-device-mid-"));
     tempDirs.push(dataBaseDir);
 
     const headers = await createProviderEndpointRoutingSourceHeaders({
@@ -67,8 +61,8 @@ describe("createProviderEndpointRoutingSourceHeaders", () => {
     });
 
     expect(headers).toMatchObject({
-      "HTTP-Referer": "https://zcode.z.ai",
-      "User-Agent": "ZCode/2.0.0",
+      "HTTP-Referer": "https://agent.mikiko.ai",
+      "User-Agent": "Mikiko/2.0.0",
       "X-Release-Channel": "production",
       "X-Title": "Z Code@cli",
     });

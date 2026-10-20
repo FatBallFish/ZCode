@@ -20,13 +20,13 @@ async function fixture() {
   const workspacePath = join(root, "workspace");
   const storagePath = join(root, "user-data");
   const userConfigPath = join(root, "config.json");
-  await mkdir(join(workspacePath, ".zcode"), { recursive: true });
+  await mkdir(join(workspacePath, ".mikiko"), { recursive: true });
   await writeFile(
     userConfigPath,
     JSON.stringify({ storage: { dir: storagePath }, hooks: { enabled: true, events: {} } }),
   );
   await writeFile(
-    join(workspacePath, ".zcode", "config.json"),
+    join(workspacePath, ".mikiko", "config.json"),
     JSON.stringify({
       hooks: {
         enabled: true,

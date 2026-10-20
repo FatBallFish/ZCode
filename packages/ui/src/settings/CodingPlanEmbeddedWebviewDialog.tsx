@@ -1,3 +1,4 @@
+import { shouldExposeE2EStoreBridge } from "@/lib/e2eStoreBridge.js";
 /* oxlint-disable eslint(max-lines) -- Coding Plan webview 容器集中维护凭据注入、购买完成回传、三方支付导航和错误兜底。 */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLinkIcon, RefreshCwIcon } from "lucide-react";
@@ -60,6 +61,7 @@ interface CodingPlanEmbeddedWebviewDialogProps {
 interface CodingPlanWebviewImportMetaEnv {
   DEV?: boolean;
   VITE_CODING_PLAN_WEBVIEW_ORIGIN?: string;
+  VITE_MIKIKO_E2E_STORE_BRIDGE?: string;
   VITE_ZCODE_E2E_STORE_BRIDGE?: string;
 }
 
@@ -127,7 +129,7 @@ export function CodingPlanEmbeddedWebviewDialog({
     const origin = resolveCodingPlanEmbeddedOrigin({
       dev: env.DEV === true,
       endpointOrigin: RENDERER_ZCODE_ENDPOINT_URLS.origin,
-      e2eStoreBridgeEnabled: env.VITE_ZCODE_E2E_STORE_BRIDGE === "1",
+      e2eStoreBridgeEnabled: shouldExposeE2EStoreBridge(env),
       overrideOrigin: env.VITE_CODING_PLAN_WEBVIEW_ORIGIN,
       zcodeEnv: ZCODE_ENV,
     });
@@ -162,7 +164,7 @@ export function CodingPlanEmbeddedWebviewDialog({
         const currentUrl = typeof webview.getURL === "function" ? webview.getURL() : "";
         if (
           !isTrustedCodingPlanEmbeddedWebviewUrl(currentUrl, {
-            e2eStoreBridgeEnabled: env.VITE_ZCODE_E2E_STORE_BRIDGE === "1",
+            e2eStoreBridgeEnabled: shouldExposeE2EStoreBridge(env),
           })
         ) {
           // dom-ready 会在后续主 frame 导航时再次触发，初始 src 可信不代表

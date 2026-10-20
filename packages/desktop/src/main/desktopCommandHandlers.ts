@@ -42,6 +42,8 @@ import {
 
 export const HELP_TOGGLE_DEV_TOOLS_MENU_ID = "help.toggle-dev-tools";
 export const HELP_TOGGLE_ZCODE_STDIO_TAP_MENU_ID = "help.toggle-zcode-stdio-tap";
+const MIKIKO_ENDPOINT_SUBMIT_PREFIX = "mikiko-endpoint-submit:";
+const MIKIKO_ENDPOINT_CANCEL_TITLE = "mikiko-endpoint-cancel";
 const ZCODE_ENDPOINT_PROMPT_WIDTH = 460;
 const ZCODE_ENDPOINT_PROMPT_HEIGHT = 210;
 const CODING_PLAN_WEBVIEW_PARTITION = "persist:zcode-coding-plan";
@@ -313,7 +315,7 @@ function buildZCodeEndpointPromptHtml(currentValue: string): string {
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>ZCode Endpoint</title>
+    <title>Mikiko Endpoint</title>
     <style>
       :root { color-scheme: light dark; }
       body { margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -326,9 +328,9 @@ function buildZCodeEndpointPromptHtml(currentValue: string): string {
   </head>
   <body>
     <form id="form">
-      <label for="endpoint">ZCode endpoint origin</label>
-      <input id="endpoint" value="${value}" placeholder="https://zcode.z.ai" spellcheck="false" />
-      <div class="hint">Use an http or https origin, for example https://zcode.z.ai.</div>
+      <label for="endpoint">Mikiko endpoint origin</label>
+      <input id="endpoint" value="${value}" placeholder="${DEFAULT_ZCODE_ENDPOINT_ORIGIN}" spellcheck="false" />
+      <div class="hint">Use an http or https origin, for example ${DEFAULT_ZCODE_ENDPOINT_ORIGIN}.</div>
       <div class="actions">
         <button id="cancel" type="button">Cancel</button>
         <button type="submit">Save</button>
@@ -336,13 +338,13 @@ function buildZCodeEndpointPromptHtml(currentValue: string): string {
     </form>
     <script>
       const input = document.getElementById("endpoint");
-      const submit = (value) => { document.title = "mikiko-endpoint-submit:" + encodeURIComponent(value); };
+      const submit = (value) => { document.title = ${JSON.stringify(MIKIKO_ENDPOINT_SUBMIT_PREFIX)} + encodeURIComponent(value); };
       document.getElementById("form").addEventListener("submit", (event) => {
         event.preventDefault();
         submit(input.value);
       });
       document.getElementById("cancel").addEventListener("click", () => {
-        document.title = "zcode-endpoint-cancel";
+        document.title = ${JSON.stringify(MIKIKO_ENDPOINT_CANCEL_TITLE)};
       });
       input.focus();
       input.select();
@@ -386,16 +388,16 @@ function showZCodeEndpointPromptWindow(options: {
 
     promptWindow.on("closed", () => finish(undefined));
     promptWindow.on("page-title-updated", (event, title) => {
-      if (title === "zcode-endpoint-cancel") {
+      if (title === MIKIKO_ENDPOINT_CANCEL_TITLE) {
         event.preventDefault();
         finish(undefined);
         return;
       }
-      if (!title.startsWith("mikiko-endpoint-submit:")) {
+      if (!title.startsWith(MIKIKO_ENDPOINT_SUBMIT_PREFIX)) {
         return;
       }
       event.preventDefault();
-      finish(decodeURIComponent(title.slice("mikiko-endpoint-submit:".length)));
+      finish(decodeURIComponent(title.slice(MIKIKO_ENDPOINT_SUBMIT_PREFIX.length)));
     });
 
     // Electron 菜单命令在主进程触发，调用 renderer 的 window.prompt 可能被禁用或没有焦点，表现为点击无反应。

@@ -17,8 +17,8 @@ import {
 } from "../src/permission/service.js";
 
 const WORKING_DIRECTORY = "/ws/project";
-const DRAFT_RELATIVE_PATH = ".zcode/workflow-drafts/report.dwf.ts";
-const DRAFT_ABSOLUTE_PATH = "/ws/project/.zcode/workflow-drafts/report.dwf.ts";
+const DRAFT_RELATIVE_PATH = ".mikiko/workflow-drafts/report.dwf.ts";
+const DRAFT_ABSOLUTE_PATH = "/ws/project/.mikiko/workflow-drafts/report.dwf.ts";
 const DRAFT_RULE_ID = "tool.workflowDraft.preapproved";
 
 const editCapability: PermissionToolCapability = {
@@ -147,7 +147,7 @@ describe("workflow draft preapproval", () => {
 
   it("does not preapprove a target that escapes the drafts directory", () => {
     const decision = new PermissionService().checkPermission(
-      draftContext({ input: { file_path: ".zcode/workflow-drafts/../../secrets.env" } }),
+      draftContext({ input: { file_path: ".mikiko/workflow-drafts/../../secrets.env" } }),
       editCapability,
       { version: 1 },
     );
@@ -161,7 +161,7 @@ describe("workflow draft preapproval", () => {
 
   it("does not preapprove a sibling directory that merely shares the name prefix", () => {
     const decision = new PermissionService().checkPermission(
-      draftContext({ input: { file_path: ".zcode/workflow-drafts-other/report.dwf.ts" } }),
+      draftContext({ input: { file_path: ".mikiko/workflow-drafts-other/report.dwf.ts" } }),
       editCapability,
       { version: 1 },
     );

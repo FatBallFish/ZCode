@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SQLITE_MIGRATIONS } from "../src/storage/session-store/migrations.js";
 import {
   runSqliteSessionMigrations,
@@ -12,9 +12,16 @@ import type { SqliteMigrationProgress } from "../src/storage/session-store/migra
 
 const dbs: DatabaseSync[] = [];
 const dirs: string[] = [];
-const open = (path = ":memory:") => {
+const databasePaths = new WeakMap<DatabaseSync, string>();
+let fixtureDirectory: string;
+beforeEach(async () => {
+  fixtureDirectory = await mkdtemp(join(tmpdir(), "mikiko-async-migration-"));
+  dirs.push(fixtureDirectory);
+});
+const open = (path = join(fixtureDirectory, `session-${dbs.length}.sqlite`)) => {
   const db = new DatabaseSync(path);
   dbs.push(db);
+  databasePaths.set(db, path);
   return db;
 };
 afterEach(async () => {
@@ -39,7 +46,7 @@ describe("Todo144：迁移启动状态与真实 SQLite 锁", () => {
     const started = new Promise<void>((resolve) => {
       observed = resolve;
     });
-    const migrating = runSqliteSessionMigrationsAsync(db, ":memory:", {
+    const migrating = runSqliteSessionMigrationsAsync(db, databasePaths.get(db)!, {
       onProgress: async (state) => {
         states.push(state);
         if (state.phase === "migrating" && state.migrationId === "0001_base_session_store") {
@@ -69,7 +76,7 @@ describe("Todo144：迁移启动状态与真实 SQLite 锁", () => {
       expect(state).not.toHaveProperty("implementationHash");
     }
     const replay: SqliteMigrationProgress[] = [];
-    await runSqliteSessionMigrationsAsync(db, ":memory:", {
+    await runSqliteSessionMigrationsAsync(db, databasePaths.get(db)!, {
       onProgress: async (s) => {
         replay.push(s);
       },
@@ -98,7 +105,8 @@ describe("Todo144：迁移启动状态与真实 SQLite 锁", () => {
         onProgress: async (s) => {
           phases.push(s.phase);
           if (s.phase === "waiting_for_lock" && !releaseHolder) {
-            await runSqliteSessionMigrationsAsync(open(), ":memory:");
+            const nested = open();
+            await runSqliteSessionMigrationsAsync(nested, databasePaths.get(nested)!);
             releaseHolder = setTimeout(() => holder.exec("COMMIT"), 5_100);
           }
         },
@@ -115,7 +123,7 @@ describe("Todo144：迁移启动状态与真实 SQLite 锁", () => {
     const db = open();
     const states: SqliteMigrationProgress[] = [];
     await expect(
-      runSqliteSessionMigrationsAsync(db, ":memory:", {
+      runSqliteSessionMigrationsAsync(db, databasePaths.get(db)!, {
         onProgress: async (s) => {
           states.push(s);
           if (s.phase === "migrating" && s.migrationId === "0020_provider_model_selection")
@@ -178,7 +186,7 @@ it("openStartup 保留迁移原始错误，即使 close 也失败", async () => 
 it("SILENTDB-02/04: reports real migration kind and counts only committed SQL as committed", async () => {
   const db = open();
   const states: SqliteMigrationProgress[] = [];
-  await runSqliteSessionMigrationsAsync(db, ":memory:", {
+  await runSqliteSessionMigrationsAsync(db, databasePaths.get(db)!, {
     onProgress: async (s) => {
       states.push(s);
     },
@@ -190,7 +198,7 @@ it("SILENTDB-02/04: reports real migration kind and counts only committed SQL as
     lastAppliedMigrationId: null,
   });
   const repeated: SqliteMigrationProgress[] = [];
-  await runSqliteSessionMigrationsAsync(db, ":memory:", {
+  await runSqliteSessionMigrationsAsync(db, databasePaths.get(db)!, {
     onProgress: async (s) => {
       repeated.push(s);
     },
@@ -206,7 +214,7 @@ it("SILENTDB-02/04: reports real migration kind and counts only committed SQL as
   db.exec("DELETE FROM schema_migration WHERE id >= '0020'");
   const failed: SqliteMigrationProgress[] = [];
   await expect(
-    runSqliteSessionMigrationsAsync(db, ":memory:", {
+    runSqliteSessionMigrationsAsync(db, databasePaths.get(db)!, {
       onProgress: async (s) => {
         failed.push(s);
         if (s.phase === "committing") throw new Error("commit barrier failed");
@@ -281,7 +289,7 @@ it("publishes confirmed migration demand when lock contention recurs after prech
     exec(sql);
   });
   const waits: SqliteMigrationProgress[] = [];
-  await runSqliteSessionMigrationsAsync(db, ":memory:", {
+  await runSqliteSessionMigrationsAsync(db, databasePaths.get(db)!, {
     onProgress: async (state) => {
       if (state.phase === "waiting_for_lock") waits.push(state);
     },
@@ -291,12 +299,12 @@ it("publishes confirmed migration demand when lock contention recurs after prech
 
 it("does not send malformed ledger IDs as telemetry or fail an otherwise prepared database", async () => {
   const db = open();
-  await runSqliteSessionMigrations(db, ":memory:");
+  await runSqliteSessionMigrations(db, databasePaths.get(db)!);
   db.prepare("INSERT INTO schema_migration VALUES (?, 'external', NULL, 0)").run(
     "private / unexpected ID",
   );
   const states: SqliteMigrationProgress[] = [];
-  await runSqliteSessionMigrationsAsync(db, ":memory:", {
+  await runSqliteSessionMigrationsAsync(db, databasePaths.get(db)!, {
     onProgress: async (state) => {
       states.push(state);
     },

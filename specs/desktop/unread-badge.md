@@ -26,3 +26,5 @@
 采用新的 ProjectTree / project-sidebar 作为组织态唯一投影。保留工作树真实 workspaceIdentity/cwd、根项目聚合、路径菜单、置顶项目层级、归档和拖出开窗；投影不得变更运行时归属。独立窗口附着已有 Host，面板仍在各窗口本地渲染；未读按 task identity 去重，不引入第二份事实。手机远控继续自建服务，禁止装配 Relay V2；新增可见配置和路径使用 Mikiko。验收同时覆盖桌面 continuous 与手机 replayable 恢复，主/独立窗切换与关闭不改变共享会话运行时。
 
 窗口上报 `syncWindowUnreadCount(count, taskKeys)`，taskKeys = JSON([hostId, workspaceIdentity?.trim() || workspacePath, taskId]) 去重集合；主进程跨窗口取并集。集合过滤与侧栏可见分区、非归档 unreadAt 完全一致；旧 count-only 兼容调用不能覆盖新窗口的身份集合。
+
+3.16.2 任务通知开关跨窗口广播，接收不回播。关闭通知时窗口上报 `(0, [])`，开启时重新上报同一 ProjectTree 派生的完整 task keys；不清 unreadAt，不抹侧栏蓝点，不引入第二份未读 owner。themeSkin 与 notificationEnabled 都保持既有广播副作用和环路防护。

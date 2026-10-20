@@ -501,7 +501,7 @@ describe("SQLite session store", () => {
   });
 
   it("defaults the session database under the db directory", () => {
-    expect(getDefaultSessionDbPath()).toBe(join(homedir(), ".zcode", "cli", "db", "db.sqlite"));
+    expect(getDefaultSessionDbPath()).toBe(join(homedir(), ".mikiko", "cli", "db", "db.sqlite"));
   });
 
   it("can inject sqlite open failures for startup/recovery cases", async () => {
@@ -1000,7 +1000,7 @@ describe("SQLite session store", () => {
         name: "test-workflow",
         scope: "project",
         scriptHash: "hash-script",
-        scriptPath: join(tempRoot, ".zcode", "workflows", "test.workflow.js"),
+        scriptPath: join(tempRoot, ".mikiko", "workflows", "test.workflow.js"),
         source: "user",
       });
       expect(definition.scope).toBe("project");

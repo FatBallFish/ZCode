@@ -21,7 +21,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:usesCleartextTraffic="${usesCleartextTraffic}"
-        android:theme="@style/Theme.Zcodemobile">
+        android:theme="@style/Theme.MikikoMobile">
         <service
             android:name=".remote.RemoteControlKeepAliveService"
             android:exported="false"
@@ -31,7 +31,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Zcodemobile">
+            android:theme="@style/Theme.MikikoMobile">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -43,9 +43,9 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data
-                    android:host="remote"
-                    android:scheme="zcode" />
+                <data android:host="remote" android:scheme="mikiko" />
+                <!-- 历史深链只兼容读取，解析后仍指向自建入口。 -->
+                <data android:host="remote" android:scheme="zcode" />
             </intent-filter>
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
@@ -53,10 +53,9 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data
-                    android:host="zcode.z.ai"
-                    android:pathPrefix="/remote"
-                    android:scheme="https" />
+                <data android:host="remote.mikiko.ai" android:path="/remote" android:scheme="https" />
+                <data android:host="remote.mikiko.ai" android:pathPrefix="/remote/" android:scheme="https" />
+                <data android:host="remote.mikiko.ai" android:path="/" android:scheme="https" />
             </intent-filter>
         </activity>
     </application>

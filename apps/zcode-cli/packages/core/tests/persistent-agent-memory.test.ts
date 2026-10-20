@@ -33,8 +33,8 @@ describe("persistent custom-agent memory", () => {
     expect(sanitizePersistentAgentMemoryKey("")).toBe("unknown");
 
     expect(root("user")).toBe("/storage/agent-memory/reviewer-a-b");
-    expect(root("project")).toBe("/workspace/app/.zcode/agent-memory/reviewer-a-b");
-    expect(root("local")).toBe("/workspace/app/.zcode/agent-memory-local/reviewer-a-b");
+    expect(root("project")).toBe("/workspace/app/.mikiko/agent-memory/reviewer-a-b");
+    expect(root("local")).toBe("/workspace/app/.mikiko/agent-memory-local/reviewer-a-b");
   });
 
   it.each(["user", "project", "local"] as const)(

@@ -45,9 +45,9 @@ describe("CLI 旧输出上限从首次导入到请求", () => {
       const legacyPath = join(directory, "config.json");
       const personalPath = join(directory, "provider_config.json");
       const env = {
-        ZCODE_DATA_BASE_DIR: directory,
-        ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtinPath,
-        ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalPath,
+        MIKIKO_DATA_BASE_DIR: directory,
+        MIKIKO_BUILTIN_PROVIDER_CONFIG_FILE: builtinPath,
+        MIKIKO_PERSONAL_PROVIDER_CONFIG_FILE: personalPath,
       };
       const options = {
         standalone: {

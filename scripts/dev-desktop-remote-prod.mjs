@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { posix, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
+import { desktopProductIdentities } from "../packages/desktop/scripts/desktop-product-identity.mjs";
 
 function pathApiForPlatform(platform) {
   return platform === "win32" ? win32 : posix;
@@ -13,17 +14,24 @@ export function resolveProductionRemoteAssetCacheDir(
   homeDir = homedir(),
 ) {
   const pathApi = pathApiForPlatform(platform);
+  const productName = desktopProductIdentities.production.productName;
   if (platform === "darwin") {
-    return pathApi.join(homeDir, "Library", "Application Support", "ZCode", "remote-assets-cache");
+    return pathApi.join(
+      homeDir,
+      "Library",
+      "Application Support",
+      productName,
+      "remote-assets-cache",
+    );
   }
 
   if (platform === "win32") {
     const appDataDir = env.APPDATA?.trim() || pathApi.join(homeDir, "AppData", "Roaming");
-    return pathApi.join(appDataDir, "ZCode", "remote-assets-cache");
+    return pathApi.join(appDataDir, productName, "remote-assets-cache");
   }
 
   const configDir = env.XDG_CONFIG_HOME?.trim() || pathApi.join(homeDir, ".config");
-  return pathApi.join(configDir, "ZCode", "remote-assets-cache");
+  return pathApi.join(configDir, productName, "remote-assets-cache");
 }
 
 export function buildDesktopRemoteProdEnv(
@@ -40,7 +48,7 @@ export function buildDesktopRemoteProdEnv(
     // remote CDN 基址现在跟随 MIKIKO_ENV 分流；该脚本用于复现生产态下载链路，
     // 因此需要同时强制 production 和 CDN 开关，避免默认 test 环境落到测试资源 CDN。
     MIKIKO_ENV: "production",
-    ZCODE_DEV_REMOTE_ASSET_USE_CDN: "1",
+    MIKIKO_DEV_REMOTE_ASSET_USE_CDN: "1",
     MIKIKO_REMOTE_ASSET_CACHE_DIR: cacheDir,
   };
 }

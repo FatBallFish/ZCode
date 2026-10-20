@@ -61,7 +61,8 @@ export async function loadZCodeAgentProfiles(
   )) {
     if (directory === resolve(input.workingDirectory)) continue;
     roots.push({
-      path: join(directory, ".zcode", "agents"),
+      // 附加目录属于相同产品工作区，必须和主目录保持 Mikiko 身份隔离。
+      path: join(directory, ".mikiko", "agents"),
       source: "project",
       namespace: basename(directory),
     });

@@ -292,15 +292,19 @@ describe("ingest 快路径", () => {
   it("非 dwf 的零 delta 事件同样不量整份快照", () => {
     const publisher = new ConversationTopicPublisher("session-1", "epoch-1", { now: () => 0 });
     const log = new EventLog();
+    // SessionCreated 新增 stats 初始事实，先完成初始化，再测真正零 delta 的 checkpoint。
+    publisher.ingest(
+      log.push(SessionEventType.SessionCreated, { mode: "default", contextWindow: 200_000 }),
+    );
     const measure = spyOnExactMeasurement(publisher);
-
-    // draft 语义：SessionCreated 刻意不产可见 delta。
-    const created = log.push(SessionEventType.SessionCreated, {
-      mode: "default",
-      contextWindow: 200_000,
-    });
-    publisher.ingest(created);
-
+    publisher.ingest(
+      log.push(SessionEventType.CheckpointCreated, {
+        checkpointId: "checkpoint-1",
+        messageId: "message-1",
+        scope: "workspace",
+        snapshotRef: "artifact://checkpoint-1",
+      }),
+    );
     expect(measure).not.toHaveBeenCalled();
     measure.mockRestore();
     expect(upperBoundOf(publisher)).toBeGreaterThanOrEqual(publisher.getWireSnapshotLogicalBytes());

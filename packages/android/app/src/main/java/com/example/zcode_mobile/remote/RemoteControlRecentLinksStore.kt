@@ -13,7 +13,9 @@ data class RemoteControlRecentLink(
 )
 
 object RemoteControlRecentLinksStore {
-    private const val PREFS_NAME = "zcode_remote_control_recent_links"
+    private const val PREFS_NAME = "mikiko_remote_control_recent_links"
+    private const val LEGACY_PREFS_NAME = "zcode_remote_control_recent_links"
+    private const val KEY_LEGACY_MIGRATED = "legacy_migrated_v1"
     private const val KEY_LINKS = "links_v1"
     private const val MAX_LINKS = 5
 
@@ -25,9 +27,8 @@ object RemoteControlRecentLinksStore {
                 val item = array.optJSONObject(index) ?: continue
                 val url = item.optString("url").takeIf { it.isNotBlank() } ?: continue
                 val openedAt = item.optLong("openedAt", 0L).takeIf { it > 0L } ?: continue
-                if (RemoteControlUrlPolicy.resolve(url) != null) {
-                    add(RemoteControlRecentLink(url = url, openedAt = openedAt))
-                }
+                val resolved = RemoteControlUrlPolicy.resolve(url) ?: continue
+                add(RemoteControlRecentLink(url = resolved, openedAt = openedAt))
             }
         }.take(MAX_LINKS)
     }
@@ -58,14 +59,25 @@ object RemoteControlRecentLinksStore {
         prefs(context).edit().putString(KEY_LINKS, array.toString()).apply()
     }
 
-    private fun prefs(context: Context) =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private fun prefs(context: Context): android.content.SharedPreferences {
+        val current = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (!current.getBoolean(KEY_LEGACY_MIGRATED, false)) {
+            val edit = current.edit()
+            // 新值优先；迁移标记与复制同批提交，清空新列表后不能再次从旧库复活。
+            if (!current.contains(KEY_LINKS)) {
+                context.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
+                    .getString(KEY_LINKS, null)?.let { edit.putString(KEY_LINKS, it) }
+            }
+            edit.putBoolean(KEY_LEGACY_MIGRATED, true).apply()
+        }
+        return current
+    }
 }
 
 fun RemoteControlRecentLink.displayTitle(): String {
     val uri = Uri.parse(url)
     val name = uri.getQueryParameter("name")?.takeIf { it.isNotBlank() }
-    return name ?: uri.host.orEmpty().ifBlank { "ZCode Remote" }
+    return name ?: uri.host.orEmpty().ifBlank { "Mikiko Remote" }
 }
 
 fun RemoteControlRecentLink.displaySubtitle(context: Context): String {

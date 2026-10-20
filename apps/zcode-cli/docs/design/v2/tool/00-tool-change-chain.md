@@ -1,5 +1,9 @@
 # Tool Change Chain Spec
 
+## v3.16.2 集成回归边界
+
+Memory 工具的敏感目录保护同时覆盖 `.claude`、历史 `.zcode` 和当前 `.mikiko`，不能因产品品牌替换减少已有保护。其余路径包含性、权限准入与窄范围删除规则不变。CLI/Core 回归中的模型可见品牌、默认 plan/workflow/memory 路径按 Mikiko 合同更新，协议判别器和第三方目录不作机械替换。
+
 ## Mikiko 文档查看器导入目录（2026-10-20 上游集成）
 
 Office 面板导入沿用现有 `createDocumentImporter` 的串行准入、分块写入、取消和空闲清理，
@@ -14,6 +18,14 @@ Office 面板导入沿用现有 `createDocumentImporter` 的串行准入、分�
 runtime 入口重写与远端/SEA 打包链；历史 `.zcode-plugin` / `.claude-plugin` 声明保持
 兼容读取。Mikiko 目录优先且新发布包不双写旧目录，安装身份和启用状态仍沿用既有 registry。
 资源 CSP 扩展新写 `mikiko/csp`，布尔放宽项与权限/交付语义保持不变。
+
+## Bash 临时输出路径隔离
+
+主应用及 workflow 子运行时装配 tmp 父目录 → execution adapter 实际准备具名输出文件 →
+不可用时复用原 storageRoot 文件准备 → 确定唯一输出路径 → 现有前后台执行、进度、结果与文件入口。
+模型 schema 和 App 协议不变，stdout/stderr 仍直接写 fd。覆盖降级、取消/关闭与准备竞争、
+前后台路径一致性、Windows 原生搜索自引用及崩溃后的具名文件保留；不迁移历史输出。
+存储统计仍限现有数据根，完整合同见 `04-bash.md` 和根目录 `docs/tmpdir-storage-paths-spec.md`。
 
 ## 自定义 Agent Memory 工具投影（2026-10-15）
 

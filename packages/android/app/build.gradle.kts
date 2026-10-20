@@ -21,13 +21,13 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        buildConfigField("String", "REMOTE_CONTROL_DEFAULT_URL", "\"https://zcode.z.ai/remote\"")
+        buildConfigField("String", "REMOTE_CONTROL_DEFAULT_URL", "\"https://remote.mikiko.ai/remote\"")
     }
 
     buildTypes {
         debug {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
-            buildConfigField("String", "REMOTE_CONTROL_DEFAULT_URL", "\"https://zcode.z.ai/remote\"")
+            buildConfigField("String", "REMOTE_CONTROL_DEFAULT_URL", "\"https://remote.mikiko.ai/remote\"")
         }
         release {
             isMinifyEnabled = false

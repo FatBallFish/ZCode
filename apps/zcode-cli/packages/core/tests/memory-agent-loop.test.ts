@@ -388,6 +388,8 @@ describe("evaluateMemoryAgentToolPolicy", () => {
     "objects",
     "refs",
     ".claude",
+    ".zcode",
+    ".mikiko",
     "skills",
     "commands",
     "agents",

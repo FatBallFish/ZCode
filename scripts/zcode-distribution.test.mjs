@@ -7,22 +7,22 @@ import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { promisify } from "node:util";
 import { test } from "node:test";
-import { installScriptSource } from "./zcode-distribution/installer.mjs";
+import { installScriptSource } from "./mikiko-distribution/installer.mjs";
 
 const exec = promisify(execFile);
-const runnerSource = new URL("./zcode-distribution/runner.mjs", import.meta.url);
+const runnerSource = new URL("./mikiko-distribution/runner.mjs", import.meta.url);
 
 async function fixture(t) {
-  const directory = await realpath(await mkdtemp(join(tmpdir(), "zcode-distribution-")));
+  const directory = await realpath(await mkdtemp(join(tmpdir(), "mikiko-distribution-")));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const root = join(directory, "zcode");
+  const root = join(directory, "mikiko");
   for (const name of ["bin", "agent", "web", "server"]) {
     await mkdir(join(root, name), { recursive: true });
   }
-  await cp(runnerSource, join(root, "bin/zcode.mjs"));
+  await cp(runnerSource, join(root, "bin/mikiko.mjs"));
   await writeFile(join(root, "package.json"), JSON.stringify({ type: "module", version: "1.2.3" }));
   await writeFile(
-    join(root, "agent/zcode.cjs"),
+    join(root, "agent/mikiko.cjs"),
     `
 process.stdout.write(JSON.stringify({ argv: process.argv.slice(2), entry: process.argv[1], cwd: process.cwd() }));
 process.exitCode = Number(process.env.FIXTURE_EXIT_CODE || 0);
@@ -33,16 +33,16 @@ process.exitCode = Number(process.env.FIXTURE_EXIT_CODE || 0);
     `
 import { writeFile } from 'node:fs/promises';
 await writeFile(process.env.FIXTURE_WEB_RESULT, JSON.stringify({
-  cwd: process.cwd(), port: process.env.PORT, host: process.env.ZCODE_SERVER_HOST,
-  workspace: process.env.ZCODE_SERVER_WORKSPACE, staticRoot: process.env.ZCODE_WEB_STATIC_ROOT,
+  cwd: process.cwd(), port: process.env.PORT, host: process.env.MIKIKO_SERVER_HOST,
+  workspace: process.env.MIKIKO_SERVER_WORKSPACE, staticRoot: process.env.MIKIKO_WEB_STATIC_ROOT,
   command: process.env.MIKIKO_AGENT_SERVER_COMMAND, args: JSON.parse(process.env.MIKIKO_AGENT_SERVER_ARGS_JSON),
-  token: process.env.ZCODE_SERVER_AUTH_TOKEN,
+  token: process.env.MIKIKO_SERVER_AUTH_TOKEN,
 }));
 process.on('SIGTERM', () => process.exit(0));
 setInterval(() => {}, 1000);
 `,
   );
-  return { directory, root, runner: join(root, "bin/zcode.mjs") };
+  return { directory, root, runner: join(root, "bin/mikiko.mjs") };
 }
 
 test("default launch and CLI arguments reuse the Agent entry without starting Web", async (t) => {
@@ -51,7 +51,7 @@ test("default launch and CLI arguments reuse the Agent entry without starting We
     const result = await exec(process.execPath, [runner, ...args], { cwd: directory });
     assert.deepEqual(JSON.parse(result.stdout), {
       argv: args,
-      entry: join(root, "agent/zcode.cjs"),
+      entry: join(root, "agent/mikiko.cjs"),
       cwd: directory,
     });
   }
@@ -65,7 +65,7 @@ test("help exposes Web mode and preserves CLI help; version uses the distributio
   const { runner } = await fixture(t);
   assert.equal((await exec(process.execPath, [runner, "--version"])).stdout.trim(), "1.2.3");
   const help = (await exec(process.execPath, [runner, "--help"])).stdout;
-  assert.match(help, /zcode --web/);
+  assert.match(help, /mikiko --web/);
   assert.match(help, /"argv":\["--help"\]/);
   const webHelp = (await exec(process.execPath, [runner, "--web", "--help"])).stdout;
   assert.match(webHelp, /--workspace/);
@@ -117,7 +117,7 @@ test("Web mode passes its runtime configuration and terminates its child on shut
       env: {
         ...process.env,
         FIXTURE_WEB_RESULT: resultPath,
-        ZCODE_SERVER_AUTH_TOKEN: "stale-token",
+        MIKIKO_SERVER_AUTH_TOKEN: "stale-token",
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -140,7 +140,7 @@ test("Web mode passes its runtime configuration and terminates its child on shut
     workspace: directory,
     staticRoot: join(root, "web"),
     command: process.execPath,
-    args: [join(root, "agent/zcode.cjs"), "app-server", "--stdio"],
+    args: [join(root, "agent/mikiko.cjs"), "app-server", "--stdio"],
     token: "",
   });
   const exited = once(child, "exit");
@@ -148,15 +148,15 @@ test("Web mode passes its runtime configuration and terminates its child on shut
   assert.deepEqual(await exited, [0, null]);
 });
 
-test("installer creates zcode and the installed command defaults to CLI", async (t) => {
+test("installer creates mikiko and the installed command defaults to CLI", async (t) => {
   const { directory, root } = await fixture(t);
   const downloads = join(directory, "downloads");
   const releaseDir = join(downloads, "releases/1.2.3");
   await mkdir(releaseDir, { recursive: true });
-  await exec("tar", ["-czf", join(releaseDir, "zcode-1.2.3.tar.gz"), "-C", directory, "zcode"]);
+  await exec("tar", ["-czf", join(releaseDir, "mikiko-1.2.3.tar.gz"), "-C", directory, "mikiko"]);
   await writeFile(
     join(downloads, "latest.json"),
-    JSON.stringify({ version: "1.2.3", tarball: "zcode-1.2.3.tar.gz" }),
+    JSON.stringify({ version: "1.2.3", tarball: "mikiko-1.2.3.tar.gz" }),
   );
   const installer = join(directory, "install.sh");
   await writeFile(installer, installScriptSource(`file://${downloads}/`));
@@ -171,8 +171,8 @@ test("installer creates zcode and the installed command defaults to CLI", async 
     },
   });
   await rm(root, { recursive: true });
-  const result = await exec(join(bin, "zcode"), [], { cwd: directory });
+  const result = await exec(join(bin, "mikiko"), [], { cwd: directory });
   assert.deepEqual(JSON.parse(result.stdout).argv, []);
-  const webHelp = await exec(join(bin, "zcode"), ["--web", "--help"]);
-  assert.match(webHelp.stdout, /zcode --web/);
+  const webHelp = await exec(join(bin, "mikiko"), ["--web", "--help"]);
+  assert.match(webHelp.stdout, /mikiko --web/);
 });

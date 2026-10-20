@@ -27,7 +27,7 @@ WSL/SSH/Docker remote workspace 中，桌面 renderer 和 host 仍运行在本�
 desktop host 包装远端 `zcodeTaskService.sendPrompt` 时，对 prompt 附件做 materialize：
 
 1. 扫描 `attachments` 中带 `localPath` 的附件。
-2. 将 host 可读的附件上传到 remote runtime 可读的用户私有临时目录：`~/.zcode/tmp/prompt-attachments/<trace>/<random>/...`。
+2. 将 host 可读的附件上传到 remote runtime 可读的用户私有临时目录：`~/.mikiko/tmp/prompt-attachments/<trace>/<random>/...`。
 3. 用上传后的 remote path 替换附件 `localPath`，再调用远端 `sendPrompt`。
 4. 保留 `sourceKind: "clipboard-text"`，长文本粘贴仍作为 deferred file reference，不提前塞入 prompt body。
 5. 如果 prompt 正文里包含被替换的附件路径，也同步替换成 remote path，避免缓存图片等场景提示模型读取 host 路径。
@@ -47,7 +47,7 @@ renderer composer（Desktop continuous / Mobile shared-host replayable）
      ├─ SSH/WSL/Docker：attachment-scoped transfer
      │    -> SourceServerConnectionManager 当前 generation 的文件传输能力
      │    -> 同一 Transport Adapter / backend 的 exec + upload(progress, signal)
-     │    -> Source 用户私有 ~/.zcode/tmp/prompt-attachments/...，staged=true
+     │    -> Source 用户私有 ~/.mikiko/tmp/prompt-attachments/...，staged=true
      └─ Server dev 直连：保持原 Source service；不开放 desktop localPath 暂存
 
 attachment 关闭 / Source 换代 -> abort 未完成 operation + cleanup 未 adopt 文件
@@ -125,3 +125,13 @@ mobile /remote
   -> 不创建新 runtime，不在 relay/main 保存附件状态
   -> replayable 只恢复已 admission 的 conversation intent，不恢复 renderer-local 上传进度
 ```
+
+## Mikiko 合入路径不变量（2026-10-20）
+
+公开逻辑根 `~/.mikiko/tmp/prompt-attachments` 与远端 `$HOME` 展开的实际上传根必须由同一常量派生。
+不能一边用 `.mikiko` 做去重/清理判断、一边把附件上传到 `.zcode`。新上传、已物化附件跳过、
+权限收紧和删除都使用同一私有根。旧历史中已经物化的绝对
+`$HOME/.zcode/tmp/prompt-attachments/...` 只在 materialize 准入时识别为远端现有引用，保留原值，
+不能再次作为Host本地路径上传；必须匹配当前backend返回的同一远端HOME，不能泛化匹配任意用户目录。
+该只读兼容不扩大 cleanup/janitor 的删除根，不新写旧根、不批量迁移临时文件。
+R3 E2E同时核对远端物化目录与CLI `.mikiko/cli` cache路径。

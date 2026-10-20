@@ -94,11 +94,13 @@
   "scripts": {
     "build": "tsc",
     "clean": "node ../../scripts/clean-dist.mjs",
-    "test": "vitest tests",
+    "test": "pnpm run test:vitest && pnpm run test:node",
     "coverage": "vitest run tests --coverage",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src",
-    "lint:fix": "oxlint --write src"
+    "lint:fix": "oxlint --write src",
+    "test:vitest": "vitest run tests src",
+    "test:node": "node --import tsx --test --test-concurrency=2 --test-force-exit tests/chatgpt-curl-fetch.test.ts tests/chatgpt-responses-transport.test.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "3.0.81",

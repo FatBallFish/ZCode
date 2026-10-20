@@ -1,5 +1,8 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { expect, it } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import {
   runSqliteSessionMigrations,
   runSqliteSessionMigrationsAsync,
@@ -7,12 +10,28 @@ import {
 } from "../src/storage/session-store/migration-runner.js";
 import { runSessionDatabaseIdentityMigration } from "@zcode/shared/sqlite-migrations";
 
+const directories: string[] = [];
+const databasePaths = new WeakMap<DatabaseSync, string>();
+async function openFixtureDatabase() {
+  const directory = await mkdtemp(join(tmpdir(), "mikiko-identity-migration-"));
+  directories.push(directory);
+  const path = join(directory, "session.sqlite");
+  const db = new DatabaseSync(path);
+  databasePaths.set(db, path);
+  return db;
+}
+afterEach(async () => {
+  await Promise.all(
+    directories.splice(0).map((path) => rm(path, { recursive: true, force: true })),
+  );
+});
+
 it.each(["source-first", "agent-first"])(
   "%s：两端共用同一 checksum，结构接管不生成业务代际",
   async (order) => {
-    const db = new DatabaseSync(":memory:");
+    const db = await openFixtureDatabase();
     try {
-      const agent = () => runSqliteSessionMigrations(db, ":memory:");
+      const agent = () => runSqliteSessionMigrations(db, databasePaths.get(db)!);
       const source = () => runSessionDatabaseIdentityMigration(db);
       await (order === "source-first" ? source : agent)();
       const initial = db
@@ -33,7 +52,7 @@ it.each(["source-first", "agent-first"])(
 );
 
 it("Source 记账失败回滚新表，Agent 与 Source 都拒绝已有 checksum 损坏", async () => {
-  const db = new DatabaseSync(":memory:");
+  const db = await openFixtureDatabase();
   try {
     db.exec(`CREATE TABLE schema_migration (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, app_version TEXT, time_applied INTEGER NOT NULL);
       CREATE TRIGGER reject_identity BEFORE INSERT ON schema_migration
@@ -50,7 +69,9 @@ it("Source 记账失败回滚新表，Agent 与 Source 都拒绝已有 checksum 
     runSessionDatabaseIdentityMigration(db);
     db.exec("UPDATE schema_migration SET checksum='broken'");
     expect(() => runSessionDatabaseIdentityMigration(db)).toThrow(/checksum mismatch/);
-    await expect(runSqliteSessionMigrations(db, ":memory:")).rejects.toThrow(/checksum mismatch/);
+    await expect(runSqliteSessionMigrations(db, databasePaths.get(db)!)).rejects.toThrow(
+      /checksum mismatch/,
+    );
     // Agent 更早的迁移也在同一事务内回滚，损坏记录不会被覆盖。
     expect(db.prepare("SELECT id, checksum FROM schema_migration").all()).toEqual([
       { id: "0024_session_database_identity", checksum: "broken" },
@@ -61,18 +82,18 @@ it("Source 记账失败回滚新表，Agent 与 Source 都拒绝已有 checksum 
 });
 
 it("Agent 正式迁移接管已有 Source identity，不覆盖代际且重复打开不改账本", async () => {
-  const db = new DatabaseSync(":memory:");
+  const db = await openFixtureDatabase();
   try {
     db.exec(`CREATE TABLE zcode_database_identity (scope TEXT PRIMARY KEY, identity TEXT NOT NULL);
       INSERT INTO zcode_database_identity VALUES ('session', 'existing-generation')`);
-    await runSqliteSessionMigrations(db, ":memory:");
+    await runSqliteSessionMigrations(db, databasePaths.get(db)!);
     expect(
       db.prepare("SELECT id FROM schema_migration WHERE id='0024_session_database_identity'").get(),
     ).toEqual({
       id: "0024_session_database_identity",
     });
     const ledger = db.prepare("SELECT * FROM schema_migration ORDER BY id").all();
-    await runSqliteSessionMigrations(db, ":memory:");
+    await runSqliteSessionMigrations(db, databasePaths.get(db)!);
     expect(db.prepare("SELECT * FROM schema_migration ORDER BY id").all()).toEqual(ledger);
     expect(db.prepare("SELECT identity FROM zcode_database_identity").get()).toEqual({
       identity: "existing-generation",
@@ -83,11 +104,11 @@ it("Agent 正式迁移接管已有 Source identity，不覆盖代际且重复打
 });
 
 it("Agent/Source 共用应用原语，identity SQL 成功但记账失败时保留真实执行数量", async () => {
-  const db = new DatabaseSync(":memory:");
+  const db = await openFixtureDatabase();
   const states: SqliteMigrationProgress[] = [];
   try {
     await expect(
-      runSqliteSessionMigrationsAsync(db, ":memory:", {
+      runSqliteSessionMigrationsAsync(db, databasePaths.get(db)!, {
         onProgress: async (state) => {
           states.push(state);
           if (

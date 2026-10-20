@@ -30,6 +30,7 @@ import { projectSectionSelector } from "./project-sidebar.js";
 
 const DEFAULT_E2E_HOME_DIR = resolve(process.cwd(), ".e2e-home");
 const E2E_HOME_DIR =
+  process.env.MIKIKO_E2E_HOME_DIR?.trim() ||
   process.env.ZCODE_E2E_HOME_DIR?.trim() ||
   process.env.MIKIKO_DATA_BASE_DIR?.trim() ||
   process.env.MIKIKO_DESKTOP_HOME_DIR?.trim() ||
@@ -530,7 +531,10 @@ export function getE2EAppDataPaths() {
 }
 
 export async function clearAppData() {
-  if (process.env.ZCODE_E2E_DEFER_APP_DATA_CLEANUP === "1") {
+  if (
+    (process.env.MIKIKO_E2E_DEFER_APP_DATA_CLEANUP ??
+      process.env.ZCODE_E2E_DEFER_APP_DATA_CLEANUP) === "1"
+  ) {
     // 修复原因：普通 spec 的 after hook 先 app.quit 会抢在 ChromeDriver
     // deleteSession 前销毁 browsing context，导致每个 worker 都支付断连超时。
     // WDIO afterSession 会在进程退出后删除 app data，此处只交还关闭所有权。

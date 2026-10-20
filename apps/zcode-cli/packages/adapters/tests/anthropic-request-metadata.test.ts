@@ -204,6 +204,7 @@ describe("Anthropic request metadata", () => {
         streamed = options;
         return {
           fullStream: stream([
+            { type: "text-delta", id: "text", text: "done" },
             {
               finishReason: "stop",
               totalUsage: usage(1, 1),
@@ -274,12 +275,12 @@ async function createTemporaryRoot(): Promise<string> {
 }
 
 function telemetryStateFile(root: string): string {
-  return join(root, ".zcode", "v2", "telemetry-state.json");
+  return join(root, ".mikiko", "v2", "telemetry-state.json");
 }
 
 async function writeTelemetryState(root: string, state: Record<string, unknown>): Promise<string> {
   const stateFile = telemetryStateFile(root);
-  await mkdir(join(root, ".zcode", "v2"), { recursive: true });
+  await mkdir(join(root, ".mikiko", "v2"), { recursive: true });
   await writeFile(stateFile, JSON.stringify(state, null, 2), "utf-8");
   return stateFile;
 }

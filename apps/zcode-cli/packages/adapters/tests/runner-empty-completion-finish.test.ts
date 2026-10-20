@@ -268,13 +268,16 @@ describe.each(["stream", "generate"] as const)("%s empty completion finish seman
     });
 
     it.each(["stop", "tool-calls", "tool_calls"])(
-      "preserves the existing no-retry behavior for %s",
+      "keeps Mikiko empty-completion retry semantics for %s",
       async (finishReason) => {
         const run = harness(finishReason, "unrecognized_provider_marker", rawSource);
         const result = await run.read(mode);
 
-        expect(run.attempts).toBe(1);
-        expect(run.status.some((event) => event.type === "model_retry_scheduled")).toBe(false);
+        // 二开空回预算为5次重试；本fixture总请求预算3次先耗尽。
+        expect(run.attempts).toBe(MAX_ATTEMPTS);
+        expect(run.status.filter((event) => event.type === "model_retry_scheduled")).toHaveLength(
+          MAX_ATTEMPTS - 1,
+        );
         expect(result).toHaveProperty("finishReason", finishReason);
       },
     );
@@ -295,9 +298,9 @@ describe.each(["stream", "generate"] as const)("%s empty completion finish seman
         const run = harness(entry.finishReason, entry.rawFinishReason, rawSource);
         const result = await run.read(mode);
 
-        expect(run.attempts).toBe(2);
+        expect(run.attempts).toBe(MAX_ATTEMPTS);
         expect(run.status.filter((event) => event.type === "model_retry_scheduled")).toHaveLength(
-          1,
+          MAX_ATTEMPTS - 1,
         );
         expect(result).toHaveProperty("providerMetadata", {
           fixture: { marker: "preserved" },

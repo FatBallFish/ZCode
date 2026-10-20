@@ -93,7 +93,7 @@ Alternative Windows package managers:
 
 Fonts are downloaded individually from CDN on first setup.
 
-- **CDN base**: `https://z-cdn.chatglm.cn/office-skill/fonts/`
+- **CDN base**: `https://agent-dl.mikiko.ai/mikiko/office-skill/fonts/`
 - **Font list**: `env_setup/font_list.txt` (78 fonts, one relative path per line)
 - **Marker file**: `.office-skill-fonts-installed` in the user font directory prevents re-download
 - Special characters in filenames (e.g., `[`, `]`) are URL-encoded automatically by the setup script
@@ -131,7 +131,7 @@ If CDN is unreachable, download fonts manually. Example:
 
 ```bash
 # Download a single font
-curl -fSLO "https://z-cdn.chatglm.cn/office-skill/fonts/chinese/NotoSansSC%5Bwght%5D.ttf"
+curl -fSLO "https://agent-dl.mikiko.ai/mikiko/office-skill/fonts/chinese/NotoSansSC%5Bwght%5D.ttf"
 # Copy to user font dir
 cp "NotoSansSC[wght].ttf" ~/Library/Fonts/   # macOS
 ```
@@ -140,8 +140,9 @@ Or download all fonts listed in `font_list.txt`:
 
 ```bash
 while read f; do
-    encoded=$(echo "$f" | sed 's/\[/%5B/g; s/\]/%5D/g')
-    curl -fSLO "https://z-cdn.chatglm.cn/office-skill/fonts/$encoded"
+    cdn_relative="${f#/usr/share/fonts/truetype/}"
+    encoded=$(echo "$cdn_relative" | sed 's/\[/%5B/g; s/\]/%5D/g; s/ /%20/g')
+    curl -fSLO "https://agent-dl.mikiko.ai/mikiko/office-skill/fonts/$encoded"
 done < env_setup/font_list.txt
 ```
 

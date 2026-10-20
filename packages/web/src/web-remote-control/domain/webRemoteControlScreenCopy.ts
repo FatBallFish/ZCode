@@ -210,7 +210,10 @@ const WEB_REMOTE_CONTROL_SCREEN_COPY = {
         "The desktop side disconnected. This phone can no longer control the desktop workspace.",
       detailLabel: "Relay detail",
       nextStepsTitle: "What happened",
-      nextSteps: ["Make sure Mikiko is still running and online on desktop.", "Start Web remote control again from desktop."],
+      nextSteps: [
+        "Make sure Mikiko is still running and online on desktop.",
+        "Start Web remote control again from desktop.",
+      ],
       action: "Try Again",
     },
     "invalid-mobile-connection": {

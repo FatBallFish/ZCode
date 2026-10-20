@@ -33,6 +33,11 @@ describe("desktopCronScheduler", () => {
         logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         resolveDispatchHost: () => host as never,
       });
+      expect(electronUtilityProcess.fork).toHaveBeenLastCalledWith(
+        expect.any(String),
+        [],
+        expect.objectContaining({ serviceName: "mikiko-cron-scheduler" }),
+      );
       const execution = {
         workspacePath: "/frozen",
         workspaceIdentity: "remote:server:s:/frozen",

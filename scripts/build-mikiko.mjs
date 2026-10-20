@@ -183,14 +183,14 @@ async function stageZCodePackage({ packageRoot, version }) {
   await mkdir(resolve(packageRoot, "agent"), {
     recursive: true,
   });
-  await cp(agentBundle, resolve(packageRoot, "agent", "zcode.cjs"));
+  await cp(agentBundle, resolve(packageRoot, "agent", "mikiko.cjs"));
   // TUI 入口通过真正的 CLI 路径定位伴随配置；只复制 JS 会在仓库外启动失败。
   await cp(agentProvider, resolve(packageRoot, "agent/provider"), { recursive: true });
   await cp(
     resolve(root, "apps/zcode-cli/packages/cli/dist/THIRD-PARTY-NOTICES.md"),
     resolve(packageRoot, "agent/THIRD-PARTY-NOTICES.md"),
   );
-  await chmod(resolve(packageRoot, "agent", "zcode.cjs"), 0o755);
+  await chmod(resolve(packageRoot, "agent", "mikiko.cjs"), 0o755);
 
   await stageTuiRuntime(packageRoot);
   await copyRuntimeNodeModules(packageRoot);
@@ -242,7 +242,7 @@ async function main() {
   const rootPackageJson = await readJson(resolve(root, "package.json"));
   const version = options.version ?? rootPackageJson.version;
   if (!version || typeof version !== "string") {
-    throw new Error("Unable to resolve ZCode version.");
+    throw new Error("Unable to resolve Mikiko version.");
   }
 
   await buildOutputs(options.skipBuild);

@@ -25,6 +25,8 @@ export const WEB_REMOTE_CONTROL_V4_MIN_APP_VERSION = "3.4.0";
 
 export interface BuildZCodeEndpointUrlsOptions {
   appVersion?: string;
+  /** 账户测试/工厂的明确注入；普通产品域不能隐式决定官方账号来源。 */
+  codingPlanOrigin?: string;
 }
 
 /**
@@ -249,12 +251,12 @@ function readRuntimeZCodeEnvScopedValue(
 export function normalizeZCodeEndpointOrigin(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error("ZCode endpoint origin is empty");
+    throw new Error("Mikiko endpoint origin is empty");
   }
 
   const parsed = new URL(trimmed);
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    throw new Error("ZCode endpoint origin must use http or https");
+    throw new Error("Mikiko endpoint origin must use http or https");
   }
   return parsed.origin;
 }
@@ -337,7 +339,9 @@ export function resolveRuntimeZCodeEndpointOrigin(
 export function buildRuntimeZCodeEndpointUrls(
   env: RuntimeZCodeEndpointEnv = {},
 ): ZCodeEndpointUrls {
-  return buildZCodeEndpointUrls(resolveRuntimeZCodeEndpointOrigin(env));
+  return buildZCodeEndpointUrls(resolveRuntimeZCodeEndpointOrigin(env), {
+    codingPlanOrigin: resolveCodingPlanEndpointOrigin(env),
+  });
 }
 
 export function buildRuntimeZCodeApiUrl(env: RuntimeZCodeEndpointEnv = {}, path: string): string {
@@ -461,7 +465,9 @@ export function resolveRuntimeProductEndpointConfig(
   return {
     zcodeEnv,
     zcodeEndpointOrigin,
-    zcodeEndpointUrls: buildZCodeEndpointUrls(zcodeEndpointOrigin),
+    zcodeEndpointUrls: buildZCodeEndpointUrls(zcodeEndpointOrigin, {
+      codingPlanOrigin: resolveCodingPlanEndpointOrigin(env),
+    }),
     zaiOAuthOrigin: resolveZaiOAuthOrigin(env),
     zaiBusinessBaseUrl: resolveZaiBusinessBaseUrl(env),
     zaiOAuthClientId: resolveZaiOAuthClientId(env),
@@ -472,7 +478,10 @@ export function resolveRuntimeProductEndpointConfig(
 /** CodingPlan 是保留的官方账号业务；自建产品默认不能改写它的授权/计费来源。 */
 export function resolveCodingPlanEndpointOrigin(env: RuntimeZCodeEndpointEnv = {}): string {
   const origin = resolveRuntimeZCodeEndpointOrigin(env);
-  return origin === DEFAULT_MIKIKO_CLOUD_ORIGIN ? CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN : origin;
+  // 生产自建域不止默认域；只特判 agent.mikiko.ai 会向其他产品部署发送官方凭据。
+  return resolveRuntimeZCodeEnv(env) === "test" && origin !== DEFAULT_MIKIKO_CLOUD_ORIGIN
+    ? origin
+    : CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN;
 }
 
 /** 仅官方 CodingPlan 账号/额度业务使用，普通产品 API 不走此入口。 */
@@ -488,11 +497,13 @@ export function buildZCodeEndpointUrls(
   options: BuildZCodeEndpointUrlsOptions = {},
 ): ZCodeEndpointUrls {
   const normalizedOrigin = normalizeZCodeEndpointOrigin(origin);
-  const codingPlanOrigin =
-    normalizedOrigin === DEFAULT_MIKIKO_CLOUD_ORIGIN
-      ? CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN
-      : normalizedOrigin;
   const parsed = new URL(normalizedOrigin);
+  const codingPlanOrigin =
+    options.codingPlanOrigin === undefined
+      ? ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname)
+        ? normalizedOrigin
+        : CODING_PLAN_OFFICIAL_WEBVIEW_ORIGIN
+      : normalizeZCodeEndpointOrigin(options.codingPlanOrigin);
   const wsProtocol = parsed.protocol === "https:" ? "wss:" : "ws:";
   const wsOrigin = `${wsProtocol}//${parsed.host}`;
   // 无法解析或低于分界版本时保守使用 v3，避免开发版本和旧客户端进入未兼容的 v4 页面。

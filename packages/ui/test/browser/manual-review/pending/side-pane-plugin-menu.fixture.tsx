@@ -19,7 +19,7 @@ import type { PanelImperativeHandle } from "react-resizable-panels";
 import "@/styles.css";
 
 const params = new URLSearchParams(location.search);
-document.documentElement.classList.add(`theme-zai-${params.get("theme") ?? "light"}`);
+document.documentElement.classList.add(`theme-mikiko-${params.get("theme") ?? "light"}`);
 const workspacePath = "/workspace/example";
 const workspaceIdentity = "fixture-workspace";
 const remoteSessionId = undefined;
@@ -72,7 +72,14 @@ const existingTab: WorkspaceSidePaneState = {
 
 function Fixture() {
   const [sidePaneState, setSidePaneState] = useState<WorkspaceSidePaneState | null>(
-    params.has("existing") ? existingTab : null,
+    // 当前产品由面板 owner 在首次展开时创建 new-tab；夹具也提供相同的入口状态。
+    () =>
+      params.has("existing")
+        ? existingTab
+        : stampSidePaneTabsOwnership(activateNewTabSidePane(null), {
+            workspaceKey: workspaceIdentity,
+            ownerTaskId: params.has("draft") ? null : "session-fixture",
+          }),
   );
   const [request, setRequest] = useState<OpenPluginUiSideTabRequest | null>(null);
   const [opened, setOpened] = useState<WorkspaceSidePaneState | null>(null);

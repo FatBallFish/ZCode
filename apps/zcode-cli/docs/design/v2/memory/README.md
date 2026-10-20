@@ -907,3 +907,7 @@ E2E 覆盖，不再复制一条只能间接推断取消结果的 WDIO case。
 - private/team scope、同步、冲突合并、provenance 或 distillation。
 - 新 telemetry、SLO 或灰度体系。
 - 四项非 Memory dynamic system prompt 差异。
+
+## v3.16.2 集成：敏感目录边界
+
+Memory Write/Edit 保持上游既有敏感路径保护：第三方 `.claude` 与历史 `.zcode` 仍禁止写入，新增 Mikiko 自有配置目录 `.mikiko` 同样禁止。品牌替换只改变产品默认路径，不能删除第三方/历史配置保护；沿用现有分段归一化，不扩大到相近名称（如 `.git-notes`），不改变窄范围 Markdown rm 合同。

@@ -1,3 +1,4 @@
+import { seedIntegrationAcceptanceFixture } from "./test/e2e/helpers/integration-acceptance-fixture.js";
 import { createConversationShareMockRoute } from "./test/e2e/helpers/conversation-share-mock-route.js";
 import {
   loadToolSearchResponses,
@@ -217,17 +218,17 @@ const E2E_PACKAGED_APP_BINARY_PATH = process.env.MIKIKO_E2E_PACKAGED_APP_PATH?.t
   ? resolve(process.env.MIKIKO_E2E_PACKAGED_APP_PATH)
   : null;
 
-// Chromedriver 版本必须与 Electron 内置 Chromium 大版本一致（Electron 41 = Chrome 147）。
+// Chromedriver 版本必须与 Electron 内置 Chromium 大版本一致（Electron 41 = Chrome 146）。
 // PATH 上常有旧的全局 chromedriver（如 146），wdio 会优先取用导致 session 建立超时；
 // 这里优先用项目缓存内与当前 Electron 匹配的驱动，缺席时回落 PATH（CI 容器内由镜像保证）。
-const LOCAL_CHROMEDRIVER_147 = resolve(
+const LOCAL_CHROMEDRIVER_146 = resolve(
   DESKTOP_DIR,
   ".e2e-cache",
   "chromedriver",
-  "chromedriver-147",
+  "chromedriver-146",
 );
-const ELECTRON_CHROMEDRIVER_BINARY = existsSync(LOCAL_CHROMEDRIVER_147)
-  ? LOCAL_CHROMEDRIVER_147
+const ELECTRON_CHROMEDRIVER_BINARY = existsSync(LOCAL_CHROMEDRIVER_146)
+  ? LOCAL_CHROMEDRIVER_146
   : undefined;
 // 目录隔离已回滚：所有 Desktop E2E 继续使用历史 ~/.mikiko 布局。
 const E2E_STORAGE_ROOT = resolve(E2E_HOME_DIR, ".mikiko");
@@ -3202,6 +3203,7 @@ async function resetE2EHome(specs: string[] = []) {
   await removeE2EHomeWithRetry();
   mkdirSync(E2E_HOME_DIR, { recursive: true });
   seedE2EStartupState(specs);
+  await seedIntegrationAcceptanceFixture({ specs, homeDir: E2E_HOME_DIR });
   await seedRemoteOnboardingFixture({
     // 营销弹窗会抢占首次引导的焦点；该套件从已完成引导的账号开始，独立验证弹窗交付。
     enabled:
@@ -4730,7 +4732,7 @@ export const config: WebdriverIO.Config = {
       "wdio:chromedriverOptions": {
         // 修复原因：固定容器 cache，避免每轮从 /tmp 重新下载 Chromedriver。
         ...(containerE2E ? { cacheDir: E2E_BROWSER_DRIVER_CACHE_DIR } : {}),
-        // 本机开发：Electron 41=Chrome147，须避开 PATH 上的旧 chromedriver（146）。
+        // 本机开发：Electron 41=Chrome146，须避开 PATH 上的旧 chromedriver（146）。
         ...(ELECTRON_CHROMEDRIVER_BINARY ? { binary: ELECTRON_CHROMEDRIVER_BINARY } : {}),
       },
     },
@@ -4971,6 +4973,10 @@ export const config: WebdriverIO.Config = {
         // 动态工作流灰度同样只能在 worker 的 beforeSession 注入动态端口，Main -> Host 的
         // 环境链才会继承到 case-local 的 /client/configs 网关。
         await startDynamicWorkflowConfigE2EMock(specs);
+        // 此 SSH 用例验证会话归属；在 Electron 启动前设置开启前置，避免把本机 mock 的 loopback 交给远端。
+        if (specs.some((spec) => spec.endsWith("conversation-session-r3-subagent.test.ts"))) {
+          process.env.ZCODE_DYNAMIC_WORKFLOW_MODE = "alwaysOn";
+        }
         await runE2EBeforeSessionSetup({
           cid,
           specs,

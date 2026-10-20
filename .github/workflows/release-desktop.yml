@@ -354,6 +354,62 @@ jobs:
           if-no-files-found: error
           overwrite: true
 
+  source-server:
+    needs: identity
+    if: ${{ !inputs.mac-only && !inputs.source-run-id }}
+    name: stage Source Server release
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      MIKIKO_ENV: production
+      MIKIKO_SKIP_REMOTE_ASSETS: "1"
+      HUSKY: "0"
+      RELEASE_TAG: ${{ needs.identity.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build provider model metadata
+        run: pnpm --filter @zcode/model-option-map build
+      - name: Stage all four Source Server targets
+        # 复用既有唯一 owner：完整 POSIX target 集合、Agent/Office 构建、组件归档和 descriptor。
+        run: pnpm prepare:remote-assets
+      - name: Preserve original Source Server build identity
+        run: |
+          node --input-type=module <<'JS'
+          import { copyFile, cp, mkdir, readFile, writeFile } from 'node:fs/promises';
+          const { version } = JSON.parse(await readFile('package.json', 'utf8'));
+          if (`v${version}` !== process.env.RELEASE_TAG) throw new Error('Source Server tag/version mismatch');
+          const source = `packages/desktop/mock-cdn/releases/${version}`;
+          const destination = 'source-server-release';
+          const descriptor = JSON.parse(await readFile(`${source}/source-server-release.json`, 'utf8'));
+          await mkdir(destination, { recursive: true });
+          for (const name of ['source-server-release.json', ...descriptor.archives.map(archive => archive.fileName)]) {
+            await copyFile(`${source}/${name}`, `${destination}/${name}`);
+          }
+          await cp('packages/zcode-server-cli/dist-release/components', `${destination}/components`, { recursive: true });
+          await writeFile(`${destination}/source-server-build.json`, JSON.stringify({
+            schemaVersion: 1, version, sourceRunId: process.env.GITHUB_RUN_ID,
+            commit: process.env.GITHUB_SHA, tag: process.env.RELEASE_TAG,
+          }));
+          JS
+          node --import tsx scripts/publish-source-server-release.mjs --verify-only \
+            --dist source-server-release --version "${RELEASE_TAG#v}" \
+            --source-run-id "$GITHUB_RUN_ID" --commit "$GITHUB_SHA" --tag "$RELEASE_TAG"
+      - name: Save original Source Server release
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-server-release
+          path: source-server-release/
+          retention-days: 30
+          if-no-files-found: error
+          overwrite: true
+
   relay:
     needs: identity
     if: ${{ !inputs.mac-only && !inputs.source-run-id }}
@@ -424,10 +480,44 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  publish-source-server:
+    if: ${{ always() && !inputs.publish-feed-only && !inputs.mac-only && needs.identity.result == 'success' && needs.notarize.result == 'success' && (needs.relay.result == 'success' || (inputs.source-run-id && needs.relay.result == 'skipped')) && (needs.source-server.result == 'success' || (inputs.source-run-id && needs.source-server.result == 'skipped')) }}
+    name: publish Source Server (R2)
+    needs: [identity, build, source-server, relay, notarize]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - name: Install publishing dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Restore and validate original Source Server artifact
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.identity.outputs.tag }}
+          SOURCE_RUN_ID: ${{ needs.identity.outputs.source }}
+        run: node .github/scripts/release-artifacts.mjs download-source-server "$SOURCE_RUN_ID" unused source-server-release
+      - name: Publish verified Source Server objects and indexes
+        if: steps.source.outputs.available == 'true'
+        env:
+          RELEASE_TAG: ${{ needs.identity.outputs.tag }}
+          SOURCE_RUN_ID: ${{ needs.identity.outputs.source }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+          UPDATE_PUBLISH_TOKEN: ${{ secrets.UPDATE_PUBLISH_TOKEN }}
+        run: |
+          node --import tsx scripts/publish-source-server-release.mjs \
+            --dist source-server-release --version "${RELEASE_TAG#v}" \
+            --source-run-id "$SOURCE_RUN_ID" --commit "$SOURCE_COMMIT" --tag "$RELEASE_TAG"
+
   release:
-    if: ${{ always() && !inputs.publish-feed-only && !inputs.mac-only && needs.identity.result == 'success' && needs.notarize.result == 'success' && (needs.relay.result == 'success' || (inputs.source-run-id && needs.relay.result == 'skipped')) }}
+    if: ${{ always() && !inputs.publish-feed-only && !inputs.mac-only && needs.identity.result == 'success' && needs.notarize.result == 'success' && needs.publish-source-server.result == 'success' && (needs.relay.result == 'success' || (inputs.source-run-id && needs.relay.result == 'skipped')) }}
     name: publish release
-    needs: [identity, build, relay, notarize]
+    needs: [identity, build, source-server, relay, notarize, publish-source-server]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -444,6 +534,13 @@ jobs:
           SOURCE_RUN_ID: ${{ needs.identity.outputs.source }}
         run: node .github/scripts/release-artifacts.mjs download-release "$SOURCE_RUN_ID" unused artifacts
 
+      - name: Restore original Source Server release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.identity.outputs.tag }}
+          SOURCE_RUN_ID: ${{ needs.identity.outputs.source }}
+        run: node .github/scripts/release-artifacts.mjs download-source-server "$SOURCE_RUN_ID" unused artifacts/source-server-release
+
       - name: Assemble release assets
         run: |
           mkdir -p release-assets
@@ -456,6 +553,11 @@ jobs:
           for kit in relay-server-deploy relay-cloudflare-deploy; do
             (cd "artifacts/$kit" && zip -r "../../release-assets/$kit.zip" .)
           done
+          if [ -d artifacts/source-server-release ]; then
+            cp artifacts/source-server-release/mikiko-server-*.tar.gz release-assets/
+            cp artifacts/source-server-release/source-server-release.json release-assets/
+            cp artifacts/source-server-release/source-server-build.json release-assets/
+          fi
 
       - name: Generate release notes
         env:

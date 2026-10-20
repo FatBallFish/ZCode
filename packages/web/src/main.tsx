@@ -296,12 +296,17 @@ function renderWebRemoteControlFailure(failure: WebRemoteControlFailure): void {
 }
 
 function isWebOAuthCallback(params: URLSearchParams): boolean {
+  // BigModel返回authCode，且v4直接承接账号回调；遗漏任一条件会把登录回包误送扫码/分享路由。
   return (
-    ["/web-remote/callback", "/cn/share/callback", "/share/callback"].includes(
-      window.location.pathname,
-    ) &&
+    [
+      "/web-remote/callback",
+      "/remote/v4",
+      "/remote/v4/",
+      "/cn/share/callback",
+      "/share/callback",
+    ].includes(window.location.pathname) &&
     params.has("state") &&
-    (params.has("code") || params.has("error"))
+    (params.has("code") || params.has("authCode") || params.has("error"))
   );
 }
 

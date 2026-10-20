@@ -83,7 +83,8 @@
     "build:web-remote-control:v4": "pnpm --filter @zcode/web exec vite build --base=/remote/v4/",
     "build:mikiko": "node scripts/build-mikiko.mjs",
     "test:unit:vitest": "vitest run --exclude \"packages/desktop/test/e2e/**/*.test.ts\"",
-    "test:unit:node": "node scripts/run-node-unit-tests.mjs"
+    "test:unit:node": "node scripts/run-node-unit-tests.mjs",
+    "publish:source-server-release": "node --import tsx scripts/publish-source-server-release.mjs"
   },
   "dependencies": {
     "border-beam": "^1.0.1",

@@ -120,9 +120,9 @@ describe("script workflow runtime", () => {
     }
   });
 
-  it("resolves named Workflow tool scripts from project .zcode/workflows", async () => {
+  it("resolves named Workflow tool scripts from project .mikiko/workflows", async () => {
     const tempRoot = await mkdtemp(join(tmpdir(), "zcode-workflow-name-"));
-    const workflowDir = join(tempRoot, ".zcode", "workflows");
+    const workflowDir = join(tempRoot, ".mikiko", "workflows");
     const sourcePath = join(workflowDir, "review.workflow.js");
     await mkdir(workflowDir, { recursive: true });
     await writeFile(sourcePath, minimalWorkflowScript("review"), "utf8");
@@ -246,7 +246,7 @@ describe("script workflow runtime", () => {
 
   it("persists child sessions before linking workflow activities", async () => {
     const tempRoot = await mkdtemp(join(tmpdir(), "zcode-workflow-child-session-"));
-    const workflowDir = join(tempRoot, ".zcode", "workflows");
+    const workflowDir = join(tempRoot, ".mikiko", "workflows");
     const shellDir = join(tempRoot, "bin");
     const scriptPath = join(workflowDir, "child-session.workflow.js");
     const zshPath = join(shellDir, "zsh");

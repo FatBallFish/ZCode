@@ -1,6 +1,6 @@
 # Desktop / Web 集成检查点
 
-范围：`41fbf6fd` Mikiko 输入与上游 `0a1fc56d`（3.16.1）首次合并。本文不是最终 3.16.2 / 跨平台 / 生产服务验收。
+范围：`41fbf6fd` Mikiko 输入与上游 `0a1fc56d`（3.16.1）、`075fde84`（3.16.2）的 Desktop/Web 融合。各轮结果按检查点列示；不将单元测试等同于跨平台或生产服务验收。
 
 ## 实现落点
 
@@ -56,3 +56,35 @@
 第二轮最后一次 shared 重建后 Desktop E2E 型检无错误；新采用的 auth-ui / self-hosted-remote
 合同测试2文件2测试通过，Web型检无错误。该轮 scope Lint 491文件0错误15警告，
 Git空白检查通过。各轮统计存在交集，不汇总成唯一用例总数。
+
+## 最终 3.16.2 与原生 Electron 验收准备
+
+- 最终 Desktop/Web 定向7文件108测试、Windows原生overlay像素20测试通过；保留跨窗口任务身份并集与上游Windows10/11 1x/2x红点渲染。
+- Source Server下载改用自建 `agent-dl.mikiko.ai/mikiko/electron/releases`，descriptor与server压缩包使用Mikiko名称。3文件50测试通过，包含真实loopback HTTP descriptor/archive下载、SHA和缓存断言；构建CDN前缀19测试通过。
+- 官方账号Web callback修复BigModel `authCode` 和canonical `/remote/v4[/]`，仍要求state且不装配V2；新旧E2E bridge flag同值兼容。callback、Vite、隔离fixture seeder共3文件31测试通过。
+- 远端提示附件公开根与真实落盘统一 `.mikiko`；先观察2个回归失败，修复后2文件11测试通过。历史绝对附件路径保留按原路径读取，不做批量移动。
+- INT-E2E-01/02/03新增为pending候选，明确隔离HOME、case-local replay、真实UI动作与Git/SQLite/磁盘/Host/wire证据，不使用个人profile、生产账号、真实麦克风或模型下载。3份fixture检查与Desktop E2E型检通过。
+- 首次真实native runner在构建前暴露品牌测试变量契约错误：wrapper/reporter只写旧run键，新WDIO读新键即失败。已补新品牌输入优先与双写同值回归（先1红23绿，修复后24/24通过），直接WDIO reporter同步初始化新旧run/artifact键；E2E型检及定向Lint通过。该启动失败不计为Electron功能通过。
+
+## 原生 Electron 真实交互结果
+
+2026-10-20/21（Asia/Shanghai），Darwin arm64，Electron41.0.3/Chromium146.0.7680.80，私有ChromeDriver146.0.7680.165。
+先完整构建Desktop Main/Host/Preload/renderer及CLI bundle，后续仅测试fixture/helper修订时复用同源构建；未触碰全局driver或个人正式profile。
+
+| Case       | 实际断言                                                                                                                                                            | 最后通过 run ID                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| INT-E2E-01 | 真实UI创建detached worktree并首次发送；Git root HEAD不变、asset拷贝、SQLite cwd、根项目树归属；打开和关闭独立会话窗保持同一Host PID和会话内容                       | `desktop-e2e-20261020160055908-p91101-8f78a70c1ac4f202` |
+| INT-E2E-02 | combined菜单选副模型/max；实际loopback请求模型一致且主请求1次；SQLite cwd、完成后1turn/1step和统计popover；Main麦克风权限denied时实际voice error/关闭保留未发送草稿 | `desktop-e2e-20261020160055908-p91101-8f78a70c1ac4f202` |
+| INT-E2E-03 | UI新建/应用自定义皮肤，实际theme.json与刷新前后localStorage相同；自建远控dialog和配置disabled状态、0 provider请求                                                   | `desktop-e2e-20261020154250848-p44240-56bd4f4842d4e53c` |
+
+各case均1测试通过、进程exit0。证据在 `packages/desktop/.e2e-artifacts/<run ID>/INT-E2E-0N.json` 与同名PNG；同目录summary、网络捕获和runtime日志可复核。fixture仅loopback replay，未访问付费模型、生产账号/relay或真实麦克风。
+
+先前运行没有冒充通过：INT03首次是测试fixture遗漏上游新增`localePreference`导致英文selector失败，补齐明确英文偏好后UI入口正常；INT01先修WDIO复合text selector，再修`electron.execute`不支持首参解构的fixture问题，保留Git/SQL/Host断言。runner新增cleanup key兼容，退出所有权回归WDIO，失败HOME不被spec提前删除。
+
+测试后复核发现两项孤立产品修复：历史已物化的同远端HOME `.zcode` 附件引用只读识别，避免误作Host本地文件重传，cleanup/janitor仍只认`.mikiko`新根；cron/voice utility外显名改`mikiko-cron-scheduler`与`mikiko-voice-engine`。两项都先观察红灯；最终附件/transfer/cron/voice/Host probe/runner共6文件48测试通过。父完成最终all-runtime与产物freeze后，重新完整构建Desktop+CLI并复验INT03，1测试通过、runner exit0（总131.471秒，真实UI25秒）；JSON确认实际scheduler进程名为`mikiko-cron-scheduler`、PID46275。最终run同时重新验证皮肤磁盘/刷新持久化、自建远控配置归因和0 provider请求。INT01/02随后在同一最终out上skip-build串行复验，两spec均通过、runner exit0（真实UI共46秒），因此本3case的最后通过均对应最终frozen Desktop+CLI产物。
+
+本3case保持pending，未人工review，不自动promote或Docker admission。不覆盖生产OIDC/Mikiko设备认领、真实手机P2P、真实语音识别/模型下载、Windows/Linux Shell、签名安装或发布。
+
+最终日志：`/tmp/mikiko-int03-electron-final-frozen.log`、`/tmp/mikiko-int01-int02-electron-final-frozen.log`。最后scope Lint零错误/警告，Desktop E2E型检与architecture通过；全仓最终typecheck、lint、架构门由父任务统一记录。
+
+最终通过的两个 run 目录已逐文件 SHA-256 校验后复制回主工作区，长期证据位置：`/Users/fatballfish/Documents/Projects/ClientProjects/ZCode/packages/desktop/.e2e-artifacts/upstream-v3.16.2-integration/`。原测试 cwd 继续保留在 JSON/日志中作为执行上下文。

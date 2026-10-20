@@ -13,8 +13,8 @@ import { pathToFileURL } from "node:url";
 const exec = promisify(execFile);
 const archive = process.argv[2];
 assert.ok(archive, "Usage: node scripts/mikiko-distribution-smoke.mjs <archive.tar.gz>");
-const directory = await realpath(await mkdtemp(join(tmpdir(), "zcode-release-smoke-")));
-const root = join(directory, "zcode");
+const directory = await realpath(await mkdtemp(join(tmpdir(), "mikiko-release-smoke-")));
+const root = join(directory, "mikiko");
 const runner = join(root, "bin/mikiko.mjs");
 const workspace = join(directory, "workspace");
 const env = {
@@ -60,7 +60,7 @@ try {
       // 修复：TUI 渲染器会在相邻字符之间插入 SGR/光标定位序列，原始 PTY 输出里的提示词不连续；
       // 先去掉终端控制序列再匹配可见文本，避免界面已就绪却被判定为超时。
       const visible = stripVTControlCharacters(screen);
-      return /ZCode/.test(visible) && /(?:登录|\/login|输入提示词|Type a prompt)/i.test(visible);
+      return /Mikiko/.test(visible) && /(?:登录|\/login|输入提示词|Type a prompt)/i.test(visible);
     },
     "TUI initialized render",
     () => stripVTControlCharacters(screen),

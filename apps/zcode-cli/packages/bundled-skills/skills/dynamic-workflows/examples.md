@@ -982,7 +982,7 @@ interface Guide {
 
 phase("盘点仓库顶层目录");
 const surveyor = agent("勘察员", "你快速摸清一个仓库的结构：实际查看目录和关键文件，如实汇报。");
-const survey = await surveyor.ask<Survey>("列出顶层目录（跳过 .venv、.zcode 等产物），各用一句话说明作用。");
+const survey = await surveyor.ask<Survey>("列出顶层目录（跳过 .venv、.mikiko 等产物），各用一句话说明作用。");
 log(`盘点完成：${survey.dirs.length} 个条目`);
 
 return await hole<Guide>(
@@ -1024,7 +1024,7 @@ phase("按审读意见修订并交付");
 const chapters = await agent("修订编辑").ask<Chapter[]>(
   `按意见修订，保持章序：${critique}\n\n${JSON.stringify(drafts)}`,
 );
-const guide: Guide = { title: "仓库导览", chapters, notCovered: [".venv、.zcode 等产物目录未纳入"] };
+const guide: Guide = { title: "仓库导览", chapters, notCovered: [".venv、.mikiko 等产物目录未纳入"] };
 await artifact.markdown("guide", chapters.map((c) => `## ${c.title}\n\n${c.body}`).join("\n\n"), {
   title: guide.title,
   description: "按目录分章的仓库导览。",
@@ -1062,7 +1062,7 @@ interface Guide {
 
 phase("盘点仓库顶层目录");
 const surveyor = agent("勘察员", "你快速摸清一个仓库的结构：实际查看目录和关键文件，如实汇报。");
-const survey = await surveyor.ask<Survey>("列出顶层目录（跳过 .venv、.zcode 等产物），各用一句话说明作用。");
+const survey = await surveyor.ask<Survey>("列出顶层目录（跳过 .venv、.mikiko 等产物），各用一句话说明作用。");
 log(`盘点完成：${survey.dirs.length} 个条目`);
 
 return await hole<Guide>(
@@ -1089,7 +1089,7 @@ return await hole<Guide>(
     const chapters = await agent("修订编辑").ask<Chapter[]>(
       `按意见修订，保持章序：${critique}\n\n${JSON.stringify(drafts)}`,
     );
-    const guide: Guide = { title: "仓库导览", chapters, notCovered: [".venv、.zcode 等产物目录未纳入"] };
+    const guide: Guide = { title: "仓库导览", chapters, notCovered: [".venv、.mikiko 等产物目录未纳入"] };
     await artifact.markdown("guide", chapters.map((c) => `## ${c.title}\n\n${c.body}`).join("\n\n"), {
       title: guide.title,
       description: "按目录分章的仓库导览。",

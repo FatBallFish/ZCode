@@ -71,7 +71,7 @@ afterEach(() => {
 
 /** 全局档落点（HOME 已被 beforeEach 指到 testHome）。 */
 function globalSavedPath(name: string): string {
-  return join(testHome, ".zcode/workflows", `${name}.dwf.ts`);
+  return join(testHome, ".mikiko/workflows", `${name}.dwf.ts`);
 }
 
 // 记忆槽是单槽、按脚本原文取键，所以每个用例用自己的脚本；否则上一个用例存下的分析
@@ -171,7 +171,7 @@ const DENY: PermissionBrokerPort = {
 };
 
 function savedPath(cwd: string, name: string): string {
-  return join(cwd, ".zcode/workflows", `${name}.dwf.ts`);
+  return join(cwd, ".mikiko/workflows", `${name}.dwf.ts`);
 }
 
 describe("SaveWorkflow", () => {
@@ -312,7 +312,7 @@ describe("SaveWorkflow", () => {
     expect(outcome.permissionRequested).toHaveLength(0);
     expect(outcome.result.success).toBe(false);
     expect(outcome.result.error?.message).toContain("not a usable workflow name");
-    expect(existsSync(join(cwd, ".zcode"))).toBe(false);
+    expect(existsSync(join(cwd, ".mikiko"))).toBe(false);
   });
 
   // encode 的幂等性（文件里永远只有一个 frontmatter 块）靠这条守：不做「检测到就替换」的
@@ -407,7 +407,7 @@ describe("SaveWorkflow", () => {
     expect(output.path).toBe(globalSavedPath("research"));
     expect(output.response).toContain("Saved global workflow 'research'");
     // 项目目录一个字节都没被建出来。
-    expect(existsSync(join(cwd, ".zcode"))).toBe(false);
+    expect(existsSync(join(cwd, ".mikiko"))).toBe(false);
     expect(existsSync(globalSavedPath("research"))).toBe(true);
   });
 
@@ -952,7 +952,7 @@ describe("CreateWorkflow saved source", () => {
     const draft = join(cwd, WORKFLOW_DRAFTS_DIR, "workflow.dwf.ts");
     expect(readFileSync(draft, "utf8")).toBe(script);
     expect(submits[0]!.scriptPath).toBe(draft);
-    expect(existsSync(join(cwd, ".zcode", "workflows"))).toBe(false);
+    expect(existsSync(join(cwd, ".mikiko", "workflows"))).toBe(false);
   });
 
   it.each([
@@ -982,7 +982,7 @@ describe("CreateWorkflow input schema", () => {
       saved: {
         name: "nightly",
         args: { a: 1 },
-        path: "/p/.zcode/workflows/nightly.dwf.ts",
+        path: "/p/.mikiko/workflows/nightly.dwf.ts",
         scope: "project",
       },
     });

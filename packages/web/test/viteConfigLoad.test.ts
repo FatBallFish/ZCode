@@ -56,8 +56,16 @@ describe("web Vite config", () => {
       "silent",
     );
 
-    expect(result?.config.plugins?.some((plugin) => plugin.name === "zcode:pdfjs-cmaps")).toBe(
-      true,
+    // Vite 8 下 dev 服务和 build 输出分开挂载，配置允许嵌套插件数组。
+    const plugins = (result?.config.plugins ?? []).flat(Infinity) as Array<{
+      name?: string;
+      apply?: unknown;
+    }>;
+    expect(plugins).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "mikiko:pdfjs-cmaps-build", apply: "build" }),
+        expect.objectContaining({ name: "mikiko:pdfjs-cmaps-serve", apply: "serve" }),
+      ]),
     );
   });
 

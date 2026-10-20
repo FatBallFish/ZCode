@@ -60,6 +60,9 @@ describe("ProductProjection cold hydration subagent materialization", () => {
       snapshotRef: "artifact://checkpoint-1",
     });
     const coldProjection = new ProductProjection("cold-hydration-session", "epoch-cold");
+    coldProjection.applyEvent(
+      sessionEvent(0, SessionEventType.SessionCreated, { mode: "default", contextWindow: 200_000 }),
+    );
     const coldMaterialize = spyOnSubagentMaterialization(coldProjection);
 
     coldProjection.beginHydrationReplay();
@@ -69,6 +72,10 @@ describe("ProductProjection cold hydration subagent materialization", () => {
     coldProjection.completeHydrationReplay();
 
     const liveProjection = new ProductProjection("cold-hydration-session", "epoch-live");
+    // 初始 SessionCreated 会发布新增 stats；checkpoint 本身仍应保持零 delta。
+    liveProjection.applyEvent(
+      sessionEvent(0, SessionEventType.SessionCreated, { mode: "default", contextWindow: 200_000 }),
+    );
     const liveMaterialize = spyOnSubagentMaterialization(liveProjection);
     expect(liveProjection.applyEvent(checkpoint)).toEqual([]);
     expect(liveMaterialize).toHaveBeenCalledOnce();
