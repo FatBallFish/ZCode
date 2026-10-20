@@ -38,7 +38,7 @@ function redirectToDevices(): void {
   window.history.replaceState(null, "", "/remote/devices");
 }
 
-export function RemoteDevicesPage(): React.JSX.Element {
+export function RemoteDevicesPage({ platform }: { platform: import("@zcode/shared").IPlatformService }): React.JSX.Element {
   const [phase, setPhase] = useState<"loading" | "login" | "ready" | "connecting" | "error">("loading");
   const [devices, setDevices] = useState<RemoteDeviceInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -180,7 +180,7 @@ export function RemoteDevicesPage(): React.JSX.Element {
     return (
       <RemoteControlApp
         relayWsBase={RELAY_WS_BASE}
-        platform={{} as never}
+        platform={platform}
         preAuthorized={{ sid: connected.sid, sessionToken: connected.sessionToken }}
       />
     );

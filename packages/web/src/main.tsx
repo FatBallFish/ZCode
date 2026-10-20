@@ -2443,7 +2443,7 @@ async function bootstrapWebApp() {
     window.location.pathname === "/remote/devices/callback"
   ) {
     document.title = "Mikiko - Devices";
-    root.render(<RemoteDevicesPage />);
+    root.render(<RemoteDevicesPage platform={createWebPlatform()} />);
     return;
   }
 
