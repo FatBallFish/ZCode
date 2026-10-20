@@ -37,31 +37,28 @@ const SECTIONS: RuleSection[] = [
   {
     key: "modelRules",
     label: "模型规则（modelRules）",
-    description: "按模型 ID 匹配的输入/能力/推理等级覆盖",
+    description: "按模型匹配的属性覆盖（contextWindow / inputFormat / reasoning 等）",
     editableFields: [
-      { key: "modelIdPattern", label: "模型匹配", type: "text" },
-      { key: "inputTypes", label: "输入类型", type: "text" },
-      { key: "capabilities", label: "能力", type: "text" },
-      { key: "reasoningLevels", label: "推理等级", type: "text" },
+      { key: "modelMatch", label: "模型匹配", type: "text" },
     ],
   },
   {
     key: "modelApiRules",
     label: "模型 API 规则（modelApiRules）",
-    description: "按 API 格式匹配的上下文窗口/默认参数",
+    description: "按模型 + API 格式匹配的属性覆盖",
     editableFields: [
-      { key: "apiTypePattern", label: "API 格式匹配", type: "text" },
-      { key: "contextWindow", label: "上下文窗口", type: "text" },
-      { key: "maxOutputTokens", label: "最大输出", type: "text" },
+      { key: "modelMatch", label: "模型匹配", type: "text" },
+      { key: "apiTypeMatch", label: "API 格式匹配", type: "text" },
     ],
   },
   {
     key: "providerSiteRules",
     label: "供应商站点规则（providerSiteRules）",
-    description: "按供应商站点匹配的属性覆盖",
+    description: "按模型 + API 格式 + 站点 URL 匹配的属性覆盖",
     editableFields: [
-      { key: "providerIdPattern", label: "供应商匹配", type: "text" },
-      { key: "baseUrlPattern", label: "站点匹配", type: "text" },
+      { key: "modelMatch", label: "模型匹配", type: "text" },
+      { key: "apiTypeMatch", label: "API 格式匹配", type: "text" },
+      { key: "baseUrlMatch", label: "站点 URL 匹配", type: "text" },
     ],
   },
 ];
@@ -117,18 +114,18 @@ export function ModelConfigPage() {
       const nextRules = { ...rules } as Record<string, Array<Record<string, unknown>>>;
       const section = [...(nextRules[sectionKey] ?? [])];
       const rule = { ...section[index] };
-      if (rule[field] === undefined && value === "") return;
-      // 常见数组/数字字段的类型推断：保持 JSON 原生类型。
-      if (/^\d+$/.test(value) && (field.includes("Window") || field.includes("Tokens"))) {
-        rule[field] = Number(value);
-      } else if (value.includes(",")) {
-        rule[field] = value.split(",").map((entry) => entry.trim()).filter(Boolean);
-      } else if (value === "true" || value === "false") {
-        rule[field] = value === "true";
+      if (field === "__config__") {
+        // config 子对象的 JSON 编辑：整体替换。
+        try {
+          rule.config = JSON.parse(value) as unknown;
+        } catch {
+          return;
+        }
       } else {
+        if (rule[field] === undefined && value === "") return;
         rule[field] = value === "" ? undefined : value;
+        if (rule[field] === undefined) delete rule[field];
       }
-      if (rule[field] === undefined) delete rule[field];
       section[index] = rule;
       nextRules[sectionKey] = section;
       syncDraftFromRules(nextRules as ModelConfigRules);
@@ -355,8 +352,7 @@ function RuleCard({
   onRemove: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const displayKey =
-    String(rule[section.editableFields[0]?.key ?? "modelIdPattern"] ?? rule.modelIdPattern ?? rule.apiTypePattern ?? rule.providerIdPattern ?? "…");
+  const displayKey = String(rule[section.editableFields[0]?.key] ?? rule.modelMatch ?? "…");
   return (
     <div className="rounded-lg border border-neutral-800 bg-neutral-900/40">
       <div className="flex items-center justify-between px-3 py-2">
@@ -369,23 +365,36 @@ function RuleCard({
         </button>
       </div>
       {expanded && (
-        <div className="grid grid-cols-2 gap-2 border-t border-neutral-800/60 px-3 py-2.5">
-          {section.editableFields.map((field) => (
-            <label key={field.key} className="space-y-0.5">
-              <span className="text-[10px] text-neutral-600">{field.label}</span>
-              <input
-                value={formatRuleValue(rule[field.key])}
-                onChange={(event) => onUpdate(field.key, event.target.value)}
-                className="h-7 w-full rounded border border-neutral-700 bg-neutral-900 px-2 font-mono text-xs"
-              />
-            </label>
-          ))}
-          <details className="col-span-2">
-            <summary className="cursor-pointer text-[10px] text-neutral-600">原始 JSON</summary>
-            <pre className="mt-1 max-h-40 overflow-y-auto rounded bg-neutral-950 p-2 text-[10px] text-neutral-500">
-              {JSON.stringify(rule, null, 2)}
-            </pre>
-          </details>
+        <div className="space-y-2 border-t border-neutral-800/60 px-3 py-2.5">
+          <div className="grid grid-cols-2 gap-2">
+            {section.editableFields.map((field) => (
+              <label key={field.key} className="space-y-0.5">
+                <span className="text-[10px] text-neutral-600">{field.label}</span>
+                <input
+                  value={formatRuleValue(rule[field.key])}
+                  onChange={(event) => onUpdate(field.key, event.target.value)}
+                  className="h-7 w-full rounded border border-neutral-700 bg-neutral-900 px-2 font-mono text-xs"
+                />
+              </label>
+            ))}
+          </div>
+          <div>
+            <span className="text-[10px] text-neutral-600">config（属性覆盖，JSON 编辑）</span>
+            <textarea
+              value={JSON.stringify(rule.config ?? {}, null, 2)}
+              onChange={(event) => {
+                try {
+                  const parsed = JSON.parse(event.target.value) as unknown;
+                  onUpdate("__config__", JSON.stringify(parsed));
+                } catch {
+                  // JSON 不完整时不更新
+                }
+              }}
+              rows={Math.min(10, Math.max(3, JSON.stringify(rule.config ?? {}, null, 2).split("\n").length))}
+              spellCheck={false}
+              className="w-full rounded border border-neutral-700 bg-neutral-950 p-2 font-mono text-[10px] leading-relaxed"
+            />
+          </div>
         </div>
       )}
     </div>
