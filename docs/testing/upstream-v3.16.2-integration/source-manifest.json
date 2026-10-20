@@ -1,0 +1,14 @@
+{
+  "rollbackCommit": "4a971eaac771363da0aa8fe69571ca4d9b1463eb",
+  "customInput": "af8285c212846ffe47ebdf5a7ba90b4d1dbe3c7b",
+  "remoteCustomInput": "6fd01b00f42ce35e9335109e31a138f733f2242c",
+  "upstreamInput": "075fde8429f15bc5baa018f4605ea776770dbf8d",
+  "upstreamCheckpoint1": "0a1fc56d279fd1001f78387bd81aec1c26767411",
+  "mergeBase": "a443dc3984908f22d123891b04de9b73137982f4",
+  "userDecisions": [
+    "self-hosted-remote-control; exclude Relay V2",
+    "self-hosted-cloud except official CodingPlan account integration",
+    "Mikiko outward-facing product identifiers"
+  ],
+  "status": "implementation in progress"
+}
