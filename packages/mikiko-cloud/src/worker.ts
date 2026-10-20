@@ -160,7 +160,11 @@ export default {
         const page = await env.ASSETS.fetch(new URL("/share.html", url.origin));
         if (page.status >= 300 && page.status < 400) {
           const location = page.headers.get("location");
-          if (location) return env.ASSETS.fetch(new URL(location, url.origin));
+          if (location)  // 旧后台入口重定向到新 SPA（2026-10-20 D.7：admin.html → /admin/）。
+  if (url.pathname === "/admin.html" || url.pathname === "/admin.html/") {
+    return Response.redirect(url.origin + "/admin/", 301);
+  }
+ return env.ASSETS.fetch(new URL(location, url.origin));
         }
         return page;
       }

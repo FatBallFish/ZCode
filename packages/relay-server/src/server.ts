@@ -171,7 +171,12 @@ export async function startRelayServer(options: RelayServerOptions): Promise<Rel
   function handleHttpRequest(req: IncomingMessage, res: ServerResponse): void {
     const url = new URL(req.url ?? "/", "http://relay.local");
     if (req.method === "OPTIONS") {
-      setCors(res);
+      // 账号端点 CORS 收敛（E.3.4）：预检也要按路径分流。
+      if (url.pathname.startsWith("/api/rc/account/")) {
+        setAccountCors(res);
+      } else {
+        setCors(res);
+      }
       res.writeHead(204).end();
       return;
     }
