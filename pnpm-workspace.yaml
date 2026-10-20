@@ -1,6 +1,7 @@
 packages:
   - apps/dev-docs
   - packages/*
+  - packages/mikiko-cloud/admin
   - apps/zcode-cli
   - apps/zcode-cli/packages/*
   - apps/zcode-cli/tools/*

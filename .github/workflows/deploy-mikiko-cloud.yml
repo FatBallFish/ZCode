@@ -50,6 +50,8 @@ jobs:
           fi
           pnpm exec wrangler d1 migrations apply mikiko-cloud-db --remote
 
+      - name: Build admin SPA
+        run: pnpm --filter @zcode/mikiko-cloud-admin build
       - name: Deploy Worker
         working-directory: packages/mikiko-cloud
         env:
