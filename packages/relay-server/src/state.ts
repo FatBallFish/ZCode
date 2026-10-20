@@ -28,6 +28,8 @@ export interface RelayDeviceRecord {
   name: string;
   appVersion: string;
   lastSeenAt: number;
+  /** Mikiko ID sub（方案 E.3 设备认领）：内存态，桌面重连时自动 re-claim。 */
+  ownerSub?: string;
 }
 
 export type RelaySessionState = "pending" | "ready" | "bound" | "grace" | "closed";
@@ -143,6 +145,49 @@ export class RelayState {
   verifyDeviceToken(mid: string, token: string): boolean {
     const device = this.devices.get(mid);
     return device != null && device.tokenHash === hashDeviceToken(token);
+  }
+
+  // ==========================================================================
+  // 账号归属（方案 E.3）：Mikiko ID sub ↔ 设备绑定（内存态，零盘语义不破）。
+  // ==========================================================================
+
+  /** 认领设备：归属为空或同 sub 时写入；已被其他账号占用时拒绝改绑。 */
+  claimDevice(input: { mid: string; ownerSub: string }): { ok: true } | { ok: false; error: "device_not_found" | "already_owned" } {
+    const device = this.devices.get(input.mid);
+    if (!device) return { ok: false, error: "device_not_found" };
+    if (device.ownerSub && device.ownerSub !== input.ownerSub) {
+      return { ok: false, error: "already_owned" };
+    }
+    device.ownerSub = input.ownerSub;
+    return { ok: true };
+  }
+
+  listOwnedDevices(ownerSub: string): Array<{
+    mid: string;
+    name: string;
+    appVersion: string;
+    lastSeenAt: number;
+    online: boolean;
+  }> {
+    const owned: Array<{
+      mid: string;
+      name: string;
+      appVersion: string;
+      lastSeenAt: number;
+      online: boolean;
+    }> = [];
+    for (const [mid, device] of this.devices) {
+      if (device.ownerSub !== ownerSub) continue;
+      owned.push({
+        mid,
+        name: device.name,
+        appVersion: device.appVersion,
+        lastSeenAt: device.lastSeenAt,
+        // 桌面长连在线即在线（与 DESKTOP_OFFLINE 判定同源）。
+        online: this.desktopRoutes.has(mid),
+      });
+    }
+    return owned.sort((left, right) => right.lastSeenAt - left.lastSeenAt);
   }
 
   touchDevice(mid: string): void {

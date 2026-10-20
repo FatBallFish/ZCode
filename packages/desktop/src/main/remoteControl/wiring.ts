@@ -43,6 +43,11 @@ export interface RemoteControlProductionOptions {
     warn(message: string, meta?: Record<string, unknown>): void;
     error(message: string, meta?: Record<string, unknown>): void;
   };
+  /**
+   * Mikiko ID access token 源（方案 E.4 设备认领）：主进程从 host 侧 sub2api 服务
+   * 桥接取得；未登录返回 null（匿名注册，不认领）。
+   */
+  getMikikoIdAccessToken?: () => Promise<string | null>;
   windowHostProcessMap: Map<number, ElectronUtilityProcess>;
   attachPort(webContentsId: number): RemoteControlAttachedPort;
   detachPort(webContentsId: number, attachmentId: string, reason: string): void;
@@ -123,9 +128,15 @@ export function createRemoteControlProductionService(
 
   async function registerDevice(): Promise<string> {
     const { mid } = await deviceStore.load();
+    // E.4 设备认领：MikikoCC OIDC 已登录时附带 Bearer，relay 注册同时认领到 Mikiko ID sub。
+    // token 获取失败不阻塞注册（匿名降级），下次重连/登录后再认领。
+    const mikikoIdToken = await options.getMikikoIdAccessToken?.().catch(() => null);
     const response = await fetch(`${relayHttpUrl}/api/rc/devices`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(mikikoIdToken ? { Authorization: `Bearer ${mikikoIdToken}` } : {}),
+      },
       body: JSON.stringify({ mid, name: deviceName, appVersion: app.getVersion() }),
     });
     if (!response.ok) {

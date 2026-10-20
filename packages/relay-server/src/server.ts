@@ -26,6 +26,10 @@ import {
 } from "./version.js";
 import { RateLimiter } from "./rateLimit.js";
 import { RelayState, type RelayEffect } from "./state.js";
+import {
+  RelayOidcError,
+  requireRelayOidcIdentity,
+} from "./oidcVerify.js";
 
 /**
  * 手机远控 relay 服务（spec §6）：设备注册、票据 bind、桌面/手机 WS 管道、
@@ -68,6 +72,10 @@ export interface RelayServerOptions {
   publicWsBase: string;
   /** v2 P2P：下发给手机的 STUN 列表（运维可替换）。 */
   stunUrls?: string[];
+  /** Mikiko ID issuer（方案 E.3 账号直连）；缺省账号端点整体 503。 */
+  oidcIssuer?: string;
+  /** JWKS 出口注入（单测）。 */
+  oidcFetch?: typeof fetch;
   port?: number;
   host?: string;
   now?: () => number;
@@ -131,8 +139,9 @@ export async function startRelayServer(options: RelayServerOptions): Promise<Rel
 
   function setCors(res: ServerResponse): void {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    // E.3：账号端点（GET /api/rc/account/*）与 Bearer 头需要放行 GET 与 Authorization。
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   }
 
   async function readJsonBody(req: IncomingMessage): Promise<unknown | null> {
@@ -180,6 +189,19 @@ export async function startRelayServer(options: RelayServerOptions): Promise<Rel
       void handleBind(req, res);
       return;
     }
+    // ── 账号端点（方案 E.3：Mikiko ID Bearer）──
+    if (url.pathname === "/api/rc/account/devices" && req.method === "GET") {
+      void handleAccountDevices(req, res);
+      return;
+    }
+    if (url.pathname === "/api/rc/account/connect" && req.method === "POST") {
+      void handleAccountConnect(req, res);
+      return;
+    }
+    if (url.pathname === "/api/rc/devices/claim" && req.method === "POST") {
+      void handleDeviceClaim(req, res);
+      return;
+    }
     res
       .writeHead(404, { "Content-Type": "application/json" })
       .end(JSON.stringify({ error: "not_found" }));
@@ -220,8 +242,146 @@ export async function startRelayServer(options: RelayServerOptions): Promise<Rel
       name: body.name,
       appVersion: body.appVersion,
     });
-    logger.info("device registered", { mid: body.mid });
-    res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ deviceToken }));
+    // E.3：带 Mikiko ID Bearer 的注册同时完成认领（匿名注册不受影响）。
+    let claimed = false;
+    if (options.oidcIssuer && req.headers.authorization) {
+      try {
+        const identity = await requireRelayOidcIdentity(
+          req.headers.authorization,
+          options.oidcIssuer,
+          options.oidcFetch ? { fetchImpl: options.oidcFetch } : undefined,
+        );
+        claimed = state.claimDevice({ mid: body.mid, ownerSub: identity.sub }).ok;
+      } catch (error) {
+        if (error instanceof RelayOidcError) {
+          // 注册本身已成功；无效 Bearer 只影响归属（fail-close 到匿名），不回滚注册。
+          logger.warn("device register claim rejected", { code: error.code });
+        } else {
+          throw error;
+        }
+      }
+    }
+    logger.info("device registered", { mid: body.mid, claimed });
+    res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ deviceToken, claimed }));
+  }
+
+  async function requireAccountIdentity(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<{ sub: string } | null> {
+    if (!options.oidcIssuer) {
+      res.writeHead(503, { "Content-Type": "application/json" }).end(
+        JSON.stringify({ error: "oidc_not_configured" }),
+      );
+      return null;
+    }
+    try {
+      return await requireRelayOidcIdentity(
+        req.headers.authorization,
+        options.oidcIssuer,
+        options.oidcFetch ? { fetchImpl: options.oidcFetch } : undefined,
+      );
+    } catch (error) {
+      if (error instanceof RelayOidcError) {
+        res.writeHead(error.status, { "Content-Type": "application/json" }).end(
+          JSON.stringify({ error: error.code }),
+        );
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /** 账号设备列表（E.3）：在线状态 = 桌面长连存在。 */
+  async function handleAccountDevices(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    setCors(res);
+    const identity = await requireAccountIdentity(req, res);
+    if (!identity) return;
+    const devices = state.listOwnedDevices(identity.sub);
+    res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ devices }));
+  }
+
+  /**
+   * 账号直连（E.3）：校验归属与桌面在线后，复用 issueSession 直接签发 sid+sessionToken，
+   * 跳过 HMAC 票据——信任模型与票据持有人同级（本人账号即本人设备）。
+   * 桌面无需预先同意：stream_open 自动 attach 流程原样复用（spec §6.4）。
+   */
+  async function handleAccountConnect(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    setCors(res);
+    const identity = await requireAccountIdentity(req, res);
+    if (!identity) return;
+    const ip = clientRateKey(req);
+    if (!bindLimiter.allow(ip)) {
+      res.writeHead(429, { "Content-Type": "application/json" }).end(
+        JSON.stringify({ error: "rate_limited" }),
+      );
+      return;
+    }
+    const body = (await readJsonBody(req)) as { mid?: unknown } | null;
+    if (!body || typeof body.mid !== "string" || body.mid.length === 0 || body.mid.length > 128) {
+      res.writeHead(400, { "Content-Type": "application/json" }).end(
+        JSON.stringify({ error: "bad_request" }),
+      );
+      return;
+    }
+    const owned = state.listOwnedDevices(identity.sub).some((device) => device.mid === body.mid);
+    if (!owned) {
+      res.writeHead(403, { "Content-Type": "application/json" }).end(
+        JSON.stringify({ error: "device_not_owned" }),
+      );
+      return;
+    }
+    if (!state.desktopRoutes.has(body.mid!)) {
+      res.writeHead(409, { "Content-Type": "application/json" }).end(
+        JSON.stringify({ error: "desktop_offline" }),
+      );
+      return;
+    }
+    const issued = state.issueSession(body.mid!, { persistent: false });
+    executeEffects(issued.effects);
+    const bind = state.bindTicket({
+      sid: issued.sid,
+      hash: issued.accessHash,
+      t: issued.issuedAt,
+      mid: body.mid!,
+    });
+    if (!bind.ok) {
+      res.writeHead(500, { "Content-Type": "application/json" }).end(
+        JSON.stringify({ error: "bind_failed" }),
+      );
+      return;
+    }
+    logger.info("account connect issued", { sid: issued.sid });
+    res.writeHead(200, { "Content-Type": "application/json" }).end(
+      JSON.stringify({
+        sid: issued.sid,
+        sessionToken: bind.sessionToken,
+        relayWsBase: options.publicWsBase,
+      }),
+    );
+  }
+
+  /** 设备认领（E.3）：桌面登录态变化后由客户端补认领（Bearer = Mikiko ID）。 */
+  async function handleDeviceClaim(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    setCors(res);
+    const identity = await requireAccountIdentity(req, res);
+    if (!identity) return;
+    const body = (await readJsonBody(req)) as { mid?: unknown } | null;
+    if (!body || typeof body.mid !== "string" || body.mid.length === 0 || body.mid.length > 128) {
+      res.writeHead(400, { "Content-Type": "application/json" }).end(
+        JSON.stringify({ error: "bad_request" }),
+      );
+      return;
+    }
+    const result = state.claimDevice({ mid: body.mid!, ownerSub: identity.sub });
+    if (!result.ok) {
+      res.writeHead(result.error === "device_not_found" ? 404 : 409, {
+        "Content-Type": "application/json",
+      }).end(JSON.stringify({ error: result.error }));
+      return;
+    }
+    logger.info("device claimed", { mid: body.mid! });
+    res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ ok: true }));
   }
 
   async function handleBind(req: IncomingMessage, res: ServerResponse): Promise<void> {
