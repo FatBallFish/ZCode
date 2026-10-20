@@ -110,7 +110,8 @@ async function publishBytes(path, body, contentType, multipartKey) {
  * EPIPE），一条分片失败就整体退出会让发布半途而废且只能人工补发。网络类失败
  * 与 5xx 按 2s/4s/8s 退避重试 3 次；4xx 是确定性错误（鉴权/参数），原样抛出。
  */
-async function fetchWithRetry(url, init, label, attempts = 3) {
+// R2 multipart 分片偶发边缘 503；增加到 5 次只影响网络失败，不会重复确定性 4xx 请求。
+async function fetchWithRetry(url, init, label, attempts = 5) {
   let lastError;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {

@@ -43,6 +43,31 @@ export async function fileDigest(path) {
   for await (const chunk of createReadStream(path)) hash.update(chunk);
   return { sha256: hash.digest("hex"), size: (await stat(path)).size };
 }
+export async function verifyReleaseInstallers(dir, expected) {
+  const proof = await readJson(join(dir, "release-verification.json"));
+  for (const key of ["sourceRunId", "commit", "ref", "arch"])
+    if (proof[key] !== expected[key]) throw new Error(`Installer proof identity mismatch: ${key}`);
+  if (proof.schema !== 1 || proof.ref !== `v${proof.version}`)
+    throw new Error("Installer proof identity mismatch: version/schema");
+  if (
+    proof.status !== "Accepted" ||
+    !proof.submissionId ||
+    proof.appStapled !== true ||
+    proof.dmgStapled !== true ||
+    proof.zipPayloadVerified !== true
+  )
+    throw new Error("Installer proof requires Accepted and complete verification");
+  // 仅 feed 恢复必须校验已通过验收的最终字节，不能下载任意 run 后直接上传。
+  for (const extension of ["dmg", "zip"]) {
+    const name = `Mikiko-${proof.version}-mac-${proof.arch}.${extension}`;
+    const recorded = proof.files?.[name];
+    if (!recorded) throw new Error(`Missing verified installer file: ${name}`);
+    const actual = await fileDigest(safePath(dir, name));
+    if (actual.sha256 !== recorded.sha256 || actual.size !== recorded.size)
+      throw new Error(`Verified installer hash mismatch: ${name}`);
+  }
+  return proof;
+}
 export async function createBundleManifest(dir, identity) {
   if (
     !/^\d+$/.test(identity.sourceRunId) ||
