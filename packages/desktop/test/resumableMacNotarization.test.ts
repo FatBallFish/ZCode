@@ -28,6 +28,188 @@ afterEach(async () => {
   await Promise.all(directories.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
+describe("人工导入同包的补充公证", () => {
+  const originalId = "11111111-1111-4111-8111-111111111111";
+  const additionalId = "22222222-2222-4222-8222-222222222222";
+  async function candidateFixture() {
+    const value = await fixture();
+    const { submitNotarization } = await api();
+    await submitNotarization({
+      ...value,
+      runNotary: async (args: string[]) =>
+        args[0] === "history" ? { history: [] } : { id: originalId },
+    });
+    const state = JSON.parse(await readFile(value.statePath, "utf8"));
+    return {
+      ...value,
+      originalName: state.uploadName,
+      additionalName: state.uploadName.replace(/\.dmg$/, "-retry-20261020.dmg"),
+    };
+  }
+
+  it.each([originalId, additionalId])(
+    "任一申请 Accepted 即选中其ID，不受另一条拒绝影响：%s",
+    async (winner) => {
+      const { bundle, statePath, originalName, additionalName } = await candidateFixture();
+      const { adoptNotarizationSubmission, waitNotarization } = await api();
+      const calls: string[] = [];
+      const runNotary = async (args: string[]) => {
+        calls.push(args[0]);
+        expect(args[0]).toBe("info");
+        return {
+          id: args[1],
+          name: args[1] === originalId ? originalName : additionalName,
+          status: args[1] === winner ? "Accepted" : "Invalid",
+        };
+      };
+      await adoptNotarizationSubmission({
+        bundle,
+        statePath,
+        submissionId: additionalId,
+        runNotary,
+      });
+      expect(await waitNotarization({ bundle, statePath, runNotary, timeout: "1s" })).toBe(true);
+      const state = JSON.parse(await readFile(statePath, "utf8"));
+      expect(state.id).toBe(winner);
+      expect(state.status).toBe("Accepted");
+      expect(state.submissions.map((entry: { id: string }) => entry.id)).toEqual([
+        originalId,
+        additionalId,
+      ]);
+      expect(calls).not.toContain("submit");
+    },
+  );
+
+  it("个别查询失败不遮蔽另一条 Accepted，重复导入同ID幂等", async () => {
+    const { bundle, statePath, originalName, additionalName } = await candidateFixture();
+    const { adoptNotarizationSubmission, waitNotarization } = await api();
+    let failOriginal = false;
+    const runNotary = async (args: string[]) => {
+      expect(args[0]).toBe("info");
+      if (failOriginal && args[1] === originalId) throw new Error("temporary network issue");
+      return {
+        id: args[1],
+        name: args[1] === originalId ? originalName : additionalName,
+        status: "Accepted",
+      };
+    };
+    await adoptNotarizationSubmission({ bundle, statePath, submissionId: additionalId, runNotary });
+    await adoptNotarizationSubmission({ bundle, statePath, submissionId: additionalId, runNotary });
+    failOriginal = true;
+    expect(await waitNotarization({ bundle, statePath, runNotary, timeout: "1s" })).toBe(true);
+    const state = JSON.parse(await readFile(statePath, "utf8"));
+    expect(state.id).toBe(additionalId);
+    expect(state.submissions).toHaveLength(2);
+  });
+
+  it("全部pending按总时长结束并保留两个ID，后续原申请先通过也可恢复", async () => {
+    const { bundle, statePath, originalName, additionalName } = await candidateFixture();
+    const { adoptNotarizationSubmission, waitNotarization } = await api();
+    let accepted = false;
+    let elapsed = 0;
+    const runNotary = async (args: string[]) => {
+      expect(args[0]).toBe("info");
+      return {
+        id: args[1],
+        name: args[1] === originalId ? originalName : additionalName,
+        status: accepted && args[1] === originalId ? "Accepted" : "In Progress",
+      };
+    };
+    await adoptNotarizationSubmission({ bundle, statePath, submissionId: additionalId, runNotary });
+    expect(
+      await waitNotarization({
+        bundle,
+        statePath,
+        runNotary,
+        timeout: "1s",
+        now: () => elapsed,
+        sleep: async (ms: number) => {
+          elapsed += ms;
+        },
+      }),
+    ).toBe(false);
+    expect(elapsed).toBe(1000);
+    expect(JSON.parse(await readFile(statePath, "utf8")).submissions).toHaveLength(2);
+    accepted = true;
+    expect(await waitNotarization({ bundle, statePath, runNotary, timeout: "1s" })).toBe(true);
+    expect(JSON.parse(await readFile(statePath, "utf8")).id).toBe(originalId);
+  });
+
+  it.each(["wrong-hash.dmg", "Mikiko-1.1.3-mac-x64-other.dmg"])(
+    "拒绝导入其他原包的申请：%s",
+    async (name) => {
+      const { bundle, statePath } = await candidateFixture();
+      const { adoptNotarizationSubmission } = await api();
+      await expect(
+        adoptNotarizationSubmission({
+          bundle,
+          statePath,
+          submissionId: additionalId,
+          runNotary: async () => ({ id: additionalId, name, status: "In Progress" }),
+        }),
+      ).rejects.toThrow(/identity|upload/i);
+      expect(JSON.parse(await readFile(statePath, "utf8")).submissions).toBeUndefined();
+    },
+  );
+
+  it("无效ID或其他source身份在查询前失败；Apple返回其他ID时不接纳", async () => {
+    const { bundle, statePath, additionalName } = await candidateFixture();
+    const { adoptNotarizationSubmission } = await api();
+    const unexpected = async () => {
+      throw new Error("must not contact Apple");
+    };
+    await expect(
+      adoptNotarizationSubmission({
+        bundle,
+        statePath,
+        submissionId: "bad-id",
+        runNotary: unexpected,
+      }),
+    ).rejects.toThrow(/ID/i);
+    await expect(
+      adoptNotarizationSubmission({
+        bundle: { ...bundle, sourceRunId: "999" },
+        statePath,
+        submissionId: additionalId,
+        runNotary: unexpected,
+      }),
+    ).rejects.toThrow(/identity/i);
+    await expect(
+      adoptNotarizationSubmission({
+        bundle,
+        statePath,
+        submissionId: additionalId,
+        runNotary: async () => ({ id: originalId, name: additionalName, status: "Accepted" }),
+      }),
+    ).rejects.toThrow(/identity/i);
+  });
+
+  it("全部拒绝或全部查询失败均保存候选并失败，不会上传新包", async () => {
+    const { bundle, statePath, originalName, additionalName } = await candidateFixture();
+    const { adoptNotarizationSubmission, waitNotarization } = await api();
+    let fail = false;
+    const runNotary = async (args: string[]) => {
+      if (fail) throw new Error("network unavailable");
+      if (args[0] === "log") return { issues: [] };
+      expect(args[0]).toBe("info");
+      return {
+        id: args[1],
+        name: args[1] === originalId ? originalName : additionalName,
+        status: "Invalid",
+      };
+    };
+    await adoptNotarizationSubmission({ bundle, statePath, submissionId: additionalId, runNotary });
+    await expect(waitNotarization({ bundle, statePath, runNotary, timeout: "1s" })).rejects.toThrow(
+      /Invalid/i,
+    );
+    fail = true;
+    await expect(waitNotarization({ bundle, statePath, runNotary, timeout: "1s" })).rejects.toThrow(
+      /quer|unavailable/i,
+    );
+    expect(JSON.parse(await readFile(statePath, "utf8")).submissions).toHaveLength(2);
+  });
+});
+
 describe("可恢复的 Apple 公证", () => {
   it("提交意图先归档；runner丢失后没有响应和history时拒绝二次提交", async () => {
     const { dir, bundle, statePath } = await fixture();

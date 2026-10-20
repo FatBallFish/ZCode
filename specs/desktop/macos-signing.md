@@ -109,3 +109,41 @@ sequenceDiagram
 验收新增：pending 后恢复 submit 次数仍为 1；提交返回丢失可从唯一 history 找回；
 状态与原包哈希不符、原包损坏、Invalid、未知提交状态阻止发布；Accepted 后 staple
 失败可重试且不 submit；ZIP 解压后的 App 含票据；workflow 恢复时跳过全部编译。
+
+## 人工授权的同包补充提交
+
+- 用户明确授权后，可以对完全相同的原始签名 DMG 新增一次公证申请，不重编译、不重签名。
+  上传前校验 immutable manifest，保存上传意图和 notarytool 的最终上传回执。
+  上传名使用 `<原DMG名>-<完整SHA256>-retry-<数字标识>.dmg`，避免与原申请的 history 恢复混淆。
+- 恢复入口可通过 `additional-notary-id` 和 `additional-notary-arch` 导入该申请；只接受原包
+  SHA-256 对应的上传名和 Apple 返回的相同 ID。该入口不调用 submit，重复导入同一 ID 幂等。
+- `state.json.submissions` 是同包候选申请的唯一状态所有者；原有顶层 id/status/uploadName
+  是当前选中申请的兼容投影。旧版单 ID state 无需迁移，首次导入时保留原申请。
+- 多申请时每 30 秒查询全部 ID，单轮最多 20 分钟。任一 Accepted 即选择其 ID 供验收证明，
+  其余 In Progress 不阻塞；个别查询失败或 Invalid 不能掩盖另一条 Accepted。
+  全部拒绝/未知状态失败，全部查询失败失败；仍 pending 时保存全部候选后续查，绝不自动补交。
+- staple 根据软件代码身份获取 Apple 票据，不按命令参数绑定 submission ID；因此候选必须是
+  同一份签名包。票据、签名和最终 ZIP/DMG 验收继续执行现有规则。
+
+```mermaid
+sequenceDiagram
+    participant O as 人工操作
+    participant A as Apple
+    participant S as state.json
+    participant C as CI恢复
+    O->>O: 校验原包SHA256，保存补充上传意图
+    O->>A: 同一DMG新增一次submit
+    A-->>O: 完整上传回执及新ID
+    O->>C: additional-notary-id + arch + 原始run
+    C->>A: info新ID，校验上传名和原包哈希
+    C->>S: 原ID与新ID作为同包候选归档
+    loop 最多20分钟
+        C->>A: info全部候选
+        A-->>C: Accepted / In Progress / Invalid
+    end
+    C->>S: 选中Accepted申请，保留全部候选
+    C->>C: staple原包、重建ZIP、验收并发布
+```
+
+新增验收：旧/新申请任一通过都可继续；另一条查询失败或拒绝不遮蔽通过；全pending限时保存；
+不同哈希、架构、异常上传名和无效ID不能导入；重复导入不新增上传；普通恢复仍只提交一次。

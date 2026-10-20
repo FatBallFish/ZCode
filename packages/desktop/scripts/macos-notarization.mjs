@@ -7,6 +7,8 @@ import { basename, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { setTimeout as delay } from "node:timers/promises";
+import { addSubmissionCandidate, waitCandidateNotarizations } from "./notary-submissions.mjs";
 
 const execFileAsync = promisify(execFile);
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
@@ -178,10 +180,36 @@ export async function submitNotarization({
     await rm(uploadPath, { force: true });
   }
 }
-export async function waitNotarization({ bundle, statePath, runNotary, timeout = "20m" }) {
+export async function adoptNotarizationSubmission({ bundle, statePath, submissionId, runNotary }) {
+  const state = await readJson(statePath);
+  checkState(bundle, state);
+  await addSubmissionCandidate({ bundle, state, submissionId, runNotary });
+  await saveJson(statePath, state);
+  console.log(`Tracking same-package notarization submission ${submissionId}`);
+  return state;
+}
+export async function waitNotarization({
+  bundle,
+  statePath,
+  runNotary,
+  timeout = "20m",
+  now = Date.now,
+  sleep = delay,
+}) {
   const state = await readJson(statePath);
   checkState(bundle, state);
   if (!state.id) throw new Error("No submission ID; recover submission before waiting");
+  if (state.submissions)
+    return waitCandidateNotarizations({
+      bundle,
+      state,
+      statePath,
+      saveJson,
+      runNotary,
+      timeout,
+      now,
+      sleep,
+    });
   let result = await runNotary(["info", state.id]);
   if (result.status === "In Progress") {
     try {
@@ -228,11 +256,11 @@ export function notaryCredentials(env = process.env) {
     ];
   throw new Error("Missing Apple notarization credentials");
 }
-export async function runNotary(args) {
+export async function runNotary(args, options = {}) {
   const command = ["notarytool", ...args, ...notaryCredentials(), "--output-format", "json"];
   try {
     const { stdout } = await execFileAsync("xcrun", command, {
-      timeout: 25 * 60_000,
+      timeout: options.timeout ?? 25 * 60_000,
       killSignal: "SIGKILL",
       maxBuffer: 16 * 1024 * 1024,
     });
@@ -281,7 +309,14 @@ async function main() {
       runNotary,
       allowNewSubmission: process.env.ALLOW_NEW_SUBMISSION === "true",
     });
-  else if (phase === "wait") {
+  else if (phase === "adopt") {
+    await adoptNotarizationSubmission({
+      bundle,
+      statePath,
+      submissionId: process.env.ADDITIONAL_NOTARY_ID,
+      runNotary,
+    });
+  } else if (phase === "wait") {
     const ready = await waitNotarization({
       bundle,
       statePath,
