@@ -763,3 +763,37 @@ Release 流水线（`.github/workflows/release-desktop.yml`）新增 `relay` job
 3. **手机页版本提示**：bind 响应附 `relayCapabilities.minPageVersion`（旧手机端按 unknown 容忍）；页面低于要求 → 「远控服务已更新」+ 刷新按钮（Pages 常新，刷新即升级）。页面协议版本常量 `REMOTE_PAGE_VERSION`。
 4. **部署顺序约定**：relay 先升（宽容解析保证兼容）→ 桌面 → Pages 手机页。
 5. **自动部署**：`.github/workflows/deploy-remote-control.yml`——push main 触发 relay→VPS(SSH secret RELAY_DEPLOY_KEY)、手机页→Pages(secret CLOUDFLARE_API_TOKEN)、update Worker 部署；secrets 未配置时对应 job 跳过。
+
+
+## §23 账号直连（OIDC，2026-10-20 批次 4）
+
+### 信任模型
+
+与票据持有人同级信任：**本人 Mikiko ID 即本人设备**。已登录 remote.mikiko.ai 的用户可以直接对已认领的设备发起远控连接，无需桌面签发票据/二维码。二维码票据路径保留（双轨并存），未登录用户仍可扫码。
+
+### 设备认领
+
+- 桌面 App 的 `registerDevice` 携带 Mikiko ID Bearer（MikikoCC OIDC 登录后 host 进程经 `readRemoteControlDeviceMid` 读 userData 下的 `remote-control-device.json` 获取 mid，直接 HTTP 调 relay `/api/rc/devices/claim`）。
+- 归属冲突（`already_owned`）：设备已被其他 sub 认领时拒绝改绑，需先由原账号释放（relay 重启即清）。
+- **内存绑定**（§6.7 零盘语义不破）：relay 重启后 ownerSub 丢失，桌面断线重连时携带 token 自动 re-claim。
+
+### relay 账号端点
+
+| 端点 | 方法 | 说明 |
+| --- | --- | --- |
+| `/api/rc/account/devices` | GET | 已认领设备列表 + 在线状态（`desktopRoutes.has(mid)`） |
+| `/api/rc/account/connect` | POST `{mid}` | 归属+在线校验 → 复用 `issueSession`+`bindTicket` 直接签发 `sid`+`sessionToken`（跳过 HMAC 票据） |
+| `/api/rc/devices/claim` | POST `{mid}` | 独立认领（登录态变化后补认领） |
+
+- CORS：`/api/rc/account/*` 收敛为 `https://remote.mikiko.ai` 白名单（其余 `/api/rc/*` 维持 `*`）。
+- `/healthz` 新增能力位 `accountApi: 1`，旧客户端无感。
+
+### remote.mikiko.ai /remote/devices
+
+- Mikiko ID OIDC（client `mikiko_remote`，Public + PKCE S256，回调 `/remote/devices/callback`）。
+- Token 仅存 sessionStorage（页面刷新走静默授权；关闭标签页即清）。
+- 连接器复用既有 `RemoteControlApp`（account connect 签发后跳转 `?sid&hash&t&mid&ws` 形态）。
+
+### 协议兼容
+
+- 全部为新增 HTTP 端点，不动 WS 帧/桌面控制帧 → **不 bump `REMOTE_CONTROL_PROTOCOL_VERSION`**。

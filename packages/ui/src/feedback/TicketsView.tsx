@@ -27,6 +27,8 @@ export function TicketsView({
   const [loadingList, setLoadingList] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedTicketId, setCopiedTicketId] = useState<string | null>(null);
+  // F.2.2 模式指示：登录态读远端（已同步到 Mikiko 账号），未登录读本地。
+  const [remoteMode, setRemoteMode] = useState(false);
 
   const loadList = useCallback(async () => {
     setLoadingList(true);
@@ -87,6 +89,20 @@ export function TicketsView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-popover">
+      <div
+        data-feedback-mode-indicator
+        className={cn(
+          "mx-4 mt-3 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs",
+          remoteMode
+            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            : "bg-neutral-500/10 text-neutral-500",
+        )}
+      >
+        <span className={cn("size-1.5 rounded-full", remoteMode ? "bg-emerald-500" : "bg-neutral-400")} />
+        {remoteMode
+          ? formatMessage({ id: "feedback.list.remoteMode" })
+          : formatMessage({ id: "feedback.list.localMode" })}
+      </div>
       {loadingList && items.length === 0 ? (
         <TicketsInitialLoadingState />
       ) : (

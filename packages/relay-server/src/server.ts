@@ -144,6 +144,13 @@ export async function startRelayServer(options: RelayServerOptions): Promise<Rel
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   }
 
+  /** 账号端点 CORS（E.3.4）：收敛为 remote.mikiko.ai 白名单，不再 Allow-Origin: *。 */
+  function setAccountCors(res: ServerResponse): void {
+    res.setHeader("Access-Control-Allow-Origin", "https://remote.mikiko.ai");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  }
+
   async function readJsonBody(req: IncomingMessage): Promise<unknown | null> {
     const chunks: Buffer[] = [];
     let total = 0;
@@ -173,6 +180,7 @@ export async function startRelayServer(options: RelayServerOptions): Promise<Rel
       res.writeHead(200, { "Content-Type": "application/json" }).end(
         JSON.stringify({
           ok: true,
+          accountApi: 1,
           version: RELAY_VERSION,
           protocolVersion: REMOTE_CONTROL_PROTOCOL_VERSION,
           minDesktopAppVersion: REMOTE_CONTROL_PROTOCOL_MIN_DESKTOP_APP_VERSION,
@@ -294,7 +302,7 @@ export async function startRelayServer(options: RelayServerOptions): Promise<Rel
 
   /** 账号设备列表（E.3）：在线状态 = 桌面长连存在。 */
   async function handleAccountDevices(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    setCors(res);
+    setAccountCors(res);
     const identity = await requireAccountIdentity(req, res);
     if (!identity) return;
     const devices = state.listOwnedDevices(identity.sub);
@@ -307,7 +315,7 @@ export async function startRelayServer(options: RelayServerOptions): Promise<Rel
    * 桌面无需预先同意：stream_open 自动 attach 流程原样复用（spec §6.4）。
    */
   async function handleAccountConnect(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    setCors(res);
+    setAccountCors(res);
     const identity = await requireAccountIdentity(req, res);
     if (!identity) return;
     const ip = clientRateKey(req);

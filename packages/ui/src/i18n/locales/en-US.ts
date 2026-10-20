@@ -3327,6 +3327,8 @@ const enUS: Record<string, string> = {
     "If the site enforces a captcha, paste an API key directly instead.",
   "settings.sub2api.login.success": "Signed in, synced {count} keys",
   "settings.sub2api.login.failed": "Sign-in failed",
+  "feedback.list.remoteMode": "Synced to your Mikiko account, visible across devices",
+  "feedback.list.localMode": "Local records (sign in with Mikiko ID to sync)",
   "settings.sub2api.login.oidc.submit": "Sign in with Mikiko ID",
   "settings.sub2api.login.oidc.waiting": "Complete Mikiko ID sign-in in your browser…",
   "settings.sub2api.login.oidc.failed": "Mikiko ID sign-in failed, please retry",

@@ -2820,6 +2820,26 @@ export function createLocalServices(options: {
         // 迁移失败不阻断登录；本地档案保留，下次登录自动重试。
       });
   });
+  // E.4 远控设备认领：Mikiko ID 登录后，host 进程读 userData 下的远控设备文件获取 mid，
+  // 直接 HTTP 调 relay /api/rc/devices/claim。避免了 main↔host IPC 桥——host 已有网络
+  // 能力且文件系统共享。mid 文件由 main 进程的 wiring.ts 写入（deviceCredentials.ts），
+  // 此处只读，不修改（单一所有者不变）。
+  sub2ApiService.onOIDCLoginCompleted(async () => {
+    try {
+      const mid = await readRemoteControlDeviceMid();
+      if (!mid) return;
+      const token = await sub2ApiService.getOIDCAccessToken("mikikocc");
+      if (!token) return;
+      await fetch("https://ws.mikiko.ai/api/rc/devices/claim", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ mid }),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      // 远控认领失败不阻断登录；下次登录或远控重连时重试。
+    }
+  });
   services
     .register(IProviderSettingsService, providerRuntime.providerSettings)
     .register(IModelSelectionService, providerRuntime.modelSelection)
@@ -3024,3 +3044,38 @@ export async function disposeServiceResourcesAndWait(services: ServiceCollection
     .catch(() => {});
 }
 export { localRuntimeNetworkCapture } from "./zcode-agent/localRuntimeNetworkCapture.js";
+
+/** E.4：读 main 进程写入的远控设备 mid（只读，不修改）。 */
+async function readRemoteControlDeviceMid(): Promise<string | null> {
+  const { readFile } = await import("node:fs/promises");
+  const { join: joinPath } = await import("node:path");
+  const { homedir } = await import("node:os");
+  // main wiring.ts 写入 userData/remote-control-device.json；Electron 默认 userData
+  // 在 ~/Library/Application Support/<AppName> 下，此处列出已知候选（按优先级）。
+  const candidates = [
+    joinPath(process.env.MIKIKO_DESKTOP_HOME_DIR ?? "", "remote-control-device.json"),
+    joinPath(
+      homedir(),
+      "Library",
+      "Application Support",
+      process.env.MIKIKO_DESKTOP_APPLICATION_NAME ?? "Mikiko",
+      "remote-control-device.json",
+    ),
+    joinPath(
+      homedir(),
+      "Library",
+      "Application Support",
+      "Electron",
+      "remote-control-device.json",
+    ),
+  ].filter((path) => path.length > "remote-control-device.json".length);
+  for (const path of candidates) {
+    try {
+      const raw = JSON.parse(await readFile(path, "utf8")) as { mid?: unknown };
+      if (typeof raw.mid === "string" && raw.mid) return raw.mid;
+    } catch {
+      // 尝试下一个候选。
+    }
+  }
+  return null;
+}

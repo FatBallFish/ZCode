@@ -3122,6 +3122,8 @@ const zhCN: Record<string, string> = {
   "settings.sub2api.login.hint": "站点开启人机验证时无法密码登录，请直接粘贴 API Key。",
   "settings.sub2api.login.success": "登录成功，已同步 {count} 个密钥",
   "settings.sub2api.login.failed": "登录失败",
+  "feedback.list.remoteMode": "已同步到 Mikiko 账号，换设备可见",
+  "feedback.list.localMode": "本地记录（登录 Mikiko 账号后可同步）",
   "settings.sub2api.login.oidc.submit": "使用 Mikiko ID 登录",
   "settings.sub2api.login.oidc.waiting": "在浏览器中完成 Mikiko ID 登录…",
   "settings.sub2api.login.oidc.failed": "Mikiko ID 登录失败，请重试",

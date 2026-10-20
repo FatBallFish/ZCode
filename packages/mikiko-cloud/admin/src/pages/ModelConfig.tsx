@@ -1,5 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
-import { api, formatTime } from "../lib/api.tsx";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  api,
+  formatTime,
+} from "../lib/api.tsx";
+
+/**
+ * 模型预设配置（方案 D.3）：表单编辑器（modelRules / modelApiRules / providerSiteRules
+ * 三分区可视化卡片）+ JSON 模式 + 发布/历史/恢复。
+ * 表单能力对齐旧 admin.html 的 renderForm/renderRuleCard：编辑常用字段后以 JSON 模式
+ * 为全保真逃生通道（templateRules 等未覆盖分区维持 JSON 模式不变）。
+ */
 
 interface BuiltinResponse {
   schemaVersion: number;
@@ -7,31 +17,61 @@ interface BuiltinResponse {
   config: unknown;
 }
 
-interface ModelConfigRulesShape {
-  modelConfigRules?: {
-    modelRules?: unknown;
-    modelApiRules?: unknown;
-    providerSiteRules?: unknown;
-    templateModelRules?: unknown;
-    builtinProviderModelRules?: unknown;
-  };
-  providerConfigRules?: {
-    templateRules?: unknown;
-    providerRules?: unknown;
-  };
+interface ModelConfigRules {
+  modelRules?: Array<Record<string, unknown>>;
+  modelApiRules?: Array<Record<string, unknown>>;
+  providerSiteRules?: Array<Record<string, unknown>>;
+  templateModelRules?: Array<Record<string, unknown>>;
+  builtinProviderModelRules?: Array<Record<string, unknown>>;
 }
 
-/**
- * 模型预设配置（方案 D.3 v1）：JSON 模式为全保真逃生通道（与旧后台一致），
- * 发布/历史/恢复沿用 worker 端 revision 语义；分区导航列出配置树的一级键。
- */
-const SECTION_LABELS: Record<string, string> = {
-  modelRules: "模型规则（modelRules）",
-  modelApiRules: "模型 API 规则（modelApiRules）",
-  providerSiteRules: "供应商站点规则（providerSiteRules）",
-  templateModelRules: "模板模型规则（templateModelRules）",
-  builtinProviderModelRules: "内置供应商模型规则（builtinProviderModelRules）",
-};
+interface RuleSection {
+  key: keyof Pick<ModelConfigRules, "modelRules" | "modelApiRules" | "providerSiteRules">;
+  label: string;
+  description: string;
+  /** 卡片上可编辑的字段（按 commonality 挑选）。 */
+  editableFields: Array<{ key: string; label: string; type: "text" | "select"; options?: string[] }>;
+}
+
+const SECTIONS: RuleSection[] = [
+  {
+    key: "modelRules",
+    label: "模型规则（modelRules）",
+    description: "按模型 ID 匹配的输入/能力/推理等级覆盖",
+    editableFields: [
+      { key: "modelIdPattern", label: "模型匹配", type: "text" },
+      { key: "inputTypes", label: "输入类型", type: "text" },
+      { key: "capabilities", label: "能力", type: "text" },
+      { key: "reasoningLevels", label: "推理等级", type: "text" },
+    ],
+  },
+  {
+    key: "modelApiRules",
+    label: "模型 API 规则（modelApiRules）",
+    description: "按 API 格式匹配的上下文窗口/默认参数",
+    editableFields: [
+      { key: "apiTypePattern", label: "API 格式匹配", type: "text" },
+      { key: "contextWindow", label: "上下文窗口", type: "text" },
+      { key: "maxOutputTokens", label: "最大输出", type: "text" },
+    ],
+  },
+  {
+    key: "providerSiteRules",
+    label: "供应商站点规则（providerSiteRules）",
+    description: "按供应商站点匹配的属性覆盖",
+    editableFields: [
+      { key: "providerIdPattern", label: "供应商匹配", type: "text" },
+      { key: "baseUrlPattern", label: "站点匹配", type: "text" },
+    ],
+  },
+];
+
+const JSON_SECTIONS: Array<{ key: string; label: string }> = [
+  { key: "templateModelRules", label: "模板模型规则" },
+  { key: "builtinProviderModelRules", label: "内置供应商模型规则" },
+];
+
+type Tab = "form" | "json";
 
 export function ModelConfigPage() {
   const [current, setCurrent] = useState<BuiltinResponse | null>(null);
@@ -40,6 +80,12 @@ export function ModelConfigPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<Tab>("form");
+
+  const rules = useMemo(
+    () => (current?.config as { modelConfigRules?: ModelConfigRules })?.modelConfigRules ?? {},
+    [current],
+  );
 
   const reload = useCallback(async () => {
     setBusy(true);
@@ -59,6 +105,58 @@ export function ModelConfigPage() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const syncDraftFromRules = useCallback((nextRules: ModelConfigRules) => {
+    const config = JSON.parse(draft || "{}") as Record<string, unknown>;
+    config.modelConfigRules = nextRules;
+    setDraft(JSON.stringify(config, null, 2));
+  }, [draft]);
+
+  const updateRule = useCallback(
+    (sectionKey: string, index: number, field: string, value: string) => {
+      const nextRules = { ...rules } as Record<string, Array<Record<string, unknown>>>;
+      const section = [...(nextRules[sectionKey] ?? [])];
+      const rule = { ...section[index] };
+      if (rule[field] === undefined && value === "") return;
+      // 常见数组/数字字段的类型推断：保持 JSON 原生类型。
+      if (/^\d+$/.test(value) && (field.includes("Window") || field.includes("Tokens"))) {
+        rule[field] = Number(value);
+      } else if (value.includes(",")) {
+        rule[field] = value.split(",").map((entry) => entry.trim()).filter(Boolean);
+      } else if (value === "true" || value === "false") {
+        rule[field] = value === "true";
+      } else {
+        rule[field] = value === "" ? undefined : value;
+      }
+      if (rule[field] === undefined) delete rule[field];
+      section[index] = rule;
+      nextRules[sectionKey] = section;
+      syncDraftFromRules(nextRules as ModelConfigRules);
+    },
+    [rules, syncDraftFromRules],
+  );
+
+  const removeRule = useCallback(
+    (sectionKey: string, index: number) => {
+      const nextRules = { ...rules } as Record<string, Array<Record<string, unknown>>>;
+      const section = [...(nextRules[sectionKey] ?? [])];
+      section.splice(index, 1);
+      nextRules[sectionKey] = section;
+      syncDraftFromRules(nextRules as ModelConfigRules);
+    },
+    [rules, syncDraftFromRules],
+  );
+
+  const addRule = useCallback(
+    (sectionKey: string) => {
+      const nextRules = { ...rules } as Record<string, Array<Record<string, unknown>>>;
+      const section = [...(nextRules[sectionKey] ?? [])];
+      section.push({});
+      nextRules[sectionKey] = section;
+      syncDraftFromRules(nextRules as ModelConfigRules);
+    },
+    [rules, syncDraftFromRules],
+  );
 
   const publish = async () => {
     setBusy(true);
@@ -90,15 +188,20 @@ export function ModelConfigPage() {
     }
   };
 
-  const sections = current
-    ? Object.entries(SECTION_LABELS).map(([key, label]) => {
-        const rules = (current.config as ModelConfigRulesShape)?.modelConfigRules as
-          | Record<string, unknown[]>
-          | undefined;
-        const count = Array.isArray(rules?.[key]) ? rules[key].length : 0;
-        return { key, label, count };
-      })
-    : [];
+  const totalSections = useMemo(() => {
+    const entries: Array<{ key: string; label: string; count: number }> = [];
+    for (const section of SECTIONS) {
+      entries.push({ key: section.key, label: section.label, count: (rules[section.key] ?? []).length });
+    }
+    for (const section of JSON_SECTIONS) {
+      entries.push({
+        key: section.key,
+        label: section.label,
+        count: ((rules as Record<string, unknown[]>)[section.key] ?? []).length,
+      });
+    }
+    return entries;
+  }, [rules]);
 
   return (
     <div className="space-y-4">
@@ -118,7 +221,68 @@ export function ModelConfigPage() {
         {error && <span className="text-xs text-red-400">{error}</span>}
       </div>
 
-      <div className="grid grid-cols-[1fr_16rem] gap-4">
+      {/* 模式切换 */}
+      <div className="flex gap-1 rounded-lg border border-neutral-800 bg-neutral-900/40 p-1">
+        {(["form", "json"] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setTab(mode)}
+            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+              mode === tab ? "bg-amber-500/15 text-amber-300" : "text-neutral-500 hover:text-neutral-300"
+            }`}
+          >
+            {mode === "form" ? "表单编辑" : "JSON 全量编辑"}
+          </button>
+        ))}
+      </div>
+
+      {tab === "form" ? (
+        <div className="space-y-6">
+          {SECTIONS.map((section) => {
+            const sectionRules = (rules[section.key] ?? []) as Array<Record<string, unknown>>;
+            return (
+              <section key={section.key} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-neutral-300">{section.label}</h3>
+                    <p className="text-xs text-neutral-600">{section.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addRule(section.key)}
+                    className="rounded border border-neutral-700 px-2 py-1 text-xs hover:border-amber-500 hover:text-amber-300"
+                  >
+                    + 添加规则
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {sectionRules.map((rule, index) => (
+                    <RuleCard
+                      key={`${section.key}-${index}`}
+                      section={section}
+                      rule={rule}
+                      onUpdate={(field, value) => updateRule(section.key, index, field, value)}
+                      onRemove={() => removeRule(section.key, index)}
+                    />
+                  ))}
+                  {sectionRules.length === 0 && (
+                    <p className="rounded-lg border border-dashed border-neutral-800 px-4 py-4 text-center text-xs text-neutral-600">
+                      暂无规则
+                    </p>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+          <section className="space-y-1">
+            <h3 className="text-xs text-neutral-500">
+              以下分区仅在 JSON 模式编辑：
+              {JSON_SECTIONS.map((section) => ` ${section.label}（${((rules as Record<string, unknown[]>)[section.key] ?? []).length} 条）`)}
+            </h3>
+          </section>
+        </div>
+      ) : (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs text-neutral-500">JSON 模式（全量编辑；发布前会做结构与大小校验）</span>
@@ -137,41 +301,100 @@ export function ModelConfigPage() {
             className="h-[32rem] w-full rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 font-mono text-xs leading-relaxed outline-none focus:border-amber-500"
           />
         </div>
-        <div className="space-y-4">
-          <div className="rounded-xl border border-neutral-800 p-3">
-            <h3 className="mb-2 text-xs font-medium text-neutral-400">配置分区概览</h3>
-            <ul className="space-y-1 text-xs text-neutral-400">
-              {sections.map((section) => (
-                <li key={section.key} className="flex justify-between">
-                  <span className="truncate">{section.label}</span>
-                  <span className="text-neutral-600">{section.count}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="rounded-xl border border-neutral-800 p-3">
-            <h3 className="mb-2 text-xs font-medium text-neutral-400">发布历史</h3>
-            <ul className="max-h-72 space-y-1 overflow-y-auto text-xs">
-              {history.map((item) => (
-                <li key={item.revision} className="flex items-center justify-between gap-2">
-                  <span className="text-neutral-400">
-                    r{item.revision}
-                    <span className="ml-1 text-[10px] text-neutral-600">{formatTime(item.updatedAt)}</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void restore(item.revision)}
-                    className="text-neutral-500 hover:text-amber-300"
-                  >
-                    恢复
-                  </button>
-                </li>
-              ))}
-              {history.length === 0 && <li className="text-neutral-600">暂无历史</li>}
-            </ul>
-          </div>
+      )}
+
+      <div className="grid grid-cols-[1fr_14rem] gap-4">
+        <div />
+        <div className="rounded-xl border border-neutral-800 p-3">
+          <h3 className="mb-2 text-xs font-medium text-neutral-400">配置分区概览</h3>
+          <ul className="space-y-1 text-xs text-neutral-400">
+            {totalSections.map((section) => (
+              <li key={section.key} className="flex justify-between">
+                <span className="truncate">{section.label}</span>
+                <span className="text-neutral-600">{section.count}</span>
+              </li>
+            ))}
+          </ul>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-neutral-800 p-3">
+        <h3 className="mb-2 text-xs font-medium text-neutral-400">发布历史</h3>
+        <ul className="max-h-72 space-y-1 overflow-y-auto text-xs">
+          {history.map((item) => (
+            <li key={item.revision} className="flex items-center justify-between gap-2">
+              <span className="text-neutral-400">
+                r{item.revision}
+                <span className="ml-1 text-[10px] text-neutral-600">{formatTime(item.updatedAt)}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => void restore(item.revision)}
+                className="text-neutral-500 hover:text-amber-300"
+              >
+                恢复
+              </button>
+            </li>
+          ))}
+          {history.length === 0 && <li className="text-neutral-600">暂无历史</li>}
+        </ul>
       </div>
     </div>
   );
+}
+
+function RuleCard({
+  section,
+  rule,
+  onUpdate,
+  onRemove,
+}: {
+  section: RuleSection;
+  rule: Record<string, unknown>;
+  onUpdate: (field: string, value: string) => void;
+  onRemove: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const displayKey =
+    String(rule[section.editableFields[0]?.key ?? "modelIdPattern"] ?? rule.modelIdPattern ?? rule.apiTypePattern ?? rule.providerIdPattern ?? "…");
+  return (
+    <div className="rounded-lg border border-neutral-800 bg-neutral-900/40">
+      <div className="flex items-center justify-between px-3 py-2">
+        <button type="button" onClick={() => setExpanded(!expanded)} className="min-w-0 flex-1 truncate text-left text-xs text-neutral-300">
+          <span className="mr-1 text-neutral-600">{expanded ? "▾" : "▸"}</span>
+          {displayKey}
+        </button>
+        <button type="button" onClick={onRemove} className="ml-2 shrink-0 text-xs text-neutral-600 hover:text-red-400">
+          删除
+        </button>
+      </div>
+      {expanded && (
+        <div className="grid grid-cols-2 gap-2 border-t border-neutral-800/60 px-3 py-2.5">
+          {section.editableFields.map((field) => (
+            <label key={field.key} className="space-y-0.5">
+              <span className="text-[10px] text-neutral-600">{field.label}</span>
+              <input
+                value={formatRuleValue(rule[field.key])}
+                onChange={(event) => onUpdate(field.key, event.target.value)}
+                className="h-7 w-full rounded border border-neutral-700 bg-neutral-900 px-2 font-mono text-xs"
+              />
+            </label>
+          ))}
+          <details className="col-span-2">
+            <summary className="cursor-pointer text-[10px] text-neutral-600">原始 JSON</summary>
+            <pre className="mt-1 max-h-40 overflow-y-auto rounded bg-neutral-950 p-2 text-[10px] text-neutral-500">
+              {JSON.stringify(rule, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatRuleValue(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
 }

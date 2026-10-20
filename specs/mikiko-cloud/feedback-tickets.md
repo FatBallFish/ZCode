@@ -71,3 +71,33 @@
 `.admin-credentials.local` 曾被 git 追踪（含真实管理凭据）——已 `git rm
 --cached` + gitignore（条目本已存在）；**凭据已在 git 历史中，必须轮换
 MIKIKO_ADMIN_USERNAME/PASSWORD**。
+
+
+## 账户化与产品需求模块（2026-10-20 批次 3）
+
+### kind 字段
+
+- `feedback_tickets.kind`：`"bug"`（默认）| `"feature"`（给产品提需求，Part C-b）。客户端 `ticketType === "feature"` 时发送 `kind: "feature"`。
+
+### 账号归属（owner_sub / owner_email）
+
+- Mikiko ID（KeyCloak）sub 为账号唯一键（不建用户表）。创建工单时可选 Bearer（`oidcTokenVerify.ts` 手写 WebCrypto JWKS RS256 验签，`azp ∈ {mikiko_code}`）；携带 Bearer 但验签失败 → **fail-close 401，不降匿名**。
+
+### 账号端点
+
+- `GET /api/v1/feedback/tickets/mine`：本人工单分页。
+- `GET /api/v1/feedback/tickets/{id}`：本人工单详情（403 非本人）。
+- `POST /api/v1/feedback/tickets/{id}/comments`：本人追加评论。
+- `POST /api/v1/feedback/tickets/migrate`：本地历史工单幂等迁移——先按 `client_ticket_id` 认领匿名行（UPDATE，不重复 INSERT），缺失才补建。
+
+### 客户端
+
+- 登录态创建走账号通道（Bearer + kind），未登录回落设备 token（匿名）。
+- 登录态「我的反馈」读远端 mine；失败回落本地。
+- `syncAccountRecords`：Mikiko ID 登录事件后自动迁移本地档案（含 pending-sync）并整体清档。
+
+### 管理后台
+
+- admin SPA（`/admin/`，Vite + React + Tailwind）四分区：问题反馈工单 / 产品需求（kind=feature 过滤）/ 模型预设配置（表单 + JSON 双模式）/ 功能配置。
+- 工单列表操作列（状态下拉直改 / 删除 / 详情）+ 详情抽屉两栏（截图灯箱预览 + 评论时间轴）。
+- 「提交漏洞」菜单已彻底移除（Part C.2.a）。

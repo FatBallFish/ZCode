@@ -63,3 +63,34 @@
 - 历史已同步、个人配置为空（未落推荐且用户未改过）的模型在下一次同步时通过 `savePersonalModelDraft` 补写快照；revision 冲突时本轮跳过、下次重试。
 - 推荐解析按「apiType::modelId」会话级缓存（null 表示已解析且无推荐），多密钥同模型与重复同步不重复解析。
 - **验收**（`packages/services/test/sub2apiModelRecommendation.test.ts`）：modelRules 命中字段优先于 modelApiRules、未命中字段降级；provider-site 规则不参与 relay 解析；新模型 addPersonalModel 携带推荐快照；历史空配置模型补写；同实例二次同步零重复解析。
+
+
+## Mikiko ID（KeyCloak OIDC）登录（2026-10-20 批次 2）
+
+### 登录方式
+
+- **仅 `kind === "mikikocc"`**：OIDC 授权码 + PKCE S256（Public client `mikiko_code`，无 secret）。UI 全入口（欢迎页 + 设置页）只展示「使用 Mikiko ID 登录」按钮；`login`/`loginWith2FA` 对 mikikocc 硬守卫（`errorCode: mikikocc-oidc-required`）。
+- `kind === "sub2api"` 自建站点保持账密登录不动。
+
+### 事件
+
+- `onOIDCLoginCompleted`：`{ siteId, state, syncedKeyCount, syncError? }`——完成续体经 `configWriteMethods` 写队列串行。
+- `onOIDCLoginFailed`：`{ siteId, message, errorCode? }`——含 nonce 不匹配、token-exchange 失败等。
+
+### 身份与凭据
+
+- `StoredAccount.oidc: { sub, email?, credentialKey }`——KeyCloak sub 为用户唯一键（Part E/F 消费）。
+- **refresh token 经 credentialService 加密独立存储**（`sub2api:mikikocc:oidc-refresh-token`），sub2api.json 不落明文 OIDC 凭据（§13.7 裁定）。
+- `getOIDCAccessToken(siteId)`：单飞刷新（合并并发调用），realm 开轮换时新 refresh token 覆盖存储；`invalid_grant` 清 OIDC 身份不清平台会话。
+
+### logout 语义
+
+- OIDC 账号 logout 时 best-effort `POST /api/v1/auth/logout` 撤销平台 refresh token + 清加密凭据；**不联动 KeyCloak realm 登出**（§13.1 裁定）。
+
+### A.9 存量迁移
+
+- `loadConfig` 检测历史账密登录（`account` 存在且无 `oidc` 字段）→ `cascadeRemoveSiteProviders` 级联清态 → 置 `mikikoccPasswordMigrationDone` 标记 → 引导 OIDC 重登。幂等。
+
+### 主动续期（G.2.1）
+
+- `getAccountDetail` 余额轮询前检查 `expiresAt < 120s` → 先走 `refreshSiteToken`（成功后 `persistSilently` 落盘——轮换旧 token 立即作废，不落盘则重启被登出）。反应式 401 路径保留兜底。
