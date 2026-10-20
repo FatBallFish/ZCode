@@ -167,3 +167,6 @@ Re-run 继续使用旧工作流代码，不能用它加载新增加的恢复入�
 - 原始 run 与任何恢复 run 的链接、submission ID 记录在发布验证文档中。
 
 仅看到 Apple Accepted、某个 bundle job 成功，或 GitHub 上存在草稿 Release，都不是完整发布完成。
+
+R2 分片遇到 HTTP 5xx 时发布脚本会按退避最多重试 5 次；仍失败时只重跑 feed job，
+不要重新构建、签名、公证或上传 GitHub Release。
