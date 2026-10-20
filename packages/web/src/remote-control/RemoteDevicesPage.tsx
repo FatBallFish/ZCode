@@ -67,12 +67,13 @@ export function RemoteDevicesPage(): React.JSX.Element {
           });
           storeRemoteSession(tokens);
           redirectToDevices();
+          // 不 return——继续走下方「拉设备列表」，否则 phase 停在 loading。
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : String(cause));
           setPhase("error");
           redirectToDevices();
+          return;
         }
-        return;
       }
       // 2) 已有会话 → 拉设备列表
       const session = loadRemoteSession();
