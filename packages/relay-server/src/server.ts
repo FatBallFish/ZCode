@@ -268,7 +268,7 @@ export async function startRelayServer(options: RelayServerOptions): Promise<Rel
       } catch (error) {
         if (error instanceof RelayOidcError) {
           // 注册本身已成功；无效 Bearer 只影响归属（fail-close 到匿名），不回滚注册。
-          logger.warn("device register claim rejected", { code: error.code });
+          logger.warn("device register claim rejected", { code: error.code, message: error.message });
         } else {
           throw error;
         }

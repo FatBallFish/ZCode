@@ -34,6 +34,7 @@ async function main(): Promise<void> {
       ?.split(",")
       .map((url) => url.trim())
       .filter(Boolean),
+    oidcIssuer: requiredEnv("RELAY_OIDC_ISSUER"),
     port: listenPort,
     host: listenHost,
   });

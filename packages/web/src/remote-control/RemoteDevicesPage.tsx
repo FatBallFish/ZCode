@@ -85,9 +85,15 @@ export function RemoteDevicesPage(): React.JSX.Element {
         const list = await listRemoteDevices(session.accessToken, RELAY_HTTP_BASE);
         setDevices(list);
         setPhase("ready");
-      } catch {
-        clearRemoteSession();
-        setPhase("login");
+      } catch (cause) {
+        const status = (cause as { status?: number }).status;
+        if (status === 401) {
+          clearRemoteSession();
+          setPhase("login");
+        } else {
+          setError(cause instanceof Error ? cause.message : String(cause));
+          setPhase("error");
+        }
       }
     }
   }, []);

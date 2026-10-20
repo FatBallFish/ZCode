@@ -117,7 +117,11 @@ export async function listRemoteDevices(
     headers: { authorization: `Bearer ${accessToken}` },
   });
   if (!response.ok) {
-    throw new Error(`List devices failed: HTTP ${response.status}`);
+    const error = new Error(`List devices failed: HTTP ${response.status}`) as Error & {
+      status: number;
+    };
+    error.status = response.status;
+    throw error;
   }
   const body = (await response.json()) as { devices?: RemoteDeviceInfo[] };
   return body.devices ?? [];
