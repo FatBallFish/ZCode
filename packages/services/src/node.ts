@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { writeFile } from "node:fs/promises";
 import {
   createNodeProviderRuntimePathEnv,
   NodeModelSelectionConfigRepository,
@@ -2822,12 +2823,28 @@ export function createLocalServices(options: {
   });
   // E.4 远控设备认领：host 进程读 userData 下的远控设备文件获取 mid，
   // 直接 HTTP 调 relay /api/rc/devices/claim（带重试，因为 main 进程的设备注册可能滞后）。
+  /** E.4：把当前 OIDC access token 写到共享文件（main 进程的 registerDevice 读取后带 Bearer）。 */
+  const OIDC_TOKEN_CACHE_FILE = join(resolveAppConfigDir(), "mikiko-id-token.cache");
+  async function cacheOidcAccessTokenForRemoteControl(): Promise<void> {
+    try {
+      const token = await sub2ApiService.getOIDCAccessToken("mikikocc");
+      if (token) {
+        await writeFile(OIDC_TOKEN_CACHE_FILE, token, "utf8");
+      } else {
+        await writeFile(OIDC_TOKEN_CACHE_FILE, "", "utf8");
+      }
+    } catch {
+      // 文件写入失败不阻断；下次获取 token 时重试。
+    }
+  }
+
   async function claimRemoteControlDevice(retriesLeft = 3): Promise<void> {
     try {
       const mid = await readRemoteControlDeviceMid();
       if (!mid) return;
       const token = await sub2ApiService.getOIDCAccessToken("mikikocc");
       if (!token) return;
+      void cacheOidcAccessTokenForRemoteControl();
       const response = await fetch("https://ws.mikiko.ai/api/rc/devices/claim", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },

@@ -129,8 +129,12 @@ export function createRemoteControlProductionService(
   async function registerDevice(): Promise<string> {
     const { mid } = await deviceStore.load();
     // E.4 设备认领：MikikoCC OIDC 已登录时附带 Bearer，relay 注册同时认领到 Mikiko ID sub。
-    // token 获取失败不阻塞注册（匿名降级），下次重连/登录后再认领。
-    const mikikoIdToken = await options.getMikikoIdAccessToken?.().catch(() => null);
+    // 优先从注入的 getMikikoIdAccessToken 获取；回退读 host 进程写入的共享缓存文件。
+    // 两条路径都失败则匿名注册（下次重连/登录后再认领）。
+    let mikikoIdToken = await options.getMikikoIdAccessToken?.().catch(() => null);
+    if (!mikikoIdToken) {
+      mikikoIdToken = await readCachedOidcToken().catch(() => null);
+    }
     const response = await fetch(`${relayHttpUrl}/api/rc/devices`, {
       method: "POST",
       headers: {
@@ -145,6 +149,30 @@ export function createRemoteControlProductionService(
     const body = (await response.json()) as { deviceToken: string };
     await deviceStore.saveToken(body.deviceToken);
     return body.deviceToken;
+  }
+
+  /**
+   * E.4：读 host 进程写入的 OIDC access token 缓存文件（<configDir>/mikiko-id-token.cache）。
+   * host 的 node.ts 在获取/刷新 OIDC token 时同步写此文件；main 进程只读不写。
+   * 文件内容为裸 token 字符串（短时效，access token 有效期内有效）。
+   */
+  async function readCachedOidcToken(): Promise<string | null> {
+    const { readFile } = await import("node:fs/promises");
+    const { join: joinPath } = await import("node:path");
+    const { homedir } = await import("node:os");
+    const candidates = [
+      joinPath(process.env.MIKIKO_DESKTOP_HOME_DIR ?? "", ".mikiko", "v2", "mikiko-id-token.cache"),
+      joinPath(homedir(), ".mikiko", "v2", "mikiko-id-token.cache"),
+    ].filter((path) => path.includes("mikiko-id-token.cache"));
+    for (const path of candidates) {
+      try {
+        const token = (await readFile(path, "utf8")).trim();
+        if (token) return token;
+      } catch {
+        // 尝试下一个候选。
+      }
+    }
+    return null;
   }
 
   const service = createRemoteControlService({
