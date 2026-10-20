@@ -15,7 +15,7 @@ import type {
   SourceServerProbeOptions,
   SourceServerProbeResult,
   TransportContext,
-} from "@zcode/server/source-server/transportAdapter.js";
+} from "./boundary/types.js";
 
 const SERVER_ROOT_SHELL = '"$HOME/.mikiko/server"';
 const SERVER_BIN_SHELL = '"$HOME/.mikiko/server/bin/mikiko"';

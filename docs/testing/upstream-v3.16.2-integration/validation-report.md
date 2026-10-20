@@ -30,7 +30,7 @@
 | architecture --changed       | 0 违规、0 baseline；历史豁免绑定固定 blob，未刷新违规 baseline                                                                                                                 |
 | 全仓 fmt:check               | 初检 exit 1：2111 个差异；其中 1955 与上游 blob 一致、147 与二开输入一致；本次适配的 9 文件已规范并定向格式检查通过，保留 2102 个来源原文差异                                  |
 | 架构治理自测 / SQLite schema | 36 项 / 8 项通过，app/CLI 两份 schema 基线兼容                                                                                                                                 |
-| 根仓 Vitest 全量             | 当前 2097 个规格逐文件对账无遗漏，最终 20185 项通过、9 项按原条件跳过、0 失败                                                                                                  |
+| 根仓 Vitest 全量             | 当前 2103 个规格逐文件对账无遗漏，最终 20210 项通过、9 项按原条件跳过、0 失败                                                                                                  |
 | 根仓 Node 全量               | 338 项通过，0 失败、0 跳过                                                                                                                                                     |
 | CLI 完整默认链               | 最终默认命令 exit 0：42/42 任务成功：24 个 build 缓存、18 个 test 全部 fresh；含 wrapper 共 12964 项通过、40 项跳过、0 失败，24m4s；原 5s 时限未改，详见 cli-test-summary.json |
 | Desktop + CLI bundle         | 最终冻结运行时代码完整 fresh build 通过                                                                                                                                        |
@@ -73,3 +73,15 @@ JSON/PNG/网络/运行日志保留在本次工作树 `/Users/fatballfish/.codex/
 CLI 类型检查使用根工具入口 `mise exec -- pnpm exec turbo run typecheck --cwd apps/zcode-cli --concurrency=1`；嵌套 workspace 直接运行原 typecheck 脚本时无法解析外层 Turbo，最终验证执行同一任务图，不跳过包。
 
 第三方声明在最终包清单冻结后重新生成：1226 个精确包版本、12 份复制组件、18 份原生归档；`readVerifiedNotices` 新鲜度校验通过。根仓与 CLI 的最终静态检查日志及测试原始 JSON 将与 Electron 证据共同归档到上述主工作区的 `verification/` 子目录。
+
+## 主工作区最终收口
+
+合并提交为 `220e237424d9e5926494dda8f49abb3a5d0b7248`，双亲及上游、远端custom、回滚锚点祖先关系已验证；主工作区 `custom_main` 已通过 ff-only 接入。锁文件安装退出0，未更改发行版本1.1.3。
+
+隔离分支无远端追踪时，手工默认门禁的测试选择器尝试不存在的origin/staging而退出2；使用工具已有的显式固定上游基线后通过。该门禁按既有规则在选中整个套件时跳过UT，不能把门禁退出0当作全量UT通过；全量与新增文件实际执行结果按机器摘要对账。
+
+主分支以真实origin/custom_main比较，曾暴露11个Source Server适配文件未受管。现补齐6个真实模块的owner、requires、公有入口与五件套，未新增运行时状态owner；原来3个连接/档案/迁移大文件仅按精确路径保留行数及原lint注释，理由记录220e2374固定blob，不刷新违规baseline，也不豁免依赖或cycle规则。主工作区默认架构检查现0违规、0baseline。
+
+传输适配器的原反向类型引用迁入独立types.ts，原类型导出兼容；两个实现文件前后生成JavaScript有效token及hash完全相同（`mikiko-source-boundaries-js-equivalence.json`）。运行时错误类、工厂、探测命令与取消逻辑均保留，原生Electron的运行语义未改变。
+
+新增6个合同文件25项测试，并联合原传输37项重新执行，共7文件62项通过。最终清单从原2097增加至2103文件，旧文件无移除；机器摘要跨两个checkout按仓库相对路径匹配，无遗漏或重复计数。新增Host fixture最初遗漏严格schema必填lifecycleState，已补合法active值并加入schema断言，最终根仓typecheck通过。

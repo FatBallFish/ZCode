@@ -3,11 +3,11 @@
     "upstream": "075fde8429f15bc5baa018f4605ea776770dbf8d",
     "customRollback": "4a971eaac771363da0aa8fe69571ca4d9b1463eb"
   },
-  "method": "8 complete unit shards + serial projects; final full-file regression results replace earlier failing file results; current Vitest inventory compared by absolute file path",
-  "discoveredFiles": 2097,
-  "coveredFiles": 2097,
+  "method": "8 complete unit shards + serial projects; latest full-file regressions replace earlier file results; 6 new Source Server contract files added and all 7 touched files rerun; final inventory compared by repository-relative path across integration worktree and primary checkout",
+  "discoveredFiles": 2103,
+  "coveredFiles": 2103,
   "missingFiles": [],
-  "passedCases": 20185,
+  "passedCases": 20210,
   "skippedCases": 9,
   "failedCases": 0,
   "whollySkippedFiles": [
@@ -72,7 +72,8 @@
     "/tmp/mikiko-final-remote-dev-regression.json",
     "/tmp/mikiko-final-provider-regression.json",
     "/tmp/mikiko-cache-env-final.json",
-    "/tmp/mikiko-format-regressions.json"
+    "/tmp/mikiko-format-regressions.json",
+    "/tmp/mikiko-source-boundaries-final.json"
   ],
   "formatOnlyRegression": {
     "files": 4,
@@ -81,5 +82,16 @@
     "log": "/tmp/mikiko-format-regressions.log",
     "countedAgain": false
   },
-  "evidenceArchive": "/Users/fatballfish/Documents/Projects/ClientProjects/ZCode/packages/desktop/.e2e-artifacts/upstream-v3.16.2-integration/verification"
+  "evidenceArchive": "/Users/fatballfish/Documents/Projects/ClientProjects/ZCode/packages/desktop/.e2e-artifacts/upstream-v3.16.2-integration/verification",
+  "inventory": "/tmp/mikiko-custom-main-final-root-inventory.json",
+  "sourceServerBoundaryRegression": {
+    "files": 7,
+    "passed": 62,
+    "failed": 0,
+    "newFiles": 6,
+    "newPassedCases": 25,
+    "runtimeJavaScriptEquivalent": true,
+    "equivalenceProof": "/tmp/mikiko-source-boundaries-js-equivalence.json",
+    "countedAgain": false
+  }
 }

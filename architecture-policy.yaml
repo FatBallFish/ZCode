@@ -1088,6 +1088,104 @@ modules:
     layers:
       adapters: .
     owner: product-updates
+  - id: host-source-server
+    roots:
+      - packages/desktop/src/host/source-server-boundary
+      - packages/desktop/src/host/sourceServerConnectionManager.ts
+      - packages/desktop/src/host/sourceServerDirectory.ts
+    managed: true
+    requires:
+      - desktop
+      - rpc
+      - server
+      - services
+      - shared
+    publicEntrypoints:
+      - packages/desktop/src/host/source-server-boundary/contract.ts
+      - packages/desktop/src/host/sourceServerConnectionManager.ts
+      - packages/desktop/src/host/sourceServerDirectory.ts
+    layers:
+      adapters: .
+    owner: remote-workspace
+  - id: source-server-transport
+    roots:
+      - packages/server/src/source-server/boundary
+      - packages/server/src/source-server/transportAdapter.ts
+      - packages/server/src/source-server/sourceServerProbe.ts
+    managed: true
+    requires:
+      - server
+      - shared
+    publicEntrypoints:
+      - packages/server/src/source-server/boundary/contract.ts
+      - packages/server/src/source-server/transportAdapter.ts
+      - packages/server/src/source-server/sourceServerProbe.ts
+    layers:
+      adapters: .
+    owner: remote-workspace
+  - id: source-server-release-contract
+    roots:
+      - packages/shared/src/source-server/release-boundary
+      - packages/shared/src/source-server/release.ts
+    managed: true
+    requires: []
+    publicEntrypoints:
+      - packages/shared/src/source-server/release-boundary/contract.ts
+      - packages/shared/src/source-server/release.ts
+    layers:
+      domain: .
+    owner: distribution
+  - id: source-server-workspace-migration
+    roots:
+      - packages/services/src/session/source-server-migration-boundary
+      - packages/services/src/session/sourceServerWorkspaceAliasRepo.ts
+      - packages/services/src/session/offPeakWorkspaceIdentityMigration.ts
+    managed: true
+    requires:
+      - services
+      - session
+      - shared
+      - sqlite-migrations
+    publicEntrypoints:
+      - packages/services/src/session/source-server-migration-boundary/contract.ts
+      - packages/services/src/session/sourceServerWorkspaceAliasRepo.ts
+      - packages/services/src/session/offPeakWorkspaceIdentityMigration.ts
+    layers:
+      adapters: .
+    owner: persistence
+  - id: source-server-packaging
+    roots:
+      - packages/zcode-server-cli/src/packaging/source-release-boundary
+      - packages/zcode-server-cli/src/packaging/remoteAssetRelease.ts
+      - packages/zcode-server-cli/src/packaging/stageArchives.ts
+      - packages/zcode-server-cli/src/packaging/stageRemoteAssetsCli.ts
+    managed: true
+    requires:
+      - shared
+      - zcode-server-cli
+    publicEntrypoints:
+      - packages/zcode-server-cli/src/packaging/source-release-boundary/contract.ts
+      - packages/zcode-server-cli/src/packaging/remoteAssetRelease.ts
+      - packages/zcode-server-cli/src/packaging/stageArchives.ts
+    layers:
+      adapters: .
+    owner: distribution
+  - id: source-server-daemon-boundary
+    roots:
+      - packages/zcode-server-cli/src/daemon-boundary
+      - packages/zcode-server-cli/src/runtime/updateHandoff.ts
+      - packages/zcode-server-cli/src/server-core/proxyStdio.ts
+    managed: true
+    requires:
+      - services
+      - zcode-server-cli
+    publicEntrypoints:
+      - packages/zcode-server-cli/src/daemon-boundary/contract.ts
+      - packages/zcode-server-cli/src/runtime/updateHandoff.ts
+      - packages/zcode-server-cli/src/server-core/proxyStdio.ts
+    layers:
+      adapters: .
+    owner: remote-runtime
 
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。
@@ -1247,3 +1345,17 @@ exceptions:
       - packages/ui/src/settings/DynamicWorkflowModeSetting.tsx
       - packages/ui/src/store/dynamicWorkflowAvailabilityStore.ts
     reason: Admitted upstream files edited only to let the user's dynamic workflow mode choice always win and keep the settings row visible; adopting packages/shared/src and packages/ui/src needs a separate module boundary refactor.
+  - id: source-server-inherited-max-file-lines
+    rule: max-file-lines
+    paths:
+      - packages/desktop/src/host/sourceServerConnectionManager.ts
+      - packages/desktop/src/host/sourceServerDirectory.ts
+      - packages/services/src/session/sourceServerWorkspaceAliasRepo.ts
+    reason: 保留220e2374已验证实现的单一连接/档案/迁移事务owner与原有行数注释，不为模块登记拆分运行时；仅精确三文件，未放宽依赖、cycle或新文件规则。固定来源：packages/desktop/src/host/sourceServerConnectionManager.ts=316082a2d779fe6cedcbd2794df4ace3c44a9670; packages/desktop/src/host/sourceServerDirectory.ts=96824fd484897db1aa251e08a4d4d1521523c0a6; packages/services/src/session/sourceServerWorkspaceAliasRepo.ts=ca33914f6067d993f2566b2efebc05440716a2b2
+  - id: source-server-inherited-disable-count
+    rule: disable-count
+    paths:
+      - packages/desktop/src/host/sourceServerConnectionManager.ts
+      - packages/desktop/src/host/sourceServerDirectory.ts
+      - packages/services/src/session/sourceServerWorkspaceAliasRepo.ts
+    reason: 保留220e2374已验证实现的单一连接/档案/迁移事务owner与原有行数注释，不为模块登记拆分运行时；仅精确三文件，未放宽依赖、cycle或新文件规则。固定来源：packages/desktop/src/host/sourceServerConnectionManager.ts=316082a2d779fe6cedcbd2794df4ace3c44a9670; packages/desktop/src/host/sourceServerDirectory.ts=96824fd484897db1aa251e08a4d4d1521523c0a6; packages/services/src/session/sourceServerWorkspaceAliasRepo.ts=ca33914f6067d993f2566b2efebc05440716a2b2

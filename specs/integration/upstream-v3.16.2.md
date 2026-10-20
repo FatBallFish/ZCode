@@ -7,7 +7,9 @@
 1. 手机远控保持当前自建 relay、Mikiko ID、设备认领/直连、扫码与 P2P 能力。上游 Relay V2 不采用、不装配，不以它替换自建协议；其专属模块列入明确排除台账。通用任务/恢复修复仍需适配并回归。
 2. 更新/远端资源下载、bug 上报、需求反馈、分享、客户端功能配置等产品云端接口全部使用自有品牌与自建服务。只有官方 CodingPlan 账号体系及它完成账号业务必需的供应商接口继续保持官方合同。普通产品服务不能借此例外回流官方端点。
 
-生产模式下，任意自建产品域（包括 `MIKIKO_BASE_URL` 自定义部署）均不改变官方 CodingPlan OAuth、套餐计费/领取及官方 MCP 套餐额度的来源，不能向产品域转发官方账号凭据。由共享 account resolver 唯一决定该来源；非生产显式测试 origin、loopback 回放与账户工厂的明确 baseUrl 注入保留测试合同。公共功能配置仍自建，套餐静态配置使用已有专用只读代理，不能把普通产品 client/configs 当账号配置。3. 新功能的产品侧环境变量、配置名、文件名、目录路径、进程名、可见文案和安装身份统一 Mikiko。包 scope、TypeScript 内部符号、不可见协议判别器与第三方品牌不做机械替换；可对外配置/运行的名字不属于内部符号豁免。
+生产模式下，任意自建产品域（包括 `MIKIKO_BASE_URL` 自定义部署）均不改变官方 CodingPlan OAuth、套餐计费/领取及官方 MCP 套餐额度的来源，不能向产品域转发官方账号凭据。由共享 account resolver 唯一决定该来源；非生产显式测试 origin、loopback 回放与账户工厂的明确 baseUrl 注入保留测试合同。公共功能配置仍自建，套餐静态配置使用已有专用只读代理，不能把普通产品 client/configs 当账号配置。
+
+3. 新功能的产品侧环境变量、配置名、文件名、目录路径、进程名、可见文案和安装身份统一 Mikiko。包 scope、TypeScript 内部符号、不可见协议判别器与第三方品牌不做机械替换；可对外配置/运行的名字不属于内部符号豁免。
 
 ## 路径和远端兼容
 
@@ -56,3 +58,33 @@ Relay V2 `/api/v1/remote/token` 或官方账号设备表冒充自建链已验证
 仍隔离到 loopback。Web 开发 fixture 使用操作系统分配的独立端口，不抢占开发者5173；
 其实际 origin 通过 Mikiko 环境变量与用例传递。启动失败/正常结束均关闭本次拥有的
 Web 子进程和 relay，恢复本次环境，不关闭其他会话的进程。
+
+## Source Server 集成模块边界验收
+
+架构验证同时覆盖固定上游 `075fde84` 与本分支真实追踪 `origin/custom_main`。适配后的新文件必须登记真实模块；不得用上游路径存在与否掩盖未登记的新代码。保持实现位置与现有公开入口，新增边界合同复用已有 owner，不新建队列、连接、进程或持久化写入路径。
+
+| 模块                              | 所有者与合同                                                                              |
+| --------------------------------- | ----------------------------------------------------------------------------------------- |
+| host-source-server                | 已有 Host ConnectionManager / Directory 管连接代际和档案，不承担 runtime task 状态        |
+| source-server-transport           | 已有 transport adapter 管 exec/upload、取消和探测，不缓存业务事实                         |
+| source-server-release-contract    | shared 的严格 release schema 是 descriptor 唯一校验合同，纯数据层无 IO                    |
+| source-server-workspace-migration | AliasRepo 管 app/CLI 身份迁移及备份，按 workspace 串行；off-peak 冲突取消在同一既有事务内 |
+| source-server-packaging           | 分发构建器串行准备 archive 与 descriptor；失败不发布混合代际                              |
+| source-server-daemon-boundary     | 已有 daemon handoff/proxy 管原生进程和 stdio，复用现有 Runtime Identity 和发布合同        |
+
+```mermaid
+sequenceDiagram
+  participant Host as 既有Host连接owner
+  participant Transport as 传输适配器
+  participant Migration as AliasRepo迁移owner
+  participant Daemon as 既有远端daemon
+  Host->>Transport: probe / ensure（同一取消代际）
+  Transport->>Daemon: 鉴权连接与身份探测
+  Daemon-->>Host: Runtime/Source身份
+  Host->>Migration: 以身份与实际workspacePath解析canonical
+  Migration->>Migration: 备份→任务/会话事务与ledger→canonical事实
+  Migration-->>Host: 可重放迁移结果
+  Host->>Daemon: 绑定既有attachment
+```
+
+新合同测试必须通过公开入口验证现有不变量。仅补模块声明不会改变已完成的运行时验收；若调整运行时代码，必须补对应回归并更新来源台账。历史大文件和既有 lint-disable 只能按精确文件与固定来源说明，不新增全局豁免。

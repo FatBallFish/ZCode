@@ -86,3 +86,30 @@ GET  /api/v1/mcp/usage
 另已检查 Browser 三个外部 CDP Node 文件由默认命令串联其 Node 入口；Adapters 两个 ChatGPT Node 文件由默认链执行，避免交给 Vitest；TUI 的 Node glob 与 Office 的本地 Vitest include 分别覆盖自身目录。
 
 这些入口修正的测试数量和真实结果以最终验收报告为准。本独立评审未执行全量测试、真实 OAuth、生产云操作、跨平台安装或远控 E2E。
+
+## 2026-10-21：主工作区 Source Server 模块登记复核
+
+审查者：Desktop/Web 集成协作者。审查目录为 `/Users/fatballfish/Documents/Projects/ClientProjects/ZCode`，基线为 `220e237424d9e5926494dda8f49abb3a5d0b7248`；旧集成 worktree 不在本轮修改范围。Host 五件套由本审查者实现，因此本轮仅核对其 policy 登记，不将其实现自评作为独立验证；另外五个模块按源码、公开导出、实际 import 和基线 diff 独立复核。
+
+**结论：本轮范围内未发现 Critical/Important。** 未修改业务源码、policy 或提交；未启动测试或类型构建，父任务正在运行的联合测试及根型检须以其最终真实结果记账。
+
+| 模块                                | 实际依赖与公开边界复核                                                                                                                                                                                                                                                                 |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host-source-server`                | `desktop/rpc/server/services/shared` 与既有 manager/directory imports 对应；公开合同与两个原文件入口均登记。未增加 registry、连接 owner 或持久化写入路径。                                                                                                                             |
+| `source-server-transport`           | `server/shared` 对应 backend、命令工具及共享类型；contract 导出原工厂、probe、错误和类型，原 adapter/probe 入口保留。类型仅抽到本模块 `types.ts`，旧 adapter 继续 type re-export；参数、可选字段、取消与返回签名不变。probe 的反向引用改为 `import type`，未新增运行时代码或连接缓存。 |
+| `source-server-release-contract`    | `release.ts` 只依赖外部 zod，`requires: []` 真实；原 schema/常量/类型直接 re-export，纯 domain 登记与代码相符，没有 IO 或第二份校验器。                                                                                                                                                |
+| `source-server-workspace-migration` | `services/session/shared/sqlite-migrations` 覆盖路径工具、任务迁移、共享身份和 session migration。原 AliasRepo 与 off-peak 函数保留入口，合同复用原迁移 owner，未增加事务、备份或 ledger 副本。                                                                                        |
+| `source-server-packaging`           | `shared/zcode-server-cli` 与 descriptor、归档、平台工具依赖相符；只导出原 release/archive 函数。拥有顶层 `await main()` 的 `stageRemoteAssetsCli.ts` 仅登记归属，不列入公开入口，也未被 contract/example/test 导入。                                                                   |
+| `source-server-daemon-boundary`     | `services/zcode-server-cli` 覆盖 logger、原 ReleaseManager、控制通道与状态读取；contract 只导出既有 handoff/proxy。创建/导入新边界不启动 daemon、不打开 stdio 连接；显式调用继续复用原进程边界与 release 指针 owner。                                                                  |
+
+精确继承例外只包含 `max-file-lines` 与 `disable-count` 两类规则的三条文件路径。通过 `git hash-object` 与 `git ls-tree 220e2374` 独立核对，当前实际内容、基线内容与理由所列 blob 全部相同：
+
+| 文件                                                              | 基线与当前 blob                            | 继承诊断                       |
+| ----------------------------------------------------------------- | ------------------------------------------ | ------------------------------ |
+| `packages/desktop/src/host/sourceServerConnectionManager.ts`      | `316082a2d779fe6cedcbd2794df4ace3c44a9670` | 1460 行，1条 max-lines disable |
+| `packages/desktop/src/host/sourceServerDirectory.ts`              | `96824fd484897db1aa251e08a4d4d1521523c0a6` | 1486 行，1条 max-lines disable |
+| `packages/services/src/session/sourceServerWorkspaceAliasRepo.ts` | `ca33914f6067d993f2566b2efebc05440716a2b2` | 2354 行，1条 max-lines disable |
+
+这些例外不豁免依赖、循环、层级或新增文件登记；没有新增全局路径通配例外、改阈值或刷新 baseline 掩盖违规。transport 的 suppression 删除伴随完整类型抽取，其实现现为455行，未拆出隐藏运行时 owner。
+
+AliasRepo 新测试的隔离条件已静态追踪到真实实现：空输入用唯一临时目录显式提供 task/session/backup 三个路径，原方法在任何建目录或开库前 trim 并拒绝；测试断言目录为空并在 finally 清理。另一测试仅构造公开冲突错误，不创建 Repo 或数据库。没有修改 HOME/环境，也未使用默认用户数据库路径。其断言只覆盖空输入及公开错误合同，不冒称覆盖真实双库迁移与恢复。
