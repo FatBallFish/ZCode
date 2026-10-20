@@ -10,8 +10,9 @@
     "self-hosted-cloud except official CodingPlan account integration",
     "Mikiko outward-facing product identifiers"
   ],
-  "status": "implementation and functional validation complete",
+  "status": "validated and merged locally into custom_main",
   "integrationMergeCommit": "220e237424d9e5926494dda8f49abb3a5d0b7248",
   "rollbackTag": "custom-main-pre-v3.16.2-20261020",
-  "completionBranch": "custom_main"
+  "completionBranch": "custom_main",
+  "validatedSourceCommit": "1049fd76d12256637edb73b0c662df5f647c8ef0"
 }

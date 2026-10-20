@@ -85,3 +85,5 @@ CLI 类型检查使用根工具入口 `mise exec -- pnpm exec turbo run typechec
 传输适配器的原反向类型引用迁入独立types.ts，原类型导出兼容；两个实现文件前后生成JavaScript有效token及hash完全相同（`mikiko-source-boundaries-js-equivalence.json`）。运行时错误类、工厂、探测命令与取消逻辑均保留，原生Electron的运行语义未改变。
 
 新增6个合同文件25项测试，并联合原传输37项重新执行，共7文件62项通过。最终清单从原2097增加至2103文件，旧文件无移除；机器摘要跨两个checkout按仓库相对路径匹配，无遗漏或重复计数。新增Host fixture最初遗漏严格schema必填lifecycleState，已补合法active值并加入schema断言，最终根仓typecheck通过。
+
+最终主工作区验收源提交：`1049fd76d12256637edb73b0c662df5f647c8ef0`。`pnpm typecheck` 退出0，默认 `pnpm verify:pre-push` 退出0（真实追踪基线`6fd01b00`，Lint 0错误/175警告、schema兼容、36项架构自测、0架构违规/0baseline）；affected入口选中2103/2103后按既有规则不重复执行全量，不能代替本文已对账的实际测试。全部54份验证原始文件已复制到主工作区`verification/`并逐文件SHA-256核验，校验列表为`evidence-manifest.sha256`。

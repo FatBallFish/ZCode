@@ -1,7 +1,8 @@
 {
   "source": {
     "upstream": "075fde8429f15bc5baa018f4605ea776770dbf8d",
-    "customRollback": "4a971eaac771363da0aa8fe69571ca4d9b1463eb"
+    "customRollback": "4a971eaac771363da0aa8fe69571ca4d9b1463eb",
+    "validatedSourceCommit": "1049fd76d12256637edb73b0c662df5f647c8ef0"
   },
   "method": "8 complete unit shards + serial projects; latest full-file regressions replace earlier file results; 6 new Source Server contract files added and all 7 touched files rerun; final inventory compared by repository-relative path across integration worktree and primary checkout",
   "discoveredFiles": 2103,
@@ -93,5 +94,16 @@
     "runtimeJavaScriptEquivalent": true,
     "equivalenceProof": "/tmp/mikiko-source-boundaries-js-equivalence.json",
     "countedAgain": false
+  },
+  "primaryCheckoutGates": {
+    "typecheckExitCode": 0,
+    "lintErrors": 0,
+    "lintWarnings": 175,
+    "verifyPrePushExitCode": 0,
+    "architectureViolations": 0,
+    "architectureBaselineViolations": 0,
+    "prePushAffectedUnitTests": "2103/2103 selected; skipped by existing full-selection rule; full per-file results recorded above",
+    "logs": ["/tmp/mikiko-custom-main-typecheck.log", "/tmp/mikiko-custom-main-pre-push.log"],
+    "archivedEvidenceFiles": 54
   }
 }
