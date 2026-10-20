@@ -1,0 +1,75 @@
+{
+  "bindStatuses": [200],
+  "durationSeconds": 112,
+  "end": {
+    "editor": true,
+    "hostRpc": {
+      "settingsSucceeded": true,
+      "systemSucceeded": true,
+      "workspaceMatchesProjection": true
+    },
+    "root": true,
+    "transport": "直连"
+  },
+  "endedAt": "2026-10-20T22:17:55.920Z",
+  "newBindCount": 0,
+  "newWsCloseCount": 0,
+  "newWsCount": 0,
+  "start": {
+    "editor": true,
+    "hostRpc": {
+      "settingsSucceeded": true,
+      "systemSucceeded": true,
+      "workspaceMatchesProjection": true
+    },
+    "root": true,
+    "transport": "直连"
+  },
+  "startedAt": "2026-10-20T22:16:04.082Z",
+  "wholeRunPhoneCloseCodes": {
+    "1006": 10,
+    "4002": 130,
+    "4005": 2
+  },
+  "historicalPageErrors": {
+    "count": 4,
+    "messages": ["TypeError: Failed to fetch"],
+    "preservedSeparately": true
+  },
+  "transportInterruption": {
+    "cause": "not confirmed",
+    "relayServiceRestarted": false,
+    "deployedBundleMatchesLocal": true,
+    "desktopDisconnectedAt": "2026-10-20T22:01:18Z",
+    "desktopReconnectedAt": "2026-10-20T22:06:40Z",
+    "recoveryIntervalSeconds": 322,
+    "phoneReboundAt": "2026-10-20T22:06:42Z"
+  },
+  "testCorrection": {
+    "earlierManualBindWasReadOnly": false,
+    "manualBindCanRotateToken": true,
+    "earlier429WasRecorded": true,
+    "singlePageExclusiveBindProved": true
+  },
+  "sourceChangedOrDeployedInThisInvestigation": false,
+  "observationComplete": true,
+  "requestedObservationMaximumSeconds": 60,
+  "actualObservationSeconds": 112,
+  "observationExceededRequestedDuration": true,
+  "pageErrorBufferAtWindowStartCount": 4,
+  "pageErrorBufferAtWindowEndCount": 4,
+  "windowErrorMessages": [
+    "TypeError: Failed to fetch",
+    "TypeError: Failed to fetch",
+    "TypeError: Failed to fetch",
+    "TypeError: Failed to fetch"
+  ],
+  "investigationFrozen": true,
+  "pageErrorComparison": {
+    "startBufferCount": 4,
+    "endBufferCount": 4,
+    "entriesIdentical": true,
+    "newDistinctEntries": 0,
+    "repeatedOccurrenceCountNotSeparatelyProven": true
+  }
+}

@@ -64,6 +64,14 @@
 
 基本达到本次 Dev 回归修复的验收目标，保留上文明确限制。真实原生 Helper 未恢复，不把不可用提示等同于权限修复；WDIO 框架门禁受 OS 文件权限阻塞，不以 CDP 补证冒充该 runner 通过；全文件覆盖率低于统一默认阈值的项如实列出。交付是本地修复与可人工复测的 Dev App，没有推送分支或发布桌面安装包。
 
-## 当前手机复连的额外检查（尚未验收通过）
+## 当前 Host 手机页面与断线恢复复查
 
-当前 Host 首次复测有探针重复 bind 和页面 429，不能据手动请求 200 推断同次页面已成功绑定。去掉并发探针后，单页真实 bind 200、phone/signal WS 打开、Root/输入框显示并进入 P2P；约 14 秒后 ICE 失败，回退又出现 1006/4002 desktop-offline。此轮没有第二次 bind。正在结合既有自建 relay 部署日志定位；当前不能将稳定复连标为通过，不据此盲改 source 或发布 relay。先前生产页正常渲染证据与本轮恢复问题分别保留。
+当前 Host 首次复测有探针重复 bind 和页面 429，不能据手动请求 200 推断同次页面已成功绑定。去掉并发探针后，单页真实 bind 200、phone/signal WS 打开、Root/输入框显示并进入 P2P；之后 ICE 失败，回退出现 1006/4002 desktop-offline。全过程没有第二次 bind。服务器只读日志确认：22:00:08Z phone bound，22:01:18Z desktop disconnected，22:06:40Z desktop reconnected，22:06:42Z phone bound；relay 没有重启，部署 bundle SHA 与本地 dist 一致，未部署或重启 relay。
+
+同一页面随后自动恢复：Root/输入框可见，Host system info/settings RPC 成功，工作区与 Host 投影一致，最终传输为直连。从始至终 bind 只有一次 200，没有 4004；关闭历史包含预期的 P2P promoted 4005、传输异常 1006 和 desktop-offline 4002。历史共 4 条 TypeError Failed to fetch，不能把整程写成零错误。页面空白问题已修复并有生产渲染证据；本轮约 5 分 22 秒的桌面传输中断原因尚未确认，因此不宣称持续连接稳定性已经完全验收。原始连接日志、票据和账号恢复证明只留私有目录。
+
+## 本地交付门禁
+
+修复代码检查点：`9f0d8537`，未推送。`pnpm verify:pre-push` 实际退出 0：Lint 0 errors / 173 warnings，SQLite schema 测试 8/8 且两库兼容，架构测试 36/36，changed architecture 0 violations。affected 选择了 2111/2111 个规格，按仓库现有规则跳过全量 UT，**未执行这些 2111 个规格**；不可将门禁退出 0 当作全仓 UT 全通过。实际执行的定向测试、CLI Node 全套及真实 UI 证据分别见上文。
+
+最后有效手机观察窗口为 22:16:04Z 至 22:17:55Z，实际 112 秒（超出预定 60 秒，按实际时长记录）：开始/结束 Root、输入框、Host system/settings RPC、workspace 匹配均为 true，直连；窗口内新增 bind/WS/close 均为 0。错误缓冲开始和结束均为相同 4 条，新增不同条目 0；缓冲本身不能证明相同异常没有重复发生。完整无敏感统计见 current-host-mobile-verification.json。测试浏览器和只读 SSH 已清理，未关闭 Dev App；不把测试清理后空白工具页当作产品状态快照。
