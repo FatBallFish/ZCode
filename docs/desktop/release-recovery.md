@@ -143,6 +143,22 @@ gh run rerun <发布所在run> --job <失败job-id>
 恢复时需要的 artifact 不能提前删除；30 天外长期排队或计划人工发布时，应先下载备份原包、
 submission state 和全部平台产物。备份里不要包含证书私钥、应用专用密码或其他 secrets。
 
+### 已有完整 Release，仅补更新 feed
+
+如果 Release 已公开而 feed job 失败或被旧工作流错误跳过，复用产生两份
+`installers-mac-*` 的已验收 run（下例是 v1.1.3 的真实验收 run），无需再次执行公证后处理：
+
+```bash
+gh workflow run release-desktop.yml --ref custom_main \
+  -f source-run-id=39277356801 -f release-tag=v1.1.3 \
+  -f publish-feed-only=true -f verified-mac-run-id=39366882600
+```
+
+该模式只下载原始平台包、已有 Mac installers 和已发布 Release 正文；验证两份公证证明的
+身份、Accepted、staple/ZIP 验收标记及最终文件哈希后补传 feed。不会重新 staple、打 ZIP、
+上传 GitHub Release 或触发任何公证申请。恢复脚本修复必须先推送维护分支；旧 run 的
+Re-run 继续使用旧工作流代码，不能用它加载新增加的恢复入口。
+
 ## 发布完成的判断
 
 - GitHub Release `v1.1.3` 已公开，完整平台安装包及两份公证证据可下载。

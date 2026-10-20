@@ -147,3 +147,35 @@ sequenceDiagram
 
 新增验收：旧/新申请任一通过都可继续；另一条查询失败或拒绝不遮蔽通过；全pending限时保存；
 不同哈希、架构、异常上传名和无效ID不能导入；重复导入不新增上传；普通恢复仍只提交一次。
+
+## 仅恢复更新 feed
+
+- Actions 中跳过 build/relay 是正常恢复行为；feed job 必须显式使用 `always()`，并检查
+  identity/release 的实际结果，避免默认 success 条件沿依赖链传播 skipped 后错误跳过 feed。
+- `publish-feed-only=true` 必须同时提供原始 `source-run-id`、`release-tag` 与已验收 Mac
+  安装包所在的 `verified-mac-run-id`。此模式跳过 build、relay、notarize 和 GitHub Release
+  上传，仅运行 identity 与 feed，复用已发布的 Release 正文及已有原始平台安装包。
+- 下载 Mac installers 后、任何 feed 上传前，验证两份 release-verification 的 schema、
+  source run、原始代码 SHA、版本、架构、Accepted、App/DMG staple、ZIP 验收标记，以及
+  DMG/ZIP 的最终 SHA256 和大小；不接受串版本、未验收或损坏的 installers。
+- feed job 归档 `feed-source-manifests`，供发布后逐架构核对公共清单版本、文件大小与SHA512。
+- feed 普通路径只接受 Release 成功；仅发布模式只接受 identity 成功且 Release 被显式跳过。
+  原始 source run/verified run 缺失或格式错误必须在 job admission 前失败。
+
+```mermaid
+sequenceDiagram
+    participant O as 恢复入口
+    participant I as identity
+    participant G as GitHub Artifacts/Release
+    participant F as feed job
+    O->>I: source-run-id + release-tag + verified-mac-run-id
+    Note over O,I: publish-feed-only 跳过构建、公证、Release上传
+    I-->>F: 原始版本身份
+    F->>G: 下载原平台包和已验收Mac installers
+    F->>F: 校验proof身份、Accepted、staple标记与最终文件哈希
+    F->>G: 读取已发布Release正文
+    F->>F: 上传同一批文件与架构feed清单
+```
+
+验收：普通恢复即使 build/relay skipped 仍发布 feed；仅 feed 模式不运行公证或 Release 上传；
+任一 Mac proof 身份/验收标记/哈希不匹配阻止上传；feed 验证失败不重新构建或公证。

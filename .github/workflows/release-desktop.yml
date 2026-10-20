@@ -41,6 +41,14 @@ on:
         type: choice
         options: [arm64, x64]
         default: arm64
+      publish-feed-only:
+        description: "仅补发更新feed，跳过构建、公证与GitHub Release上传"
+        type: boolean
+        default: false
+      verified-mac-run-id:
+        description: "仅补feed时，保存两份已验收Mac installers的run ID"
+        type: string
+        default: ""
 
 concurrency:
   group: desktop-release-${{ inputs.release-tag || github.ref_name }}
@@ -66,7 +74,12 @@ jobs:
           TAG: ${{ inputs.release-tag || github.ref_name }}
           ADDITIONAL_NOTARY_ID: ${{ inputs.additional-notary-id }}
           RECOVERY_SOURCE: ${{ inputs.source-run-id }}
+          FEED_ONLY: ${{ inputs.publish-feed-only }}
+          VERIFIED_MAC_RUN_ID: ${{ inputs.verified-mac-run-id }}
         run: |
+          if [ "$FEED_ONLY" = "true" ]; then
+            [[ -n "$RECOVERY_SOURCE" && "$VERIFIED_MAC_RUN_ID" =~ ^[0-9]+$ ]] || exit 1
+          fi
           if [ -n "$ADDITIONAL_NOTARY_ID" ]; then
             [[ -n "$RECOVERY_SOURCE" && "$ADDITIONAL_NOTARY_ID" =~ ^[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$ ]] || exit 1
           fi
@@ -222,7 +235,7 @@ jobs:
   notarize:
     name: notarize mac-${{ matrix.arch }}
     needs: [identity, build]
-    if: ${{ always() && needs.identity.result == 'success' && (needs.build.result == 'success' || (inputs.source-run-id && needs.build.result == 'skipped')) }}
+    if: ${{ always() && !inputs.publish-feed-only && needs.identity.result == 'success' && (needs.build.result == 'success' || (inputs.source-run-id && needs.build.result == 'skipped')) }}
     runs-on: macos-latest
     timeout-minutes: 50
     strategy:
@@ -412,7 +425,7 @@ jobs:
           retention-days: 30
 
   release:
-    if: ${{ always() && !inputs.mac-only && needs.identity.result == 'success' && needs.notarize.result == 'success' && (needs.relay.result == 'success' || (inputs.source-run-id && needs.relay.result == 'skipped')) }}
+    if: ${{ always() && !inputs.publish-feed-only && !inputs.mac-only && needs.identity.result == 'success' && needs.notarize.result == 'success' && (needs.relay.result == 'success' || (inputs.source-run-id && needs.relay.result == 'skipped')) }}
     name: publish release
     needs: [identity, build, relay, notarize]
     runs-on: ubuntu-latest
@@ -465,7 +478,8 @@ jobs:
           gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --notes-file release-notes.md
 
   publish-update-feed:
-    if: ${{ !inputs.mac-only }}
+    # 恢复正常跳过 build/relay；显式状态检查避免默认 success() 传播 skipped，导致 feed 未发布。
+    if: ${{ always() && !inputs.mac-only && needs.identity.result == 'success' && (needs.release.result == 'success' || (inputs.publish-feed-only && needs.release.result == 'skipped')) }}
     name: publish update feed (R2)
     needs: [identity, release]
     runs-on: ubuntu-latest
@@ -483,9 +497,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.identity.outputs.tag }}
-          MAC_RUN_ID: ${{ github.run_id }}
+          MAC_RUN_ID: ${{ inputs.publish-feed-only && inputs.verified-mac-run-id || github.run_id }}
           SOURCE_RUN_ID: ${{ needs.identity.outputs.source }}
         run: node .github/scripts/release-artifacts.mjs download-release "$SOURCE_RUN_ID" unused packages/desktop/dist
+
+      - name: Archive source feed manifests for acceptance
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-source-manifests
+          path: packages/desktop/dist/installers-*/*.yml
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: true
 
       - name: Export release notes
         # 更新日志与 GitHub Release 正文同源（release job 先行生成）；注入 latest*.yml 的

@@ -82,4 +82,31 @@ describe("发布恢复工作流契约", () => {
     expect(steps[adoption].run).not.toContain(" submit ");
     expect(workflow.jobs.identity.steps[0].run).toContain('"$RECOVERY_SOURCE"');
   });
+
+  it("恢复时上游跳过构建不会使feed被隐式success条件跳过", async () => {
+    const workflow = parse(
+      await readFile(resolve(root, ".github/workflows/release-desktop.yml"), "utf8"),
+    );
+    const condition = workflow.jobs["publish-update-feed"].if;
+    expect(condition).toContain("always()");
+    expect(condition).toContain("needs.identity.result == 'success'");
+    expect(condition).toContain("needs.release.result == 'success'");
+  });
+
+  it("仅发布feed复用已验收run，不重跑公证或Release上传", async () => {
+    const workflow = parse(
+      await readFile(resolve(root, ".github/workflows/release-desktop.yml"), "utf8"),
+    );
+    expect(workflow.on.workflow_dispatch.inputs["publish-feed-only"].default).toBe(false);
+    expect(workflow.jobs.notarize.if).toContain("!inputs.publish-feed-only");
+    expect(workflow.jobs.release.if).toContain("!inputs.publish-feed-only");
+    const feed = workflow.jobs["publish-update-feed"];
+    expect(feed.if).toContain("inputs.publish-feed-only");
+    expect(feed.if).toContain("needs.release.result == 'skipped'");
+    const download = feed.steps.find(
+      (s: { name: string }) => s.name === "Download verified installers",
+    );
+    expect(download.env.MAC_RUN_ID).toContain("inputs.verified-mac-run-id");
+    expect(workflow.jobs.identity.steps[0].run).toContain('"$VERIFIED_MAC_RUN_ID"');
+  });
 });

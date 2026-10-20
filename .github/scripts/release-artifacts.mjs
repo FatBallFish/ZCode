@@ -4,6 +4,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
+import { verifyReleaseInstallers } from "../../packages/desktop/scripts/macos-notarization.mjs";
 const exec = promisify(execFile);
 const repository = process.env.GITHUB_REPOSITORY;
 async function gh(args) {
@@ -95,5 +96,11 @@ if (mode === "validate") {
       "--dir",
       join(destination, name),
     ]);
+    await verifyReleaseInstallers(join(destination, name), {
+      sourceRunId,
+      commit: run.head_sha,
+      ref: run.head_branch,
+      arch: name.endsWith("arm64") ? "arm64" : "x64",
+    });
   }
 } else throw new Error(`Unknown release artifact operation: ${mode}`);
