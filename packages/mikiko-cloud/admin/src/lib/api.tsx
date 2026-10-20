@@ -203,10 +203,10 @@ export const api = {
   putBuiltinConfig(config: unknown): Promise<{ revision: number }> {
     return request("/api/v1/admin/builtin-config", { method: "PUT", body: JSON.stringify({ config }) });
   },
-  builtinHistory(): Promise<Array<{ revision: number; updatedAt: number; updatedBy?: string }>> {
-    return request<{ revisions: Array<{ revision: number; updatedAt: number }> }>(
+  builtinHistory(): Promise<Array<{ revision: number; updatedAt?: number }>> {
+    return request<{ entries?: Array<{ revision: number; updatedAt?: number }> }>(
       "/api/v1/admin/builtin-config/history",
-    ).then((body) => body.revisions);
+    ).then((body) => body.entries ?? []);
   },
   restoreBuiltinConfig(revision: number): Promise<{ revision: number }> {
     return request(`/api/v1/admin/builtin-config/history/${revision}`, { method: "POST" }).then(() =>
@@ -214,12 +214,10 @@ export const api = {
     );
   },
   getClientConfigs(): Promise<Record<string, unknown>> {
-    return request<{ configs: Record<string, unknown> }>("/api/v1/admin/client-configs").then(
-      (body) => body.configs,
-    );
+    return request<Record<string, unknown>>("/api/v1/admin/client-configs");
   },
   putClientConfigs(configs: Record<string, unknown>): Promise<void> {
-    return request("/api/v1/admin/client-configs", { method: "PUT", body: JSON.stringify({ configs }) });
+    return request("/api/v1/admin/client-configs", { method: "PUT", body: JSON.stringify(configs) });
   },
 };
 

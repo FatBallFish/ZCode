@@ -76,7 +76,7 @@ type Tab = "form" | "json";
 export function ModelConfigPage() {
   const [current, setCurrent] = useState<BuiltinResponse | null>(null);
   const [draft, setDraft] = useState("");
-  const [history, setHistory] = useState<Array<{ revision: number; updatedAt: number }>>([]);
+  const [history, setHistory] = useState<Array<{ revision: number; updatedAt?: number }>>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -325,7 +325,7 @@ export function ModelConfigPage() {
             <li key={item.revision} className="flex items-center justify-between gap-2">
               <span className="text-neutral-400">
                 r{item.revision}
-                <span className="ml-1 text-[10px] text-neutral-600">{formatTime(item.updatedAt)}</span>
+                <span className="ml-1 text-[10px] text-neutral-600">{item.updatedAt ? formatTime(item.updatedAt) : ""}</span>
               </span>
               <button
                 type="button"
