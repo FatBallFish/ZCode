@@ -58,4 +58,28 @@ describe("发布恢复工作流契约", () => {
     expect(stdout).not.toContain("xattr -rc");
     expect(stdout).toContain("公证");
   });
+
+  it("补充申请只导入已有ID，按架构隔离并先checkpoint再等待", async () => {
+    const workflow = parse(
+      await readFile(resolve(root, ".github/workflows/release-desktop.yml"), "utf8"),
+    );
+    expect(workflow.on.workflow_dispatch.inputs["additional-notary-id"].default).toBe("");
+    expect(workflow.on.workflow_dispatch.inputs["additional-notary-arch"].options).toEqual([
+      "arm64",
+      "x64",
+    ]);
+    const steps = workflow.jobs.notarize.steps;
+    const adoption = steps.findIndex(
+      (s: { name: string }) => s.name === "Adopt additional same-package submission",
+    );
+    const checkpoint = steps.findIndex(
+      (s: { name: string }) => s.name === "Persist submission immediately before waiting",
+    );
+    expect(adoption).toBeGreaterThan(steps.findIndex((s: { id: string }) => s.id === "submit"));
+    expect(adoption).toBeLessThan(checkpoint);
+    expect(steps[adoption].if).toContain("matrix.arch == inputs.additional-notary-arch");
+    expect(steps[adoption].run).toContain("macos-notarization.mjs adopt");
+    expect(steps[adoption].run).not.toContain(" submit ");
+    expect(workflow.jobs.identity.steps[0].run).toContain('"$RECOVERY_SOURCE"');
+  });
 });

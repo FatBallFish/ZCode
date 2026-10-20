@@ -60,6 +60,32 @@ gh workflow run release-desktop.yml --ref custom_main \
 不需要占着 macOS runner 连续等待几小时。若任务仍在运行，相同 tag 的新运行会排队，
 不会取消当前任务或并发重复提交。
 
+### 明确授权后对同一原包补充一次申请
+
+`In Progress` 还可能包含等待上传的内部子状态，只有 submission ID 不能证明上传完整。
+先检查原始 submit 是否正常退出以及完整上传回执；不要把普通等待超时变成自动补交循环。
+确需补充申请并获得明确授权后，下载原始 `signed-mac-*`，验证 `signed-bundle.json` 的版本、
+代码 SHA、source run 和全部文件哈希。复用其中未 staple 的原始 DMG，不构建或重签名。
+
+新上传名必须为 `<原DMG名去掉.dmg>-<完整SHA256>-retry-<数字标识>.dmg`。保存上传意图后，
+用 `notarytool submit --no-wait --output-format json` 上传一次，并保存完整最终回执。
+若响应丢失，先按该次唯一上传名查询 history 找回 ID，不能再次盲目上传。
+原申请保留；新 ID 可以通过以下入口交回 CI（以下 ID 是示例，替换为本次真实值）：
+
+```bash
+gh workflow run release-desktop.yml --ref custom_main \
+  -f source-run-id=39277356801 -f release-tag=v1.1.3 \
+  -f additional-notary-arch=arm64 \
+  -f additional-notary-id=11111111-1111-4111-8111-111111111111
+```
+
+该入口只导入已上传 ID，校验 Apple 返回的上传名、完整哈希和 ID，不新增上传。
+新旧申请都写入 state artifact；20 分钟内轮询全部候选，任一 Accepted 后选择它继续 staple、
+验收与发布。stapler 自动按代码身份下载票据，没有手工“绑定某个 ID”的参数。
+公证证据记录实际选中的 Accepted ID，另一条仍 pending 不阻止发布。
+导入完成后，普通 `source-run-id` 恢复命令自动恢复全部候选，不必再次填写新 ID，也不会重复上传。
+如果导入前 job 失败，可以重复同一导入命令；同 ID 幂等，不能创建替代申请来重试导入。
+
 `--ref custom_main` 使用当前修复后的工作流脚本，但安装包始终来自原始 run；不会编译当前分支。
 工作流恢复不会把新源码混进旧版本包。若使用其他维护分支，确保它包含恢复脚本。
 
