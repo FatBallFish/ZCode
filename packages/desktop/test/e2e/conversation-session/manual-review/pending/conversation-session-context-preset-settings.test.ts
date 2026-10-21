@@ -6,16 +6,16 @@ import {
   TID_TASK_SETTINGS_BUTTON,
   testId,
 } from "@zcode/shared/test-ids";
-import { clickTestIdByDom, clearAppData, readSettings } from "../helpers/desktop-app.js";
+import { clickTestIdByDom, clearAppData, readSettings } from "../../../helpers/desktop-app.js";
 import {
   getUpstreamRequestEvidence,
   waitForUpstreamRequestContaining,
-} from "../helpers/conversation-session-network.js";
+} from "../../../helpers/conversation-session-network.js";
 import {
   prepareV4ConversationE2E,
   sendV4Prompt,
   startNewV4Draft,
-} from "../helpers/v4-conversation.js";
+} from "../../../helpers/v4-conversation.js";
 
 
 /**
