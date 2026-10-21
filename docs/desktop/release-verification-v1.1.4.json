@@ -1,0 +1,549 @@
+{
+  "release": {
+    "version": "1.1.4",
+    "commit": "1780d0a988e02e854eb50f6605fa60122b8fbab1",
+    "sourceRunId": "39547367291",
+    "release": "https://github.com/FatBallFish/ZCode/releases/tag/v1.1.4",
+    "checkedAt": "2026-10-21T06:07:37.515Z",
+    "notarization": {
+      "arm64": {
+        "schema": 1,
+        "sourceRunId": "39547367291",
+        "commit": "1780d0a988e02e854eb50f6605fa60122b8fbab1",
+        "ref": "v1.1.4",
+        "version": "1.1.4",
+        "arch": "arm64",
+        "submissionId": "ef42256a-c0ae-42db-9bea-10571e7f4179",
+        "status": "Accepted",
+        "appStapled": true,
+        "dmgStapled": true,
+        "zipPayloadVerified": true,
+        "files": {
+          "Mikiko-1.1.4-mac-arm64.dmg": {
+            "sha256": "3274b5dcf668269ad22fc2eb3f403cddb94a1a3f473513aa41402fc4fc61e809",
+            "size": 243247448
+          },
+          "Mikiko-1.1.4-mac-arm64.zip": {
+            "sha256": "7c32450835d2e3351cee1fd0fcd2342a7e965f552ff8dd706fad7f4a2445c0dc",
+            "size": 242324240
+          }
+        }
+      },
+      "x64": {
+        "schema": 1,
+        "sourceRunId": "39547367291",
+        "commit": "1780d0a988e02e854eb50f6605fa60122b8fbab1",
+        "ref": "v1.1.4",
+        "version": "1.1.4",
+        "arch": "x64",
+        "submissionId": "0295971e-8854-4a33-86fc-7e514c4488c7",
+        "status": "Accepted",
+        "appStapled": true,
+        "dmgStapled": true,
+        "zipPayloadVerified": true,
+        "files": {
+          "Mikiko-1.1.4-mac-x64.dmg": {
+            "sha256": "11a349b3d7a7fb89ce1bea27f6b5f65691da31c743ebc8314e9790ad85f8ee89",
+            "size": 253047651
+          },
+          "Mikiko-1.1.4-mac-x64.zip": {
+            "sha256": "20406b5412b350ac8fd0b2d9d97c7799c0c8c30fae01fd107f861b93d6faa6f0",
+            "size": 252258864
+          }
+        }
+      }
+    },
+    "manifests": {
+      "darwin-aarch64": {
+        "url": "https://agent-update.mikiko.ai/api/v1/releases/electron/manifest?platform=darwin-aarch64&channel=1",
+        "version": "1.1.4",
+        "primary": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.zip",
+        "files": [
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.zip",
+            "sha512": "/oXbnA2psH8F47v2abLEj5UDP+loLNAUMZb/D7mvidDN+3cM7z6I3WP4sEjIcw447OsaxvioJcp4Jxd2etei3g==",
+            "size": 242324240
+          },
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.dmg",
+            "sha512": "AUgVt415lgIjxgT0F0B0lSzDqGkYykJRhnfq/oUahEI6FkIHCB7aXBP1Dr8rccyVgK9gZxMCGxNqQrq1/oZ1nQ==",
+            "size": 243247448
+          }
+        ]
+      },
+      "darwin-x86_64": {
+        "url": "https://agent-update.mikiko.ai/api/v1/releases/electron/manifest?platform=darwin-x86_64&channel=1",
+        "version": "1.1.4",
+        "primary": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.zip",
+        "files": [
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.zip",
+            "sha512": "bIEr4sp0Eg65+DGe1d7i3D6wRICE63ITA4d0CI0qW0debgiuMeyBTBDhpC2xtYpZOiw0VblyM1IuZxUoW7mxBg==",
+            "size": 252258864
+          },
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.dmg",
+            "sha512": "jlxjlCUuVBMlTKIHLgtSdjBYSle5x/NwyfbTqRUUNJNPaxAv8JTDPrOQhdUuC4TAFefhsZVjG5xVs0W3iSNazA==",
+            "size": 253047651
+          }
+        ]
+      },
+      "windows-arm64": {
+        "url": "https://agent-update.mikiko.ai/api/v1/releases/electron/manifest?platform=windows-arm64&channel=1",
+        "version": "1.1.4",
+        "primary": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-arm64.exe",
+        "files": [
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-arm64.exe",
+            "sha512": "vjzakt6VBm9cIVuBfQND8e8DtD6mPdiSwKpMlG2O21/qiLmrN9CL1/K10YikxUvc0YKWYW8TjpgUxkZWOWnyDw==",
+            "size": 182069337
+          }
+        ]
+      },
+      "windows-x86_64": {
+        "url": "https://agent-update.mikiko.ai/api/v1/releases/electron/manifest?platform=windows-x86_64&channel=1",
+        "version": "1.1.4",
+        "primary": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-x64.exe",
+        "files": [
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-x64.exe",
+            "sha512": "mjzR4BDYYn57Lz/jDKVFs/50NW+w/vwkbxKJDQXZEOsqyJy//jVeENCO9tt/CGBfgp8TVg4HeLVlo2vroZx84Q==",
+            "size": 186450221
+          }
+        ]
+      },
+      "linux-x86_64": {
+        "url": "https://agent-update.mikiko.ai/api/v1/releases/electron/manifest?platform=linux-x86_64&channel=1",
+        "version": "1.1.4",
+        "primary": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x86_64.AppImage",
+        "files": [
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x86_64.AppImage",
+            "sha512": "T5hgMA9/xyb80UfwN0d47qP1EHihYOQsJ9ze/XdH505OFJNBnBK1wMYRwa2sieGFNSIKyxcv5gO3puKuzTNEXw==",
+            "size": 246497852,
+            "blockMapSize": 254544
+          },
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-amd64.deb",
+            "sha512": "zf+wCCRTz06Tb+4g1qn1H62ml2xVtYcf1VMWOPY7xyQEPwehNawVoJJQoNpZvqjJLo+IgRMXfgC+UNxrmeNilA==",
+            "size": 178346084
+          },
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x86_64.rpm",
+            "sha512": "E6kCWyPpUjMoHIxsKYyE7cakW3ZE35pdv8KDpwXh99Es96l1DcSKkHvEQN4IS32BUG7PjIYlwGXKpeziDKkGew==",
+            "size": 148191461
+          },
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x64.pkg.tar.zst",
+            "sha512": "6r6vbcBlmtfRhEPH2XGQPU8D0gWN+bL5jgScODDtYHnEdCFqm3sCZ43i2EqsJskQsHgWca6KuEE5OQN0RnquJQ==",
+            "size": 156620860
+          }
+        ]
+      }
+    },
+    "files": {
+      "Mikiko-1.1.4-mac-arm64.zip": {
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.zip",
+        "size": 242324240,
+        "sha512": "/oXbnA2psH8F47v2abLEj5UDP+loLNAUMZb/D7mvidDN+3cM7z6I3WP4sEjIcw447OsaxvioJcp4Jxd2etei3g==",
+        "sha256": "7c32450835d2e3351cee1fd0fcd2342a7e965f552ff8dd706fad7f4a2445c0dc",
+        "head": true,
+        "range32": true
+      },
+      "Mikiko-1.1.4-mac-arm64.dmg": {
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.dmg",
+        "size": 243247448,
+        "sha512": "AUgVt415lgIjxgT0F0B0lSzDqGkYykJRhnfq/oUahEI6FkIHCB7aXBP1Dr8rccyVgK9gZxMCGxNqQrq1/oZ1nQ==",
+        "sha256": "3274b5dcf668269ad22fc2eb3f403cddb94a1a3f473513aa41402fc4fc61e809",
+        "head": true,
+        "range32": true
+      },
+      "Mikiko-1.1.4-mac-x64.zip": {
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.zip",
+        "size": 252258864,
+        "sha512": "bIEr4sp0Eg65+DGe1d7i3D6wRICE63ITA4d0CI0qW0debgiuMeyBTBDhpC2xtYpZOiw0VblyM1IuZxUoW7mxBg==",
+        "sha256": "20406b5412b350ac8fd0b2d9d97c7799c0c8c30fae01fd107f861b93d6faa6f0",
+        "head": true,
+        "range32": true
+      },
+      "Mikiko-1.1.4-mac-x64.dmg": {
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.dmg",
+        "size": 253047651,
+        "sha512": "jlxjlCUuVBMlTKIHLgtSdjBYSle5x/NwyfbTqRUUNJNPaxAv8JTDPrOQhdUuC4TAFefhsZVjG5xVs0W3iSNazA==",
+        "sha256": "11a349b3d7a7fb89ce1bea27f6b5f65691da31c743ebc8314e9790ad85f8ee89",
+        "head": true,
+        "range32": true
+      },
+      "Mikiko-1.1.4-win-x64.exe": {
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-x64.exe",
+        "size": 186450221,
+        "sha512": "mjzR4BDYYn57Lz/jDKVFs/50NW+w/vwkbxKJDQXZEOsqyJy//jVeENCO9tt/CGBfgp8TVg4HeLVlo2vroZx84Q==",
+        "sha256": "1d30cbecb80c44259484ad2867655afe137511f9ec439b1784dc1e0aaf479b46",
+        "head": true,
+        "range32": true
+      },
+      "Mikiko-1.1.4-linux-amd64.deb": {
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-amd64.deb",
+        "size": 178346084,
+        "sha512": "zf+wCCRTz06Tb+4g1qn1H62ml2xVtYcf1VMWOPY7xyQEPwehNawVoJJQoNpZvqjJLo+IgRMXfgC+UNxrmeNilA==",
+        "sha256": "58033310f8b909361b3c268207036276c521dcc6d189381cee8c06b416e9990d",
+        "head": true,
+        "range32": true
+      },
+      "Mikiko-1.1.4-linux-x86_64.rpm": {
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x86_64.rpm",
+        "size": 148191461,
+        "sha512": "E6kCWyPpUjMoHIxsKYyE7cakW3ZE35pdv8KDpwXh99Es96l1DcSKkHvEQN4IS32BUG7PjIYlwGXKpeziDKkGew==",
+        "sha256": "41fb67923a4cfd17c1b6953ec9160dfc3f214e4036da93cfa605a1f8c30a26ed",
+        "head": true,
+        "range32": true
+      },
+      "Mikiko-1.1.4-linux-x64.pkg.tar.zst": {
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x64.pkg.tar.zst",
+        "size": 156620860,
+        "sha512": "6r6vbcBlmtfRhEPH2XGQPU8D0gWN+bL5jgScODDtYHnEdCFqm3sCZ43i2EqsJskQsHgWca6KuEE5OQN0RnquJQ==",
+        "sha256": "b20299767c292feb0ef7ce372b4c2b3cffc5257413ee762648b548216fa3d234",
+        "head": true,
+        "range32": true
+      },
+      "Mikiko-1.1.4-linux-x86_64.AppImage": {
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x86_64.AppImage",
+        "size": 246497852,
+        "sha512": "T5hgMA9/xyb80UfwN0d47qP1EHihYOQsJ9ze/XdH505OFJNBnBK1wMYRwa2sieGFNSIKyxcv5gO3puKuzTNEXw==",
+        "sha256": "a2d0f77cc418a218c7c8dbddaaf35e9bccbf294176bc6bfb5019ac6abf81001c",
+        "head": true,
+        "range32": true
+      },
+      "Mikiko-1.1.4-win-arm64.exe": {
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-arm64.exe",
+        "size": 182069337,
+        "sha512": "vjzakt6VBm9cIVuBfQND8e8DtD6mPdiSwKpMlG2O21/qiLmrN9CL1/K10YikxUvc0YKWYW8TjpgUxkZWOWnyDw==",
+        "sha256": "262165a93c4e748366b3eb5ed544ab521bd1a7619ddfb9cc2db06188815da49e",
+        "head": true,
+        "range32": true
+      }
+    },
+    "windowsAarch64Alias": true,
+    "website": {
+      "version": "1.1.4",
+      "releaseDate": "2026-10-21T05:19:11.005Z",
+      "releaseNotesZhCn": "## ✨ 新增\n\n- 支持 Mikiko 账号登录、设备管理和手机直接连接电脑，继续使用电脑上的项目与会话。\n- 完善项目、会话和插件体验，整合上游新功能及修复，并保留 Mikiko 的定制能力。\n- macOS 14 及以上可启用 Computer Use，观察应用窗口并操作控件、输入和滚动；拖拽会移动真实鼠标。\n\n## 🛠 修复\n\n- 修复升级后项目列表为空的问题，保留原有项目、置顶会话和任务归属。\n- 恢复智谱账号套餐、额度及可用模型查询。\n- 修复侧栏按钮重复、手机连接后白屏，以及新窗口插件列表无法加载的问题。\n- 修复文档、PDF、表格等插件无法连接的问题；登录智谱账号后可使用配套图片搜索。\n- 修复新用户首次为第三方插件授权时无法打开登录流程的问题。\n- 改善交互组件在不同窗口间更新状态的可靠性。\n- 修复官网 Intel Mac 下载选择和安装包断点续传问题。\n\n## ⚡ 优化\n\n- 语音整理使用与会话一致的模型选择方式。\n- 统一应用进程、配置与忽略文件的 Mikiko 品牌命名。\n\n## 💻 下载选择\n\n- Apple Silicon（M 系列）选择 `mac-arm64`，Intel Mac 选择 `mac-x64`。\n- Windows 按设备选择 `win-x64` 或 `win-arm64`；Linux 提供多种安装包。\n\n## 💻 Mac 安装说明\n\nMac 安装包已完成 Apple Developer ID 签名与公证。打开 DMG 后将 **Mikiko** 拖入 **Applications**；\n使用 ZIP 时，解压后将 **Mikiko.app** 拖入 **Applications**。Apple Silicon 选择 arm64，Intel Mac 选择 x64。",
+      "files": [
+        {
+          "kind": "macos-zip",
+          "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.zip",
+          "sizeBytes": 252258864
+        },
+        {
+          "kind": "macos-dmg",
+          "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.dmg",
+          "sizeBytes": 253047651
+        },
+        {
+          "kind": "windows-exe",
+          "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-x64.exe",
+          "sizeBytes": 186450221
+        },
+        {
+          "kind": "appimage",
+          "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x86_64.AppImage",
+          "sizeBytes": 246497852
+        },
+        {
+          "kind": "deb",
+          "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-amd64.deb",
+          "sizeBytes": 178346084
+        },
+        {
+          "kind": "rpm",
+          "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x86_64.rpm",
+          "sizeBytes": 148191461
+        },
+        {
+          "kind": "arch",
+          "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x64.pkg.tar.zst",
+          "sizeBytes": 156620860
+        },
+        {
+          "kind": "macos-arm64-dmg",
+          "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.dmg",
+          "sizeBytes": 243247448
+        },
+        {
+          "kind": "macos-arm64-zip",
+          "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.zip",
+          "sizeBytes": 242324240
+        },
+        {
+          "kind": "windows-arm64-exe",
+          "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-arm64.exe",
+          "sizeBytes": 182069337
+        }
+      ]
+    },
+    "passed": true
+  },
+  "clientProvider": {
+    "passed": true,
+    "checkedAt": "2026-10-21T05:46:25.588Z",
+    "realHttpExecutor": true,
+    "provider": "actual desktop ManifestUpdateProvider",
+    "platformAdapters": "real updater prototypes for file selection; no OS installation performed",
+    "results": [
+      {
+        "platform": "darwin",
+        "arch": "arm64",
+        "releasePlatform": "darwin-aarch64",
+        "version": "1.1.4",
+        "availableFrom": "1.1.3",
+        "files": [
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.zip",
+            "size": 242324240,
+            "sha512": "/oXbnA2psH8F47v2abLEj5UDP+loLNAUMZb/D7mvidDN+3cM7z6I3WP4sEjIcw447OsaxvioJcp4Jxd2etei3g=="
+          },
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.dmg",
+            "size": 243247448,
+            "sha512": "AUgVt415lgIjxgT0F0B0lSzDqGkYykJRhnfq/oUahEI6FkIHCB7aXBP1Dr8rccyVgK9gZxMCGxNqQrq1/oZ1nQ=="
+          }
+        ]
+      },
+      {
+        "platform": "darwin",
+        "arch": "x64",
+        "releasePlatform": "darwin-x86_64",
+        "version": "1.1.4",
+        "availableFrom": "1.1.3",
+        "files": [
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.zip",
+            "size": 252258864,
+            "sha512": "bIEr4sp0Eg65+DGe1d7i3D6wRICE63ITA4d0CI0qW0debgiuMeyBTBDhpC2xtYpZOiw0VblyM1IuZxUoW7mxBg=="
+          },
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.dmg",
+            "size": 253047651,
+            "sha512": "jlxjlCUuVBMlTKIHLgtSdjBYSle5x/NwyfbTqRUUNJNPaxAv8JTDPrOQhdUuC4TAFefhsZVjG5xVs0W3iSNazA=="
+          }
+        ]
+      },
+      {
+        "platform": "win32",
+        "arch": "arm64",
+        "releasePlatform": "windows-aarch64",
+        "version": "1.1.4",
+        "availableFrom": "1.1.3",
+        "files": [
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-arm64.exe",
+            "size": 182069337,
+            "sha512": "vjzakt6VBm9cIVuBfQND8e8DtD6mPdiSwKpMlG2O21/qiLmrN9CL1/K10YikxUvc0YKWYW8TjpgUxkZWOWnyDw=="
+          }
+        ]
+      },
+      {
+        "platform": "win32",
+        "arch": "x64",
+        "releasePlatform": "windows-x86_64",
+        "version": "1.1.4",
+        "availableFrom": "1.1.3",
+        "files": [
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-x64.exe",
+            "size": 186450221,
+            "sha512": "mjzR4BDYYn57Lz/jDKVFs/50NW+w/vwkbxKJDQXZEOsqyJy//jVeENCO9tt/CGBfgp8TVg4HeLVlo2vroZx84Q=="
+          }
+        ]
+      },
+      {
+        "platform": "linux",
+        "arch": "x64",
+        "releasePlatform": "linux-x86_64",
+        "version": "1.1.4",
+        "availableFrom": "1.1.3",
+        "files": [
+          {
+            "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x86_64.AppImage",
+            "size": 246497852,
+            "sha512": "T5hgMA9/xyb80UfwN0d47qP1EHihYOQsJ9ze/XdH505OFJNBnBK1wMYRwa2sieGFNSIKyxcv5gO3puKuzTNEXw=="
+          }
+        ]
+      }
+    ]
+  },
+  "browser": {
+    "passed": true,
+    "versionText": "v1.1.4 全平台安装包（主包约 241 MB） · 安装后应用内自动更新（更新服务自托管）。",
+    "links": [
+      {
+        "kind": "macos-arm64-dmg",
+        "href": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.dmg"
+      },
+      {
+        "kind": "macos-dmg",
+        "href": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.dmg"
+      },
+      {
+        "kind": "windows-exe",
+        "href": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-x64.exe"
+      },
+      {
+        "kind": "windows-arm64-exe",
+        "href": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-arm64.exe"
+      },
+      {
+        "kind": "deb",
+        "href": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-amd64.deb"
+      },
+      {
+        "kind": "rpm",
+        "href": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x86_64.rpm"
+      },
+      {
+        "kind": "arch",
+        "href": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x64.pkg.tar.zst"
+      },
+      {
+        "kind": "appimage",
+        "href": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-linux-x86_64.AppImage"
+      }
+    ],
+    "page": "https://agent.mikiko.ai/cn/download"
+  },
+  "blockmaps": {
+    "passed": true,
+    "files": [
+      {
+        "name": "Mikiko-1.1.4-mac-arm64.dmg.blockmap",
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.dmg.blockmap",
+        "size": 254228,
+        "sha256": "0134336edf4194e1dce725509d56cbaa3e1672f1c316f817e005ac4b38a63010"
+      },
+      {
+        "name": "Mikiko-1.1.4-mac-arm64.zip.blockmap",
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-arm64.zip.blockmap",
+        "size": 253731,
+        "sha256": "d689d0f91a2e5a53e10223905af1834cace33f456bac65f0633d119dcc673c62"
+      },
+      {
+        "name": "Mikiko-1.1.4-mac-x64.dmg.blockmap",
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.dmg.blockmap",
+        "size": 264843,
+        "sha256": "2ca5c31ba7ea6ac2618e459be12cb448453ccfffdcb510c0df43493d20fed438"
+      },
+      {
+        "name": "Mikiko-1.1.4-mac-x64.zip.blockmap",
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-mac-x64.zip.blockmap",
+        "size": 260426,
+        "sha256": "b5029e46f37d4644f20bc937fd72506e907de087642e62c8b1f2d82db267daa8"
+      },
+      {
+        "name": "Mikiko-1.1.4-win-arm64.exe.blockmap",
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-arm64.exe.blockmap",
+        "size": 190626,
+        "sha256": "843cc52c5380fad3172b6d63d5fd3c5971d1cf753b090441e7ac4975d7c5e782"
+      },
+      {
+        "name": "Mikiko-1.1.4-win-x64.exe.blockmap",
+        "url": "https://agent-dl.mikiko.ai/files/1.1.4/Mikiko-1.1.4-win-x64.exe.blockmap",
+        "size": 193528,
+        "sha256": "b88271a92dda18f625fa65fb995d51a69e8a1bf80611b299555164400df0d502"
+      }
+    ]
+  },
+  "sourceServer": {
+    "url": "https://agent-dl.mikiko.ai/mikiko/server/catalog.json",
+    "targets": [
+      {
+        "version": "1.1.4",
+        "appVersion": "1.1.4",
+        "target": "linux-x64"
+      },
+      {
+        "version": "1.1.4",
+        "appVersion": "1.1.4",
+        "target": "linux-arm64"
+      },
+      {
+        "version": "1.1.4",
+        "appVersion": "1.1.4",
+        "target": "darwin-x64"
+      },
+      {
+        "version": "1.1.4",
+        "appVersion": "1.1.4",
+        "target": "darwin-arm64"
+      }
+    ]
+  },
+  "serviceRecovery": {
+    "cloud": "tag workflow39547367100 successful",
+    "relay": "tag workflow succeeded",
+    "pages": "recovered by local same-tag build with .map excluded; deployment25b38812, public JS SHA256 identical",
+    "pagesProof": "/tmp/mikiko-v114-phone-public-proof.json",
+    "updateWorker": "actual local deploy successful, version6b853744-6bef-466a-b300-3a99281ec881;29tests passed; windows-aarch64 old-client alias resolved to win-arm64 through real desktop ManifestUpdateProvider",
+    "rangeProof": "/tmp/mikiko-v114-range-deployed-proof.json",
+    "workflowFix": "commit5187fa6b pushed; recovery deploy workflow39548577760 running",
+    "liveAppProvider": "actual ManifestUpdateProvider + NodeHttpExecutor fetched current stable1.1.3 successfully; rerun after1.1.4 feed published",
+    "windowsArmProof": "/tmp/mikiko-v114-windows-arm-live-provider.json",
+    "workflowStatus": "recovery run39548577760 Pages/Relay success, update install transient ENOENT; independent verified local Worker deployment used",
+    "updateServiceDeploymentVersion": "6b853744-6bef-466a-b300-3a99281ec881",
+    "phoneBrowser": "public no-QR root renders connection-error UI, not a paired remote session; not accepted as actual connected-session test"
+  },
+  "finalComputerUse": {
+    "status": "passed",
+    "log": "/tmp/mikiko-v114-final-installer-computer-use-accepted-smoke.log",
+    "appPath": "/Users/fatballfish/Documents/Projects/ClientProjects/ZCode/.cache/mikiko-release/final-app/Mikiko.app",
+    "helperAppPath": "/Users/fatballfish/Documents/Projects/ClientProjects/ZCode/.cache/mikiko-release/final-app/Mikiko.app/Contents/Resources/computer-use/Mikiko Computer Use.app",
+    "accessibilityTrusted": true,
+    "screenCaptureGranted": true,
+    "outerAppCodesign": "passed",
+    "outerAppStapler": "passed",
+    "permissionOwnerEvidence": "Old screen-record entry pointed to backup; outer consent did not resolve. After user replaced exact Helper record, own doctor allGranted and real screenshot/actions passed.",
+    "outerAppGrantAnswered": true,
+    "outerGrantResult": "nestedHelperScreenCapture stillfalse; outer-grant hypothesis not confirmed",
+    "confirmedPermissionRecord": "System Settings Screen Recording Mikiko Computer Use row is ON, Show in Finder resolves /Users/fatballfish/Documents/Projects/ClientProjects/ZCode/.cache/mikiko-computer-use/production/arm64/release.before-final-e1b7e669/Mikiko Computer Use.app",
+    "nextAction": null,
+    "allGranted": true,
+    "imageCount": 1,
+    "report": ".cache/mikiko-release/final-installer-computer-use-proof.json",
+    "screenshot": ".cache/mikiko-release/final-installer-computer-use-fixture.png",
+    "steps": [
+      "exact-production-app-agent-identity-verified",
+      "fixture-compiled-and-ad-hoc-signed",
+      "fixture-child-identity-verified",
+      "sdk-initialize-and-tool-discovery",
+      "discovery-idle-restart-before-first-observation",
+      "native-fixture-ax-and-screenshot",
+      "native-query-identifies-controlled-text-field",
+      "native-set-value-confirmed-by-fixture-owner",
+      "native-ax-readback-matches",
+      "native-ax-click-confirmed-by-fixture-owner",
+      "native-keyboard-confirmed-by-fixture-owner",
+      "native-inventory-includes-owned-fixture-without-persisting-user-app-list",
+      "native-select-text-confirms-unicode-range",
+      "native-secondary-window-raise",
+      "native-scroll-confirmed-by-fixture-owner",
+      "native-real-pointer-drag-confirmed-by-fixture-owner",
+      "production-stop-releases-owned-connection",
+      "stopped-observation-cannot-authorize-action",
+      "real-drag-cancellation-stops-motion-and-releases-once"
+    ],
+    "helperReaddedByUser": true,
+    "resolution": "User replaced stale Screen Recording helper record with exact embedded final Helper; native own permissions and actual screenshot/actions passed. Outer grant alone had no effect and was not accepted as substitute.",
+    "doctor": {
+      "accessibilityTrusted": true,
+      "allGranted": true,
+      "appAgent": true,
+      "appPath": "/Users/fatballfish/Documents/Projects/ClientProjects/ZCode/.cache/mikiko-release/final-app/Mikiko.app/Contents/Resources/computer-use/Mikiko Computer Use.app",
+      "buildIdentifier": "8a86aae6b2fc94f850a548328f9ed4eaa6171d0930e7e97bce6dc0ec75c552df",
+      "grantOwnerBundleId": "dev.mikiko.computer-use",
+      "missingPermissions": [],
+      "platform": "macos",
+      "screenCaptureGranted": true
+    }
+  },
+  "complete": true,
+  "acceptedAt": "2026-10-21T06:30:33.472292+00:00"
+}

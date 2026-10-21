@@ -20,7 +20,7 @@
 - 当前权限/资源/UI及electron-builder安全测试23/23，`/tmp/mikiko-cua-ui-service-final.log`。jsdom canvas未实现提示，不作为原生截图证明。
 - Node构建/打包/lease/lifetime及smoke harness20/20，`/tmp/mikiko-cua-node-final.log`。签名单测使用明确的模拟签名字段，正式签名另由真实codesign验收。
 - CLI当前MCP两个调用方文件66/66及类型图32/32再次通过（`/tmp/mikiko-cua-cli-mcp-final.log`、`/tmp/mikiko-cua-cli-typecheck-final.log`）；更早扩展MCP85/Core72/bootstrap61均通过。clean pre-push另记。
-- 根typecheck已通过；根lint为0错误、174项既有warning。最终源码冻结后复核。
+- 根typecheck与最终源码复核已通过；根lint为0错误、174项既有warning。
 - 最终v7的Swift11/11通过：2 capture、4 checked-action、5拖拽/取消/geometry。真实手势取消另见下表，不能用Swift通过替代。
 
 ## 真实验收与发现
@@ -43,10 +43,16 @@
 
 最终隔离Electron设置用例1/1通过（9.7s，0模型请求）：`/tmp/mikiko-cua-electron-production-final.log`，run `mikiko-cua-v114-final-visible-drag`。覆盖默认关闭、启用后真实权限及准确路径、空闲重启、composer开关、窄屏/主题与禁用。pending用例不未经人工review晋升正式CI。
 
-双架构资源实际stage通过；独立gateway在无node_modules临时目录发现/拒绝缺上下文/EOF退出通过，`/tmp/mikiko-cua-standalone-final.log`。真实打包hook对两个架构完成native binary和完整子App签名，校验runtime/secure timestamp/identifier/architecture以及前后摘要：`/tmp/mikiko-cua-package-signing-final.log`。这是本地随包布局与签名证据，正式CI父App公证仍待进行。
+双架构资源实际stage通过；独立gateway在无node_modules临时目录发现/拒绝缺上下文/EOF退出通过，`/tmp/mikiko-cua-standalone-final.log`。真实打包hook对两个架构完成native binary和完整子App签名，校验runtime/secure timestamp/identifier/architecture以及前后摘要：`/tmp/mikiko-cua-package-signing-final.log`。这是本地随包布局与签名证据；随后正式CI父App双架构公证、staple/ZIP及公网摘要验证全部通过，见文末发行报告。
 
 ## 当前结论与发布门禁
 
 正式Computer Use功能测试及本机可执行的真实验收通过；其他功能的预生产完整回归保留于独立报告。根类型、lint、架构和声明hash均通过，lint保留174项既有warning。严格许可证完整性检查的既有sharp/libvips人工清单未被放宽，详见预生产报告。
 
-最终独立评审已完成，修复了gateway覆盖drag说明的问题；已先记录真实SDK目录断言失败，再修复并58项通过，最终独立bundle目录也确认真实鼠标/焦点说明存在。取消/lease、准确窗口及嵌套签名未发现额外重要问题。clean pre-push与commit/push/tag尚待执行。正式发布还必须验证五平台安装包、双Mac Accepted与App/DMG staple和ZIP、官网及stable清单。未完成这些发布验收前不称发布完成。
+最终独立评审已完成，修复了gateway覆盖drag说明的问题；已先记录真实SDK目录断言失败，再修复并58项通过，最终独立bundle目录也确认真实鼠标/焦点说明存在。取消/lease、准确窗口及嵌套签名未发现额外重要问题。clean pre-push已通过，源提交1780d0a9及不可移动v1.1.4已推送。五平台安装包、双Mac Accepted与App/DMG staple和ZIP、官网及stable清单已完成最终验证；具体发行证据见文末报告。
+
+## 正式安装包最终验收
+
+2026-10-21从实际公开的1.1.4 arm64 ZIP下载、核对完整SHA512/SHA256后解压，父App深度验签与stapler再次通过。使用包内Helper与gateway完整真实smoke通过（`/tmp/mikiko-v114-final-installer-computer-use-accepted-smoke.log`、`.cache/mikiko-release/final-installer-computer-use-proof.json`）；两项权限由本Helper真实读取，截图及输入/滚动/真实鼠标拖拽/取消均通过。
+
+初始追加测试因旧屏幕录制条目仍指向备份而blocked；外层App授权未解决，不能当权限owner已证实。用户将旧Helper条目改为准确正式嵌套Helper后，原生allGranted和实际截图/动作均通过，无TCC改写或替代宿主。最终发行、公证、下载及更新证据见[发布验收报告](../desktop/release-verification-v1.1.4.md)。
