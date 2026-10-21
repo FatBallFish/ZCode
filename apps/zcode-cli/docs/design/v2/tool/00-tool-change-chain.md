@@ -15,6 +15,37 @@ Main权威提供三项绝对路径 `MIKIKO_COMPUTER_USE_BINARY/APP_PATH/SERVER`�
 主用户数据根、账号和手机远控不变。验证默认关闭、配置源隔离、旧broker材料剔除、当前入口绑定与
 实际stdio工具发现；原生截图/AX/权限由正式后端验收，不用mock成功替代。
 
+### 会话启动绑定回归（2026-10-21）
+
+`resolveStartupPlugins` 与插件管理入口必须在发现后、runtime配置过滤前调用同一
+`bindOfficialPluginMcpRuntime`。旧版CUA清理规则保持原状，不能通过放开旧配置掩盖漏绑定。
+此前会话入口跳过绑定，导致新server没有双production marker而被当成旧CUA删除；插件已开启、
+设置页权限或独立Helper测试成功，都不能证明会话已注册工具。
+
+```mermaid
+sequenceDiagram
+  participant Startup as 会话启动owner
+  participant Binding as 官方插件runtime绑定
+  participant Runtime as runtime配置与工具注册
+  participant Gateway as MCP gateway
+  Startup->>Startup: 发现插件（唯一启用态来自config）
+  Startup->>Binding: 本进程env与插件身份
+  Binding-->>Startup: 当前gateway入口、定向资源、production标记
+  Startup->>Runtime: 已绑定pluginMcpServers
+  Runtime->>Runtime: 保留新后端、过滤旧CUA，保持用户覆盖规则
+  Runtime->>Gateway: initialize / tools.list
+  Gateway-->>Runtime: 原生工具目录
+  Runtime->>Gateway: 模型工具调用（可信上下文）
+```
+
+验收须从真实会话启动入口覆盖配置保留、MCP进程发现、模型可见工具及一次调用；同时覆盖默认关闭、
+缺资源禁用、不回退旧SDK，以及同一绑定函数负责的Image Search官方账号来源。测试夹具的模型/MCP
+结果只证明装配，真实原生能力另以正式Helper实测记录，不冒充完整新安装包验收。
+
+生产gateway必须同时支持直接stdio运行及 `__zcode-plugin-host` 的 `main()` 模块入口。
+仅import不能启动server；宿主显式调用main恰好启动一次。直接执行时由入口身份判断调用main，
+两条路径复用同一启动/EOF/信号清理，不通过任意模块副作用“先连上再退出”冒充可用。
+
 ## Mikiko Computer Use 回合结束（2026-10-21）
 
 Core turn 唯一 finally → 可选 McpPort.turnEnded → 当前 pool lease → 已连接的正式 Computer Use

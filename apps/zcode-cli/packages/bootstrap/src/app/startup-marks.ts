@@ -5,6 +5,7 @@ import type { Logger, McpServerConfig, PluginLoadOutcome } from "@zcode/contract
 import type { StartupTimer } from "../startup-logging.js";
 import { resolveOfficialPluginRoots } from "./bundled-plugins.js";
 import { DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS } from "./official-plugin-definitions.js";
+import { bindOfficialPluginMcpRuntime } from "./official-plugin-runtime.js";
 import { getPluginStorageRoot } from "./paths.js";
 import type { ZCodeAppOptions } from "./types.js";
 import { filterVisualizeSkillRoots } from "./visualize-skill-gate.js";
@@ -20,7 +21,7 @@ export function resolveStartupPlugins(input: {
 }): PluginLoadOutcome {
   const pluginStorageRoot =
     input.options.pluginStorageRoot ?? getPluginStorageRoot(input.cliStorageRoot);
-  const pluginOutcome = discoverNodePluginsSync({
+  const discoveredPlugins = discoverNodePluginsSync({
     config: input.configResult.config.plugins,
     env: input.env ?? process.env,
     officialPluginRoots: resolveOfficialPluginRoots({
@@ -36,6 +37,10 @@ export function resolveStartupPlugins(input: {
     officialPluginsEnabledByDefault: DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS,
     storageRoot: pluginStorageRoot,
     workingDirectory: input.workingDirectory,
+  });
+  // 会话入口也必须绑定本进程后端；否则新Computer Use缺生产标记，被旧CUA过滤规则误删。
+  const pluginOutcome = bindOfficialPluginMcpRuntime(discoveredPlugins, {
+    env: input.env ?? process.env,
   });
   pluginOutcome.skillRoots = filterVisualizeSkillRoots(
     pluginOutcome.skillRoots,
