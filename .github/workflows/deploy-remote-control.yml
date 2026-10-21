@@ -110,6 +110,8 @@ jobs:
             echo "::notice::secrets.CLOUDFLARE_API_TOKEN 未配置，跳过手机页部署"
             exit 78
           fi
+          # hidden source map仍是实体文件；25.1MiB map会超过Pages单文件限制，上传只保留运行时资源。
+          find packages/web/dist-pages -type f -name '*.map' -delete
           npx --yes wrangler@4 pages deploy packages/web/dist-pages \
             --project-name mikiko-remote --branch main
 
@@ -160,7 +162,10 @@ jobs:
           const text = await manifest.text();
           const path = /^path:\s*(['"]?)(.+?)\1\s*$/m.exec(text)?.[2];
           assert.ok(path, 'Stable manifest must identify an actual installer');
-          const download = new URL(path, 'https://agent-dl.mikiko.ai');
+          const version = /^version:\s*(['"]?)([0-9]+\.[0-9]+\.[0-9]+)\1\s*$/m.exec(text)?.[2];
+          assert.ok(version, 'Stable manifest must identify its version');
+          // manifest.path是版本目录内文件名；域根目录解析会把正常下载错误判为404。
+          const download = new URL(path, `https://agent-dl.mikiko.ai/files/${version}/`);
           assert.equal(download.origin, 'https://agent-dl.mikiko.ai');
           download.searchParams.set('verify-deployment', process.env.GITHUB_SHA);
           for (let attempt = 0; attempt < 12; attempt++) {

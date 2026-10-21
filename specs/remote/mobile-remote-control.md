@@ -820,3 +820,7 @@ Release 流水线（`.github/workflows/release-desktop.yml`）新增 `relay` job
 ### 协议兼容
 
 - 全部为新增 HTTP 端点，不动 WS 帧/桌面控制帧 → **不 bump `REMOTE_CONTROL_PROTOCOL_VERSION`**。
+
+### v1.1.4 Pages 调试产物边界
+
+生产 Pages 上传只包含浏览器执行所需资源；Vite hidden source maps 可用于内部诊断，但不进入公开静态目录上传。2026-10-21 实际部署被 Cloudflare 的单文件25MiB限制拒绝（index map25.1MiB），所以CI及随包Pages部署脚本在上传前移除生成目录中的 `.map`，保留原JS/CSS/HTML字节。已固定tag的恢复从同一源提交构建，只清理派生产物，不移动tag或重建桌面安装包。验收为实际Pages上传成功、线上HTML及其JS引用可访问且版本对应1.1.4。

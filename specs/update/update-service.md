@@ -94,3 +94,7 @@ sequenceDiagram
 ```
 
 验收使用 Wrangler 本地真实 Worker 与隔离 R2 绑定，经已有 admin 上传入口写测试对象。必须覆盖闭区间、开放、suffix、尾部截断、416、HEAD、缺失对象，以及完整 200、缓存与方法限制。测试不得连接正式 R2/KV 或部署。该修复只有部署到服务 `agent-dl` 的 update Worker 后才会改变 App 更新下载行为；发布新安装包或更新 manifest 本身不能修复已在线的 Range 响应。
+
+### 部署后的 Range 探针
+
+`manifest.path` 是相对于当前版本 `files/<version>/` 的安装包名，不是下载域根路径。部署探针必须使用该版本前缀解析相对path，或使用files中的绝对URL；不能把错误根路径的404认定为Range能力失败。实际公网验收要求206、32字节body/Content-Length和对应Content-Range。

@@ -12,5 +12,7 @@ if [ ! -f "$dir/index.html" ]; then
   exit 1
 fi
 
+# Vite hidden map不是运行时资源；实际25.1MiB map触发Pages的25MiB限制。
+find "$dir" -type f -name '*.map' -delete
 cd "$dir"
 exec npx --yes wrangler@latest pages deploy . --project-name "$PROJECT" --branch main
