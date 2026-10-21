@@ -7,3 +7,5 @@
 下载的单 Range 由完整 R2 元数据校验，再按规范化 offset/length 流式读取；R2 `size` 始终是完整大小，206 头部使用实际分片长度。闭区间、开放末端、suffix 和 416 由真实本地 Worker/R2 回归；416 空 body 且 no-store，HEAD 仅读取完整元数据，不打开下载流。不支持的 Range 仍回完整 200。
 
 原 wrangler Worker 入口保持不变；本模块只登记已有真实服务边界，不引入另一套发布或缓存 owner。
+
+平台兼容参数`windows-arm64`/`windows-aarch64`均由同一路由读取ARM专属清单；后者是既有桌面Provider的真实输出，必须持续支持旧客户端发现新版本。

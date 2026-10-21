@@ -98,3 +98,7 @@ sequenceDiagram
 ### 部署后的 Range 探针
 
 `manifest.path` 是相对于当前版本 `files/<version>/` 的安装包名，不是下载域根路径。部署探针必须使用该版本前缀解析相对path，或使用files中的绝对URL；不能把错误根路径的404认定为Range能力失败。实际公网验收要求206、32字节body/Content-Length和对应Content-Range。
+
+### Windows ARM64 既有客户端参数兼容
+
+桌面`getElectronReleasePlatform(win32, arm64)`实际发送`windows-aarch64`，已发布1.1.3也如此。服务同时接受`windows-arm64`与`windows-aarch64`，两者必须优先读取`latest-arm64.yml`并只在该键缺失时回退`latest.yml`；x64路由不变。不改客户端参数、不要求旧客户端先升级才能发现新版本。验收包含两别名的专属/历史清单与实际桌面Provider公网请求。

@@ -25,6 +25,8 @@ const PLATFORM_TO_MANIFEST: Record<string, string> = {
   "darwin-x86_64": "latest-mac.yml",
   "windows-x86_64": "latest.yml",
   "windows-arm64": "latest.yml",
+  // 已发布桌面Provider把arm64序列化为aarch64；只识别arm64会让旧Windows ARM客户端永远400。
+  "windows-aarch64": "latest.yml",
   "linux-x86_64": "latest-linux.yml",
   // 兼容 electron-updater 旧式的 platform 取值（含 .exe 后缀等）交由调用方规范化。
 };
@@ -40,6 +42,7 @@ const PLATFORM_ARCH_MANIFEST_KEYS: Record<string, string[]> = {
   "darwin-arm64": ["latest-mac-arm64.yml", "latest-mac.yml"],
   "darwin-x86_64": ["latest-mac-x64.yml", "latest-mac.yml"],
   "windows-arm64": ["latest-arm64.yml", "latest.yml"],
+  "windows-aarch64": ["latest-arm64.yml", "latest.yml"],
   "windows-x86_64": ["latest.yml"],
   "linux-x86_64": ["latest-linux.yml"],
 };

@@ -57,19 +57,20 @@ describe("per-arch manifest 路由", () => {
     assert.equal(x64.status, 200);
   });
 
-  it("windows-arm64 支持：优先 latest-arm64，回退 latest.yml", async () => {
-    const only = createEnv({ "channels/stable/latest.yml": "version: 1.0.7\n" });
-    const fallback = await call(only, "platform=windows-arm64&channel=1");
-    assert.equal(fallback.status, 200);
-    const both = createEnv({
-      "channels/stable/latest-arm64.yml": "version: 1.0.7-arm\n",
-      "channels/stable/latest.yml": "version: 1.0.7-x64\n",
+  for (const platform of ["windows-arm64", "windows-aarch64"])
+    it(`${platform}支持：优先latest-arm64，回退latest.yml`, async () => {
+      const only = createEnv({ "channels/stable/latest.yml": "version: 1.0.7\n" });
+      const fallback = await call(only, `platform=${platform}&channel=1`);
+      assert.equal(fallback.status, 200);
+      const both = createEnv({
+        "channels/stable/latest-arm64.yml": "version: 1.0.7-arm\n",
+        "channels/stable/latest.yml": "version: 1.0.7-x64\n",
+      });
+      const arm = await call(both, `platform=${platform}&channel=1`);
+      assert.match(await arm.text(), /1\.0\.7-arm/u);
+      const x64 = await call(both, "platform=windows-x86_64&channel=1");
+      assert.match(await x64.text(), /1\.0\.7-x64/u);
     });
-    const arm = await call(both, "platform=windows-arm64&channel=1");
-    assert.match(await arm.text(), /1\.0\.7-arm/u);
-    const x64 = await call(both, "platform=windows-x86_64&channel=1");
-    assert.match(await x64.text(), /1\.0\.7-x64/u);
-  });
 
   it("全部键缺失返回 404 no_release；未知 platform 400", async () => {
     const env = createEnv({});
