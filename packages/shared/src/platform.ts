@@ -694,7 +694,12 @@ export type DesktopCommandId = (typeof DesktopCommandIds)[keyof typeof DesktopCo
  */
 export type CuaOsSupport =
   | { kind: "build-unavailable" }
-  | { kind: "supported"; backend?: "mikiko-native" }
+  | {
+      kind: "supported";
+      backend?: "mikiko-native";
+      /** Windows/Linux 实验运行时（上游 open-computer-use 声明 experimental）；UI/打包据此展示实验标识。 */
+      experimental?: boolean;
+    }
   | { kind: "macos-below-minimum"; minimumMacOs: string; currentMacOs: string }
   | { kind: "not-applicable" };
 

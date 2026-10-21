@@ -67,8 +67,45 @@ describe("Mikiko Computer Use production resources", () => {
     expect(
       resolveMikikoComputerUseResources({ ...options, exists: (path) => path !== server }),
     ).toBeUndefined();
-    expect(resolveMikikoComputerUseResources({ ...options, platform: "win32" })).toBeUndefined();
-    expect(resolveMikikoComputerUseResources({ ...options, platform: "linux" })).toBeUndefined();
+    expect(
+      resolveMikikoComputerUseResources({ ...options, platform: "freebsd" }),
+    ).toBeUndefined();
+  });
+  it("resolves experimental win/linux layouts from packaged resources", () => {
+    // 打包态：resources/computer-use/mikiko-computer-use-<os>-<arch>[.exe] + gateway；
+    // 无 .app 概念，appPath 与 binary 同点。
+    const win = resolveMikikoComputerUseResources({ ...options, platform: "win32", arch: "x64" });
+    expect(win).toEqual({
+      appPath: "/resources/computer-use/mikiko-computer-use-win32-x64.exe",
+      binary: "/resources/computer-use/mikiko-computer-use-win32-x64.exe",
+      server,
+    });
+    const linux = resolveMikikoComputerUseResources({ ...options, platform: "linux", arch: "arm64" });
+    expect(linux?.binary).toBe("/resources/computer-use/mikiko-computer-use-linux-arm64");
+    expect(linux?.appPath).toBe(linux?.binary);
+    // dev 态：env 覆盖优先，其次 cross 缓存。
+    const devEnv = {
+      MIKIKO_COMPUTER_USE_BINARY: "/dev/cross/binary",
+      MIKIKO_COMPUTER_USE_SERVER: "/dev/cross/server.mjs",
+    };
+    expect(
+      resolveMikikoComputerUseResources({
+        ...options,
+        platform: "linux",
+        arch: "x64",
+        isPackaged: false,
+        env: devEnv,
+      }),
+    ).toEqual({ appPath: "/dev/cross/binary", binary: "/dev/cross/binary", server: "/dev/cross/server.mjs" });
+    expect(
+      resolveMikikoComputerUseResources({
+        ...options,
+        platform: "linux",
+        arch: "x64",
+        isPackaged: false,
+        env: {},
+      })?.binary,
+    ).toBe("/repo/.cache/mikiko-computer-use/cross/production/linux/amd64/mikiko-computer-use-linux-x64");
   });
   it("resolves the production development cache independently of the old preview app", () => {
     const result = resolveMikikoComputerUseResources({ ...options, isPackaged: false, env: {} });
@@ -92,6 +129,23 @@ describe("Mikiko Computer Use production resources", () => {
     expect(resolveMikikoComputerUseSupport("darwin", "23.0.0", false)).toEqual({
       kind: "build-unavailable",
     });
-    expect(resolveMikikoComputerUseSupport("linux", "", true)).toEqual({ kind: "not-applicable" });
+    expect(resolveMikikoComputerUseSupport("linux", "", true)).toEqual({
+      kind: "supported",
+      backend: "mikiko-native",
+      experimental: true,
+    });
+    expect(resolveMikikoComputerUseSupport("win32", "", true)).toEqual({
+      kind: "supported",
+      backend: "mikiko-native",
+      experimental: true,
+    });
+    // 实验平台资源缺失时 fail closed 为 build-unavailable，不报告实验支持。
+    expect(resolveMikikoComputerUseSupport("win32", "", false)).toEqual({
+      kind: "build-unavailable",
+    });
+    expect(resolveMikikoComputerUseSupport("linux", "", false)).toEqual({
+      kind: "build-unavailable",
+    });
+    expect(resolveMikikoComputerUseSupport("freebsd", "", true)).toEqual({ kind: "not-applicable" });
   });
 });

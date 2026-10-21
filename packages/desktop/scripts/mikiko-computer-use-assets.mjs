@@ -27,33 +27,57 @@ export function validateProductionNativeProvenance(proof, arch, executableSha256
     throw new Error("Mikiko production native provenance identity/architecture/hash mismatch.");
 }
 
-export async function stageMikikoComputerUseResources({ repoRoot, arch }) {
+export async function stageMikikoComputerUseResources({ repoRoot, arch, os = "darwin" }) {
   if (!["arm64", "x64"].includes(arch))
     throw new Error("Unsupported Computer Use target architecture.");
-  const nativeArch = arch === "x64" ? "x86_64" : arch;
-  const source = join(repoRoot, ".cache/mikiko-computer-use/production", nativeArch, "release");
+  const platformKey = os === "darwin" ? `darwin-${arch}` : `${os}-${arch}`;
   const destination = join(
     repoRoot,
     "packages/desktop/bundled-tools",
-    `darwin-${arch}`,
+    platformKey,
     "mikiko-computer-use",
   );
-  const binary = join(source, nativeAppName, "Contents/MacOS/mikiko-computer-use");
-  const proof = JSON.parse(await readFile(join(source, "provenance.json"), "utf8"));
-  validateProductionNativeProvenance(proof, arch, hash(await readFile(binary)));
-  await assertMacBundleOwnerWrite(join(source, nativeAppName));
-  await execute("/usr/bin/codesign", ["--verify", "--strict", join(source, nativeAppName)]);
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
-  await cp(join(source, nativeAppName), join(destination, nativeAppName), { recursive: true });
-  const packagedProof = { ...proof };
-  delete packagedProof.localSigningMetadata;
-  if (packagedProof.nativeProbe?.permissions)
-    packagedProof.nativeProbe = { permissionsAreDiagnosticOnly: true, nativeActionsInvoked: false };
-  await writeFile(
-    join(destination, "provenance.json"),
-    JSON.stringify(packagedProof, null, 2) + "\n",
-  );
+
+  if (os === "darwin") {
+    const nativeArch = arch === "x64" ? "x86_64" : arch;
+    const source = join(repoRoot, ".cache/mikiko-computer-use/production", nativeArch, "release");
+    const binary = join(source, nativeAppName, "Contents/MacOS/mikiko-computer-use");
+    const proof = JSON.parse(await readFile(join(source, "provenance.json"), "utf8"));
+    validateProductionNativeProvenance(proof, arch, hash(await readFile(binary)));
+    await assertMacBundleOwnerWrite(join(source, nativeAppName));
+    await execute("/usr/bin/codesign", ["--verify", "--strict", join(source, nativeAppName)]);
+    await cp(join(source, nativeAppName), join(destination, nativeAppName), { recursive: true });
+    const packagedProof = { ...proof };
+    delete packagedProof.localSigningMetadata;
+    if (packagedProof.nativeProbe?.permissions)
+      packagedProof.nativeProbe = { permissionsAreDiagnosticOnly: true, nativeActionsInvoked: false };
+    await writeFile(
+      join(destination, "provenance.json"),
+      JSON.stringify(packagedProof, null, 2) + "\n",
+    );
+  } else {
+    // Windows/Linux 实验运行时：交叉构建产物 + experimental provenance，无签名链。
+    const goarch = arch === "x64" ? "amd64" : arch;
+    const suffix = os === "win32" ? ".exe" : "";
+    const executableName = `mikiko-computer-use-${os}-${arch}${suffix}`;
+    const source = join(repoRoot, ".cache/mikiko-computer-use/cross/production", os, goarch);
+    const binary = join(source, executableName);
+    const proof = JSON.parse(await readFile(join(source, "provenance.json"), "utf8"));
+    validateCrossExperimentalProvenance(proof, os, arch, hash(await readFile(binary)));
+    await cp(binary, join(destination, executableName));
+    await writeFile(
+      join(destination, "provenance.json"),
+      JSON.stringify(proof, null, 2) + "\n",
+    );
+  }
+
+  await stageGatewayBundle(repoRoot, destination);
+  return destination;
+}
+
+async function stageGatewayBundle(repoRoot, destination) {
   const esbuild = require("esbuild");
   const result = await esbuild.build({
     entryPoints: [join(repoRoot, "packages/computer-use-open/dist/production-server.js")],
@@ -87,11 +111,24 @@ export async function stageMikikoComputerUseResources({ repoRoot, arch }) {
       2,
     ) + "\n",
   );
-  return destination;
+}
+
+export function validateCrossExperimentalProvenance(proof, os, arch, executableSha256) {
+  if (
+    proof.experimental !== true ||
+    proof.production !== true ||
+    proof.target?.os !== os ||
+    proof.target?.arch !== arch ||
+    proof.executableSha256 !== executableSha256
+  )
+    throw new Error("Mikiko cross experimental provenance identity/architecture/hash mismatch.");
 }
 
 export async function finalizePackagedMikikoComputerUse(context, options = {}) {
-  if (context.electronPlatformName !== "darwin") return;
+  if (context.electronPlatformName !== "darwin") {
+    await finalizePackagedCrossExperimentalComputerUse(context, options);
+    return;
+  }
   const product = context.packager?.appInfo?.productFilename ?? "Mikiko";
   const root = resolve(context.appOutDir, `${product}.app/Contents/Resources/computer-use`);
   const app = join(root, nativeAppName);
@@ -171,6 +208,40 @@ export async function finalizePackagedMikikoComputerUse(context, options = {}) {
         developerIdSigned: Boolean(options.identity),
         notarization: "included in parent App notarization",
         codesign: signingMetadata,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+}
+
+/** Windows/Linux 实验包收尾：只做哈希与契约校验；无签名链，写入 unsigned 实验事实。 */
+export async function finalizePackagedCrossExperimentalComputerUse(context, options = {}) {
+  const platform = context.electronPlatformName;
+  if (platform !== "win32" && platform !== "linux") return;
+  const arch = options.arch;
+  if (!["arm64", "x64"].includes(arch)) throw new Error("Unsupported cross experimental architecture.");
+  const suffix = platform === "win32" ? ".exe" : "";
+  const executableName = `mikiko-computer-use-${platform}-${arch}${suffix}`;
+  const root = resolve(context.appOutDir, "resources", "computer-use");
+  const binary = join(root, executableName);
+  const proof = JSON.parse(await readFile(join(root, "provenance.json"), "utf8"));
+  validateCrossExperimentalProvenance(proof, platform, arch, hash(await readFile(binary)));
+  const gateway = JSON.parse(await readFile(join(root, "gateway-provenance.json"), "utf8"));
+  if (hash(await readFile(join(root, "production-server.mjs"))) !== gateway.sha256)
+    throw new Error("Packaged Computer Use gateway hash mismatch.");
+  await writeFile(
+    join(root, "signing-provenance.json"),
+    JSON.stringify(
+      {
+        schema: 1,
+        platform,
+        architecture: arch,
+        nativeBuildInput: proof.buildInputSha256,
+        sourceExecutableSha256: proof.executableSha256,
+        packagedExecutableSha256: hash(await readFile(binary)),
+        developerIdSigned: false,
+        signature: "unsigned experimental build (upstream declares Windows/Linux runtimes experimental)",
       },
       null,
       2,

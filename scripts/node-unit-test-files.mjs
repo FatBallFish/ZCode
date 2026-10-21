@@ -4,6 +4,7 @@ export const NODE_UNIT_TEST_FILES = [
   "scripts/test/desktop-agent-plugin-assets.test.mjs",
   "scripts/test/third-party-graph-resource.test.mjs",
   "scripts/test/mikiko-computer-use-build.test.mjs",
+  "scripts/test/mikiko-computer-use-cross-build.test.mjs",
   "scripts/fixtures/mikiko-computer-use/smoke-runner.test.mjs",
   "packages/desktop/test/desktop-pet/petAnimator.test.ts",
   "packages/desktop/test/desktop-pet/petManifest.test.ts",

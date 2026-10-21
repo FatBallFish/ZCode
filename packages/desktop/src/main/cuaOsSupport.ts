@@ -42,6 +42,13 @@ export function resolveMikikoComputerUseSupport(
   darwinRelease: string,
   available: boolean,
 ): CuaOsSupport {
+  // Windows/Linux 走上游 open-computer-use 的实验性 Go 运行时（UIA/AT-SPI 桥），
+  // 无 macOS 版本地板概念；资源缺失时仍报告 build-unavailable 而非实验支持。
+  if (platform === "win32" || platform === "linux") {
+    return available
+      ? { kind: "supported", backend: "mikiko-native", experimental: true }
+      : { kind: "build-unavailable" };
+  }
   if (platform !== "darwin") return { kind: "not-applicable" };
   if (!available) return { kind: "build-unavailable" };
   const major = Number.parseInt(darwinRelease.split(".")[0] ?? "0", 10);

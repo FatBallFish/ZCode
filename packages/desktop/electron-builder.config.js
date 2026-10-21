@@ -804,6 +804,16 @@ export default {
       from: "build/icon_windows.png",
       to: "icon_windows.png",
     },
+    ...((targetPlatform.os === "win32" || targetPlatform.os === "linux")
+      ? [
+          {
+            // Windows/Linux 实验运行时（与官方 producer 的 cua-helper 链独立）。
+            from: `bundled-tools/${targetPlatform.key}/mikiko-computer-use`,
+            to: "computer-use",
+            filter: ["**/*"],
+          },
+        ]
+      : []),
     ...(targetPlatform.os === "win32"
       ? [
           {

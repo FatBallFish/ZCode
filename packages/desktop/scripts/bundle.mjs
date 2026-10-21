@@ -757,6 +757,26 @@ async function main() {
     await runTimedAsync("bundle:stage-mikiko-computer-use", () =>
       stageMikikoComputerUseResources({ repoRoot: workspaceRoot, arch }),
     );
+  } else if (os === "win" || os === "linux") {
+    // Windows/Linux 实验运行时（docs/specs/computer-use-experimental-platforms.md）：
+    // 交叉构建 Go 二进制 + 平台无关 gateway，staging 校验 experimental 契约。
+    const crossOs = os === "win" ? "win32" : "linux";
+    run(
+      process.execPath,
+      [
+        resolve(workspaceRoot, "scripts/build-mikiko-computer-use-cross.mjs"),
+        "--production",
+        "--os",
+        crossOs,
+        "--arch",
+        arch,
+      ],
+      buildEnv,
+    );
+    run(pnpmCommand, ["--filter", "@mikiko/computer-use-open", "build"], buildEnv);
+    await runTimedAsync("bundle:stage-mikiko-computer-use", () =>
+      stageMikikoComputerUseResources({ repoRoot: workspaceRoot, arch, os: crossOs }),
+    );
   }
 
   await runTimedAsync("bundle:electron-builder", () =>
