@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { SQLITE_MIGRATIONS } from "../src/storage/session-store/migrations.js";
-import { fork } from "node:child_process";
+import { fork, type ChildProcess } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -45,7 +45,39 @@ interface ConcurrentStartupResult {
 const CONCURRENT_STARTUP_ATTEMPTS = 5;
 const CONCURRENT_STARTUP_TEST_TIMEOUT_MS = 10_000;
 
-function openSessionStoreInConcurrentProcesses(dbPath: string): Promise<ConcurrentStartupResult[]> {
+interface ConcurrentStartupMessage {
+  attemptId?: string;
+  result?: ConcurrentStartupResult;
+  type?: string;
+}
+
+function waitForStartupMessage(child: ChildProcess, type: string, attemptId?: string) {
+  return new Promise<ConcurrentStartupMessage>((resolve, reject) => {
+    const cleanup = () => {
+      child.off("error", failed);
+      child.off("exit", exited);
+      child.off("message", received);
+    };
+    const failed = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+    const exited = (code: number | null) =>
+      failed(new Error(`startup child exited early: ${code}`));
+    const received = (message: ConcurrentStartupMessage) => {
+      if (message.type !== type || message.attemptId !== attemptId) return;
+      cleanup();
+      resolve(message);
+    };
+    child.once("error", failed);
+    child.once("exit", exited);
+    child.on("message", received);
+    if (child.exitCode !== null || child.signalCode !== null) exited(child.exitCode);
+  });
+}
+
+function createConcurrentSessionStoreWorkers() {
+  // 原5轮重复启动10次tsx进程，导入就可占8秒并挤爆原10秒预算；复用进程但每轮仍建新库。
   const workerUrl = new URL("./fixtures/session-store-concurrent-process.ts", import.meta.url);
   const children = [0, 1].map(() =>
     fork(workerUrl, {
@@ -54,31 +86,67 @@ function openSessionStoreInConcurrentProcesses(dbPath: string): Promise<Concurre
       stdio: ["ignore", "ignore", "inherit", "ipc"],
     }),
   );
-  const ready = children.map(
+  const exits = children.map(
     (child) =>
-      new Promise<void>((resolve, reject) => {
-        child.once("error", reject);
-        child.once("exit", (code) => reject(new Error(`startup child exited early: ${code}`)));
-        child.on("message", (message: { type?: unknown }) => {
-          if (message.type === "ready") resolve();
-        });
+      new Promise<number | null>((resolve) => {
+        child.once("exit", (code) => resolve(code));
+        child.once("error", () => resolve(-1));
       }),
   );
-  const results = children.map(
-    (child) =>
-      new Promise<ConcurrentStartupResult>((resolve, reject) => {
-        child.once("error", reject);
-        child.once("exit", (code) => reject(new Error(`startup child exited early: ${code}`)));
-        child.on("message", (message: { result?: ConcurrentStartupResult; type?: unknown }) => {
-          if (message.type === "result" && message.result) resolve(message.result);
-        });
-      }),
-  );
-
-  return Promise.all(ready).then(() => {
-    for (const child of children) child.send({ dbPath, type: "start" });
-    return Promise.all(results);
-  });
+  const ready = Promise.all(children.map((child) => waitForStartupMessage(child, "ready")));
+  let closure: Promise<void> | undefined;
+  let closed = false;
+  const exchange = async (
+    message: ConcurrentStartupMessage & { dbPath?: string },
+    responseType: string,
+  ) => {
+    if (closed) throw new Error("startup workers are closed");
+    const replies = Promise.all(
+      children.map((child) => waitForStartupMessage(child, responseType, message.attemptId)),
+    );
+    const sends = Promise.all(
+      children.map(
+        (child) =>
+          new Promise<void>((resolve, reject) => {
+            child.send(message, (error) => (error ? reject(error) : resolve()));
+          }),
+      ),
+    );
+    return (await Promise.all([replies, sends]))[0];
+  };
+  return {
+    ready,
+    async migrate(dbPath: string, attemptId: string): Promise<ConcurrentStartupResult[]> {
+      // 每个新库都先等两个独立进程的ready，再在同一barrier放行；只复用tsx导入，不复用store。
+      await exchange({ attemptId, dbPath, type: "prepare" }, "prepared");
+      return (await exchange({ attemptId, type: "start" }, "result")).map((message) => {
+        if (!message.result) throw new Error("startup child omitted its migration result");
+        return message.result;
+      });
+    },
+    close(): Promise<void> {
+      if (closure) return closure;
+      closed = true;
+      closure = (async () => {
+        const forceStop = setTimeout(() => {
+          for (const child of children) if (child.exitCode === null) child.kill("SIGKILL");
+        }, 2000);
+        forceStop.unref();
+        try {
+          for (const child of children) {
+            if (child.connected) child.send({ type: "stop" }, () => {});
+            else if (child.exitCode === null) child.kill("SIGTERM");
+          }
+          const codes = await Promise.all(exits);
+          if (codes.some((code) => code !== 0))
+            throw new Error("startup fixture did not stop cleanly");
+        } finally {
+          clearTimeout(forceStop);
+        }
+      })();
+      return closure;
+    },
+  };
 }
 
 afterEach(() => {
@@ -692,28 +760,34 @@ describe("SQLite session store", () => {
 
   it(
     "allows two Agent processes to migrate the same new database concurrently",
-    async () => {
+    async (context) => {
+      const workers = createConcurrentSessionStoreWorkers();
+      context.onTestFinished(() => workers.close());
+      const expectedMigrations = SQLITE_MIGRATIONS.map((migration) => migration.id).sort();
       const attempts: ConcurrentStartupResult[][] = [];
-
-      for (let attempt = 0; attempt < CONCURRENT_STARTUP_ATTEMPTS; attempt += 1) {
-        const tempRoot = await mkdtemp(join(tmpdir(), "zcode-session-concurrent-startup-"));
-        try {
-          attempts.push(
-            await openSessionStoreInConcurrentProcesses(join(tempRoot, "session.sqlite")),
-          );
-        } finally {
-          await rm(tempRoot, { force: true, recursive: true });
+      try {
+        await workers.ready;
+        for (let attempt = 0; attempt < CONCURRENT_STARTUP_ATTEMPTS; attempt += 1) {
+          const tempRoot = await mkdtemp(join(tmpdir(), "zcode-session-concurrent-startup-"));
+          try {
+            const results = await workers.migrate(
+              join(tempRoot, "session.sqlite"),
+              String(attempt),
+            );
+            expect(results).toHaveLength(2);
+            for (const result of results) {
+              expect(result.ok).toBe(true);
+              expect(result.migrationIds).toEqual(expectedMigrations);
+            }
+            attempts.push(results);
+          } finally {
+            await rm(tempRoot, { force: true, recursive: true });
+          }
         }
+        expect(attempts).toHaveLength(CONCURRENT_STARTUP_ATTEMPTS);
+      } finally {
+        await workers.close();
       }
-
-      expect(attempts.flat()).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ ok: true }),
-          expect.objectContaining({ ok: true }),
-        ]),
-      );
-      expect(attempts.flat().filter((result) => !result.ok)).toEqual([]);
-      expect(attempts.flat().every((result) => result.migrationIds?.length === 24)).toBe(true);
     },
     CONCURRENT_STARTUP_TEST_TIMEOUT_MS,
   );

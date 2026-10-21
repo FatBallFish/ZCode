@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 import { promisify } from "node:util";
+import { findPluginManifestPath } from "@zcode/adapters/plugins";
 import {
   adHocCodesignArgs,
   hostTarget,
@@ -643,19 +644,10 @@ test("keeps SEA official plugin versions aligned with package and plugin manifes
     const packageJson = JSON.parse(
       await readFile(join(root, plugin.rootPath, "package.json"), "utf8"),
     );
-    const pluginManifest = JSON.parse(
-      await readFile(
-        join(
-          root,
-          plugin.rootPath,
-          ["documents", "pdf", "presentations", "spreadsheets"].includes(plugin.name)
-            ? ".mikiko-plugin"
-            : ".zcode-plugin",
-          "plugin.json",
-        ),
-        "utf8",
-      ),
-    );
+    // 新插件不只Office使用Mikiko声明；复用真实发现规则，避免品牌白名单漏掉image-search。
+    const manifestPath = findPluginManifestPath(join(root, plugin.rootPath));
+    assert.ok(manifestPath, `${plugin.name}: missing plugin manifest`);
+    const pluginManifest = JSON.parse(await readFile(manifestPath, "utf8"));
 
     assert.deepEqual(
       {

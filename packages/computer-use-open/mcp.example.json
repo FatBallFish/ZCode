@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "mikiko-computer-use": {
+      "type": "stdio",
+      "command": "/absolute/path/to/node",
+      "args": ["/absolute/path/packages/computer-use-open/dist/server.js"],
+      "isolation": "session",
+      "env": {
+        "MIKIKO_COMPUTER_USE_BINARY": "/absolute/path/Mikiko Computer Use Dev.app/Contents/MacOS/mikiko-computer-use",
+        "MIKIKO_COMPUTER_USE_ALLOWED_APPS": "[]"
+      }
+    }
+  }
+}

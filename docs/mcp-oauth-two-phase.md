@@ -324,6 +324,12 @@ tryAcquire(authz lease, attemptId)
 caller 一样收到 `EEXIST`，随后读到的 owner PID 是本进程自己且存活，因此不会误回收，正确降级为
 follower。锁路径 basename 同样只含 hash 与连字符（`mcp-oauth-<hash>.authz`）。
 
+首次交互授权不得依赖已有凭据文件或预热目录。授权 lease adapter 在竞争原子目录锁前，
+异步递归创建同一 `credentialsFilePath` 的父目录；新建目录使用 `0700`，不修改已有目录的
+权限，也不预先创建 credentials 文件。随后仍由既有 `acquireFileLock` 决定唯一 leader、
+活 owner 的 follower 与 abandoned lock 回收。目录不可写等 I/O 错误继续显式失败，不能被
+当作竞争转为 follower。验收从缺失的多层父目录开始，检查单 leader、释放/再获取及目录权限。
+
 ### 4.5 pending 键必须与 attempt 绑定
 
 pending 至少包含 `attemptId`、`baselineGeneration`、`authorizationUrl`、`state`、`expiresAt`。删除必须是

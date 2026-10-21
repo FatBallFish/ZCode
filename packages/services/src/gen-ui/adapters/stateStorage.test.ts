@@ -1,7 +1,7 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, onTestFailed } from "vitest";
 import { createGenUiStateStorage } from "./stateStorage.js";
 const cleanup: Array<() => void | Promise<void>> = [];
 afterEach(async () => {
@@ -50,8 +50,14 @@ describe("desktop Gen UI state persistence", () => {
     await second.set(target, { modelContent: { year: 2026 }, privateContent: null });
     expect(await first.get(target)).toEqual({ modelContent: { year: 2026 }, privateContent: null });
   });
-  it("delivers external writes through native filesystem watchers", async () => {
+  it("delivers external creates, overwrites and deletion through filesystem observation", async () => {
     const root = await mkdtemp(join(tmpdir(), "gen-ui-state-"));
+    let phase = "initial observation";
+    onTestFailed(() => {
+      process.stderr.write(
+        `${JSON.stringify({ fixture: "gen-ui-state", pid: process.pid, root, phase })}\n`,
+      );
+    });
     cleanup.push(() => rm(root, { recursive: true, force: true }));
     const a = createGenUiStateStorage(root),
       b = createGenUiStateStorage(root);
@@ -65,13 +71,31 @@ describe("desktop Gen UI state persistence", () => {
       path: "/workspace/chart.html",
     };
     await a.get(target);
-    const changed = new Promise<unknown>((resolve) => {
-      const off = a.onChanged((event) => {
-        off.dispose();
-        resolve(event.state);
-      });
-    });
-    await b.set(target, { modelContent: "selection", privateContent: null });
-    expect(await changed).toEqual({ modelContent: "selection", privateContent: null });
+    const received: unknown[] = [];
+    const receivedSubscription = a.onChanged((event) => received.push(event.state));
+    cleanup.push(() => receivedSubscription.dispose());
+    const observeWrite = async (write: () => Promise<void>, expected: unknown) => {
+      const changed = Promise.withResolvers<unknown>();
+      const subscription = a.onChanged((event) => changed.resolve(event.state));
+      try {
+        await write();
+        phase = "external observation";
+        expect(await changed.promise).toEqual(expected);
+      } finally {
+        subscription.dispose();
+      }
+    };
+    phase = "external create";
+    const first = { modelContent: "selection", privateContent: null };
+    await observeWrite(() => b.set(target, first), first);
+    phase = "external overwrite";
+    const second = { modelContent: "updated selection", privateContent: null };
+    await observeWrite(() => b.set(target, second), second);
+    phase = "external delete";
+    const [scope] = await readdir(root);
+    const [file] = (await readdir(join(root, scope!))).filter((name) => name.endsWith(".json"));
+    await observeWrite(() => rm(join(root, scope!, file!)), null);
+    expect(received).toEqual([first, second, null]);
+    phase = "complete";
   });
 });

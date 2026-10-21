@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -68,6 +68,31 @@ async function writeForeignLease(leasePath: string, pid: number): Promise<void> 
 }
 
 describe("MCP OAuth authorization lease", () => {
+  it("prepares a private missing credential parent before electing the first authorization leader", async () => {
+    const root = await mkdtemp(join(tmpdir(), "mikiko-first-oauth-lease-"));
+    temporaryDirectories.push(root);
+    const parent = join(root, "fresh-profile", ".mikiko", "v2");
+    const credentialsFilePath = join(parent, "credentials.json");
+    await expect(stat(parent)).rejects.toMatchObject({ code: "ENOENT" });
+    const contenders = await Promise.all(
+      [0, 1].map(() =>
+        tryAcquireAuthorizationLease({
+          credentialsFilePath,
+          keyPrefix: KEY_PREFIX,
+        }),
+      ),
+    );
+    const leaders = contenders.filter((lease) => lease !== undefined);
+    expect(leaders).toHaveLength(1);
+    if (process.platform !== "win32") expect((await stat(parent)).mode & 0o777).toBe(0o700);
+    await expect(readFile(credentialsFilePath)).rejects.toMatchObject({ code: "ENOENT" });
+    await leaders[0]?.release();
+    expect(await readdir(parent)).toEqual([]);
+    const next = await tryAcquireAuthorizationLease({ credentialsFilePath, keyPrefix: KEY_PREFIX });
+    expect(next).toBeDefined();
+    await next?.release();
+  });
+
   it("uses a lease path whose basename is legal on Windows", async () => {
     const credentialsPath = await createCredentialsPath();
     const leasePath = resolveAuthorizationLeasePath(credentialsPath, KEY_PREFIX);
@@ -76,6 +101,21 @@ describe("MCP OAuth authorization lease", () => {
     // 直接拼进锁路径会让整个授权流程在 Windows 上失败。
     expect(leasePath).not.toContain(":");
     expect(leasePath.endsWith(".authz")).toBe(true);
+  });
+
+  it("does not change an existing credential directory's permissions", async () => {
+    const credentialsPath = await createCredentialsPath();
+    const parent = join(credentialsPath, "..", "already-present");
+    await mkdir(parent);
+    if (process.platform !== "win32") await chmod(parent, 0o755);
+    const before = (await stat(parent)).mode;
+    const lease = await tryAcquireAuthorizationLease({
+      credentialsFilePath: join(parent, "credentials.json"),
+      keyPrefix: KEY_PREFIX,
+    });
+    expect(lease).toBeDefined();
+    expect((await stat(parent)).mode).toBe(before);
+    await lease?.release();
   });
 
   it("grants the lease to exactly one holder and releases it again", async () => {

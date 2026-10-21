@@ -16,7 +16,7 @@ describe("hostResourceUsage", () => {
       sampler: {
         sample: async () =>
           new Map([
-            sample(100, 60, "/Applications/ZCode.app/Contents/MacOS/ZCode"),
+            sample(100, 60, "/Applications/Mikiko.app/Contents/MacOS/Mikiko"),
             sample(120, 100, "node"),
           ]),
       },
@@ -50,7 +50,8 @@ describe("hostResourceUsage", () => {
           pid: 100,
           category: "base",
           groupKey: "cli",
-          name: "mikiko-agent-glm-demo",
+          // 品牌规范已将官方 provider 的进程显示名归一为 Mikiko，不能沿用旧品牌期望。
+          name: "mikiko-agent-mikiko-demo",
         }),
         expect.objectContaining({
           pid: 120,

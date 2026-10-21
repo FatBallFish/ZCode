@@ -1,5 +1,12 @@
 # Tool Change Chain Spec
 
+## MCP 首次 OAuth 授权目录（2026-10-21）
+
+认证错误 → 现有 Phase 2 owner → 凭据父目录准备 → 原子 authorization lease → listener/授权 →
+原 Phase 1 重连。新 profile 不需要已有 credentials 文件或测试预建目录；新目录私有，
+已有目录权限不改，跨进程单 leader、caller 取消/预算、凭据 CAS 与工具结果协议不变。
+回归以真实缺失目录和现有 adapter OAuth 合同覆盖，详见根规格 `docs/mcp-oauth-two-phase.md`。
+
 ## v3.16.2 集成回归边界
 
 Memory 工具的敏感目录保护同时覆盖 `.claude`、历史 `.zcode` 和当前 `.mikiko`，不能因产品品牌替换减少已有保护。其余路径包含性、权限准入与窄范围删除规则不变。CLI/Core 回归中的模型可见品牌、默认 plan/workflow/memory 路径按 Mikiko 合同更新，协议判别器和第三方目录不作机械替换。

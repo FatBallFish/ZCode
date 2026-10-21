@@ -210,7 +210,8 @@ function latestResponse(): Promise<Response> {
     return Promise.resolve(cacheableLatest(latestCache.payload));
   }
   return (async () => {
-    const platforms = ["darwin-aarch64", "windows-x86_64", "linux-x86_64"];
+    // 默认 macos-dmg/zip 供 Intel 下载；ARM 清单已按架构分流，必须用 x64 源并独立补齐 ARM 链接。
+    const platforms = ["darwin-x86_64", "windows-x86_64", "linux-x86_64"];
     const manifests = await Promise.all(
       platforms.map(async (platform) => {
         const response = await fetch(

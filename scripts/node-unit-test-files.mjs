@@ -3,6 +3,8 @@ export const NODE_UNIT_TEST_FILES = [
   "scripts/test/isolated-test-runner.test.mjs",
   "scripts/test/desktop-agent-plugin-assets.test.mjs",
   "scripts/test/third-party-graph-resource.test.mjs",
+  "scripts/test/mikiko-computer-use-build.test.mjs",
+  "scripts/fixtures/mikiko-computer-use/smoke-runner.test.mjs",
   "packages/desktop/test/desktop-pet/petAnimator.test.ts",
   "packages/desktop/test/desktop-pet/petManifest.test.ts",
   "packages/desktop/test/desktop-pet/petMarketService.test.ts",
@@ -53,4 +55,5 @@ export const NODE_UNIT_TEST_FILES = [
   "packages/ui/test/modelProviderTargetResolution.test.ts",
   "packages/ui/test/voiceTranscript.test.ts",
   "packages/update-service/test/worker.test.ts",
+  "packages/update-service/test/download-range.test.ts",
 ];

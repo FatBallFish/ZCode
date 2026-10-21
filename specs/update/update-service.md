@@ -65,3 +65,32 @@ App(electron-updater + manifestUpdateProvider)
 ## Source Server 自建资源缓存（2026-10-20 集成）
 
 新版Desktop descriptor与CLI catalog从同一已校验四平台SourceServer集合发布。`mikiko/server/catalog.json`及版本目录的`source-server-release.json`是可更新索引，下载Worker必须返回`no-cache, must-revalidate`；不能沿用安装包一年的immutable缓存。SHA寻址的归档/组件继续长缓存。上传者只在对象上传并验证后发布两个索引；失败不得发布指向缺失对象的目录。
+
+## 下载 Range 一致性（2026-10-21 发布前修复）
+
+R2 的 `object.size` 是完整对象大小，不能作为本次分片长度；返回的 Range 元数据没有 `total` 字段。下载仍由本 Worker 单一 HTTP 入口拥有，不增加缓存副本或客户端兜底。响应直接流式转发 R2 body，不把安装包读入 Worker 内存。
+
+- GET 的单字节区间支持闭区间 `bytes=start-end`、开放末端 `bytes=start-`、suffix `bytes=-length`。超出对象末端的 end 截断到末尾，suffix 大于对象时返回整个对象的 206。
+- 206 的 `Content-Range` 必须是本次实际 offset/end 与完整对象大小，`Content-Length` 必须等于实际返回字节数。32 字节分片不可标成完整安装包大小；保留 ETag、Content-Type、Accept-Ranges 及原有 immutable/可变索引缓存策略。
+- 单区间语法合法但无法满足（start 超出对象、end 小于 start、suffix 为 0、空对象上的任何 Range）返回 416、`Content-Range: bytes */<完整大小>`、空 body 与 `Cache-Control: no-store`，不向 R2 传入负长度或越界 offset，也不把错误响应当作不可变安装包缓存。
+- 原先不支持的多 Range、未知单位、无效语法或不能安全表示的数字继续忽略 Range，返回完整 200；不新增 multipart/byteranges。
+- HEAD 忽略 Range，返回完整对象的 200 元数据和空 body；通过 R2 head 读取元数据，不打开下载流。缺失对象继续 404，路径校验与方法限制不变。
+
+```mermaid
+sequenceDiagram
+  participant Client as 下载客户端
+  participant Worker as 唯一HTTP入口
+  participant R2 as R2对象owner
+  Client->>Worker: GET + 单Range / HEAD
+  Worker->>R2: head（范围校验或HEAD）
+  R2-->>Worker: 完整大小与元数据 / 缺失
+  alt 可满足的GET范围
+    Worker->>R2: get（已规范化offset/length）
+    R2-->>Worker: body流 + 实际Range + 完整大小
+    Worker-->>Client: 206，头部与实际body长度一致
+  else 无可满足范围或HEAD
+    Worker-->>Client: 416空body / HEAD完整元数据
+  end
+```
+
+验收使用 Wrangler 本地真实 Worker 与隔离 R2 绑定，经已有 admin 上传入口写测试对象。必须覆盖闭区间、开放、suffix、尾部截断、416、HEAD、缺失对象，以及完整 200、缓存与方法限制。测试不得连接正式 R2/KV 或部署。该修复只有部署到服务 `agent-dl` 的 update Worker 后才会改变 App 更新下载行为；发布新安装包或更新 manifest 本身不能修复已在线的 Range 响应。

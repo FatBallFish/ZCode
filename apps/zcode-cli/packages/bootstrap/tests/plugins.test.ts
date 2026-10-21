@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createConfig } from "@zcode/adapters/config";
+import { findPluginManifestPath } from "@zcode/adapters/plugins";
 import { DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS } from "@zcode/shared";
 import { ZCODE_PLUGIN_HOST_COMMAND } from "@zcode/contracts";
 import type { Logger } from "@zcode/contracts";
@@ -173,18 +174,12 @@ describe("ZCode plugins", () => {
       const packageJson = JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8")) as {
         version: string;
       };
-      const pluginManifest = JSON.parse(
-        await readFile(
-          join(
-            packageRoot,
-            ["documents", "pdf", "presentations", "spreadsheets"].includes(plugin.name)
-              ? ".mikiko-plugin"
-              : ".zcode-plugin",
-            "plugin.json",
-          ),
-          "utf8",
-        ),
-      ) as { version: string };
+      // 品牌 manifest 应与实际种子解析共用入口，不能维护另一份插件名称白名单。
+      const manifestPath = findPluginManifestPath(packageRoot);
+      expect(manifestPath, plugin.name).toBeDefined();
+      const pluginManifest = JSON.parse(await readFile(manifestPath!, "utf8")) as {
+        version: string;
+      };
 
       expect(
         {
@@ -209,18 +204,11 @@ describe("ZCode plugins", () => {
 
     for (const plugin of OFFICIAL_PLUGIN_DEFINITIONS) {
       const packageRoot = join(packagesRoot, basename(plugin.rootCandidates[0] ?? ""));
-      const pluginManifest = JSON.parse(
-        await readFile(
-          join(
-            packageRoot,
-            ["documents", "pdf", "presentations", "spreadsheets"].includes(plugin.name)
-              ? ".mikiko-plugin"
-              : ".zcode-plugin",
-            "plugin.json",
-          ),
-          "utf8",
-        ),
-      ) as { ui?: { surfaces?: unknown[] } };
+      const manifestPath = findPluginManifestPath(packageRoot);
+      expect(manifestPath, plugin.name).toBeDefined();
+      const pluginManifest = JSON.parse(await readFile(manifestPath!, "utf8")) as {
+        ui?: { surfaces?: unknown[] };
+      };
       // 卸载后的可恢复条目没有运行时信息，商店只能靠定义里的 componentTypes 归入「UI 插件」。
       expect(plugin.componentTypes?.includes("ui") ?? false, plugin.name).toBe(
         (pluginManifest.ui?.surfaces?.length ?? 0) > 0,

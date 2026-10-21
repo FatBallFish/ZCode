@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { URL } from "node:url";
+import { runInNewContext } from "node:vm";
 import { afterEach, describe, it } from "node:test";
 import worker from "../src/worker.ts";
 import { resetLatestReleaseCacheForTest } from "../src/releases.ts";
@@ -39,7 +42,7 @@ const requestedUrls: string[] = [];
 
 const ARCH_ASSETS = new Set<string>(["Mikiko-1.0.5-mac-arm64.dmg", "Mikiko-1.0.5-mac-arm64.zip"]);
 
-function mockManifestFetch() {
+function mockManifestFetch(linuxVersion = "1.0.5") {
   requestedUrls.length = 0;
   globalThis.fetch = (async (input: unknown, init?: { method?: string }) => {
     const url = new URL(String(input));
@@ -55,11 +58,12 @@ function mockManifestFetch() {
       return new Response("not found", { status: 404 });
     }
     const platform = url.searchParams.get("platform");
-    if (platform === "darwin-aarch64") {
+    if (platform === "darwin-aarch64" || platform === "darwin-x86_64") {
+      const arch = platform === "darwin-aarch64" ? "arm64" : "x64";
       return new Response(
         manifestYaml(
           "1.0.5",
-          "https://agent-dl.mikiko.ai/files/1.0.5/Mikiko-1.0.5-mac-x64.dmg",
+          `https://agent-dl.mikiko.ai/files/1.0.5/Mikiko-1.0.5-mac-${arch}.dmg`,
           "mac 修复",
         ),
       );
@@ -75,7 +79,7 @@ function mockManifestFetch() {
     }
     if (platform === "linux-x86_64") {
       return new Response(
-        `version: 1.0.5
+        `version: ${linuxVersion}
 files:
   - url: https://agent-dl.mikiko.ai/files/1.0.5/Mikiko-1.0.5-linux-x86_64.AppImage
     size: 120000000
@@ -95,6 +99,7 @@ releaseNotesByLocale:
 
 afterEach(() => {
   globalThis.fetch = realFetch;
+  resetLatestReleaseCacheForTest();
 });
 
 function createEnv() {
@@ -168,11 +173,55 @@ describe("GET /api/v1/releases/latest（manifest 聚合）", () => {
     );
   });
 
+  it("按真实清单架构为 Intel 和 Apple Silicon 选择不同的可下载包", async () => {
+    mockManifestFetch();
+    const response = await call(createEnv(), "/api/v1/releases/latest");
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as { files: Array<{ kind: string; url: string }> };
+    const browser = {
+      window: {} as {
+        MikikoDownload?: {
+          resolveDownloadKind: (os: string, arch: string, available: Set<string>) => string;
+        };
+      },
+    };
+    runInNewContext(
+      await readFile(new URL("../public/download-detect.js", import.meta.url), "utf8"),
+      browser,
+    );
+    const available = new Set(body.files.map((file) => file.kind));
+    for (const arch of ["x64", "arm64"]) {
+      const kind = browser.window.MikikoDownload!.resolveDownloadKind("macos", arch, available);
+      assert.equal(
+        body.files.find((file) => file.kind === kind)?.url,
+        `https://agent-dl.mikiko.ai/files/1.0.5/Mikiko-1.0.5-mac-${arch}.dmg`,
+      );
+    }
+    assert.ok(requestedUrls.some((value) => value.includes("platform=darwin-x86_64")));
+    assert.ok(!requestedUrls.some((value) => value.includes("platform=darwin-aarch64")));
+  });
+
   it("上游不可用返回 503（无缓存时）", async () => {
     resetLatestReleaseCacheForTest();
     globalThis.fetch = (async () => new Response("down", { status: 502 })) as typeof fetch;
     const response = await call(createEnv(), "/api/v1/releases/latest");
     assert.equal(response.status, 503);
+  });
+
+  it("三平台版本不一致时拒绝聚合，已有缓存保持完整的旧版下载", async (t) => {
+    mockManifestFetch("1.0.6");
+    assert.equal((await call(createEnv(), "/api/v1/releases/latest")).status, 503);
+    mockManifestFetch();
+    const accepted = await call(createEnv(), "/api/v1/releases/latest");
+    assert.equal(accepted.status, 200);
+    const previous = await accepted.json();
+    const expiredAt = Date.now() + 61_000;
+    t.mock.method(Date, "now", () => expiredAt);
+    mockManifestFetch("1.0.6");
+    const cached = await call(createEnv(), "/api/v1/releases/latest");
+    assert.equal(cached.status, 200);
+    assert.deepEqual(await cached.json(), previous);
+    assert.equal(requestedUrls.length, 3);
   });
 });
 

@@ -122,6 +122,8 @@ test(
         executable,
         [
           "--headless=new",
+          // 空白测试 profile 使用模拟密钥链，避免 macOS Chrome 初始化 Cookie 时等待真实 Keychain。
+          "--use-mock-keychain",
           "--remote-debugging-address=127.0.0.1",
           "--remote-debugging-port=0",
           `--user-data-dir=${profile}`,
@@ -298,6 +300,8 @@ test(
       executablePath,
       [
         "--headless=new",
+        // 空白测试 profile 使用模拟密钥链，避免 macOS Chrome 初始化 Cookie 时等待真实 Keychain。
+        "--use-mock-keychain",
         "--remote-debugging-address=127.0.0.1",
         "--remote-debugging-port=0",
         `--user-data-dir=${profile}`,
@@ -354,14 +358,14 @@ test(
     const [before] = (await host.list(scope)).filter((item) => item.type === "cdp");
     assert.equal(before?.id, "cdp:external:before");
     // 配置变更（实例 id 换成 after）：热重建，旧 generation/ID 失效，新 ID 立即可发现。
-    await host.applyConfiguration(
-      JSON.stringify({ instances: [{ id: "after", endpoint }] }),
-      true,
-    );
+    await host.applyConfiguration(JSON.stringify({ instances: [{ id: "after", endpoint }] }), true);
     const descriptors = await host.list(scope);
     const after = descriptors.find((item) => item.id === "cdp:external:after");
     assert.ok(after);
-    assert.equal(descriptors.some((item) => item.id === "cdp:external:before"), false);
+    assert.equal(
+      descriptors.some((item) => item.id === "cdp:external:before"),
+      false,
+    );
     const stale = await host.execute({
       ...scope,
       browserId: before.id,

@@ -111,34 +111,39 @@ async function handleClientConfigs(env: Env): Promise<Response> {
   return jsonResponse(configs);
 }
 
-/** agent-dl 下载代理：支持单 Range（electron-updater 关闭了多 Range）。 */
-async function handleDownload(env: Env, url: URL, request: Request): Promise<Response> {
-  const key = url.pathname.replace(/^\/+/, "");
-  if (!key || key.includes("..")) {
-    return jsonResponse({ error: "bad_key" }, 400);
+type DownloadRange = { offset: number; end?: number } | { suffix: number };
+
+function parseDownloadRange(header: string | null): DownloadRange | undefined {
+  const match = header && /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  if (!match || (!match[1] && !match[2])) return undefined;
+  const start = match[1] ? Number(match[1]) : undefined;
+  const end = match[2] ? Number(match[2]) : undefined;
+  if (
+    (start !== undefined && !Number.isSafeInteger(start)) ||
+    (end !== undefined && !Number.isSafeInteger(end))
+  )
+    return undefined;
+  return start === undefined ? { suffix: end! } : { offset: start, end };
+}
+
+function resolveDownloadRange(range: DownloadRange, size: number) {
+  if (size === 0) return undefined;
+  if ("suffix" in range) {
+    if (range.suffix === 0) return undefined;
+    const length = Math.min(range.suffix, size);
+    return { offset: size - length, length };
   }
-  const rangeHeader = request.headers.get("range");
-  let range: { offset: number; length?: number } | undefined;
-  if (rangeHeader) {
-    const match = /^bytes=(\d+)-(\d*)$/.exec(rangeHeader.trim());
-    if (match) {
-      const offset = Number.parseInt(match[1]!, 10);
-      const end = match[2] ? Number.parseInt(match[2], 10) : undefined;
-      if (Number.isFinite(offset)) {
-        range =
-          end != null && Number.isFinite(end) ? { offset, length: end - offset + 1 } : { offset };
-      }
-    }
-  }
-  const object = await env.RELEASES.get(key, range ? { range } : undefined);
-  if (object == null) {
-    return jsonResponse({ error: "not_found", key }, 404);
-  }
+  const end = Math.min(range.end ?? size - 1, size - 1);
+  if (range.offset >= size || end < range.offset) return undefined;
+  return { offset: range.offset, length: end - range.offset + 1 };
+}
+
+function downloadHeaders(object: R2Object, key: string): Headers {
   // 索引在同版本恢复发布时可更新；归档/组件按内容寻址，仍维持不可变缓存。
   const mutableIndex =
     key === "mikiko/server/catalog.json" ||
     /^mikiko\/electron\/releases\/[^/]+\/source-server-release\.json$/u.test(key);
-  const headers = new Headers({
+  return new Headers({
     "content-type": object.httpMetadata?.contentType ?? "application/octet-stream",
     "accept-ranges": "bytes",
     // 安装包内容按版本寻址，不可变。
@@ -146,12 +151,46 @@ async function handleDownload(env: Env, url: URL, request: Request): Promise<Res
       ? "no-cache, must-revalidate"
       : "public, max-age=31536000, immutable",
     etag: object.httpEtag,
+    "content-length": String(object.size),
   });
-  if (range && object.range) {
-    // 206 响应中 object.size 为分片大小；总长经 R2 元数据补齐不可得时退回完整对象。
-    const total = object.range.total ?? object.size;
-    const end = object.range.offset + object.size - 1;
-    headers.set("content-range", `bytes ${object.range.offset}-${end}/${total}`);
+}
+
+/** agent-dl 下载代理：支持单 Range（electron-updater 关闭了多 Range）。 */
+async function handleDownload(env: Env, url: URL, request: Request): Promise<Response> {
+  const key = url.pathname.replace(/^\/+/, "");
+  if (!key || key.includes("..")) return jsonResponse({ error: "bad_key" }, 400);
+  const requested =
+    request.method === "GET" ? parseDownloadRange(request.headers.get("range")) : undefined;
+  let range: { offset: number; length: number } | undefined;
+  if (request.method === "HEAD" || requested) {
+    const metadata = await env.RELEASES.head(key);
+    if (!metadata) return jsonResponse({ error: "not_found", key }, 404);
+    const headers = downloadHeaders(metadata, key);
+    if (request.method === "HEAD") return new Response(null, { status: 200, headers });
+    range = resolveDownloadRange(requested!, metadata.size);
+    if (!range) {
+      // 先用完整元数据判定416，不把负长度或越界offset交给R2变成内部错误。
+      headers.set("content-range", `bytes */${metadata.size}`);
+      headers.set("content-length", "0");
+      headers.set("cache-control", "no-store");
+      return new Response(null, { status: 416, headers });
+    }
+  }
+  const object = await env.RELEASES.get(key, range ? { range } : undefined);
+  if (!object) return jsonResponse({ error: "not_found", key }, 404);
+  const headers = downloadHeaders(object, key);
+  if (range) {
+    // R2的size始终是完整对象大小；分片长度来自实际range元数据，不能据size伪造整包区间。
+    const offset =
+      object.range && "offset" in object.range
+        ? (object.range.offset ?? range.offset)
+        : range.offset;
+    const length =
+      object.range && "length" in object.range
+        ? (object.range.length ?? range.length)
+        : range.length;
+    headers.set("content-range", `bytes ${offset}-${offset + length - 1}/${object.size}`);
+    headers.set("content-length", String(length));
     return new Response(object.body, { status: 206, headers });
   }
   return new Response(object.body, { status: 200, headers });

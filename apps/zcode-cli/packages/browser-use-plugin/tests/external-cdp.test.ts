@@ -93,6 +93,8 @@ test(
       executablePath,
       [
         "--headless=new",
+        // 空白测试 profile 使用模拟密钥链，避免 macOS Chrome 初始化 Cookie 时等待真实 Keychain。
+        "--use-mock-keychain",
         "--remote-debugging-address=127.0.0.1",
         "--remote-debugging-port=0",
         `--user-data-dir=${profile}`,
@@ -248,8 +250,7 @@ test(
       // 远控 live 链路默认可见 external（与 IAB 同等信任）；cached 回放上下文不可见。
       assert.equal((await host.list({ ...scope, remoteSessionId: "remote" })).length, 2);
       assert.equal(
-        (await host.list({ ...scope, remoteSessionId: "remote", sessionContext: "cached" }))
-          .length,
+        (await host.list({ ...scope, remoteSessionId: "remote", sessionContext: "cached" })).length,
         1,
       );
       const remoteTab = await host.execute({

@@ -1,0 +1,66 @@
+{
+  "observedAt": "2026-10-20T23:49:14.370Z",
+  "version": "1.1.4",
+  "electron": "41.0.3",
+  "chromium": "146.0.7680.80",
+  "driver": "146.0.7680.80",
+  "canonicalSpecUnchanged": true,
+  "wdioConfigUnchanged": true,
+  "sourceFiles": [
+    {
+      "path": "package.json",
+      "sha256": "2724dbe6c93ce8634acac1b17aed981df2c0ea467488514723b764b3fa7d0ee5",
+      "copySha256": "2724dbe6c93ce8634acac1b17aed981df2c0ea467488514723b764b3fa7d0ee5",
+      "identical": true
+    },
+    {
+      "path": "packages/desktop/wdio.conf.ts",
+      "sha256": "f393899c4c001540716b6e261a0b919f5052f6455e1429283bbd9c21152f21c4",
+      "copySha256": "f393899c4c001540716b6e261a0b919f5052f6455e1429283bbd9c21152f21c4",
+      "identical": true
+    },
+    {
+      "path": "packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-project-seed-upgrade.test.ts",
+      "sha256": "f7c09471b0f97ef0c481c79d51db87e6d08a72d8231eb2504044ea7b8bc389c9",
+      "copySha256": "f7c09471b0f97ef0c481c79d51db87e6d08a72d8231eb2504044ea7b8bc389c9",
+      "identical": true
+    },
+    {
+      "path": "packages/desktop/test/e2e/helpers/project-seed-upgrade-fixture.ts",
+      "sha256": "2372a6e374b8cec863af67630877c0a72f6f47354251ec864481feaf3da58b8c",
+      "copySha256": "2372a6e374b8cec863af67630877c0a72f6f47354251ec864481feaf3da58b8c",
+      "identical": true
+    },
+    {
+      "path": "packages/desktop/test/e2e/helpers/integration-acceptance.ts",
+      "sha256": "3501a095f5930588487bacea69965a27fd534b7c562fa5d06de7982b8d0b4c25",
+      "copySha256": "3501a095f5930588487bacea69965a27fd534b7c562fa5d06de7982b8d0b4c25",
+      "identical": true
+    }
+  ],
+  "runnerExit": 0,
+  "tests": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "passedOnRetry": false
+  },
+  "syntheticProjectNames": ["empty-saved-project", "pinned-saved-project", "normal-saved-project"],
+  "stats": {
+    "projects": 3,
+    "roots": 3,
+    "tasks": 2,
+    "pinnedTaskCount": 1,
+    "allTasksAssigned": true,
+    "allTaskCwdMatchesRoot": true
+  },
+  "refreshUiAssertionPassed": true,
+  "zeroModelRequestsAssertionPassed": true,
+  "providerCaptureRecordCount": 0,
+  "ownedProcessesStillAlive": 0,
+  "screenshot": "R1-project-seed-upgrade.png",
+  "fixtureOnly": true,
+  "personalProfileUsed": false,
+  "tccChanged": false,
+  "originalCheckoutOutputsChanged": false
+}

@@ -1,0 +1,1379 @@
+diff --git a/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseConnection.swift b/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseConnection.swift
+index 88b2fe7..032d9ba 100644
+--- a/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseConnection.swift
++++ b/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseConnection.swift
+@@ -7,7 +7,7 @@ import os
+ /// acquire a lease; inventory, diagnostics and protocol discovery do not unlock.
+ final class LockedUseConnection: @unchecked Sendable {
+     private let mutex = NSLock()
+-    private let logger = Logger(subsystem: "dev.opencomputeruse.locked-use", category: "AgentRecovery")
++    private let logger = Logger(subsystem: "dev.mikiko.computer-use.locked-use", category: "AgentRecovery")
+     private let clientSocket: Int32
+     private var broker: LockedUseIPCClient?
+     private var lease: UUID?
+@@ -33,23 +33,9 @@ final class LockedUseConnection: @unchecked Sendable {
+     deinit { if clientSocket >= 0 { Darwin.close(clientSocket) } }
+ 
+     func perform<T>(_ body: () throws -> T) throws -> T {
+-        let session = LockedUseSession.current()
+-        mutex.lock(); let needsRecovery = stopped && lease == nil; mutex.unlock()
+-        if session.state == .unlocked, needsRecovery || FileManager.default.fileExists(atPath: LockedUseIPCEndpoint.observer.path) {
+-            _ = try observeManualUnlock()
+-        }
+-        if session.state == .locked { try acquire(session: session) }
+-        mutex.lock()
+-        guard !stopped && !clientDisconnected else { mutex.unlock(); throw ComputerUseError.stateUnavailable("Locked Use stopped. Unlock the Mac normally before starting another session.") }
+-        let scoped = lease != nil
+-        inFlight = true
+-        mutex.unlock()
+-        defer {
+-            mutex.lock(); inFlight = false; let drain = stopped; mutex.unlock()
+-            if drain { acknowledgeDrain() }
+-        }
+-        if scoped {
+-            return try LockedUseActionScope.withValidator({ [self] in try validateAction() }, body: body)
++        // Mikiko 预览不连接 Broker/Guardian；锁定会话只明确拒绝，不尝试解锁。
++        guard LockedUseSession.current().state == .unlocked else {
++            throw ComputerUseError.permissionDenied("Mikiko Computer Use preview requires an unlocked session.")
+         }
+         return try body()
+     }
+@@ -67,7 +53,7 @@ final class LockedUseConnection: @unchecked Sendable {
+               startupDeadline <= now + LockedUseStateMachine.validationUnlockTimeout,
+               let lease = reply.leaseID, let token = reply.token else {
+             connection.close()
+-            throw ComputerUseError.stateUnavailable("Locked Use is unavailable. Enable and validate it in Open Computer Use settings.")
++            throw ComputerUseError.stateUnavailable("Locked Use is unavailable. Enable and validate it in Mikiko Computer Use settings.")
+         }
+         mutex.lock(); broker = connection; self.lease = lease; let disconnected = clientDisconnected; mutex.unlock()
+         if recoveryProbe { mutex.lock(); recoveryProbeStarted = true; mutex.unlock() }
+diff --git a/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseNativeValidation.swift b/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseNativeValidation.swift
+index 2a3b6f1..90f94e0 100644
+--- a/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseNativeValidation.swift
++++ b/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseNativeValidation.swift
+@@ -8,9 +8,9 @@ import os
+ /// Fixed real GUI target; no host-supplied app, index, image or "passed" flag.
+ enum LockedUseNativeValidation {
+     static func run(probe: LockedUseKeychainProbe) throws {
+-        let logger = Logger(subsystem: "dev.opencomputeruse.locked-use", category: "NativeValidation")
++        let logger = Logger(subsystem: "dev.mikiko.computer-use.locked-use", category: "NativeValidation")
+         logger.notice("fixtureValidationStarted")
+-        let identifier = "dev.opencomputeruse.locked-use.fixture.dev"
++        let identifier = "dev.mikiko.computer-use.locked-use.fixture.dev"
+         let apps = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+         guard apps.count == 1, let path = apps.first?.bundleURL,
+               let team = try LockedUseSigningIdentity.current().teamIdentifier else {
+diff --git a/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseSettings.swift b/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseSettings.swift
+index a1c3546..93bc95b 100644
+--- a/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseSettings.swift
++++ b/apps/OpenComputerUse/Sources/OpenComputerUse/LockedUseSettings.swift
+@@ -56,15 +56,15 @@ enum LockedUseSettings {
+     private static func enable(recovering: Bool = false) throws {
+         guard LockedUseSession.current().state == .unlocked else { throw OpenComputerUseCLIError(message: "Unlock the Mac normally before administrator installation or recovery.") }
+         let identity = try LockedUseSigningIdentity.current()
+-        guard identity.userID > 0, ["com.ifuryst.opencomputeruse", "com.ifuryst.opencomputeruse.dev"].contains(identity.signingIdentifier),
+-              let team = identity.teamIdentifier else { throw OpenComputerUseCLIError(message: "Use the signed Open Computer Use app to enable Locked Use.") }
++        guard identity.userID > 0, ["dev.mikiko.computer-use", "dev.mikiko.computer-use.development"].contains(identity.signingIdentifier),
++              let team = identity.teamIdentifier else { throw OpenComputerUseCLIError(message: "Use the signed Mikiko Computer Use app to enable Locked Use.") }
+         let source = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/LockedUse")
+         guard FileManager.default.fileExists(atPath: source.appendingPathComponent("OCULockInstaller").path) else {
+-            throw OpenComputerUseCLIError(message: "Signed Locked Use components are missing from this app. Build with OPEN_COMPUTER_USE_INCLUDE_LOCKED_USE=1.")
++            throw OpenComputerUseCLIError(message: "Signed Locked Use components are missing from this app. Build with MIKIKO_COMPUTER_USE_INCLUDE_LOCKED_USE=1.")
+         }
+         // Administrator staging has a protected parent; /tmp ancestry would
+         // permit path replacement even when a leaf happens to be root owned.
+-        let requirement = "=identifier \"dev.opencomputeruse.locked-use.installer\" and anchor apple generic and certificate leaf[subject.OU] = \"\(team)\""
++        let requirement = "=identifier \"dev.mikiko.computer-use.locked-use.installer\" and anchor apple generic and certificate leaf[subject.OU] = \"\(team)\""
+         let stageParent = "/Library/Application Support/OpenComputerUseLockedUseStaging"
+         let stage = stageParent + "/" + UUID().uuidString
+         let shell = "set -eu\numask 077\n" +
+@@ -101,7 +101,7 @@ enum LockedUseSettings {
+         }
+         _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+         if !CGPreflightScreenCaptureAccess() { _ = CGRequestScreenCaptureAccess() }
+-        print("Locked Use installed. Complete Open Computer Use and OCU Guardian permissions in System Settings, then run ocu locked-use status.")
++        print("Locked Use installed. Complete Mikiko Computer Use and OCU Guardian permissions in System Settings, then run ocu locked-use status.")
+     }
+     private static func certify() throws {
+         guard LockedUseSession.current().state == .unlocked else {
+@@ -123,7 +123,7 @@ enum LockedUseSettings {
+             // installer that may fail while deleting the OS-managed cache.
+             let parent = "/Library/Application Support/OpenComputerUseLockedUseStaging"
+             let stage = parent + "/" + UUID().uuidString
+-            let requirement = "=identifier \"dev.opencomputeruse.locked-use.installer\" and anchor apple generic and certificate leaf[subject.OU] = \"\(team)\""
++            let requirement = "=identifier \"dev.mikiko.computer-use.locked-use.installer\" and anchor apple generic and certificate leaf[subject.OU] = \"\(team)\""
+             let commands = "set -eu\numask 077\n" +
+                 "/bin/test ! -L " + quote(parent) + "\n" +
+                 "/bin/mkdir -p " + quote(parent) + "\n" +
+@@ -147,7 +147,7 @@ enum LockedUseSettings {
+         let current = base + "OCULockInstaller"
+         let legacy = base + "OpenComputerUseLockedUseInstaller"
+         let path = FileManager.default.fileExists(atPath: current) ? current : legacy
+-        let requirement = "=identifier \"dev.opencomputeruse.locked-use.installer\" and anchor apple generic and certificate leaf[subject.OU] = \"\(team)\""
++        let requirement = "=identifier \"dev.mikiko.computer-use.locked-use.installer\" and anchor apple generic and certificate leaf[subject.OU] = \"\(team)\""
+         try elevate("set -eu\n/usr/bin/codesign --verify --strict -R " + quote(requirement) + " " + quote(path) + "\n" + quote(path) + " " + quote(action))
+     }
+ 
+diff --git a/apps/OpenComputerUse/Sources/OpenComputerUse/MacOSAppAgentProxy.swift b/apps/OpenComputerUse/Sources/OpenComputerUse/MacOSAppAgentProxy.swift
+index 94b8c5b..efc561b 100644
+--- a/apps/OpenComputerUse/Sources/OpenComputerUse/MacOSAppAgentProxy.swift
++++ b/apps/OpenComputerUse/Sources/OpenComputerUse/MacOSAppAgentProxy.swift
+@@ -3,10 +3,10 @@ import Darwin
+ import Foundation
+ import OpenComputerUseKit
+ 
+-private let appAgentCommand = "__open-computer-use-app-agent"
+-private let appAgentDisableEnvironmentKey = "OPEN_COMPUTER_USE_DISABLE_APP_AGENT_PROXY"
++private let appAgentCommand = "__mikiko-computer-use-app-agent"
++private let appAgentDisableEnvironmentKey = "MIKIKO_COMPUTER_USE_DISABLE_APP_AGENT_PROXY"
+ private let appAgentProcessStartDate = Date()
+-private let appAgentBuildIdentifier = Bundle.main.object(forInfoDictionaryKey: "OpenComputerUseBuildIdentifier") as? String ?? ""
++private let appAgentBuildIdentifier = Bundle.main.object(forInfoDictionaryKey: "MikikoComputerUseBuildIdentifier") as? String ?? ""
+ 
+ enum MacOSAppAgentProxy {
+     static func isAgentInvocation(arguments: [String]) -> Bool {
+@@ -84,7 +84,7 @@ enum MacOSAppAgentProxy {
+     @MainActor
+     private static func connectOrLaunchAgent(socketPath: String) throws -> AppAgentSocketClient {
+         guard let appURL = PermissionSupport.currentAppBundleURL() else {
+-            throw OpenComputerUseCLIError(message: "Unable to locate Open Computer Use.app for app-scoped macOS permissions.")
++            throw OpenComputerUseCLIError(message: "Unable to locate Mikiko Computer Use.app for app-scoped macOS permissions.")
+         }
+ 
+         if let client = AppAgentSocketClient.connect(path: socketPath) {
+@@ -116,7 +116,7 @@ enum MacOSAppAgentProxy {
+             Thread.sleep(forTimeInterval: 0.05)
+         }
+ 
+-        throw OpenComputerUseCLIError(message: "Timed out waiting for Open Computer Use.app agent to start.")
++        throw OpenComputerUseCLIError(message: "Timed out waiting for Mikiko Computer Use.app agent to start.")
+     }
+ 
+     private static func proxyMCP(client: AppAgentSocketClient) throws {
+@@ -153,10 +153,10 @@ enum MacOSAppAgentProxy {
+ 
+     private static func proxiedEnvironment() -> [String: String] {
+         var environment = ProcessInfo.processInfo.environment.filter { key, _ in
+-            key.hasPrefix("OPEN_COMPUTER_USE_")
++            key.hasPrefix("MIKIKO_COMPUTER_USE_")
+         }
+         if let url = try? OCUConfiguration.fileURL(environment: OCUConfiguration.environment) {
+-            environment["OPEN_COMPUTER_USE_CONFIG_FILE"] = url.path
++            environment["MIKIKO_COMPUTER_USE_CONFIG_FILE"] = url.path
+         }
+         return environment
+     }
+@@ -379,62 +379,7 @@ private final class AppAgentConnection: @unchecked Sendable {
+                     let payload = try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+                     if payload?["method"] as? String == "notifications/turn-ended" { lockedUse.end() }
+                     if let method = payload?["method"] as? String, method.hasPrefix("ocu/locked-use/keychain/") || ["ocu/locked-use/validate", "ocu/locked-use/validate-unlocked", "ocu/locked-use/validate-recovery", "ocu/locked-use/validate-unlock", "ocu/locked-use/ready", "ocu/locked-use/protection-released"].contains(method) {
+-                        var passed = false
+-                        switch method {
+-                        case "ocu/locked-use/ready":
+-                            passed = try lockedUse.observeManualUnlock()
+-                        case "ocu/locked-use/protection-released":
+-                            passed = try lockedUse.protectionReleased()
+-                        case "ocu/locked-use/validate-recovery":
+-                            passed = try lockedUse.validateRecovery()
+-                        case "ocu/locked-use/validate-unlock":
+-                            guard LockedUseSession.current().state == .locked else {
+-                                throw ComputerUseError.stateUnavailable("Begin unlock validation in a locked session")
+-                            }
+-                            // acquire() returns only after Root has observed
+-                            // the original session unlocked with fresh guards.
+-                            // No application, input, capture or Keychain access.
+-                            try lockedUse.perform {
+-                                guard LockedUseSession.current().state == .unlocked else {
+-                                    throw ComputerUseError.stateUnavailable("Protected session did not remain unlocked")
+-                                }
+-                            }
+-                            passed = true
+-                        case "ocu/locked-use/keychain/prepare", "ocu/locked-use/keychain/prepare-legacy":
+-                            guard LockedUseSession.current().state == .unlocked, keychainProbe == nil else { throw ComputerUseError.stateUnavailable("Prepare validation items in a normally unlocked session.") }
+-                            keychainProbe = try LockedUseKeychainProbe(includeDataProtection: method != "ocu/locked-use/keychain/prepare-legacy"); passed = true
+-                        case "ocu/locked-use/keychain/verify":
+-                            guard let probe = keychainProbe else { throw ComputerUseError.stateUnavailable("Prepare validation items first.") }
+-                            try lockedUse.perform { try probe.verify() }; passed = true
+-                        case "ocu/locked-use/validate-unlocked":
+-                            guard LockedUseSession.current().state == .unlocked, let probe = keychainProbe else {
+-                                throw ComputerUseError.stateUnavailable("Unshielded native fixture preflight requires a normally unlocked session.")
+-                            }
+-                            try lockedUse.perform { try LockedUseNativeValidation.run(probe: probe) }
+-                            passed = true
+-                        case "ocu/locked-use/validate":
+-                            guard LockedUseSession.current().state == .locked, let probe = keychainProbe else {
+-                                throw ComputerUseError.stateUnavailable("Begin fixed native validation from a locked session with prepared isolated Keychain items.")
+-                            }
+-                            try lockedUse.perform {
+-                                try LockedUseNativeValidation.run(probe: probe)
+-                                if probe.includesDataProtection { try lockedUse.recordValidation() }
+-                            }
+-                            passed = true
+-                        case "ocu/locked-use/keychain/verify-manual":
+-                            guard LockedUseSession.current().state == .unlocked, let probe = keychainProbe else {
+-                                throw ComputerUseError.stateUnavailable("Unlock normally before the final isolated Keychain check.")
+-                            }
+-                            try probe.verify()
+-                            if probe.includesDataProtection { try lockedUse.recordValidation(manual: true) }
+-                            passed = true
+-                        case "ocu/locked-use/keychain/cleanup":
+-                            passed = keychainProbe?.cleanup() ?? true
+-                            if passed { keychainProbe = nil }
+-                        default: throw ComputerUseError.message("Unknown Keychain validation operation.")
+-                        }
+-                        let result: [String: Any] = ["jsonrpc": "2.0", "id": payload?["id"] ?? NSNull(), "result": ["passed": passed, "existingItemsRead": false, "dataProtectionIncluded": keychainProbe?.includesDataProtection ?? false]]
+-                        return String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self)
++                        throw ComputerUseError.permissionDenied("Locked Use is disabled in Mikiko Computer Use preview.")
+                     }
+                     let parameters = payload?["params"] as? [String: Any]
+                     if payload?["method"] as? String == "tools/call",
+@@ -512,12 +457,11 @@ private final class AppAgentConnection: @unchecked Sendable {
+                         PermissionOnboardingApp.present()
+                     }
+                 }
+-                let text = try json ? permissions.jsonText() : permissions.summary + "\n" + LockedUseDiagnostics.current().summary
++                let text = try json ? permissions.jsonText() : permissions.summary
+                 return CLIProxyResponse(stdout: text + "\n", stderr: "", exitCode: EXIT_SUCCESS)
+ 
+             case let .lockedUseStatus(json):
+-                let diagnostics = LockedUseDiagnostics.current()
+-                return CLIProxyResponse(stdout: (try json ? diagnostics.jsonText() : diagnostics.summary) + "\n", stderr: "", exitCode: EXIT_SUCCESS)
++                throw ComputerUseError.permissionDenied("Locked Use is disabled in Mikiko Computer Use preview.")
+ 
+             case .listApps:
+                 let service = ComputerUseService()
+@@ -639,7 +583,7 @@ private final class AppAgentSocketClient: @unchecked Sendable {
+         guard let responseLine = readAgentLine(file),
+               let response = try JSONSerialization.jsonObject(with: Data(responseLine.utf8)) as? [String: Any]
+         else {
+-            throw ComputerUseError.message("Open Computer Use.app agent closed the connection.")
++            throw ComputerUseError.message("Mikiko Computer Use.app agent closed the connection.")
+         }
+ 
+         if let error = response["error"] as? String {
+@@ -669,7 +613,7 @@ private final class AppAgentSocketClient: @unchecked Sendable {
+             return false
+         }
+ 
+-        if let expectedBuild = Bundle(url: expectedBundleURL)?.object(forInfoDictionaryKey: "OpenComputerUseBuildIdentifier") as? String,
++        if let expectedBuild = Bundle(url: expectedBundleURL)?.object(forInfoDictionaryKey: "MikikoComputerUseBuildIdentifier") as? String,
+            !expectedBuild.isEmpty, response["buildIdentifier"] as? String != expectedBuild { return false }
+ 
+         guard let processStartTime = response["processStartTime"] as? TimeInterval else {
+diff --git a/apps/OpenComputerUse/Sources/OpenComputerUse/OpenComputerUseMain.swift b/apps/OpenComputerUse/Sources/OpenComputerUse/OpenComputerUseMain.swift
+index 7c4ce10..ee8ecb2 100644
+--- a/apps/OpenComputerUse/Sources/OpenComputerUse/OpenComputerUseMain.swift
++++ b/apps/OpenComputerUse/Sources/OpenComputerUse/OpenComputerUseMain.swift
+@@ -39,7 +39,7 @@ enum OpenComputerUseMain {
+ 
+         switch command {
+         case .lockedUseManagement:
+-            _ = try LockedUseSettings.handle(arguments: arguments)
++            throw ComputerUseError.permissionDenied("Locked Use is disabled in Mikiko Computer Use preview.")
+         case .mcp:
+             let service = ComputerUseService()
+             let server = StdioMCPServer(service: service)
+@@ -53,15 +53,11 @@ enum OpenComputerUseMain {
+         case let .doctor(json):
+             let permissions = PermissionDiagnostics.current()
+             print(try json ? permissions.jsonText() : permissions.summary)
+-            if !json {
+-                print(LockedUseDiagnostics.current().summary)
+-            }
+             if !json && !permissions.missingPermissions.isEmpty {
+                 PermissionOnboardingApp.launch()
+             }
+         case let .lockedUseStatus(json):
+-            let diagnostics = LockedUseDiagnostics.current()
+-            print(try json ? diagnostics.jsonText() : diagnostics.summary)
++            throw ComputerUseError.permissionDenied("Locked Use is disabled in Mikiko Computer Use preview.")
+         case .listApps:
+             let service = ComputerUseService()
+             print(service.listApps().primaryText ?? "")
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AccessibilitySnapshot.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AccessibilitySnapshot.swift
+index 2fbfc30..7e427f9 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AccessibilitySnapshot.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AccessibilitySnapshot.swift
+@@ -200,7 +200,7 @@ enum SnapshotBuilder {
+ 
+         let permissions = PermissionDiagnostics.current()
+         guard permissions.accessibilityTrusted else {
+-            throw ComputerUseError.permissionDenied("Accessibility permission is required. Run `open-computer-use doctor` and grant access to Open Computer Use.")
++            throw ComputerUseError.permissionDenied("Accessibility permission is required. Run `mikiko-computer-use doctor` and grant access to Mikiko Computer Use.")
+         }
+ 
+         let appElement = AXUIElementCreateApplication(app.pid)
+@@ -2345,7 +2345,7 @@ extension SnapshotBuilder {
+         }
+ 
+         guard PermissionDiagnostics.current().accessibilityTrusted else {
+-            throw ComputerUseError.permissionDenied("Accessibility permission is required. Run `open-computer-use doctor` and grant access to Open Computer Use.")
++            throw ComputerUseError.permissionDenied("Accessibility permission is required. Run `mikiko-computer-use doctor` and grant access to Mikiko Computer Use.")
+         }
+ 
+         let appElement = AXUIElementCreateApplication(app.pid)
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AgentDisplay.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AgentDisplay.swift
+index a5a5517..1a95a88 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AgentDisplay.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AgentDisplay.swift
+@@ -49,7 +49,7 @@ final class AgentDisplay: @unchecked Sendable {
+ 
+     static let displaySize = CGSize(width: 1920, height: 1080)
+     // Upper bounds for the polls; the observed values are far lower and are
+-    // logged with OPEN_COMPUTER_USE_DEBUG_TIMING=1.
++    // logged with MIKIKO_COMPUTER_USE_DEBUG_TIMING=1.
+     static let displaySettle: TimeInterval = 3.0
+     static let moveSettle: TimeInterval = 2.0
+     // Fallback sleeps when the observation SPIs are unavailable.
+@@ -232,7 +232,7 @@ final class AgentDisplay: @unchecked Sendable {
+         let spacesBefore = Set((spi.managedDisplaySpaces() ?? [:]).values.flatMap { $0 })
+         let start = TimingLog.now()
+         var newHandle: UnsafeMutableRawPointer?
+-        let id = ocu_virtual_display_create("Open Computer Use", UInt32(Self.displaySize.width), UInt32(Self.displaySize.height), 60, &newHandle)
++        let id = ocu_virtual_display_create("Mikiko Computer Use", UInt32(Self.displaySize.width), UInt32(Self.displaySize.height), 60, &newHandle)
+         guard id != 0, let newHandle else {
+             throw ComputerUseError.message("window_placement 'agent_display' could not create the agent display")
+         }
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AppAgentSocketNamespace.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AppAgentSocketNamespace.swift
+index 747907e..0d60812 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AppAgentSocketNamespace.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AppAgentSocketNamespace.swift
+@@ -1,14 +1,14 @@
+ import CryptoKit
+ import Foundation
+ 
+-public let openComputerUseAppAgentSocketNamespaceEnvironmentKey = "OPEN_COMPUTER_USE_AGENT_SOCKET_NAMESPACE"
++public let openComputerUseAppAgentSocketNamespaceEnvironmentKey = "MIKIKO_COMPUTER_USE_AGENT_SOCKET_NAMESPACE"
+ 
+ public func openComputerUseAppAgentSocketFileName(namespace: String?) -> String {
+     guard let namespace = namespace?.trimmingCharacters(in: .whitespacesAndNewlines), !namespace.isEmpty else {
+-        return "open-computer-use-agent.sock"
++        return "mikiko-computer-use-agent.sock"
+     }
+ 
+     let digest = SHA256.hash(data: Data(namespace.utf8))
+     let identifier = digest.prefix(8).map { String(format: "%02x", $0) }.joined()
+-    return "open-computer-use-agent-\(identifier).sock"
++    return "mikiko-computer-use-agent-\(identifier).sock"
+ }
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ComputerUseService.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ComputerUseService.swift
+index a74e823..7043faf 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ComputerUseService.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ComputerUseService.swift
+@@ -45,13 +45,16 @@ func validateClickMethod(
+     hasElementIndex: Bool,
+     environment: [String: String]
+ ) throws {
++    guard method != .global && method != .skyClick else {
++        throw ComputerUseError.permissionDenied("Global and sky input are disabled in Mikiko Computer Use preview.")
++    }
+     if method == .accessibility, !hasElementIndex {
+         throw ComputerUseError.message("click_method 'accessibility' requires element_index")
+     }
+ 
+     if method == .global, !globalPointerFallbacksEnabled(environment: environment) {
+         throw ComputerUseError.message(
+-            "click_method 'global' requires OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 because it may move the system pointer and change foreground focus"
++            "click_method 'global' requires MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 because it may move the system pointer and change foreground focus"
+         )
+     }
+ }
+@@ -77,6 +80,9 @@ func parseKeyMethod(_ rawValue: String?) throws -> KeyMethod {
+         )
+     }
+ 
++    guard method == .auto else {
++        throw ComputerUseError.permissionDenied("Sky keyboard input is disabled in Mikiko Computer Use preview.")
++    }
+     return method
+ }
+ 
+@@ -226,7 +232,7 @@ func makeVisualCursorTarget(
+ }
+ 
+ func inputFallbackDebugEnabled(environment: [String: String]) -> Bool {
+-    guard let rawValue = environment["OPEN_COMPUTER_USE_DEBUG_INPUT_FALLBACKS"]?
++    guard let rawValue = environment["MIKIKO_COMPUTER_USE_DEBUG_INPUT_FALLBACKS"]?
+         .trimmingCharacters(in: .whitespacesAndNewlines)
+         .lowercased()
+     else {
+@@ -237,21 +243,15 @@ func inputFallbackDebugEnabled(environment: [String: String]) -> Bool {
+ }
+ 
+ func globalPointerFallbacksEnabled(environment: [String: String]) -> Bool {
+-    guard let rawValue = environment["OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS"]?
+-        .trimmingCharacters(in: .whitespacesAndNewlines)
+-        .lowercased()
+-    else {
+-        return false
+-    }
+-
+-    return ["1", "true", "yes", "on"].contains(rawValue)
++    // 编译时关闭：LaunchServices 环境和单次RPC覆盖都不能放开真实全局指针。
++    false
+ }
+ 
+ /// Whether an action's result reads the window back (settle, then a full snapshot).
+ /// A program driving the tools (the `js` REPL adapter) reads state explicitly and
+-/// sets `OPEN_COMPUTER_USE_ACTION_READ_BACK=0`, so its actions return a short status.
++/// sets `MIKIKO_COMPUTER_USE_ACTION_READ_BACK=0`, so its actions return a short status.
+ func actionReadBackEnabled(environment: [String: String]) -> Bool {
+-    guard let rawValue = environment["OPEN_COMPUTER_USE_ACTION_READ_BACK"]?
++    guard let rawValue = environment["MIKIKO_COMPUTER_USE_ACTION_READ_BACK"]?
+         .trimmingCharacters(in: .whitespacesAndNewlines)
+         .lowercased()
+     else {
+@@ -280,9 +280,9 @@ func dragDeliveryPath(environment: [String: String]) -> DragDeliveryPath {
+ func dragDeliveryNote(for path: DragDeliveryPath) -> String {
+     switch path {
+     case .appPost:
+-        return "Drag delivered via app_post: mouse events were posted directly to the target process and the system pointer did not move. This path cannot drive window-server drag sessions such as window moves, text selection, or Finder drag-and-drop. If the drag had no effect, set OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 in the server process environment to use the global pointer path, which may move the real pointer and change foreground focus."
++        return "Drag delivered via app_post: mouse events were posted directly to the target process and the system pointer did not move. This path cannot drive window-server drag sessions such as window moves, text selection, or Finder drag-and-drop. If the drag had no effect, set MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 in the server process environment to use the global pointer path, which may move the real pointer and change foreground focus."
+     case .global:
+-        return "Drag delivered via global pointer path: OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS is enabled, so the real pointer may have moved and foreground focus may have changed."
++        return "Drag delivered via global pointer path: MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS is enabled, so the real pointer may have moved and foreground focus may have changed."
+     }
+ }
+ 
+@@ -542,7 +542,7 @@ func shouldPreferContainingWebRowAXClickCandidate(
+ public final class ComputerUseService {
+     private var snapshotsByApp: [String: AppSnapshot] = [:]
+     private var invalidatedSnapshotAliases: Set<String> = []
+-    // Read per call: the app agent applies the caller's OPEN_COMPUTER_USE_* variables
++    // Read per call: the app agent applies the caller's MIKIKO_COMPUTER_USE_* variables
+     // for the duration of each request.
+     private var actionReadBack: Bool { actionReadBackEnabled(environment: ProcessInfo.processInfo.environment) }
+ 
+@@ -597,6 +597,9 @@ public final class ComputerUseService {
+         windowPlacement: WindowPlacement = .keep,
+         observation: SnapshotObservationOptions = .defaults
+     ) throws -> ToolCallResult {
++        guard windowPlacement == .keep else {
++            throw ComputerUseError.permissionDenied("Window placement is disabled in Mikiko Computer Use preview.")
++        }
+         try observation.validate()
+         guard windowPlacement != .keep else {
+             return snapshotResult(for: try refreshSnapshot(for: query, textLimit: textLimit, treeLimits: treeLimits, observation: observation), style: .fullState)
+@@ -2170,7 +2173,7 @@ public final class ComputerUseService {
+ 
+         let appReference = snapshot.app.bundleIdentifier ?? snapshot.app.name
+         fputs(
+-            "[open-computer-use] global pointer fallback tool=\(tool) app=\(appReference) target=\(targetDescription)\n",
++            "[mikiko-computer-use] global pointer fallback tool=\(tool) app=\(appReference) target=\(targetDescription)\n",
+             stderr
+         )
+     }
+@@ -2180,7 +2183,7 @@ public final class ComputerUseService {
+             return
+         }
+ 
+-        fputs("[open-computer-use] click decision \(message)\n", stderr)
++        fputs("[mikiko-computer-use] click decision \(message)\n", stderr)
+     }
+ 
+     private func clickDebugDescription(_ record: ElementRecord) -> String {
+@@ -2278,7 +2281,7 @@ public final class ComputerUseService {
+         } catch {
+             guard globalPointerFallbacksEnabled(environment: ProcessInfo.processInfo.environment) else {
+                 throw ComputerUseError.message(
+-                    "click could not be handled through accessibility, and global pointer fallback is disabled. Set OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 to allow physical-pointer fallback for this process."
++                    "click could not be handled through accessibility, and global pointer fallback is disabled. Set MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 to allow physical-pointer fallback for this process."
+                 )
+             }
+         }
+@@ -2322,7 +2325,7 @@ public final class ComputerUseService {
+         case .global:
+             guard globalPointerFallbacksEnabled(environment: ProcessInfo.processInfo.environment) else {
+                 throw ComputerUseError.message(
+-                    "click_method 'global' requires OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 because it may move the system pointer and change foreground focus"
++                    "click_method 'global' requires MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 because it may move the system pointer and change foreground focus"
+                 )
+             }
+             debugClickDecision("requested=global executed=global_hid target=\(targetDescription)")
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/FixtureBridge.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/FixtureBridge.swift
+index 3ff06d4..61faaf0 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/FixtureBridge.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/FixtureBridge.swift
+@@ -129,7 +129,7 @@ public enum FixtureBridge {
+     public static let appName = "OpenComputerUseFixture"
+     // Optional UUID isolates concurrent smoke sessions; ordinary fixture behavior is unchanged.
+     private static var testNamespace: String? {
+-        ProcessInfo.processInfo.environment["OPEN_COMPUTER_USE_FIXTURE_NAMESPACE"]
++        ProcessInfo.processInfo.environment["MIKIKO_COMPUTER_USE_FIXTURE_NAMESPACE"]
+             .flatMap(UUID.init(uuidString:))?.uuidString
+     }
+ 
+@@ -139,7 +139,7 @@ public enum FixtureBridge {
+ 
+     public static var stateFileURL: URL {
+         URL(fileURLWithPath: NSTemporaryDirectory())
+-            .appendingPathComponent("open-computer-use-fixture" + (testNamespace.map { "-" + $0 } ?? ""), isDirectory: true)
++            .appendingPathComponent("mikiko-computer-use-fixture" + (testNamespace.map { "-" + $0 } ?? ""), isDirectory: true)
+             .appendingPathComponent("state.json")
+     }
+ 
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ImageCaptureConfig.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ImageCaptureConfig.swift
+index 63a5d21..459655c 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ImageCaptureConfig.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ImageCaptureConfig.swift
+@@ -5,11 +5,11 @@ import Darwin
+ /// Shared path resolution for native calls and app-agent request forwarding.
+ public enum OCUConfiguration {
+     public static let environmentKeys: Set<String> = [
+-        "OPEN_COMPUTER_USE_CONFIG_FILE", "OPEN_COMPUTER_USE_IMAGE_FORMAT",
+-        "OPEN_COMPUTER_USE_IMAGE_JPEG_QUALITY", "OPEN_COMPUTER_USE_IMAGE_CAPTURE_TIMEOUT",
+-        "OPEN_COMPUTER_USE_IMAGE_MAX_DIMENSION",
+-        "OPEN_COMPUTER_USE_IMAGE_SCALE_DOWN_AFTER_MAX_SIZE",
+-        "OPEN_COMPUTER_USE_IMAGE_DISCARD_BELOW_PIXEL_COUNT",
++        "MIKIKO_COMPUTER_USE_CONFIG_FILE", "MIKIKO_COMPUTER_USE_IMAGE_FORMAT",
++        "MIKIKO_COMPUTER_USE_IMAGE_JPEG_QUALITY", "MIKIKO_COMPUTER_USE_IMAGE_CAPTURE_TIMEOUT",
++        "MIKIKO_COMPUTER_USE_IMAGE_MAX_DIMENSION",
++        "MIKIKO_COMPUTER_USE_IMAGE_SCALE_DOWN_AFTER_MAX_SIZE",
++        "MIKIKO_COMPUTER_USE_IMAGE_DISCARD_BELOW_PIXEL_COUNT",
+     ]
+     public static var environment: [String: String] {
+         let keys = environmentKeys.union(["HOME", "XDG_CONFIG_HOME"])
+@@ -18,14 +18,13 @@ public enum OCUConfiguration {
+         })
+     }
+     public static func fileURL(environment: [String: String]) throws -> URL {
+-        if let override = environment["OPEN_COMPUTER_USE_CONFIG_FILE"], !override.isEmpty {
++        if let override = environment["MIKIKO_COMPUTER_USE_CONFIG_FILE"], !override.isEmpty {
+             guard override.hasPrefix("/") else { throw ConfigError.invalidPath }
+             return URL(fileURLWithPath: override)
+         }
+-        let base = environment["XDG_CONFIG_HOME"].flatMap { $0.isEmpty ? nil : $0 }
+-            ?? (environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path) + "/.config"
+-        guard base.hasPrefix("/") else { throw ConfigError.invalidPath }
+-        return URL(fileURLWithPath: base).appendingPathComponent("ocu/config.json")
++        let home = environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
++        guard home.hasPrefix("/") else { throw ConfigError.invalidPath }
++        return URL(fileURLWithPath: home).appendingPathComponent(".mikiko/computer-use/config.json")
+     }
+     enum ConfigError: Error { case invalidPath }
+ }
+@@ -84,13 +83,13 @@ struct ImageCaptureConfig: Equatable {
+             if let value = value as? String, ["png", "jpg", "jpeg", "webp"].contains(value) { result.format = value == "jpeg" ? "jpg" : value }
+             else { warning("Invalid image.format; using png") }
+         }
+-        if let value = environment["OPEN_COMPUTER_USE_IMAGE_FORMAT"] {
++        if let value = environment["MIKIKO_COMPUTER_USE_IMAGE_FORMAT"] {
+             if ["png", "jpg", "jpeg", "webp"].contains(value) { result.format = value == "jpeg" ? "jpg" : value }
+-            else { warning("Invalid OPEN_COMPUTER_USE_IMAGE_FORMAT; using file/default") }
++            else { warning("Invalid MIKIKO_COMPUTER_USE_IMAGE_FORMAT; using file/default") }
+         }
+-        result.jpegQuality = number("jpegQuality", "OPEN_COMPUTER_USE_IMAGE_JPEG_QUALITY", 0.8, min: 0, max: 1)
+-        result.captureTimeout = number("captureTimeout", "OPEN_COMPUTER_USE_IMAGE_CAPTURE_TIMEOUT", 5, min: 0.01, max: 300)
+-        result.maxDimension = number("maxLongEdgePixels", "OPEN_COMPUTER_USE_IMAGE_MAX_DIMENSION", 1280, min: 1, max: 16384, integer: true)
++        result.jpegQuality = number("jpegQuality", "MIKIKO_COMPUTER_USE_IMAGE_JPEG_QUALITY", 0.8, min: 0, max: 1)
++        result.captureTimeout = number("captureTimeout", "MIKIKO_COMPUTER_USE_IMAGE_CAPTURE_TIMEOUT", 5, min: 0.01, max: 300)
++        result.maxDimension = number("maxLongEdgePixels", "MIKIKO_COMPUTER_USE_IMAGE_MAX_DIMENSION", 1280, min: 1, max: 16384, integer: true)
+         func boolean(_ name: String, _ key: String, _ fallback: Bool) -> Bool {
+             var value = fallback
+             if let raw = image[name] {
+@@ -111,9 +110,9 @@ struct ImageCaptureConfig: Equatable {
+             }
+             return image[name] is NSNull
+         }
+-        result.scaleDownAfterMaxSize = boolean("scaleDownAfterMaxSize", "OPEN_COMPUTER_USE_IMAGE_SCALE_DOWN_AFTER_MAX_SIZE", true)
+-        result.discardBelowPixelCount = Int(number("discardBelowPixelCount", "OPEN_COMPUTER_USE_IMAGE_DISCARD_BELOW_PIXEL_COUNT", 64, min: 0, max: 268435456, integer: true))
+-        if disabled("maxLongEdgePixels", "OPEN_COMPUTER_USE_IMAGE_MAX_DIMENSION") { result.maxDimension = nil }
++        result.scaleDownAfterMaxSize = boolean("scaleDownAfterMaxSize", "MIKIKO_COMPUTER_USE_IMAGE_SCALE_DOWN_AFTER_MAX_SIZE", true)
++        result.discardBelowPixelCount = Int(number("discardBelowPixelCount", "MIKIKO_COMPUTER_USE_IMAGE_DISCARD_BELOW_PIXEL_COUNT", 64, min: 0, max: 268435456, integer: true))
++        if disabled("maxLongEdgePixels", "MIKIKO_COMPUTER_USE_IMAGE_MAX_DIMENSION") { result.maxDimension = nil }
+         return result
+     }
+     private static func warn(_ message: String) {
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseAuthorizationRules.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseAuthorizationRules.swift
+index 2745b36..a71e3cb 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseAuthorizationRules.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseAuthorizationRules.swift
+@@ -8,7 +8,7 @@ import Security
+ public enum LockedUseAuthorizationRules {
+     // Non-UI mechanism uses Apple's documented privileged authorization host.
+     public static let remoteMechanism = "OCULockAuth:remote,privileged"
+-    public static let loadCheckRight = "dev.opencomputeruse.locked-use.load-check"
++    public static let loadCheckRight = "dev.mikiko.computer-use.locked-use.load-check"
+     public static let loadCheckMechanism = "OCULockAuth:load-check,privileged"
+     public static func isOwnedRemoteRule(_ rule: [String: Any], allowLegacy: Bool = false) -> Bool {
+         guard rule["class"] as? String == "evaluate-mechanisms",
+@@ -16,7 +16,7 @@ public enum LockedUseAuthorizationRules {
+               let mechanisms = rule["mechanisms"] as? [String] else { return false }
+         return mechanisms == [remoteMechanism] || (allowLegacy && mechanisms == ["OCULockAuth:remote"])
+     }
+-    public static let remoteRight = "dev.opencomputeruse.locked-use.remote"
++    public static let remoteRight = "dev.mikiko.computer-use.locked-use.remote"
+     public enum Failure: Error { case malformed, unsupported, alreadyPresent, changedSincePlanning }
+ 
+     public struct Plan: Codable, Sendable {
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseComponentValidation.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseComponentValidation.swift
+index f080991..6eecc4f 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseComponentValidation.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseComponentValidation.swift
+@@ -28,9 +28,9 @@ public enum LockedUseComponentValidation {
+         let osBuild = try kernelString("kern.osversion")
+         let base = "/Library/Application Support/OpenComputerUse/LockedUse/"
+         return try .init(osBuild: osBuild,
+-            brokerHash: hash(path: base + "OCULockService", id: "dev.opencomputeruse.locked-use.broker", team: team),
+-            guardianHash: hash(path: base + "OCU Guardian.app", id: "dev.opencomputeruse.locked-use.guardian.dev", team: team),
+-            pluginHash: hash(path: "/Library/Security/SecurityAgentPlugins/OCULockAuth.bundle", id: "dev.opencomputeruse.locked-use.authorization", team: team))
++            brokerHash: hash(path: base + "OCULockService", id: "dev.mikiko.computer-use.locked-use.broker", team: team),
++            guardianHash: hash(path: base + "OCU Guardian.app", id: "dev.mikiko.computer-use.locked-use.guardian.dev", team: team),
++            pluginHash: hash(path: "/Library/Security/SecurityAgentPlugins/OCULockAuth.bundle", id: "dev.mikiko.computer-use.locked-use.authorization", team: team))
+     }
+     private static func hash(path: String, id: String, team: String) throws -> String {
+         var code: SecStaticCode?
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseDiagnostics.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseDiagnostics.swift
+index 6c43039..d8acd09 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseDiagnostics.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseDiagnostics.swift
+@@ -128,7 +128,7 @@ public struct LockedUseDiagnostics: Codable, Sendable {
+             guardianInputMonitoring: guardianPermissions["inputMonitoring"],
+             otherAuthorizationPlugins: others,
+             blockers: available ? [] : [
+-                "Run ocu locked-use enable and complete permissions for Open Computer Use and OCU Guardian. Installation, client approval, signed components and authentication policy must be intact."
++                "Run ocu locked-use enable and complete permissions for Mikiko Computer Use and OCU Guardian. Installation, client approval, signed components and authentication policy must be intact."
+             ]
+         )
+     }
+@@ -166,7 +166,7 @@ public struct LockedUseDiagnostics: Codable, Sendable {
+     public var summary: String {
+         "Locked Use: stage=\(stage), enabled=\(enabled), available=\(available), session=\(session.state.rawValue)\n"
+             + "Client approved: \(clientApproved), authentication policy intact: \(authenticationPolicyIntact)\n"
+-            + "Open Computer Use: Accessibility=\(accessibility), Screen Recording=\(screenRecording)\n"
++            + "Mikiko Computer Use: Accessibility=\(accessibility), Screen Recording=\(screenRecording)\n"
+             + "Guardian: Accessibility=\(guardianAccessibility.map(String.init) ?? "unknown"), Input Monitoring=\(guardianInputMonitoring.map(String.init) ?? "unknown")\n"
+             + "Authorization plugin: installed=\(installedPluginVersion ?? "unknown"), bundled=\(bundledPluginVersion ?? "unknown")\n"
+             + (Self.versionAdvice(installed: installedPluginVersion, bundled: bundledPluginVersion).map { $0 + "\n" } ?? "")
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseKeychainProbe.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseKeychainProbe.swift
+index 36f0d7d..e7d8b96 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseKeychainProbe.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseKeychainProbe.swift
+@@ -7,7 +7,7 @@ import LocalAuthentication
+ public final class LockedUseKeychainProbe {
+     public enum Failure: Error { case operation(OSStatus), verification }
+     private let account = UUID().uuidString
+-    private let service = "dev.opencomputeruse.locked-use.validation"
++    private let service = "dev.mikiko.computer-use.locked-use.validation"
+     private var secret = Data()
+     private var created: [Bool] = []
+     public let includesDataProtection: Bool
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseShieldStatus.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseShieldStatus.swift
+index f11dd29..fc72332 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseShieldStatus.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseShieldStatus.swift
+@@ -2,7 +2,7 @@ import Foundation
+ 
+ /// Display-only state shared by both shields; never authorizes GUI actions.
+ public struct LockedUseShieldStatus: Sendable {
+-    public static let message = "Open Computer Use is Using Your Mac\nPress any key or click to unlock"
++    public static let message = "Mikiko Computer Use is Using Your Mac\nPress any key or click to unlock"
+     private var stopping = false
+     private var lastMessage: String?
+     public init() {}
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseSigningIdentity.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseSigningIdentity.swift
+index 601b388..a5a27cc 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseSigningIdentity.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/LockedUseSigningIdentity.swift
+@@ -22,6 +22,6 @@ public enum LockedUseSigningIdentity {
+ 
+     public static func brokerRequirement() throws -> String {
+         let peer = try current()
+-        return "identifier \"dev.opencomputeruse.locked-use.broker\" and anchor apple generic and certificate leaf[subject.OU] = \"\(peer.teamIdentifier!)\""
++        return "identifier \"dev.mikiko.computer-use.locked-use.broker\" and anchor apple generic and certificate leaf[subject.OU] = \"\(peer.teamIdentifier!)\""
+     }
+ }
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/MCPServer.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/MCPServer.swift
+index d1ab435..740b1ef 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/MCPServer.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/MCPServer.swift
+@@ -61,7 +61,7 @@ public final class StdioMCPServer {
+                     result: [
+                         "protocolVersion": "2025-03-26",
+                         "serverInfo": [
+-                            "name": "open-computer-use",
++                            "name": "mikiko-computer-use",
+                             "version": openComputerUseVersion,
+                         ],
+                         "capabilities": [
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/OpenComputerUseCLI.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/OpenComputerUseCLI.swift
+index 60dd85b..edfed9a 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/OpenComputerUseCLI.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/OpenComputerUseCLI.swift
+@@ -106,11 +106,11 @@ public func openComputerUseHelpText(command: String? = nil) -> String {
+     switch command {
+     case nil:
+         return """
+-        Open Computer Use
++        Mikiko Computer Use
+ 
+         Usage:
+-          open-computer-use [command] [options]
+-          open-computer-use
++          mikiko-computer-use [command] [options]
++          mikiko-computer-use
+ 
+         Commands:
+           mcp                  Start the stdio MCP server.
+@@ -129,19 +129,19 @@ public func openComputerUseHelpText(command: String? = nil) -> String {
+ 
+         Notes:
+           Running without a command launches the permission onboarding app.
+-          Use `open-computer-use help <command>` for command-specific help.
++          Use `mikiko-computer-use help <command>` for command-specific help.
+         """
+     case "mcp":
+         return """
+         Usage:
+-          open-computer-use mcp
++          mikiko-computer-use mcp
+ 
+         Start the stdio MCP server.
+         """
+     case "doctor":
+         return """
+         Usage:
+-          open-computer-use doctor [--json]
++          mikiko-computer-use doctor [--json]
+ 
+         Print the current Accessibility and Screen Recording permission state.
+         If permissions are missing, this also launches the onboarding app.
+@@ -151,14 +151,14 @@ public func openComputerUseHelpText(command: String? = nil) -> String {
+     case "locked-use":
+         return """
+         Usage:
+-          open-computer-use locked-use status [--json]
++          mikiko-computer-use locked-use status [--json]
+ 
+         Read-only macOS session, permission, and system-component diagnostics.
+-          open-computer-use locked-use enable
+-          open-computer-use locked-use disable
+-          open-computer-use locked-use recover
+-          open-computer-use locked-use certify
+-          open-computer-use locked-use settings
++          mikiko-computer-use locked-use enable
++          mikiko-computer-use locked-use disable
++          mikiko-computer-use locked-use recover
++          mikiko-computer-use locked-use certify
++          mikiko-computer-use locked-use settings
+ 
+         Installation and removal require macOS administrator authentication.
+         enable installs signed components and requests macOS permissions.
+@@ -168,14 +168,14 @@ public func openComputerUseHelpText(command: String? = nil) -> String {
+     case "list-apps":
+         return """
+         Usage:
+-          open-computer-use list-apps
++          mikiko-computer-use list-apps
+ 
+         Print running apps plus recently used apps that can be targeted by Computer Use.
+         """
+     case "snapshot":
+         return """
+         Usage:
+-          open-computer-use snapshot [--include-ax true|false] [--include-screenshot true|false] [--text-limit <positive-int|max>] [--max-tree-nodes <positive-int>] [--max-tree-depth <positive-int>] <app>
++          mikiko-computer-use snapshot [--include-ax true|false] [--include-screenshot true|false] [--text-limit <positive-int|max>] [--max-tree-nodes <positive-int>] [--max-tree-depth <positive-int>] <app>
+ 
+         Arguments:
+           <app>                App name or bundle identifier to inspect.
+@@ -192,16 +192,16 @@ public func openComputerUseHelpText(command: String? = nil) -> String {
+     case "call":
+         return """
+         Usage:
+-          open-computer-use call <tool> [--args '<json-object>']
+-          open-computer-use call <tool> [--args-file <path>]
+-          open-computer-use call --calls '<json-array>' [--sleep <seconds>]
+-          open-computer-use call --calls-file <path> [--sleep <seconds>]
++          mikiko-computer-use call <tool> [--args '<json-object>']
++          mikiko-computer-use call <tool> [--args-file <path>]
++          mikiko-computer-use call --calls '<json-array>' [--sleep <seconds>]
++          mikiko-computer-use call --calls-file <path> [--sleep <seconds>]
+ 
+         Examples:
+-          open-computer-use call list_apps
+-          open-computer-use call get_app_state --args '{"app":"TextEdit"}'
+-          open-computer-use call --calls '[{"tool":"get_app_state","args":{"app":"TextEdit"}},{"tool":"press_key","args":{"app":"TextEdit","key":"Return"}}]'
+-          open-computer-use call --calls-file examples/textedit-overlay-seq.json --sleep 0.5
++          mikiko-computer-use call list_apps
++          mikiko-computer-use call get_app_state --args '{"app":"TextEdit"}'
++          mikiko-computer-use call --calls '[{"tool":"get_app_state","args":{"app":"TextEdit"}},{"tool":"press_key","args":{"app":"TextEdit","key":"Return"}}]'
++          mikiko-computer-use call --calls-file examples/textedit-overlay-seq.json --sleep 0.5
+ 
+         The JSON array form keeps all calls in one process so follow-up actions
+         can reuse the app state and element indices captured by get_app_state.
+@@ -211,7 +211,7 @@ public func openComputerUseHelpText(command: String? = nil) -> String {
+     case "turn-ended":
+         return """
+         Usage:
+-          open-computer-use turn-ended [--previous-notify <argv>] [payload]
++          mikiko-computer-use turn-ended [--previous-notify <argv>] [payload]
+ 
+         Notify a running local MCP process that the current host turn has ended.
+         Codex legacy notify appends the after-agent JSON payload as the last argument.
+@@ -219,16 +219,16 @@ public func openComputerUseHelpText(command: String? = nil) -> String {
+     case "version":
+         return """
+         Usage:
+-          open-computer-use version
+-          open-computer-use --version
+-          open-computer-use -v
++          mikiko-computer-use version
++          mikiko-computer-use --version
++          mikiko-computer-use -v
+ 
+         Print the CLI version.
+         """
+     case "help":
+         return """
+         Usage:
+-          open-computer-use help [command]
++          mikiko-computer-use help [command]
+ 
+         Show general help or help for a specific command.
+         """
+@@ -275,7 +275,7 @@ private func parseTurnEnded(arguments: [String]) throws -> OpenComputerUseCLICom
+             }
+             index = valueIndex
+         case "-h", "--help":
+-            throw OpenComputerUseCLIError(message: "turn-ended help must be requested as `open-computer-use turn-ended --help`", helpCommand: "turn-ended")
++            throw OpenComputerUseCLIError(message: "turn-ended help must be requested as `mikiko-computer-use turn-ended --help`", helpCommand: "turn-ended")
+         default:
+             if argument.hasPrefix("-") {
+                 throw OpenComputerUseCLIError(message: "Unknown turn-ended option: \(argument)", helpCommand: "turn-ended")
+@@ -339,7 +339,7 @@ private func parseSnapshot(arguments: [String]) throws -> OpenComputerUseCLIComm
+             }
+             maxTreeDepth = try parsePositiveIntegerOption(arguments[index], option: "--max-tree-depth")
+         case "-h", "--help":
+-            throw OpenComputerUseCLIError(message: "snapshot help must be requested as `open-computer-use snapshot --help`", helpCommand: "snapshot")
++            throw OpenComputerUseCLIError(message: "snapshot help must be requested as `mikiko-computer-use snapshot --help`", helpCommand: "snapshot")
+         default:
+             if argument.hasPrefix("-") {
+                 throw OpenComputerUseCLIError(message: "Unknown snapshot option: \(argument)", helpCommand: "snapshot")
+@@ -418,7 +418,7 @@ private func parseCall(arguments: [String]) throws -> OpenComputerUseCLICommand
+         case "--sleep":
+             interCallDelay = try parseTimeIntervalOptionValue("--sleep", arguments: arguments, index: &index)
+         case "-h", "--help":
+-            throw OpenComputerUseCLIError(message: "call help must be requested as `open-computer-use call --help`", helpCommand: "call")
++            throw OpenComputerUseCLIError(message: "call help must be requested as `mikiko-computer-use call --help`", helpCommand: "call")
+         default:
+             if argument.hasPrefix("-") {
+                 throw OpenComputerUseCLIError(message: "Unknown call option: \(argument)", helpCommand: "call")
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/Permissions.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/Permissions.swift
+index 298bb9d..d612150 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/Permissions.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/Permissions.swift
+@@ -121,16 +121,16 @@ public struct PermissionDiagnostics: Sendable {
+ }
+ 
+ public enum PermissionSupport {
+-    public static let bundleDisplayName = "Open Computer Use"
+-    public static let bundleIdentifier = "com.ifuryst.opencomputeruse"
+-    public static let developmentBundleDisplayName = "Open Computer Use (Dev)"
+-    public static let developmentBundleIdentifier = "com.ifuryst.opencomputeruse.dev"
++    public static let bundleDisplayName = "Mikiko Computer Use"
++    public static let bundleIdentifier = "dev.mikiko.computer-use"
++    public static let developmentBundleDisplayName = "Mikiko Computer Use Dev"
++    public static let developmentBundleIdentifier = "dev.mikiko.computer-use.development"
+     private static let releaseAppBundleName = "\(bundleDisplayName).app"
+     private static let developmentAppBundleName = "\(developmentBundleDisplayName).app"
+-    private static let appVariantInfoKey = "OpenComputerUseAppVariant"
++    private static let appVariantInfoKey = "MikikoComputerUseAppVariant"
+     private static let npmPackageNames = [
+-        "open-computer-use",
+-        "open-computer-use-mcp",
++        "mikiko-computer-use",
++        "mikiko-computer-use-mcp",
+         "open-codex-computer-use-mcp",
+     ]
+ 
+@@ -146,24 +146,15 @@ public enum PermissionSupport {
+     }
+ 
+     public static func currentAppBundleURL() -> URL? {
+-        let runningBundleURL = resolvedMainAppBundleURL()
+-        return preferredPermissionAppBundleURL(
+-            preferredInstalledBundleURL: preferredInstalledAppBundleURL(),
+-            runningBundleURL: runningBundleURL,
+-            fallbackDevelopmentBundleURL: fallbackDevelopmentAppBundleURL(),
+-            preferRunningBundle: runningBundleURL != nil
+-        )
++        // 预览只认自身 bundle，不能扫描并借用其他已安装工具或源码构建的权限身份。
++        return resolvedMainAppBundleURL()
+     }
+ 
+     public static func currentPermissionClients() -> [PermissionClientRecord] {
+-        let runningBundleURL = resolvedMainAppBundleURL()
+-        let mainBundleIdentifier = resolvedBundleIdentifier(for: runningBundleURL) ?? Bundle.main.bundleIdentifier
+-        return permissionClients(
+-            primaryBundleURL: currentAppBundleURL(),
+-            runningBundleURL: runningBundleURL,
+-            mainBundleIdentifier: mainBundleIdentifier,
+-            includeCanonicalBundleIdentifier: !isDevelopmentBundleIdentifier(mainBundleIdentifier)
+-        )
++        guard let bundleURL = resolvedMainAppBundleURL(),
++              let identifier = Bundle.main.bundleIdentifier else { return [] }
++        return [PermissionClientRecord(identifier: identifier, type: 0),
++                PermissionClientRecord(identifier: bundleURL.path, type: 1)]
+     }
+ 
+     public static func openSystemSettings(for permission: SystemPermissionKind) {
+@@ -281,13 +272,13 @@ public enum PermissionSupport {
+         for prefix in homebrewPrefixes() {
+             appendCandidate(prefix
+                 .appendingPathComponent("Caskroom", isDirectory: true)
+-                .appendingPathComponent("open-computer-use", isDirectory: true)
++                .appendingPathComponent("mikiko-computer-use", isDirectory: true)
+                 .appendingPathComponent(releaseAppBundleName, isDirectory: true)
+             )
+ 
+             let caskroomRoot = prefix
+                 .appendingPathComponent("Caskroom", isDirectory: true)
+-                .appendingPathComponent("open-computer-use", isDirectory: true)
++                .appendingPathComponent("mikiko-computer-use", isDirectory: true)
+             if let versionDirectories = try? fileManager.contentsOfDirectory(at: caskroomRoot, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+                 for versionDirectory in versionDirectories {
+                     appendCandidate(versionDirectory.appendingPathComponent(releaseAppBundleName, isDirectory: true))
+@@ -296,7 +287,7 @@ public enum PermissionSupport {
+ 
+             let cellarRoot = prefix
+                 .appendingPathComponent("Cellar", isDirectory: true)
+-                .appendingPathComponent("open-computer-use", isDirectory: true)
++                .appendingPathComponent("mikiko-computer-use", isDirectory: true)
+             if let versionDirectories = try? fileManager.contentsOfDirectory(at: cellarRoot, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+                 for versionDirectory in versionDirectories {
+                     appendCandidate(versionDirectory
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SkyKeyboardSimulation.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SkyKeyboardSimulation.swift
+index 7264c40..253efac 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SkyKeyboardSimulation.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SkyKeyboardSimulation.swift
+@@ -95,11 +95,11 @@ enum SkyKeyboardDispatcher {
+     /// process them asynchronously. macOS 26 live testing dropped occasional
+     /// keys with zero delay, so retain a small cross-version safety margin.
+     static let keyWindowFallbackSettle = InputTiming.milliseconds(
+-        "OPEN_COMPUTER_USE_SKY_KEY_SETTLE_MS",
++        "MIKIKO_COMPUTER_USE_SKY_KEY_SETTLE_MS",
+         default: keyWindowFallbackSettleDefaultMilliseconds
+     )
+     static let releaseSettle = InputTiming.milliseconds(
+-        "OPEN_COMPUTER_USE_SKY_KEY_RELEASE_MS",
++        "MIKIKO_COMPUTER_USE_SKY_KEY_RELEASE_MS",
+         default: releaseSettleDefaultMilliseconds
+     )
+ 
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SoftwareCursorGlyphRenderer.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SoftwareCursorGlyphRenderer.swift
+index 5df11d1..f98f5d0 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SoftwareCursorGlyphRenderer.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SoftwareCursorGlyphRenderer.swift
+@@ -1,7 +1,7 @@
+ import AppKit
+ import CoreGraphics
+-import Foundation
+ 
++// 预览不包含上游参考 cursor、轮廓重建或源码目录资源回退。
+ struct SoftwareCursorGlyphRenderState {
+     let rotation: CGFloat
+     let cursorBodyOffset: CGVector
+@@ -9,285 +9,14 @@ struct SoftwareCursorGlyphRenderState {
+     let fogOpacity: CGFloat
+     let fogScale: CGFloat
+     let clickProgress: CGFloat
+-
+-    init(
+-        rotation: CGFloat,
+-        cursorBodyOffset: CGVector,
+-        fogOffset: CGVector,
+-        fogOpacity: CGFloat,
+-        fogScale: CGFloat,
+-        clickProgress: CGFloat
+-    ) {
+-        self.rotation = rotation
+-        self.cursorBodyOffset = cursorBodyOffset
+-        self.fogOffset = fogOffset
+-        self.fogOpacity = fogOpacity
+-        self.fogScale = fogScale
+-        self.clickProgress = clickProgress
+-    }
+-
+-    var appKitDrawingState: SoftwareCursorGlyphRenderState {
+-        SoftwareCursorGlyphRenderState(
+-            rotation: -rotation,
+-            cursorBodyOffset: CGVector(dx: cursorBodyOffset.dx, dy: -cursorBodyOffset.dy),
+-            fogOffset: CGVector(dx: fogOffset.dx, dy: -fogOffset.dy),
+-            fogOpacity: fogOpacity,
+-            fogScale: fogScale,
+-            clickProgress: clickProgress
+-        )
+-    }
+ }
+ 
+ enum SoftwareCursorGlyphMetrics {
+-    static let windowSize = CGSize(width: 126, height: 126)
+-    static let tipAnchor = CGPoint(x: 60.35, y: 70.3)
+-    static let referenceImageResourceName = "official-software-cursor-window-252"
+-
+-    static let pointerSize = CGSize(width: 21, height: 21)
+-    static let pointerOffset = CGPoint(x: 2.6, y: -3.2)
+-    static let targetNeutralHeading = -(3 * CGFloat.pi / 4)
+-    static let proceduralContourNeutralHeading = -(96.5 * CGFloat.pi / 180)
+-    static let pointerArtworkRotation = -(targetNeutralHeading - proceduralContourNeutralHeading)
+-}
+-
+-private enum SoftwareCursorGlyphColors {
+-    static let pointerFill = NSColor(calibratedRed: 0.38, green: 0.36, blue: 0.35, alpha: 0.98)
+-    static let pointerStroke = NSColor(calibratedWhite: 0.90, alpha: 0.92)
++    static let windowSize = CGSize(width: 1, height: 1)
++    static let tipAnchor = CGPoint.zero
++    static let targetNeutralHeading: CGFloat = 0
+ }
+ 
+ enum SoftwareCursorGlyphRenderer {
+-    nonisolated(unsafe) private static let referenceImage = loadReferenceCursorWindowImage()
+-
+-    static func draw(
+-        in bounds: CGRect,
+-        context: CGContext,
+-        state: SoftwareCursorGlyphRenderState
+-    ) {
+-        let drawingState = state.appKitDrawingState
+-
+-        if let referenceImage {
+-            drawReferenceImage(
+-                referenceImage,
+-                in: bounds,
+-                context: context,
+-                state: drawingState
+-            )
+-            return
+-        }
+-
+-        let pulse = drawingState.clickProgress
+-        let fogCenter = CGPoint(
+-            x: bounds.midX + drawingState.fogOffset.dx,
+-            y: bounds.midY + drawingState.fogOffset.dy
+-        )
+-        let pointerCenter = CGPoint(
+-            x: bounds.midX + SoftwareCursorGlyphMetrics.pointerOffset.x + drawingState.cursorBodyOffset.dx,
+-            y: bounds.midY + SoftwareCursorGlyphMetrics.pointerOffset.y + drawingState.cursorBodyOffset.dy + (pulse * 0.35)
+-        )
+-
+-        drawFog(
+-            in: context,
+-            center: fogCenter,
+-            pulse: pulse,
+-            fogOpacity: state.fogOpacity,
+-            fogScale: state.fogScale
+-        )
+-        drawPointer(
+-            in: context,
+-            center: pointerCenter,
+-            rotation: drawingState.rotation,
+-            clickProgress: pulse,
+-            cursorBodyOffset: drawingState.cursorBodyOffset,
+-            boundsMidpoint: CGPoint(x: bounds.midX, y: bounds.midY)
+-        )
+-    }
+-
+-    private static func drawReferenceImage(
+-        _ image: NSImage,
+-        in bounds: CGRect,
+-        context: CGContext,
+-        state: SoftwareCursorGlyphRenderState
+-    ) {
+-        let motionCompression = min(hypot(state.cursorBodyOffset.dx, state.cursorBodyOffset.dy) * 0.008, 0.018)
+-        let pulseCompression = state.clickProgress * 0.03
+-
+-        context.saveGState()
+-        context.interpolationQuality = .high
+-        context.translateBy(
+-            x: bounds.midX + state.cursorBodyOffset.dx,
+-            y: bounds.midY + state.cursorBodyOffset.dy
+-        )
+-        context.rotate(by: state.rotation)
+-        context.scaleBy(
+-            x: 1 - motionCompression - pulseCompression,
+-            y: 1 + (pulseCompression * 0.4)
+-        )
+-        context.translateBy(x: -bounds.midX, y: -bounds.midY)
+-        image.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1)
+-        context.restoreGState()
+-    }
+-
+-    private static func drawFog(
+-        in context: CGContext,
+-        center: CGPoint,
+-        pulse: CGFloat,
+-        fogOpacity: CGFloat,
+-        fogScale: CGFloat
+-    ) {
+-        let radius = ((66 * fogScale) / 2) + (pulse * 1.2)
+-        let glowRadius = radius * (0.30 + (pulse * 0.025))
+-        let opacityMultiplier = max(0.28, min(fogOpacity / 0.12, 2.2))
+-        let colors = [
+-            NSColor(calibratedRed: 0.38, green: 0.36, blue: 0.35, alpha: (0.40 + (pulse * 0.02)) * opacityMultiplier).cgColor,
+-            NSColor(calibratedRed: 0.43, green: 0.41, blue: 0.40, alpha: (0.28 + (pulse * 0.015)) * opacityMultiplier).cgColor,
+-            NSColor(calibratedRed: 0.46, green: 0.44, blue: 0.43, alpha: 0.11 * opacityMultiplier).cgColor,
+-            NSColor(calibratedWhite: 0.60, alpha: 0.0).cgColor,
+-        ] as CFArray
+-        let locations: [CGFloat] = [0, 0.50, 0.82, 1]
+-        let colorSpace = CGColorSpaceCreateDeviceRGB()
+-
+-        guard let gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: locations) else {
+-            return
+-        }
+-
+-        context.saveGState()
+-        context.drawRadialGradient(
+-            gradient,
+-            startCenter: center,
+-            startRadius: 0,
+-            endCenter: center,
+-            endRadius: radius,
+-            options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+-        )
+-        context.restoreGState()
+-
+-        let coreColors = [
+-            NSColor(calibratedRed: 0.41, green: 0.39, blue: 0.38, alpha: (0.020 + (pulse * 0.006)) * opacityMultiplier).cgColor,
+-            NSColor(calibratedRed: 0.44, green: 0.41, blue: 0.40, alpha: 0.008 * opacityMultiplier).cgColor,
+-            NSColor(calibratedWhite: 0.80, alpha: 0.0).cgColor,
+-        ] as CFArray
+-        let coreLocations: [CGFloat] = [0, 0.62, 1]
+-        guard let coreGradient = CGGradient(colorsSpace: colorSpace, colors: coreColors, locations: coreLocations) else {
+-            return
+-        }
+-
+-        context.saveGState()
+-        context.drawRadialGradient(
+-            coreGradient,
+-            startCenter: center,
+-            startRadius: 0,
+-            endCenter: center,
+-            endRadius: glowRadius,
+-            options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+-        )
+-        context.restoreGState()
+-    }
+-
+-    private static func drawPointer(
+-        in context: CGContext,
+-        center: CGPoint,
+-        rotation: CGFloat,
+-        clickProgress: CGFloat,
+-        cursorBodyOffset: CGVector,
+-        boundsMidpoint: CGPoint
+-    ) {
+-        let pointerRect = CGRect(
+-            x: center.x - (SoftwareCursorGlyphMetrics.pointerSize.width / 2),
+-            y: center.y - (SoftwareCursorGlyphMetrics.pointerSize.height / 2),
+-            width: SoftwareCursorGlyphMetrics.pointerSize.width,
+-            height: SoftwareCursorGlyphMetrics.pointerSize.height
+-        )
+-        let outerPath = pointerPath(in: pointerRect)
+-
+-        context.saveGState()
+-        context.translateBy(
+-            x: boundsMidpoint.x + cursorBodyOffset.dx,
+-            y: boundsMidpoint.y + cursorBodyOffset.dy
+-        )
+-        context.rotate(by: rotation)
+-        context.scaleBy(x: 1 - (clickProgress * 0.04), y: 1 + (clickProgress * 0.02))
+-        context.translateBy(
+-            x: -(boundsMidpoint.x + cursorBodyOffset.dx),
+-            y: -(boundsMidpoint.y + cursorBodyOffset.dy)
+-        )
+-        context.translateBy(x: center.x, y: center.y)
+-        context.rotate(by: SoftwareCursorGlyphMetrics.pointerArtworkRotation)
+-        context.translateBy(x: -center.x, y: -center.y)
+-
+-        NSGraphicsContext.saveGraphicsState()
+-        let shadow = NSShadow()
+-        shadow.shadowBlurRadius = 3.2 + (clickProgress * 1.4)
+-        shadow.shadowOffset = CGSize(width: 0, height: -0.35)
+-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.11)
+-        shadow.set()
+-        NSColor.black.withAlphaComponent(0.05).setFill()
+-        outerPath.fill()
+-        NSGraphicsContext.restoreGraphicsState()
+-
+-        SoftwareCursorGlyphColors.pointerFill.setFill()
+-        outerPath.fill()
+-
+-        SoftwareCursorGlyphColors.pointerStroke.setStroke()
+-        outerPath.lineWidth = 1.55
+-        outerPath.lineJoinStyle = .round
+-        outerPath.lineCapStyle = .round
+-        outerPath.stroke()
+-
+-        context.restoreGState()
+-    }
+-
+-    private static func pointerPath(in rect: CGRect) -> NSBezierPath {
+-        let contourRows: [(y: CGFloat, minX: CGFloat, maxX: CGFloat)] = [
+-            (39, 17, 21), (38, 16, 22), (37, 15, 22), (36, 15, 23), (35, 15, 24),
+-            (34, 15, 24), (33, 14, 25), (32, 14, 25), (31, 14, 26), (30, 14, 27),
+-            (29, 13, 29), (28, 13, 31), (27, 13, 34), (26, 13, 36), (25, 13, 37),
+-            (24, 12, 37), (23, 12, 37), (22, 12, 37), (21, 12, 37), (20, 12, 36),
+-            (19, 11, 36), (18, 11, 34), (17, 11, 32), (16, 11, 30), (15, 10, 27),
+-            (14, 10, 25), (13, 10, 23), (12, 11, 21), (11, 11, 19), (10, 13, 16),
+-        ]
+-        let sourceMinX: CGFloat = 10
+-        let sourceMaxX: CGFloat = 38
+-        let sourceMinY: CGFloat = 10
+-        let sourceMaxY: CGFloat = 39
+-
+-        func mappedPoint(x: CGFloat, y: CGFloat) -> CGPoint {
+-            CGPoint(
+-                x: rect.minX + ((x - sourceMinX) / (sourceMaxX - sourceMinX) * rect.width),
+-                y: rect.minY + ((y - sourceMinY) / (sourceMaxY - sourceMinY) * rect.height)
+-            )
+-        }
+-
+-        let leftBoundary = contourRows.map { mappedPoint(x: $0.minX, y: $0.y) }
+-        let rightBoundary = contourRows.reversed().map { mappedPoint(x: $0.maxX, y: $0.y) }
+-
+-        let path = NSBezierPath()
+-        path.move(to: leftBoundary[0])
+-        leftBoundary.dropFirst().forEach { path.line(to: $0) }
+-        rightBoundary.forEach { path.line(to: $0) }
+-        path.close()
+-        path.lineJoinStyle = .round
+-        return path
+-    }
+-}
+-
+-func loadReferenceCursorWindowImage() -> NSImage? {
+-    if let bundledReference = Bundle.main.url(
+-        forResource: SoftwareCursorGlyphMetrics.referenceImageResourceName,
+-        withExtension: "png"
+-    ), let image = NSImage(contentsOf: bundledReference) {
+-        return image
+-    }
+-
+-    let fileURL = URL(fileURLWithPath: #filePath).standardizedFileURL
+-    let repoRoot = fileURL
+-        .deletingLastPathComponent()
+-        .deletingLastPathComponent()
+-        .deletingLastPathComponent()
+-        .deletingLastPathComponent()
+-        .deletingLastPathComponent()
+-
+-    let referenceURL = repoRoot
+-        .appendingPathComponent("docs/references/codex-computer-use-reverse-engineering/assets/extracted-2026-04-19/\(SoftwareCursorGlyphMetrics.referenceImageResourceName).png")
+-
+-    return NSImage(contentsOf: referenceURL)
++    static func draw(in bounds: CGRect, context: CGContext, state: SoftwareCursorGlyphRenderState) {}
+ }
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SoftwareCursorOverlay.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SoftwareCursorOverlay.swift
+index 436c1a3..01e2289 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SoftwareCursorOverlay.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/SoftwareCursorOverlay.swift
+@@ -25,11 +25,8 @@ public enum VisualCursorSupport {
+ }
+ 
+ func visualCursorEnabled(environment: [String: String]) -> Bool {
+-    guard let rawValue = environment["OPEN_COMPUTER_USE_VISUAL_CURSOR"]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() else {
+-        return true
+-    }
+-
+-    return !["0", "false", "no", "off"].contains(rawValue)
++    // 来源未明确授权的参考图不能进入预览产物；环境变量也不能重新打开视觉 cursor。
++    false
+ }
+ 
+ func defaultVisualCursorInitialTipPosition(
+@@ -122,7 +119,7 @@ func visualCursorIdlePose(restingTipPosition: CGPoint, phase: CGFloat) -> Visual
+ 
+ public func visualCursorObservationFileURL(environment: [String: String]) -> URL? {
+     guard
+-        let rawPath = environment["OPEN_COMPUTER_USE_VISUAL_CURSOR_OBSERVATION_FILE"]?
++        let rawPath = environment["MIKIKO_COMPUTER_USE_VISUAL_CURSOR_OBSERVATION_FILE"]?
+             .trimmingCharacters(in: .whitespacesAndNewlines),
+         !rawPath.isEmpty
+     else {
+@@ -132,7 +129,7 @@ public func visualCursorObservationFileURL(environment: [String: String]) -> URL
+     return URL(fileURLWithPath: rawPath)
+ }
+ 
+-public let openComputerUseTurnEndedNotificationName = Notification.Name("com.ifuryst.opencomputeruse.turn-ended")
++public let openComputerUseTurnEndedNotificationName = Notification.Name("dev.mikiko.computer-use.turn-ended")
+ 
+ public func postOpenComputerUseTurnEndedNotification() {
+     DistributedNotificationCenter.default().postNotificationName(
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/TimingLog.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/TimingLog.swift
+index 34e49ac..899fcd5 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/TimingLog.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/TimingLog.swift
+@@ -1,12 +1,12 @@
+ import Foundation
+ 
+ /// Millisecond timing for the background-input and window-placement paths.
+-/// Enabled with `OPEN_COMPUTER_USE_DEBUG_TIMING=1`; lines go to stderr as
+-/// `[open-computer-use] timing <label> <ms>ms` so a tool session can be
++/// Enabled with `MIKIKO_COMPUTER_USE_DEBUG_TIMING=1`; lines go to stderr as
++/// `[mikiko-computer-use] timing <label> <ms>ms` so a tool session can be
+ /// profiled without changing tool output.
+ enum TimingLog {
+     nonisolated(unsafe) static var enabled: Bool = {
+-        let value = ProcessInfo.processInfo.environment["OPEN_COMPUTER_USE_DEBUG_TIMING"]?
++        let value = ProcessInfo.processInfo.environment["MIKIKO_COMPUTER_USE_DEBUG_TIMING"]?
+             .trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+         return ["1", "true", "yes", "on"].contains(value)
+     }()
+@@ -17,7 +17,7 @@ enum TimingLog {
+ 
+     static func log(_ label: String, since start: TimeInterval) {
+         guard enabled else { return }
+-        fputs(String(format: "[open-computer-use] timing %@ %.1fms\n", label, (now() - start) * 1000), stderr)
++        fputs(String(format: "[mikiko-computer-use] timing %@ %.1fms\n", label, (now() - start) * 1000), stderr)
+     }
+ 
+     static func measure<T>(_ label: String, _ body: () throws -> T) rethrows -> T {
+@@ -49,22 +49,22 @@ enum InputTiming {
+     // margin over the passing minimum. Focus records and CGEvents travel
+     // different channels, which is why a small gap between them stays.
+     /// Gap after a synthetic focus / defocus record (sky_click and sky_key). Was 40 ms.
+-    static let focusRecordSettle = milliseconds("OPEN_COMPUTER_USE_FOCUS_RECORD_SETTLE_MS", default: 10)
++    static let focusRecordSettle = milliseconds("MIKIKO_COMPUTER_USE_FOCUS_RECORD_SETTLE_MS", default: 10)
+     /// Multiplier for the sky_click recipe gaps (move/primer/click pairs) and the renderer settle. Was 1.
+     static let skyClickDelayScale: Double = {
+-        guard let raw = ProcessInfo.processInfo.environment["OPEN_COMPUTER_USE_SKY_CLICK_DELAY_SCALE"], let scale = Double(raw) else { return 0.2 }
++        guard let raw = ProcessInfo.processInfo.environment["MIKIKO_COMPUTER_USE_SKY_CLICK_DELAY_SCALE"], let scale = Double(raw) else { return 0.2 }
+         return max(0, scale)
+     }()
+     /// Gap between Unicode chunks in type_text. Keep the established default for
+     /// app/toolkit compatibility; callers can explicitly tune it after testing.
+     static let typeChunkDelay = milliseconds(
+-        "OPEN_COMPUTER_USE_TYPE_CHUNK_DELAY_MS",
++        "MIKIKO_COMPUTER_USE_TYPE_CHUNK_DELAY_MS",
+         default: typeChunkDelayDefaultMilliseconds
+     )
+     /// Gap after a press_key chord. Keep the established default because the
+     /// target may process its event queue asynchronously.
+     static let pressKeySettle = milliseconds(
+-        "OPEN_COMPUTER_USE_PRESS_KEY_SETTLE_MS",
++        "MIKIKO_COMPUTER_USE_PRESS_KEY_SETTLE_MS",
+         default: pressKeySettleDefaultMilliseconds
+     )
+ }
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ToolDefinitions.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ToolDefinitions.swift
+index d6c0fd3..d5fe870 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ToolDefinitions.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ToolDefinitions.swift
+@@ -46,7 +46,7 @@ public enum ToolDefinitions {
+                         enumValues: ["left", "right", "middle"]
+                     ),
+                     "click_method": stringProperty(
+-                        description: "Click implementation: auto (default), accessibility, app_post, sky_click, or global. Accessibility requires element_index. app_post sends a public event directly to the target app. sky_click uses the macOS SkyLight background window path. Global may move the system pointer and requires OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1.",
++                        description: "Click implementation: auto (default), accessibility, app_post, sky_click, or global. Accessibility requires element_index. app_post sends a public event directly to the target app. sky_click uses the macOS SkyLight background window path. Global may move the system pointer and requires MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1.",
+                         enumValues: ClickMethod.allCases.map(\.rawValue)
+                     ),
+                 ],
+@@ -55,7 +55,7 @@ public enum ToolDefinitions {
+         ),
+         ToolDefinition(
+             name: "drag",
+-            description: "Drag from one point to another using pixel coordinates. By default mouse events are posted directly to the target app and the system pointer does not move; that path cannot drive window-server drag sessions such as window moves, text selection, or Finder drag-and-drop. Those require OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 in the server process environment, which may move the real pointer. The result reports which path was used. This tool is part of plugin `Computer Use`.",
++            description: "Drag from one point to another using pixel coordinates. By default mouse events are posted directly to the target app and the system pointer does not move; that path cannot drive window-server drag sessions such as window moves, text selection, or Finder drag-and-drop. Those require MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 in the server process environment, which may move the real pointer. The result reports which path was used. This tool is part of plugin `Computer Use`.",
+             annotations: defaultAnnotations(),
+             inputSchema: objectSchema(
+                 properties: [

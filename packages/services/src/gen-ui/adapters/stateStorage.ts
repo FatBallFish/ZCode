@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { watch, type FSWatcher } from "node:fs";
+import { watch } from "chokidar";
 import { mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { Emitter } from "@zcode/rpc";
@@ -30,7 +30,7 @@ const isMissing = (error: unknown) => (error as { code?: string })?.code === "EN
 export function createGenUiStateStorage(root: string): GenUiStateStorage {
   const log = createServiceLogger("gen-ui-state");
   const changes = new Emitter<GenUiStateChange>();
-  const watchers = new Map<string, FSWatcher>();
+  const watchers = new Map<string, { ready: Promise<void>; close(): void }>();
   const queues = new Map<string, Promise<void>>();
   const notifications = new Map<string, Promise<void>>();
   const lastPublished = new Map<string, string>();
@@ -77,17 +77,66 @@ export function createGenUiStateStorage(root: string): GenUiStateStorage {
     await mkdir(dir, { recursive: true });
     if (disposed) throw new Error("Gen UI state storage is closed");
     targets.set(fileFor(target), target);
-    if (watchers.has(dir)) return;
-    const watcher = watch(dir, { persistent: false }, (_event, filename) => {
-      if (!filename || !/^[a-f0-9]{64}\.json$/u.test(filename)) return;
-      void publish(join(dir, filename)).catch((error: unknown) =>
-        log.warn(undefined, "State notification failed", { error: String(error) }),
-      );
-    });
-    watcher.on("error", (error) =>
-      log.warn(undefined, "State watcher failed", { error: error.message }),
-    );
-    watchers.set(dir, watcher);
+    let entry = watchers.get(dir);
+    if (!entry) {
+      // Darwin 原生监听在 ready 后仍实测漏首写（Node #53111）；明确选择单一 stat 后端，不并行监听或失败重试。
+      const usePolling = process.platform === "darwin";
+      const watcher = watch(dir, {
+        persistent: false,
+        ignoreInitial: true,
+        depth: 0,
+        atomic: false,
+        usePolling,
+        interval: 500,
+        binaryInterval: 500,
+      });
+      const initialized = Promise.withResolvers<void>();
+      let closing = false;
+      const close = () => {
+        if (closing) return;
+        closing = true;
+        initialized.reject(new Error("Gen UI state storage is closed"));
+        void watcher
+          .close()
+          .catch((error: unknown) =>
+            log.warn(undefined, "State watcher close failed", { error: String(error) }),
+          );
+      };
+      entry = { ready: initialized.promise, close };
+      watchers.set(dir, entry);
+      watcher.once("ready", () => {
+        if (disposed || closing) close();
+        else initialized.resolve();
+      });
+      const failInitialization = (error: unknown) => {
+        log.warn(undefined, "State watcher failed", { error: String(error) });
+        initialized.reject(error);
+        if (watchers.get(dir) === entry) watchers.delete(dir);
+        close();
+      };
+      watcher.on("error", failInitialization);
+      watcher.on("all", (event, file) => {
+        if (!["add", "change", "unlink"].includes(event) || !/[/\\][a-f0-9]{64}\.json$/u.test(file))
+          return;
+        void publish(file).catch((error: unknown) =>
+          log.warn(undefined, "State notification failed", { error: String(error) }),
+        );
+      });
+      // chokidar 会用通用环境变量覆盖显式配置；验证最终配置，不能静默恢复已确认会漏事件的后端。
+      const effective = watcher.options;
+      if (
+        effective.usePolling !== usePolling ||
+        (usePolling && (effective.interval !== 500 || effective.binaryInterval !== 500))
+      ) {
+        failInitialization(
+          new Error(
+            `Gen UI state watcher conflicts with platform observation policy: expected usePolling=${usePolling}${usePolling ? ", interval=500, binaryInterval=500" : ""}; effective usePolling=${effective.usePolling}, interval=${effective.interval}, binaryInterval=${effective.binaryInterval}. Check CHOKIDAR_USEPOLLING/CHOKIDAR_INTERVAL.`,
+          ),
+        );
+      }
+    }
+    await entry.ready;
+    if (disposed) throw new Error("Gen UI state storage is closed");
   }
   async function records(scope: GenUiScope) {
     const dir = directory(scope);

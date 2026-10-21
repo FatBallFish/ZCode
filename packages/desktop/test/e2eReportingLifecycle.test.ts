@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createE2EReporter } from "./e2e/reporting/e2e-reporting";
 import type {
@@ -19,10 +19,52 @@ async function createArtifactsDir(): Promise<string> {
 }
 
 describe("desktop e2e reporting lifecycle", () => {
+  beforeEach(() => {
+    // 修复原因：reporter 会按产品合同双写新旧键；只恢复 ZCODE 会让后例继续写已删除的前例目录。
+    // 两套别名及 coverage 都逐例隔离，仍保留下面的旧键兼容用例与原始产物断言。
+    for (const name of [
+      "MIKIKO_E2E_RUN_ID",
+      "ZCODE_E2E_RUN_ID",
+      "MIKIKO_E2E_ARTIFACT_DIR",
+      "ZCODE_E2E_ARTIFACT_DIR",
+      "ZCODE_E2E_COVERAGE",
+    ]) {
+      vi.stubEnv(name, undefined);
+    }
+  });
+
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await Promise.all(
       createdDirs.splice(0).map((dir) => rm(dir, { force: true, recursive: true })),
     );
+  });
+
+  it("prefers the Mikiko artifact directory and mirrors one run identity to legacy readers", async () => {
+    const artifactsDir = await createArtifactsDir();
+    const legacyDir = await createArtifactsDir();
+    vi.stubEnv("MIKIKO_E2E_ARTIFACT_DIR", artifactsDir);
+    vi.stubEnv("ZCODE_E2E_ARTIFACT_DIR", legacyDir);
+    vi.stubEnv("MIKIKO_E2E_RUN_ID", "mikiko-lifecycle-run");
+    vi.stubEnv("ZCODE_E2E_RUN_ID", "legacy-lifecycle-run");
+    const reporter = createE2EReporter({
+      containerE2E: false,
+      desktopDir: artifactsDir,
+      repoRoot: process.cwd(),
+      requestedSpecs: [],
+    });
+    await reporter.prepare([]);
+    expect(reporter.artifactDir).toBe(artifactsDir);
+    expect(process.env.MIKIKO_E2E_ARTIFACT_DIR).toBe(artifactsDir);
+    expect(process.env.ZCODE_E2E_ARTIFACT_DIR).toBe(artifactsDir);
+    expect(reporter.runId).toBe("mikiko-lifecycle-run");
+    expect(process.env.MIKIKO_E2E_RUN_ID).toBe(reporter.runId);
+    expect(process.env.ZCODE_E2E_RUN_ID).toBe(reporter.runId);
+    const manifest = JSON.parse(await readFile(path.join(artifactsDir, "manifest.json"), "utf8"));
+    expect(manifest.runId).toBe(reporter.runId);
+    await expect(readFile(path.join(legacyDir, "manifest.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   it("compacts completed process coverage after each case instead of waiting for worker exit", async () => {

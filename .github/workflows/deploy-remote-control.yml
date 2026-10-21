@@ -121,10 +121,20 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 24.14.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Test update downloads against local R2
+        run: node scripts/run-isolated-tests.mjs pnpm --filter @zcode/update-service test
 
       - name: Deploy Worker
         working-directory: packages/update-service
@@ -135,6 +145,40 @@ jobs:
             echo "::notice::secrets.CLOUDFLARE_API_TOKEN 未配置，跳过升级服务部署"
             exit 78
           fi
-          npx --yes wrangler@4 deploy
+          pnpm exec wrangler deploy
+
+      - name: Verify public download range
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { setTimeout } from 'node:timers/promises';
+          const endpoint = new URL('https://agent-update.mikiko.ai/api/v1/releases/electron/manifest');
+          endpoint.searchParams.set('platform', 'darwin-aarch64');
+          endpoint.searchParams.set('channel', '1');
+          const manifest = await fetch(endpoint, { signal: AbortSignal.timeout(30_000) });
+          assert.equal(manifest.status, 200);
+          const text = await manifest.text();
+          const path = /^path:\s*(['"]?)(.+?)\1\s*$/m.exec(text)?.[2];
+          assert.ok(path, 'Stable manifest must identify an actual installer');
+          const download = new URL(path, 'https://agent-dl.mikiko.ai');
+          assert.equal(download.origin, 'https://agent-dl.mikiko.ai');
+          download.searchParams.set('verify-deployment', process.env.GITHUB_SHA);
+          for (let attempt = 0; attempt < 12; attempt++) {
+            try {
+              const response = await fetch(download, { headers: { Range: 'bytes=0-31' }, signal: AbortSignal.timeout(30_000) });
+              const bytes = new Uint8Array(await response.arrayBuffer());
+              assert.equal(response.status, 206);
+              assert.match(response.headers.get('content-range') ?? '', /^bytes 0-31\/[0-9]+$/);
+              assert.equal(response.headers.get('content-length'), '32');
+              assert.equal(bytes.length, 32);
+              console.log('Public installer range verified: 32 bytes with matching headers');
+              break;
+            } catch (error) {
+              if (attempt === 11) throw error;
+              console.log(`Waiting for deployed range response (${attempt + 1}/12)`);
+              await setTimeout(5_000);
+            }
+          }
+          JS
 
 # trigger: verify-deploy-key

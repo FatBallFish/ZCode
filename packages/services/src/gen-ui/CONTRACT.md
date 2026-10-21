@@ -19,3 +19,12 @@ Widget state remains scoped to the current workspace identity and session.
 State storage is an injected adapter. Atomic file replacement and the existing cross-process file
 lock serialize full snapshots; notifications project durable state. Only modelContent is exported
 as untrusted next-turn context. Main owns native sandbox resources, not persisted state.
+
+Each storage instance owns one watcher/ready Promise per scope directory. Observations wait for
+initial readiness; failed or disposed initialization rejects its waiters and closes the watcher.
+Late readiness cannot revive disposed storage. Darwin uses a single 500ms stat polling backend
+because native startup can lose events even after chokidar ready; Linux/Windows use native.
+Effective dependency options must match that platform policy; conflicting generic environment
+overrides reject initialization and close the watcher without changing process.env or retrying.
+Set ACK notifications stay immediate; external notifications project the latest sampled snapshot,
+not every transient value. See `docs/specs/gen-ui-state-observation.md`.

@@ -61,6 +61,8 @@ async function createRelayServer(
   options?: { perMessageDeflate?: boolean },
 ) {
   const server = new WebSocketServer({
+    // macOS 的 :: 与 IPv4 可同时占用同端口；客户端连接 127.0.0.1，fixture 必须同地址族绑定，避免命中其它本地服务。
+    host: "127.0.0.1",
     port: 0,
     perMessageDeflate: options?.perMessageDeflate ?? false,
   });
@@ -185,7 +187,7 @@ describe("WebRemoteControlTerminalTransport", () => {
 
     try {
       transport.start();
-      await waitUntil(() => states.includes("paired"), 2_000);
+      await waitUntil(() => states.includes("paired"), 2_000, "initial paired");
       const [frame] = encodeWebRemoteControlRpcTransportMessage(new Uint8Array([1, 2, 3]), {
         bridgeSessionId: "bridge-1",
         firstPhysicalSeq: 1,
@@ -204,6 +206,7 @@ describe("WebRemoteControlTerminalTransport", () => {
       await waitUntil(
         () => relay.messages.filter((message) => message.type === "data").length === 2,
         2_000,
+        "initial data and replay",
       );
 
       const dataJson = relay.rawMessages.filter(
@@ -1264,11 +1267,15 @@ it.each([
     if (order === "lifecycle-first") addReporter();
     try {
       transport.start();
-      await waitUntil(() => state === "paired", 2_000);
+      await waitUntil(() => state === "paired", 2_000, "initial paired");
       publisher.setBridge(bridge);
       publisher.seed("initial-bootstrap-epoch");
       report();
-      await waitUntil(() => reports().at(-1)?.view?.taskId === "task", 2_000);
+      await waitUntil(
+        () => reports().at(-1)?.view?.taskId === "task",
+        2_000,
+        "initial visible task report",
+      );
       const previousSeq = reports().at(-1).seq;
       if (pause === "visibilitychange") documentTarget.visibilityState = "hidden";
       (pause === "pagehide" ? windowTarget : documentTarget).dispatchEvent(new Event(pause));
