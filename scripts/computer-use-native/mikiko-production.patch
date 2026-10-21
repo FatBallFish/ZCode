@@ -1,0 +1,707 @@
+diff --git a/apps/OpenComputerUse/Sources/OpenComputerUse/MacOSAppAgentProxy.swift b/apps/OpenComputerUse/Sources/OpenComputerUse/MacOSAppAgentProxy.swift
+index efc561b..6c29e88 100644
+--- a/apps/OpenComputerUse/Sources/OpenComputerUse/MacOSAppAgentProxy.swift
++++ b/apps/OpenComputerUse/Sources/OpenComputerUse/MacOSAppAgentProxy.swift
+@@ -2,6 +2,18 @@ import AppKit
+ import Darwin
+ import Foundation
+ import OpenComputerUseKit
++import Security
++
++enum ProductionAgentError: Error, LocalizedError {
++    case controllerBusy, identityMismatch
++    var code: String { switch self { case .controllerBusy: "controller_busy"; case .identityMismatch: "identity_mismatch" } }
++    var errorDescription: String? { switch self {
++        case .controllerBusy: "Mikiko Computer Use busy: another connection owns desktop control."
++        case .identityMismatch: "Refusing an untrusted production app-agent identity."
++    } }
++}
++
++private let productionControlLease = MikikoControlLease()
+ 
+ private let appAgentCommand = "__mikiko-computer-use-app-agent"
+ private let appAgentDisableEnvironmentKey = "MIKIKO_COMPUTER_USE_DISABLE_APP_AGENT_PROXY"
+@@ -23,16 +35,15 @@ enum MacOSAppAgentProxy {
+         // so a later agentInfo call cannot mistake an old process for a rebuild.
+         _ = appAgentProcessStartDate
+         _ = appAgentBuildIdentifier
++        guard arguments[1] == defaultSocketPath() else { throw OpenComputerUseCLIError(message: "Production app-agent requires the fixed Mikiko socket.") }
+         try MacOSAppAgentRuntime.run(socketPath: arguments[1])
+     }
+ 
+     static func shouldProxy(command: OpenComputerUseCLICommand) -> Bool {
+-        shouldUseMacOSAppAgentProxy(
+-            command: command,
+-            proxyDisabled: proxyDisabled,
+-            appBundleAvailable: PermissionSupport.currentAppBundleURL() != nil,
+-            runningFromLaunchServicesAppInstance: isRunningFromLaunchServicesAppInstance
+-        )
++        switch command {
++        case .mcp, .doctor, .listApps, .snapshot, .call, .launchOnboarding: return true
++        default: return false
++        }
+     }
+ 
+     @MainActor
+@@ -56,6 +67,21 @@ enum MacOSAppAgentProxy {
+         }
+     }
+ 
++    @MainActor
++    static func restartAgent() throws {
++        guard let appURL = PermissionSupport.currentAppBundleURL() else { throw OpenComputerUseCLIError(message: "Mikiko App bundle unavailable.") }
++        if let client = AppAgentSocketClient.connect(path: defaultSocketPath()) {
++            guard try client.isTrustedProductionAgent() else { throw ProductionAgentError.identityMismatch }
++            _ = try client.request(["kind": "terminate"])
++            guard client.waitForDisconnect() else { throw OpenComputerUseCLIError(message: "Verified idle app-agent did not exit.") }
++        }
++        let client = try connectOrLaunchAgent(socketPath: defaultSocketPath())
++        let response = try sendCLIRequest(arguments: ["doctor", "--json"], client: client)
++        guard response.exitCode == 0, let data = response.stdout.data(using: .utf8), let permissions = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw OpenComputerUseCLIError(message: "Restarted app-agent doctor failed.") }
++        let output = try JSONSerialization.data(withJSONObject: ["restarted": true, "permissions": permissions], options: [.sortedKeys])
++        print(String(decoding: output, as: UTF8.self))
++    }
++
+     private static var proxyDisabled: Bool {
+         let value = ProcessInfo.processInfo.environment[appAgentDisableEnvironmentKey]?.lowercased()
+         return value == "1" || value == "true" || value == "yes" || value == "on"
+@@ -71,14 +97,7 @@ enum MacOSAppAgentProxy {
+     }
+ 
+     private static func defaultSocketPath() -> String {
+-        FileManager.default.temporaryDirectory
+-            .appendingPathComponent(
+-                openComputerUseAppAgentSocketFileName(
+-                    namespace: ProcessInfo.processInfo.environment[openComputerUseAppAgentSocketNamespaceEnvironmentKey]
+-                )
+-            )
+-            .standardizedFileURL
+-            .path
++        "/tmp/mikiko-computer-use-production-\(getuid()).sock"
+     }
+ 
+     @MainActor
+@@ -88,17 +107,15 @@ enum MacOSAppAgentProxy {
+         }
+ 
+         if let client = AppAgentSocketClient.connect(path: socketPath) {
++            guard try client.isTrustedProductionAgent() else { throw OpenComputerUseCLIError(message: "Refusing an untrusted production app-agent identity.") }
+             if (try? client.isCurrentAgent(for: appURL)) == true {
+                 return client
+             }
+ 
+-            _ = try? client.request(["kind": "terminate"])
+-            guard client.waitForDisconnect() else {
+-                throw OpenComputerUseCLIError(message: "Previous app agent has not exited. Retry after its current work stops.")
+-            }
+-            unlink(socketPath)
+-        } else {
+-            unlink(socketPath)
++            // 更新后旧 helper 可能仍活着：只迁移同 user、同 Developer ID team 的生产进程，busy 不抢占。
++            guard try client.isTrustedProductionAgent() else { throw OpenComputerUseCLIError(message: "Refusing to replace an untrusted production app-agent identity.") }
++            _ = try client.request(["kind": "terminate"])
++            guard client.waitForDisconnect() else { throw OpenComputerUseCLIError(message: "Previous verified app-agent has not exited.") }
+         }
+ 
+         let configuration = NSWorkspace.OpenConfiguration()
+@@ -111,6 +128,9 @@ enum MacOSAppAgentProxy {
+         let deadline = Date().addingTimeInterval(10)
+         while Date() < deadline {
+             if let client = AppAgentSocketClient.connect(path: socketPath) {
++                guard (try? client.isCurrentAgent(for: appURL)) == true, (try? client.isTrustedProductionAgent()) == true else {
++                    throw OpenComputerUseCLIError(message: "Production agent identity mismatch.")
++                }
+                 return client
+             }
+             Thread.sleep(forTimeInterval: 0.05)
+@@ -120,6 +140,21 @@ enum MacOSAppAgentProxy {
+     }
+ 
+     private static func proxyMCP(client: AppAgentSocketClient) throws {
++        // stdio SDK先关闭stdin再等待退出；同步request期间不能等下一次readLine才发现取消。
++        // 独立监测真实管道EOF，shutdown本连接的副本唤醒服务端逐步校验，不结束App-agent。
++        let cancellationFD = try client.duplicateCancellationSocket()
++        let queue = DispatchQueue(label: "mikiko.proxy-disconnect")
++        let monitor = DispatchSource.makeTimerSource(queue: queue)
++        monitor.schedule(deadline: .now(), repeating: .milliseconds(10))
++        monitor.setEventHandler {
++            var state = pollfd(fd: STDIN_FILENO, events: Int16(POLLIN), revents: 0)
++            if poll(&state, 1, 0) > 0 && state.revents & Int16(POLLHUP | POLLERR | POLLNVAL) != 0 {
++                _ = shutdown(cancellationFD, SHUT_RDWR)
++                monitor.cancel()
++            }
++        }
++        monitor.resume()
++        defer { monitor.cancel(); queue.sync {}; close(cancellationFD) }
+         while let line = readLine(strippingNewline: true) {
+             guard !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                 continue
+@@ -188,16 +223,7 @@ private final class MacOSAppAgentRuntime: NSObject, NSApplicationDelegate {
+     }
+ 
+     func applicationDidFinishLaunching(_ notification: Notification) {
+-        turnEndedObserver = DistributedNotificationCenter.default().addObserver(
+-            forName: openComputerUseTurnEndedNotificationName,
+-            object: nil,
+-            queue: .main
+-        ) { _ in
+-            Task { @MainActor in
+-                resetOpenComputerUseBackgroundWindowState()
+-                resetOpenComputerUseVisualCursor()
+-            }
+-        }
++        // 生产控制清理只接受 owning MCP 连接；不监听任何进程均可发送的全局 turn-ended 通知。
+ 
+         do {
+             let listener = try AppAgentSocketListener(path: socketPath)
+@@ -230,10 +256,22 @@ private final class MacOSAppAgentRuntime: NSObject, NSApplicationDelegate {
+ private final class AppAgentSocketListener: @unchecked Sendable {
+     private let path: String
+     private let socketFD: Int32
++    private let listenerLockFD: Int32
++    private let lifecycleLock = NSLock()
+     private var running = true
++    private var isRunning: Bool { lifecycleLock.lock(); defer { lifecycleLock.unlock() }; return running }
+ 
+     init(path: String) throws {
+         self.path = path
++        // 内核锁随进程退出释放；并发启动者不能 unlink 仍有 owner 的生产 socket。
++        let lockFD = open(path + ".lock", O_CREAT | O_RDWR | O_NOFOLLOW, S_IRUSR | S_IWUSR)
++        guard lockFD >= 0 else { throw POSIXError(.init(rawValue: errno) ?? .EIO) }
++        var lockInfo = stat()
++        guard fstat(lockFD, &lockInfo) == 0, lockInfo.st_uid == getuid(), flock(lockFD, LOCK_EX | LOCK_NB) == 0 else {
++            close(lockFD)
++            throw OpenComputerUseCLIError(message: "Mikiko production app-agent is already running or its socket lock is invalid.")
++        }
++        listenerLockFD = lockFD
+         unlink(path)
+ 
+         socketFD = socket(AF_UNIX, SOCK_STREAM, 0)
+@@ -286,41 +324,56 @@ private final class AppAgentSocketListener: @unchecked Sendable {
+     }
+ 
+     func stop() {
++        lifecycleLock.lock(); defer { lifecycleLock.unlock() }
++        guard running else { return }
+         running = false
++        _ = shutdown(socketFD, SHUT_RDWR)
+         close(socketFD)
+         unlink(path)
++        close(listenerLockFD)
+     }
+ 
+     private func acceptLoop() {
+-        while running {
++        while isRunning {
+             let clientFD = accept(socketFD, nil, nil)
+             guard clientFD >= 0 else {
+-                if running {
++                if isRunning {
+                     Thread.sleep(forTimeInterval: 0.05)
+                 }
+                 continue
+             }
+ 
+-            Thread.detachNewThread {
+-                AppAgentConnection(fileDescriptor: clientFD).run()
+-            }
++            var noSignal: Int32 = 1
++            guard setsockopt(clientFD, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, socklen_t(MemoryLayout<Int32>.size)) == 0 else { close(clientFD); continue }
++            let connection = AppAgentConnection(fileDescriptor: clientFD, onIdle: { [weak self] in
++                self?.stop()
++                Task { @MainActor in NSApp.terminate(nil) }
++            })
++            Thread.detachNewThread { connection.run() }
+         }
+     }
+ }
+ 
+ private final class AppAgentConnection: @unchecked Sendable {
+     private let fileDescriptor: Int32
++    private let controlOwner = UUID()
++    private var lifetimeAdmitted = false
++    private let onIdle: @Sendable () -> Void
+     private let server = StdioMCPServer()
+     private let lockedUse: LockedUseConnection
+     private var keychainProbe: LockedUseKeychainProbe?
+ 
+-    init(fileDescriptor: Int32) {
++    init(fileDescriptor: Int32, onIdle: @escaping @Sendable () -> Void) {
+         self.fileDescriptor = fileDescriptor
++        self.onIdle = onIdle
+         lockedUse = LockedUseConnection(clientSocket: fileDescriptor)
++        lifetimeAdmitted = productionControlLease.registerConnection(controlOwner)
+     }
+ 
+     func run() {
++        guard lifetimeAdmitted else { close(fileDescriptor); return }
+         guard let file = fdopen(fileDescriptor, "r+") else {
++            closeControlConnection()
+             close(fileDescriptor)
+             return
+         }
+@@ -340,7 +393,7 @@ private final class AppAgentConnection: @unchecked Sendable {
+             monitor.cancel(); monitorQueue.sync {}
+             lockedUse.end(disconnecting: true)
+             if let probe = keychainProbe { keychainProbe = nil; LockedUseDeferredCleanup.shared.retainIfNeeded(probe) }
+-            server.endSession()
++            closeControlConnection()
+             fclose(file)
+         }
+ 
+@@ -350,8 +403,18 @@ private final class AppAgentConnection: @unchecked Sendable {
+         }
+     }
+ 
++    private func ensureConnected() throws {
++        // EOF/取消后不执行已缓冲的新动作；在途同步动作仍保留 lease，直到真正结束后清理。
++        var state = pollfd(fd: fileDescriptor, events: Int16(POLLIN), revents: 0)
++        let result = poll(&state, 1, 0)
++        if result > 0 && state.revents & Int16(POLLHUP | POLLERR | POLLNVAL) != 0 {
++            throw ComputerUseError.stateUnavailable("Mikiko Computer Use client disconnected.")
++        }
++    }
++
+     private func handle(requestLine: String) -> [String: Any] {
+         do {
++            try ensureConnected()
+             guard let request = try JSONSerialization.jsonObject(with: Data(requestLine.utf8)) as? [String: Any],
+                   let kind = request["kind"] as? String
+             else {
+@@ -366,8 +429,10 @@ private final class AppAgentConnection: @unchecked Sendable {
+                     "executableURL": Bundle.main.executableURL?.standardizedFileURL.path ?? "",
+                     "processStartTime": appAgentProcessStartDate.timeIntervalSince1970,
+                     "buildIdentifier": appAgentBuildIdentifier,
++                    "controlBusy": productionControlLease.isBusy,
+                 ]
+             case "terminate":
++                try productionControlLease.requestShutdown()
+                 Task { @MainActor in
+                     NSApp.terminate(nil)
+                 }
+@@ -375,6 +440,16 @@ private final class AppAgentConnection: @unchecked Sendable {
+             case "mcp":
+                 let line = request["line"] as? String ?? ""
+                 let environment = request["environment"] as? [String: String] ?? [:]
++                let message = try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
++                let method = message?["method"] as? String ?? ""
++                if ["notifications/turn-ended", "notifications/stop", "notifications/cancelled"].contains(method) {
++                    releaseControl()
++                    return ["response": NSNull()]
++                }
++                if method == "tools/call", let params = message?["params"] as? [String: Any], let name = params["name"] as? String,
++                   name != "list_apps", ToolDefinitions.all.contains(where: { $0.name == name }) {
++                    try productionControlLease.acquire(controlOwner)
++                }
+                 let response: String? = try AppAgentEnvironment.withOverrides(environment) {
+                     let payload = try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+                     if payload?["method"] as? String == "notifications/turn-ended" { lockedUse.end() }
+@@ -385,7 +460,7 @@ private final class AppAgentConnection: @unchecked Sendable {
+                     if payload?["method"] as? String == "tools/call",
+                        let name = parameters?["name"] as? String,
+                        name != "list_apps", ToolDefinitions.all.contains(where: { $0.name == name }) {
+-                        return try lockedUse.perform { server.handle(line: line) }
++                        return try lockedUse.perform { try LockedUseActionScope.withValidator({ [self] in try ensureConnected() }) { try ensureConnected(); return server.handle(line: line) } }
+                     }
+                     return server.handle(line: line)
+                 }
+@@ -396,11 +471,16 @@ private final class AppAgentConnection: @unchecked Sendable {
+             case "cli":
+                 let arguments = request["arguments"] as? [String] ?? []
+                 let environment = request["environment"] as? [String: String] ?? [:]
++                let cliCommand = try parseOpenComputerUseCLI(arguments: arguments)
++                switch cliCommand {
++                case .snapshot, .call: try productionControlLease.acquire(controlOwner)
++                default: break
++                }
+                 let response = try AppAgentEnvironment.withOverrides(environment) {
+-                    let command = try parseOpenComputerUseCLI(arguments: arguments)
++                    let command = cliCommand
+                     switch command {
+                     case .snapshot, .call:
+-                        return try lockedUse.perform { runCLI(arguments: arguments) }
++                        return try lockedUse.perform { try LockedUseActionScope.withValidator({ [self] in try ensureConnected() }) { try ensureConnected(); return runCLI(arguments: arguments) } }
+                     default: return runCLI(arguments: arguments)
+                     }
+                 }
+@@ -432,7 +512,22 @@ private final class AppAgentConnection: @unchecked Sendable {
+                     return ["stdout": "", "stderr": message + "\n", "exitCode": Int(EXIT_FAILURE)]
+                 }
+             }
+-            return ["error": message]
++            return ["error": message, "errorCode": error is MikikoControlLease.Busy ? "controller_busy" : "native_error"]
++        }
++    }
++
++    private func closeControlConnection() {
++        let shouldExit = productionControlLease.closeConnection(controlOwner) {
++            lockedUse.end()
++            AppAgentEnvironment.withOverrides([:]) { server.endSession() }
++        }
++        if shouldExit { onIdle() }
++    }
++
++    private func releaseControl() {
++        productionControlLease.release(controlOwner) {
++            lockedUse.end()
++            AppAgentEnvironment.withOverrides([:]) { server.endSession() }
+         }
+     }
+ 
+@@ -457,7 +552,15 @@ private final class AppAgentConnection: @unchecked Sendable {
+                         PermissionOnboardingApp.present()
+                     }
+                 }
+-                let text = try json ? permissions.jsonText() : permissions.summary
++                let text: String
++                if json {
++                    var result = try JSONSerialization.jsonObject(with: Data(permissions.jsonText().utf8)) as! [String: Any]
++                    result["grantOwnerBundleId"] = Bundle.main.bundleIdentifier ?? ""
++                    result["appPath"] = Bundle.main.bundleURL.standardizedFileURL.path
++                    result["buildIdentifier"] = appAgentBuildIdentifier
++                    result["appAgent"] = true
++                    text = String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self)
++                } else { text = permissions.summary }
+                 return CLIProxyResponse(stdout: text + "\n", stderr: "", exitCode: EXIT_SUCCESS)
+ 
+             case let .lockedUseStatus(json):
+@@ -572,6 +675,13 @@ private final class AppAgentSocketClient: @unchecked Sendable {
+         return AppAgentSocketClient(file: file)
+     }
+ 
++    func duplicateCancellationSocket() throws -> Int32 {
++        let fd = dup(fileno(file))
++        guard fd >= 0 else { throw POSIXError(.init(rawValue: errno) ?? .EIO) }
++        _ = fcntl(fd, F_SETFD, FD_CLOEXEC)
++        return fd
++    }
++
+     func request(_ object: [String: Any]) throws -> [String: Any] {
+         let data = try JSONSerialization.data(withJSONObject: object, options: [.withoutEscapingSlashes])
+         guard let line = String(data: data, encoding: .utf8) else {
+@@ -587,6 +697,7 @@ private final class AppAgentSocketClient: @unchecked Sendable {
+         }
+ 
+         if let error = response["error"] as? String {
++            if response["errorCode"] as? String == "controller_busy" { throw ProductionAgentError.controllerBusy }
+             throw ComputerUseError.message(error)
+         }
+ 
+@@ -605,6 +716,31 @@ private final class AppAgentSocketClient: @unchecked Sendable {
+         return false
+     }
+ 
++    func isTrustedProductionAgent() throws -> Bool {
++        var peerUID: uid_t = 0, peerGID: gid_t = 0
++        guard getpeereid(fileno(file), &peerUID, &peerGID) == 0, peerUID == getuid() else { return false }
++        var peerPID: pid_t = 0
++        var length = socklen_t(MemoryLayout<pid_t>.size)
++        guard getsockopt(fileno(file), SOL_LOCAL, LOCAL_PEERPID, &peerPID, &length) == 0, peerPID > 0 else { return false }
++        var ownCode: SecCode?
++        var ownStatic: SecStaticCode?
++        var information: CFDictionary?
++        guard SecCodeCopySelf([], &ownCode) == errSecSuccess, let ownCode,
++              SecCodeCopyStaticCode(ownCode, [], &ownStatic) == errSecSuccess, let ownStatic,
++              SecCodeCopySigningInformation(ownStatic, SecCSFlags(rawValue: kSecCSSigningInformation), &information) == errSecSuccess,
++              let information = information as? [String: Any],
++              let team = information[kSecCodeInfoTeamIdentifier as String] as? String,
++              !team.isEmpty, team.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else { return false }
++        var guest: SecCode?
++        var requirement: SecRequirement?
++        let expression = "anchor apple generic and identifier \"dev.mikiko.computer-use\" and certificate leaf[subject.OU] = \"\(team)\" and certificate leaf[field.1.2.840.113635.100.6.1.13] exists"
++        guard SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributePid as String: peerPID] as CFDictionary, [], &guest) == errSecSuccess,
++              let guest,
++              SecRequirementCreateWithString(expression as CFString, [], &requirement) == errSecSuccess,
++              let requirement, SecCodeCheckValidity(guest, [], requirement) == errSecSuccess else { return false }
++        return true
++    }
++
+     func isCurrentAgent(for appURL: URL) throws -> Bool {
+         let response = try request(["kind": "agentInfo"])
+         let expectedBundleURL = appURL.standardizedFileURL
+diff --git a/apps/OpenComputerUse/Sources/OpenComputerUse/OpenComputerUseMain.swift b/apps/OpenComputerUse/Sources/OpenComputerUse/OpenComputerUseMain.swift
+index ee8ecb2..3d2dcfa 100644
+--- a/apps/OpenComputerUse/Sources/OpenComputerUse/OpenComputerUseMain.swift
++++ b/apps/OpenComputerUse/Sources/OpenComputerUse/OpenComputerUseMain.swift
+@@ -31,6 +31,16 @@ enum OpenComputerUseMain {
+             return
+         }
+ 
++        if arguments == ["restart-agent", "--json"] {
++            do { try MacOSAppAgentProxy.restartAgent() }
++            catch {
++                let code = (error as? ProductionAgentError)?.code ?? "restart_failed"
++                let result: [String: Any] = ["restarted": false, "error": ["code": code]]
++                print(String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self))
++                throw error
++            }
++            return
++        }
+         let command = try parseOpenComputerUseCLI(arguments: arguments)
+ 
+         if MacOSAppAgentProxy.shouldProxy(command: command) {
+@@ -74,8 +84,7 @@ enum OpenComputerUseMain {
+                 exit(EXIT_FAILURE)
+             }
+         case .turnEnded:
+-            postOpenComputerUseTurnEndedNotification()
+-            print("turn-ended acknowledged")
++            throw ComputerUseError.permissionDenied("End only your own MCP connection turn with notifications/turn-ended.")
+         case let .help(command):
+             print(openComputerUseHelpText(command: command))
+         case .version:
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AccessibilitySnapshot.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AccessibilitySnapshot.swift
+index 7e427f9..7534040 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AccessibilitySnapshot.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/AccessibilitySnapshot.swift
+@@ -642,8 +642,7 @@ private struct WindowCapture {
+     }
+ 
+     func screenshotResult() -> ScreenshotEncodingResult {
+-        guard let image else { return ScreenshotEncodingResult(data: nil, note: nil) }
+-        return encodeScreenshot(for: image, config: imageConfig)
++        screenshotCaptureResult(for: image, config: imageConfig)
+     }
+ 
+ }
+@@ -703,6 +702,14 @@ struct ScreenshotEncodingResult {
+     let note: String?
+ }
+ 
++/// 捕获失败仍可保留有效 AX，但必须说明没有真实图片；不得伪造截图或静默授予坐标操作依据。
++func screenshotCaptureResult(for image: CGImage?, config: ImageCaptureConfig) -> ScreenshotEncodingResult {
++    guard let image else {
++        return ScreenshotEncodingResult(data: nil, note: "Screenshot unavailable: native window capture did not produce an image.")
++    }
++    return encodeScreenshot(for: image, config: config)
++}
++
+ func boundedScreenshotData(for image: CGImage, config: ImageCaptureConfig) -> Data? {
+     encodeScreenshot(for: image, config: config).data
+ }
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ComputerUseService.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ComputerUseService.swift
+index 7043faf..56481be 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ComputerUseService.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ComputerUseService.swift
+@@ -274,15 +274,16 @@ enum DragDeliveryPath: String, CaseIterable {
+ }
+ 
+ func dragDeliveryPath(environment: [String: String]) -> DragDeliveryPath {
+-    globalPointerFallbacksEnabled(environment: environment) ? .global : .appPost
++    // 用户批准生产drag移动真实鼠标；不开放其它工具的global参数。
++    .global
+ }
+ 
+ func dragDeliveryNote(for path: DragDeliveryPath) -> String {
+     switch path {
+     case .appPost:
+-        return "Drag delivered via app_post: mouse events were posted directly to the target process and the system pointer did not move. This path cannot drive window-server drag sessions such as window moves, text selection, or Finder drag-and-drop. If the drag had no effect, set MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 in the server process environment to use the global pointer path, which may move the real pointer and change foreground focus."
++        return "Drag delivered via app_post: mouse events were posted directly to the target process and the system pointer did not move. This path cannot drive window-server drag sessions such as window moves, text selection, or Finder drag-and-drop. Global pointer control is unavailable in this Mikiko backend. Use application accessibility actions for unsupported drag interactions."
+     case .global:
+-        return "Drag delivered via global pointer path: MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS is enabled, so the real pointer may have moved and foreground focus may have changed."
++        return "Drag delivered via the real pointer. The system mouse moved and foreground focus may have changed."
+     }
+ }
+ 
+@@ -928,10 +929,8 @@ public final class ComputerUseService {
+             )
+         }
+ 
+-        if try typeTextBySettingFocusedValueIfAvailable(text, in: snapshot) {
+-            pauseBeforeReadBack(0.1)
+-            return try actionResult(for: query)
+-        }
++        // type_text承诺键盘插入语义；旧AXValue追加优化忽略选区并可能覆盖用户并发编辑。
++        // 复用既有按PID投递的键盘路径，不在发送后再切换到另一条写入路径。
+ 
+         guard try canTypeTextUsingKeyboardFallback(in: snapshot) else {
+             throw ComputerUseError.stateUnavailable("type_text requires a focused editable text element. Click a text entry area first, or use set_value on a settable text element.")
+@@ -1485,25 +1484,8 @@ public final class ComputerUseService {
+             return false
+         }
+ 
+-        let attempts = max(repeatCount, 1)
+-        for index in 0..<attempts {
+-            try requireUsableComputerUseSession()
+-            let result = AXUIElementPerformAction(element, action as CFString)
+-            switch result {
+-            case .success:
+-                if index < attempts - 1 {
+-                    Thread.sleep(forTimeInterval: 0.05)
+-                }
+-            case .attributeUnsupported where action.caseInsensitiveCompare("AXOpen") == .orderedSame:
+-                return true
+-            case .failure, .actionUnsupported, .attributeUnsupported, .cannotComplete, .noValue, .invalidUIElement, .illegalArgument:
+-                return false
+-            default:
+-                throw ComputerUseError.message("AXUIElementPerformAction(\(action)) failed with \(result.rawValue)")
+-            }
+-        }
+-
+-        return true
++        return try performMikikoAXAction(on: element, action: action, repeatCount: repeatCount,
++                                        beforeEach: { try requireUsableComputerUseSession() })
+     }
+ 
+     private func activateClickTarget(element: AXUIElement, availableActions: [String]) throws -> Bool {
+@@ -2241,8 +2223,38 @@ public final class ComputerUseService {
+                 targetDescription: targetDescription,
+                 snapshot: snapshot
+             )
+-            InputSimulation.prepareAppForGlobalPointerInput(snapshot.app)
+-            try InputSimulation.dragGlobally(from: eventStart, to: eventEnd)
++            guard let id = snapshot.targetWindowID, let bounds = snapshot.windowBounds,
++                  let window = snapshot.windowElement else {
++                throw ComputerUseError.stateUnavailable("Drag requires an observed native window.")
++            }
++            let target = MikikoDragWindow(id: id, pid: snapshot.app.pid, bounds: bounds)
++            guard bounds.contains(eventStart), bounds.contains(eventEnd) else {
++                throw ComputerUseError.stateUnavailable("Drag endpoints must be inside the observed window.")
++            }
++            try requireUsableComputerUseSession()
++            // 只提高截图对应窗口，不按应用首窗口猜测；提高后重新核验坐标和遮挡。
++            _ = try performMikikoAXAction(on: window, action: kAXRaiseAction as String, repeatCount: 1)
++            try InputSimulation.dragGlobally(from: eventStart, to: eventEnd, validateTarget: { point in
++                let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
++                let windows = info.compactMap { item -> MikikoDragWindow? in
++                    guard let id = item[kCGWindowNumber as String] as? UInt32,
++                          let pid = item[kCGWindowOwnerPID as String] as? Int32,
++                          let dictionary = item[kCGWindowBounds as String] as? [String: Any],
++                          let bounds = CGRect(dictionaryRepresentation: dictionary as CFDictionary),
++                          (item[kCGWindowAlpha as String] as? Double ?? 1) > 0 else { return nil }
++                    return MikikoDragWindow(id: id, pid: pid, bounds: bounds)
++                }
++                // Dock/台前调度有全屏但可穿透的窗口；矩形列表不能代表真实鼠标命中。
++                var hit: AXUIElement?
++                guard AXUIElementCopyElementAtPosition(AXUIElementCreateSystemWide(), Float(point.x), Float(point.y), &hit) == .success,
++                      let hit else { throw ComputerUseError.stateUnavailable("Cannot confirm drag hit target.") }
++                var hitPID: pid_t = 0
++                var hitWindow: CFTypeRef?
++                _ = AXUIElementGetPid(hit, &hitPID)
++                _ = AXUIElementCopyAttributeValue(hit, kAXWindowAttribute as CFString, &hitWindow)
++                let matches = hitPID == target.pid && (CFEqual(hit, window) || (hitWindow.map { CFEqual($0, window) } ?? false))
++                try validateMikikoDragWindow(target, current: windows, point: point, hitWindowID: matches ? id : nil)
++            })
+         case .appPost:
+             try InputSimulation.dragTargeted(from: eventStart, to: eventEnd, pid: snapshot.app.pid)
+         }
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/InputSimulation.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/InputSimulation.swift
+index fa0e30d..f42d130 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/InputSimulation.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/InputSimulation.swift
+@@ -155,30 +155,25 @@ enum InputSimulation {
+         try postMouseEventToPid(type: .leftMouseUp, source: source, point: end, button: .left, clickState: 1, pid: pid)
+     }
+ 
+-    static func dragGlobally(from start: CGPoint, to end: CGPoint) throws {
+-        // A nil (default) event source posted to the HID tap, with per-step deltas and
+-        // no timestamp override. This is what lets macOS recognize the synthetic
+-        // sequence as a real window-server drag on current releases.
++    static func dragGlobally(from start: CGPoint, to end: CGPoint, validateTarget: (CGPoint) throws -> Void) throws {
+         let gesture = dragGestureEventNumber()
+-        try postMouseEvent(type: .mouseMoved, source: nil, point: start, button: .left, clickState: 1)
+-        try postMouseEvent(type: .leftMouseDown, source: nil, point: start, button: .left, clickState: 1, eventNumber: gesture)
+-        // Clear the OS drag threshold before motion, or the gesture reads as a click.
+-        Thread.sleep(forTimeInterval: 0.05)
+-
+-        var previous = start
+-        let steps = dragStepCount(from: start, to: end)
+-        for step in 1...steps {
+-            let progress = CGFloat(step) / CGFloat(steps)
+-            let point = CGPoint(
+-                x: start.x + ((end.x - start.x) * progress),
+-                y: start.y + ((end.y - start.y) * progress)
+-            )
+-            let delta = CGSize(width: point.x - previous.x, height: point.y - previous.y)
+-            try postMouseEvent(type: .leftMouseDragged, source: nil, point: point, button: .left, clickState: 1, delta: delta, eventNumber: gesture)
+-            previous = point
+-        }
+-
+-        try postMouseEvent(type: .leftMouseUp, source: nil, point: end, button: .left, clickState: 1, eventNumber: gesture)
++        // 提前构建释放事件，保证按下后不会因为事件分配失败留下按住状态。
++        guard let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: start, mouseButton: .left) else {
++            throw ComputerUseError.message("Failed to create drag cleanup event.")
++        }
++        up.setIntegerValueField(.mouseEventClickState, value: 1)
++        applyDragMotionFields(to: up, delta: nil, eventNumber: gesture)
++        try validateTarget(end)
++        try performMikikoDragGesture(from: start, to: end, steps: dragStepCount(from: start, to: end), validate: { point in
++            try requireUsableComputerUseSession()
++            try validateTarget(point)
++        }, post: { type, point, delta in
++            try postMouseEvent(type: type, source: nil, point: point, button: .left, clickState: 1, delta: delta, eventNumber: gesture)
++            if type == .leftMouseDown { Thread.sleep(forTimeInterval: 0.05) }
++        }, release: { point in
++            up.location = point
++            up.post(tap: .cghidEventTap)
++        })
+     }
+ 
+     static func typeText(_ text: String, pid: pid_t) throws {
+diff --git a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ToolDefinitions.swift b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ToolDefinitions.swift
+index d5fe870..168fd42 100644
+--- a/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ToolDefinitions.swift
++++ b/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/ToolDefinitions.swift
+@@ -55,7 +55,7 @@ public enum ToolDefinitions {
+         ),
+         ToolDefinition(
+             name: "drag",
+-            description: "Drag from one point to another using pixel coordinates. By default mouse events are posted directly to the target app and the system pointer does not move; that path cannot drive window-server drag sessions such as window moves, text selection, or Finder drag-and-drop. Those require MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 in the server process environment, which may move the real pointer. The result reports which path was used. This tool is part of plugin `Computer Use`.",
++            description: "Drag inside the freshly observed window using screenshot pixel coordinates. Moves the real system mouse and may change foreground focus. Refuses stale geometry or occluded coordinates; cancellation releases the mouse button. This tool is part of plugin `Computer Use`.",
+             annotations: defaultAnnotations(),
+             inputSchema: objectSchema(
+                 properties: [
+diff --git a/packages/OpenComputerUseKit/Tests/OpenComputerUseKitTests/OpenComputerUseKitTests.swift b/packages/OpenComputerUseKit/Tests/OpenComputerUseKitTests/OpenComputerUseKitTests.swift
+index 1bf4c58..76a251d 100644
+--- a/packages/OpenComputerUseKit/Tests/OpenComputerUseKitTests/OpenComputerUseKitTests.swift
++++ b/packages/OpenComputerUseKit/Tests/OpenComputerUseKitTests/OpenComputerUseKitTests.swift
+@@ -2247,49 +2247,6 @@ final class OpenComputerUseKitTests: XCTestCase {
+         XCTAssertEqual(SoftwareCursorGlyphMetrics.windowSize, CGSize(width: 126, height: 126))
+         XCTAssertEqual(SoftwareCursorGlyphMetrics.tipAnchor.x, 60.35, accuracy: 0.01)
+         XCTAssertEqual(SoftwareCursorGlyphMetrics.tipAnchor.y, 70.3, accuracy: 0.01)
+-        XCTAssertEqual(SoftwareCursorGlyphMetrics.referenceImageResourceName, "official-software-cursor-window-252")
+-    }
+-
+-    func testSoftwareCursorGlyphLoadsCursorMotionReferenceImage() throws {
+-        let image = try XCTUnwrap(loadReferenceCursorWindowImage())
+-        let bitmap = try XCTUnwrap(image.representations.first)
+-
+-        XCTAssertEqual(bitmap.pixelsWide, 252)
+-        XCTAssertEqual(bitmap.pixelsHigh, 252)
+-    }
+-
+-    func testSoftwareCursorGlyphArtworkNeutralHeadingMatchesCursorMotionBaseline() {
+-        let correctedNeutralHeading = SoftwareCursorGlyphMetrics.proceduralContourNeutralHeading
+-            - SoftwareCursorGlyphMetrics.pointerArtworkRotation
+-
+-        XCTAssertEqual(
+-            correctedNeutralHeading,
+-            SoftwareCursorGlyphMetrics.targetNeutralHeading,
+-            accuracy: 0.001
+-        )
+-        XCTAssertEqual(SoftwareCursorGlyphMetrics.targetNeutralHeading, -(3 * CGFloat.pi / 4), accuracy: 0.001)
+-    }
+-
+-    func testSoftwareCursorGlyphConvertsScreenStateToAppKitDrawingState() {
+-        let screenState = SoftwareCursorGlyphRenderState(
+-            rotation: .pi / 3,
+-            cursorBodyOffset: CGVector(dx: 2, dy: -4),
+-            fogOffset: CGVector(dx: -3, dy: 5),
+-            fogOpacity: 0.2,
+-            fogScale: 1.1,
+-            clickProgress: 0.6
+-        )
+-
+-        let drawingState = screenState.appKitDrawingState
+-
+-        XCTAssertEqual(drawingState.rotation, -.pi / 3, accuracy: 0.0001)
+-        XCTAssertEqual(drawingState.cursorBodyOffset.dx, 2, accuracy: 0.0001)
+-        XCTAssertEqual(drawingState.cursorBodyOffset.dy, 4, accuracy: 0.0001)
+-        XCTAssertEqual(drawingState.fogOffset.dx, -3, accuracy: 0.0001)
+-        XCTAssertEqual(drawingState.fogOffset.dy, -5, accuracy: 0.0001)
+-        XCTAssertEqual(drawingState.fogOpacity, 0.2)
+-        XCTAssertEqual(drawingState.fogScale, 1.1)
+-        XCTAssertEqual(drawingState.clickProgress, 0.6)
+     }
+ 
+     func testDefaultVisualCursorInitialTipMatchesZeroWindowOrigin() {

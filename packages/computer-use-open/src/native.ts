@@ -6,7 +6,10 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { NativeComputerPort, NativeResult } from "./contract.js";
 
-export function createNativePort(env: NodeJS.ProcessEnv = process.env): NativeComputerPort {
+export function createNativePort(
+  env: NodeJS.ProcessEnv = process.env,
+  options: { production?: boolean } = {},
+): NativeComputerPort {
   const binary = env.MIKIKO_COMPUTER_USE_BINARY;
   if (!binary || !isAbsolute(binary))
     throw new Error(
@@ -24,9 +27,12 @@ export function createNativePort(env: NodeJS.ProcessEnv = process.env): NativeCo
     MIKIKO_COMPUTER_USE_CONFIG_FILE:
       env.MIKIKO_COMPUTER_USE_CONFIG_FILE ||
       join(homedir(), ".mikiko", "computer-use", "config.json"),
+    ...(options.production ? { MIKIKO_COMPUTER_USE_DISABLE_APP_AGENT_PROXY: "0" } : {}),
     MIKIKO_COMPUTER_USE_VISUAL_CURSOR: "0",
     MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS: "0",
-    MIKIKO_COMPUTER_USE_AGENT_SOCKET_NAMESPACE: "mikiko-preview",
+    MIKIKO_COMPUTER_USE_AGENT_SOCKET_NAMESPACE: options.production
+      ? "mikiko-production"
+      : "mikiko-preview",
   });
   const transport = new StdioClientTransport({
     command: binary,

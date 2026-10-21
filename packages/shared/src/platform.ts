@@ -677,6 +677,8 @@ export const DesktopCommandIds = {
   ClearAllData: "clearAllData",
   ClearCodingPlanWebviewStorage: "clearCodingPlanWebviewStorage",
   GetCuaOsSupport: "getCuaOsSupport",
+  OpenMikikoComputerUseAccessibilitySettings: "openMikikoComputerUseAccessibilitySettings",
+  OpenMikikoComputerUseScreenRecordingSettings: "openMikikoComputerUseScreenRecordingSettings",
 } as const;
 
 export type DesktopCommandId = (typeof DesktopCommandIds)[keyof typeof DesktopCommandIds];
@@ -692,7 +694,7 @@ export type DesktopCommandId = (typeof DesktopCommandIds)[keyof typeof DesktopCo
  */
 export type CuaOsSupport =
   | { kind: "build-unavailable" }
-  | { kind: "supported" }
+  | { kind: "supported"; backend?: "mikiko-native" }
   | { kind: "macos-below-minimum"; minimumMacOs: string; currentMacOs: string }
   | { kind: "not-applicable" };
 

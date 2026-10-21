@@ -36,6 +36,7 @@ import type {
   McpServerStatus,
   McpToolCallResult,
   McpToolDescriptor,
+  McpTurnEndedRequest,
   OfficialMcpAuthFailureReason,
   OfficialMcpAuthHeadersPort,
   OfficialMcpTrustedOriginRegistry,
@@ -108,6 +109,8 @@ const DEFAULT_MCP_TIMEOUT_MS = 30_000;
 const MCP_PING_TIMEOUT_MS = 5_000;
 const MAX_MCP_VERSION_PROBE_TIMEOUT_MS = 5_000;
 const MCP_STDIO_STDERR_LOG_MAX_CHARS = 4_000;
+const MIKIKO_COMPUTER_USE_SERVER = "plugin:computer-use:computer-use";
+const MIKIKO_TURN_ENDED_NOTIFICATION = "notifications/mikiko/turn-ended";
 /**
  * span → request id 的暂存条数上限。正常情况下每条都会在同一次 tool call 结束时被取走，
  * 留下的只有无人认领的（如连接期请求），几十条足够，纯为防止长会话下无界增长。
@@ -283,6 +286,7 @@ class NodeMcpAdapter implements McpPort {
   private toolListRevisionCounter = 0;
   /** 每个 server 当前正在执行的工具调用 trace；elicitation 借此归属到会话 / 工具行。 */
   private readonly activeCallTraces = new Map<string, McpElicitationTrace>();
+  private readonly pendingToolCalls = new WeakMap<McpClient, Set<Promise<unknown>>>();
 
   constructor(options: CreateMcpAdapterOptions) {
     this.clientName = options.clientName ?? "zcode";
@@ -767,6 +771,82 @@ class NodeMcpAdapter implements McpPort {
     });
   }
 
+  async turnEnded(request: McpTurnEndedRequest): Promise<void> {
+    const targets = [...this.records.entries()].filter(
+      ([name, record]) =>
+        name === MIKIKO_COMPUTER_USE_SERVER &&
+        record.config.type === "stdio" &&
+        record.config.source?.kind === "builtin" &&
+        record.config.env?.MIKIKO_COMPUTER_USE_BACKEND === "open-computer-use" &&
+        record.config.env?.MIKIKO_COMPUTER_USE_MODE === "production" &&
+        record.status.status === "connected" &&
+        record.client,
+    );
+    for (const [name, record] of targets) {
+      const client = record.client!;
+      const transport = record.transport;
+      const generation = this.connectionGenerations.get(name) ?? 0;
+      // finally 可能紧随工具取消；先排在已发调用之后，不能把旧结束通知投给换代后的连接。
+      await Promise.allSettled([...(this.pendingToolCalls.get(client) ?? [])]);
+      if (
+        this.records.get(name) !== record ||
+        record.client !== client ||
+        !this.isCurrentConnection(name, generation) ||
+        record.status.status !== "connected"
+      )
+        continue;
+      try {
+        await client.notification({
+          method: MIKIKO_TURN_ENDED_NOTIFICATION,
+          params: { _meta: mcpRequestMeta(request) },
+        });
+      } catch (error) {
+        try {
+          await this.disconnectFailedTurnConnection(name, record, client, transport, generation);
+        } catch (closeError) {
+          this.logger?.warn("MCP turn cleanup connection close failed", {
+            event: "mcp.turn_cleanup.connection_close_failed",
+            mcpServerName: name,
+            error: closeError instanceof Error ? closeError.message : String(closeError),
+          });
+        }
+        throw error;
+      }
+    }
+  }
+
+  private async disconnectFailedTurnConnection(
+    name: string,
+    record: McpServerRecord,
+    client: McpClient,
+    transport: McpTransport | undefined,
+    generation: number,
+  ): Promise<void> {
+    if (
+      this.records.get(name) !== record ||
+      record.client !== client ||
+      !this.isCurrentConnection(name, generation)
+    )
+      return;
+    // SDK 通知失败不保证关闭；先撤销旧能力，再只回收捕获的连接，await 后不覆盖并发建立的新代。
+    this.records.set(name, {
+      config: record.config,
+      status: this.createStatus(record.config, "disconnected", {
+        error: "Computer Use turn cleanup notification failed",
+        failureKind: "unexpected_disconnect",
+      }),
+      tools: [],
+    });
+    this.toolListRevisionCounter += 1;
+    try {
+      this.nextConnectionGeneration(name);
+      this.notifications?.onNotification({ kind: "toolListChanged", serverName: name });
+    } finally {
+      record.abortController?.abort(new Error("Computer Use turn cleanup notification failed"));
+      await this.closeClientAndTransport(name, client, transport);
+    }
+  }
+
   async callTool(
     request: McpCallToolRequest,
     options: McpCallToolOptions = {},
@@ -1127,9 +1207,16 @@ class NodeMcpAdapter implements McpPort {
       ...(request.trace?.turnId ? { turnId: String(request.trace.turnId) } : {}),
       ...(request.trace?.traceId ? { traceId: String(request.trace.traceId) } : {}),
     });
+    const pending = this.pendingToolCalls.get(client) ?? new Set<Promise<unknown>>();
+    this.pendingToolCalls.set(client, pending);
+    const operation = Promise.resolve().then(() =>
+      this.callToolOnClientInner(client, request, timeoutMs, signal, onProgress),
+    );
+    pending.add(operation);
     try {
-      return await this.callToolOnClientInner(client, request, timeoutMs, signal, onProgress);
+      return await operation;
     } finally {
+      pending.delete(operation);
       this.activeCallTraces.delete(request.serverName);
     }
   }
@@ -2300,7 +2387,9 @@ class NodeMcpAdapter implements McpPort {
   }
 }
 
-function mcpRequestMeta(request: McpCallToolRequest): Record<string, unknown> {
+function mcpRequestMeta(
+  request: McpCallToolRequest | McpTurnEndedRequest,
+): Record<string, unknown> {
   // nodeRepl.requestMeta 暴露。ZCode 所有 MCP server 都可忽略这些扩展键；node_repl browser
   // bridge 则以它们作为回到当前 BrowserControlPort session 的唯一关联依据。runtime_scope
   // 不能从 child session id 猜测，必须由实际执行工具的 runtime 显式透传。

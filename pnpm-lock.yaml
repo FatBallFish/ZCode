@@ -902,6 +902,9 @@ importers:
       '@modelcontextprotocol/server':
         specifier: 2.0.0
         version: 2.0.0
+      '@zcode/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@modelcontextprotocol/client':
         specifier: 2.0.0

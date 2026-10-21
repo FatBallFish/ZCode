@@ -3,7 +3,7 @@ import { exposedParameters, readContext, validateArguments } from "./admission.j
 
 export function createComputerUseController(
   native: NativeComputerPort,
-  options: { allowedApps: string[]; timeoutMs?: number },
+  options: { allowedApps: string[]; timeoutMs?: number; production?: boolean },
 ): ComputerUseOpenContract {
   const allowed = new Set(options.allowedApps);
   let binding: string | undefined;
@@ -26,16 +26,19 @@ export function createComputerUseController(
   return {
     async listTools(): Promise<NativeTool[]> {
       if (closed) throw new Error("disposed");
-      if (!allowed.size) return [];
+      if (!allowed.size && !options.production) return [];
       return (await native.listTools())
-        .filter((t) => exposedParameters(t.name))
+        .filter((t) => exposedParameters(t.name) || (options.production && t.name === "list_apps"))
         .map((t) => {
           const properties = Object.fromEntries(
             Object.entries(t.inputSchema.properties ?? {}).filter(([key]) =>
-              exposedParameters(t.name).includes(key),
+              (exposedParameters(t.name) ?? []).includes(key),
             ),
           );
-          properties.app = { type: "string", enum: [...allowed] };
+          if (t.name !== "list_apps")
+            properties.app = options.production
+              ? { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9-]*(?:\\.[A-Za-z0-9-]+)+$" }
+              : { type: "string", enum: [...allowed] };
           if (properties.window_placement)
             properties.window_placement = { type: "string", enum: ["keep"] };
           if (properties.key_method) properties.key_method = { type: "string", enum: ["auto"] };
@@ -43,7 +46,11 @@ export function createComputerUseController(
             properties.click_method = { type: "string", enum: ["accessibility"] };
           return {
             ...t,
-            description: `Mikiko local Computer Use preview: ${t.name}. Requires fresh observation each turn.`,
+            // 通用安全描述会抹掉原生drag的真实鼠标语义；生产目录必须保留用户可见副作用约束。
+            description:
+              options.production && t.name === "drag"
+                ? "Drag inside the observed window using a fresh screenshot. Moves the real system mouse and may change foreground focus. Rejects stale or occluded window targets; cancellation releases the mouse button."
+                : `Mikiko local Computer Use${options.production ? "" : " preview"}: ${t.name}. Requires fresh observation each turn.`,
             inputSchema: {
               ...t.inputSchema,
               properties,
@@ -57,8 +64,13 @@ export function createComputerUseController(
       const execute = async () => {
         if (closed) throw new Error("disposed");
         if (signal.aborted) throw new Error("cancelled");
-        const context = readContext(meta);
-        const input = validateArguments(name, args, allowed);
+        const context = readContext(meta, options.production);
+        const control = options.production && (name === "stop" || name === "list_apps");
+        if (control && Object.keys(args).length)
+          throw new Error("parameter-denied: no arguments accepted");
+        const input = control
+          ? {}
+          : validateArguments(name, args, options.production ? undefined : allowed);
         if (binding && binding !== context.binding) throw new Error("identity-mismatch");
         binding = context.binding;
         if (retiredTurns.has(context.turn)) throw new Error("stale-turn");
@@ -70,7 +82,7 @@ export function createComputerUseController(
           }
           turn = context.turn;
         }
-        const observation = name === "get_app_state" || name === "query";
+        const observation = name === "get_app_state" || name === "query" || control;
         if (!observation && !observed.has(args.app as string))
           throw new Error("observation-required");
         const state = observed.get(args.app as string);
@@ -99,6 +111,18 @@ export function createComputerUseController(
               resetRequired = false;
             }
             combined.throwIfAborted();
+            if (name === "stop" && options.production) {
+              observed.clear();
+              await native.endTurn();
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: "Mikiko Computer Use stopped; observe again before any action.",
+                  },
+                ],
+              };
+            }
             return native.call(name, input, combined);
           };
           const result = await Promise.race([operation(), aborted]);
@@ -125,6 +149,30 @@ export function createComputerUseController(
         }
       };
       const pending = queue.then(execute);
+      queue = pending.then(
+        () => {},
+        () => {},
+      );
+      return pending;
+    },
+    endTurn(meta) {
+      const release = async () => {
+        if (closed) return;
+        const context = readContext(meta, options.production);
+        if (binding && binding !== context.binding) throw new Error("identity-mismatch");
+        // 完成事件可迟于下一回合到达；只释放当前已绑定回合，绝不能打断新回合。
+        if (!binding || turn !== context.turn || retiredTurns.has(context.turn)) return;
+        retiredTurns.add(context.turn);
+        observed.clear();
+        resetRequired = false;
+        try {
+          await native.endTurn();
+        } catch (error) {
+          await close();
+          throw error;
+        }
+      };
+      const pending = queue.then(release);
       queue = pending.then(
         () => {},
         () => {},

@@ -33,7 +33,8 @@
     "./testing/fake-relay-v2": "./test/fixtures/fake-relay-v2.ts",
     "./request-security": "./src/request-security-edition/index.ts",
     "./web-remote-relay": "./src/web-remote-relay/index.ts",
-    "./source-server/release": "./src/source-server/release.ts"
+    "./source-server/release": "./src/source-server/release.ts",
+    "./workspace-identity": "./src/remote-workspace-identity.ts"
   },
   "scripts": {
     "lint": "oxlint",

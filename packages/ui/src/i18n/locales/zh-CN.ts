@@ -8232,6 +8232,13 @@ const zhCN: Record<string, string> = {
   "settings.computerUse.title": "电脑控制",
   "settings.computerUse.toggleLabel": "启用电脑控制",
   "settings.computerUse.toggleDescription": "开启后将启用电脑控制及其 MCP 与技能。",
+  "settings.computerUse.native.description":
+    "让 Mikiko 操作此 Mac 的原生应用。工具沿用现有审批设置。",
+  "settings.computerUse.native.permissionApp": "请为以下 Mikiko 应用授予权限：",
+  "settings.computerUse.native.restartHint":
+    "更改权限后请重启权限应用；正在进行的电脑控制会话需要先结束。",
+  "settings.computerUse.native.unsupported":
+    "电脑控制需要本地 macOS 14 或更高版本工作区，以及包含此能力的 Mikiko 构建。",
   "settings.computerUse.composerEntry.label": "在输入框显示电脑操作按钮",
   "settings.computerUse.composerEntry.description": "关闭后输入框不再显示电脑操作按钮。",
   "settings.computerUse.composerEntry.requiresEnabled":

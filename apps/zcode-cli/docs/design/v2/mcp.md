@@ -22,6 +22,51 @@ MCP crosses process and network boundaries, so it is an adapter concern.
 - `cli`: exposes `/mcp` as a command-center command.
 - `contextbuilder`: does not call MCP directly. It sees MCP tools only through the normal `ToolRegistry` and context usage accounting.
 
+## Mikiko Computer Use Turn Lifecycle
+
+Runtime 的唯一 turn finally 在成功、失败与取消后调用可选 `McpPort.turnEnded`，与 Browser
+清理分别捕获错误，不以清理失败覆盖原 turn。输入来自本轮接纳时固定的可信 trace/session/
+turn、workspace identity/path/key、runtimeScope、remoteSessionId、clientMode、deliveryKind；
+默认交付字段与 tools/call 一样为 desktop-continuous。通知不继承已经取消的工具 AbortSignal。
+
+Pool 只向当前 lease 已有 entries 转发，不等待/创建新连接。Node MCP adapter 只选择：
+serverName=`plugin:computer-use:computer-use`、stdio、source.kind=builtin，以及 Host 在匹配
+`computer-use@zcode-plugins-official` 后注入的
+`MIKIKO_COMPUTER_USE_BACKEND=open-computer-use`、`MIKIKO_COMPUTER_USE_MODE=production`。
+不借用官方账号 auth provenance 作为普通插件的归属声明，不向其他 MCP 发私有方法。
+
+通知 method 为 `notifications/mikiko/turn-ended`，params 为 `{ _meta: mcpRequestMeta(context) }`，
+复用 tools/call 的可信 metadata 构造，含 `_meta['com.zcode/request-context']`。adapter 等待
+所选 client 已有工具调用 Promise 完成或取消，然后再次核对同 record/client 及 connected
+状态，才发送通知；旧连接关闭/替换即跳过，不重连、不重试。Gateway 的单一串行队列负责
+在此前工具之后释放当前 turn；迟到旧 turn 不得打断新 turn。模型不能调用或改写此生命周期。
+
+SDK notification 的发送异常不保证自动关闭 transport。若 turn-end 发送失败，仅当 record、
+client 与 connection generation 仍匹配发送时快照，adapter 同步发布 disconnected tombstone、
+推进既有 App 连接失效代际并通知工具目录变化，再关闭捕获的旧 client/transport。关闭后的
+await 不再写 records，不能覆盖期间新建的连接；成功通知不主动断开 gateway。原通知异常
+原样交回 Runtime finally，关闭异常另记日志；不重试/重连，后续显式工具调用沿既有连接恢复。
+
+```mermaid
+sequenceDiagram
+  participant Core as Runtime turn owner
+  participant Lease as MCP pool lease
+  participant MCP as Node MCP adapter
+  participant Gateway as Mikiko gateway/native owner
+  Core->>Lease: tools/call + 可信上下文
+  Lease->>MCP: 同一已 leased server
+  MCP->>Gateway: 工具请求
+  Gateway-->>Core: 结果 / 错误 / 取消
+  Core->>Lease: finally: turnEnded(固定上下文)
+  Lease->>MCP: 仅既有 adapter
+  MCP->>MCP: 已发调用结算，连接代际复核
+  MCP->>Gateway: notifications/mikiko/turn-ended
+  Gateway->>Gateway: 串行清理当前回合，旧回合 noop
+```
+
+验收：生产选择器和第三方隔离、既有调用与通知顺序、取消后仍清理、连接换代不误投、
+lease 已释放/未建连不新建连接，以及真实 Runtime 成功/失败/取消 finally 与清理错误隔离。
+
 ## Configuration
 
 Config file shape:

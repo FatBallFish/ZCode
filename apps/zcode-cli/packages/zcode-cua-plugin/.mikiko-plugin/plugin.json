@@ -1,0 +1,17 @@
+{
+  "name": "computer-use",
+  "version": "0.7.0",
+  "description": "Mikiko Computer Use: operate native macOS apps with observed accessibility elements and screenshots.",
+  "author": { "name": "Mikiko" },
+  "license": "Apache-2.0",
+  "skills": "skills",
+  "mcpServers": {
+    "computer-use": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${MIKIKO_PLUGIN_ROOT}/scripts/computer-use-launcher.mjs"],
+      "protocolVersion": "2026-07-28",
+      "isolation": "session"
+    }
+  }
+}

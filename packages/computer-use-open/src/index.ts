@@ -5,3 +5,4 @@ export type {
   NativeResult,
 } from "./contract.js";
 export { createComputerUseController } from "./controller.js";
+export { createProductionComputerUseController } from "./production.js";

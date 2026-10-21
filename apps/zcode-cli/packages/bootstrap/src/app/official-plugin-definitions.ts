@@ -85,7 +85,7 @@ export const OFFICIAL_BROWSER_USE_REQUIRED_SEED_PATHS = [
 
 export const OFFICIAL_CUA_REQUIRED_SEED_PATHS = [
   "docs/computer-use.md",
-  "scripts/computer-use-client.mjs",
+  "scripts/computer-use-launcher.mjs",
   "skills/computer-use/SKILL.md",
 ] as const;
 
@@ -397,10 +397,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     // packages/shared/src/plugin-marketplaces.ts 的名单（bootstrap 单测机械对照两者）、
     // isZCodeCuaInternalFeatureEnabled（打包层默认 true）与输入框入口 hidden 默认值的联动语义。
     name: "computer-use",
-    hostMcpServerNames: ["node_repl"],
-    // 用户露出名统一为「Computer Use / 电脑控制」。包名与 producer workspace 包仍保持 zcode-cua，
-    // 以兼容原生 Helper identity；EN 描述基线走 manifest
-    // description，这里只放 zh-CN 覆盖；resolveLocalizedText 在 en-US 时回退到 manifest。
+    // 独立MCP由manifest声明并命名空间化，不再借用共享node_repl host。
     listing: {
       author: MIKIKO_AUTHOR,
       category: "productivity",
@@ -419,13 +416,10 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
       "../../../zcode-cua-plugin",
     ],
     requiredSeedPaths: OFFICIAL_CUA_REQUIRED_SEED_PATHS,
-    // Bug 根因：迁移 node_repl 时把旧 MCP launcher 与 SDK 仍需的 Sharp runtime 一并裁掉了。
-    // Dev/desktop 会把最小 Sharp 闭包 stage 到这里；官方 cache 必须继续携带 node_modules，
-    // 否则 seed 原子替换后首次截图才会报 Cannot find module 'sharp'。
-    runtimeTopLevelPaths: ["node_modules"],
-    // 这里的 version 追踪上游 zcode-cua runtime 版本，使插件 UI 展示、缓存路径、
-    // marketplace 条目都对齐；具体版本由原子 producer bump 工作流维护。
-    version: "0.6.5",
+    // 生产gateway独立随包，不复制旧SDK/Sharp依赖闭包到插件缓存。
+    runtimeTopLevelPaths: [],
+    // 此版本追踪新的Mikiko插件合同，不作为私有producer版本。
+    version: "0.7.0",
   },
 ];
 

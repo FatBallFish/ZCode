@@ -4,7 +4,7 @@
  */
 export const computerUseOpenModule = {
   id: "computer-use-open",
-  requires: [],
+  requires: ["shared"],
   provides: ["computer-use-open"],
   publicEntrypoints: ["index.ts", "contract.ts"],
 } as const;

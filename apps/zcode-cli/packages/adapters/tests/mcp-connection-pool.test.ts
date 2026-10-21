@@ -9,6 +9,27 @@ import { createMcpConnectionPool } from "../src/mcp/pool.js";
 import { createMcpTelemetryTracker } from "../src/mcp/telemetry.js";
 
 describe("MCP connection pool isolation", () => {
+  it("forwards turn cleanup only through an existing owned lease", async () => {
+    const turnEnded = vi.fn(async () => {});
+    const adapter = {
+      turnEnded,
+      connectServer: vi.fn(async () => ({ status: "connected" })),
+      close: vi.fn(async () => {}),
+    } as unknown as McpPort;
+    const createAdapter = vi.fn(() => adapter);
+    const pool = createMcpConnectionPool({ createAdapter, idleGraceMs: 0 });
+    const lease = pool.acquireLease({ sessionId: "session" });
+    const context = { turnId: "turn", trace: { sessionId: "session", traceId: "trace" } } as never;
+    await lease.turnEnded?.(context);
+    expect(createAdapter).not.toHaveBeenCalled();
+    await lease.connectServer("fixture", { type: "stdio", command: "fixture" });
+    await lease.turnEnded?.(context);
+    expect(turnEnded).toHaveBeenCalledExactlyOnceWith(context);
+    await lease.close();
+    await lease.turnEnded?.(context);
+    expect(turnEnded).toHaveBeenCalledOnce();
+    await pool.close();
+  });
   it("shares startup waiters and rejects a released lease while another owner connects", async () => {
     const ready = Promise.withResolvers<void>();
     let initialized = false;

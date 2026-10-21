@@ -8680,6 +8680,13 @@ const enUS: Record<string, string> = {
   "settings.computerUse.toggleLabel": "Enable Computer Use",
   "settings.computerUse.toggleDescription":
     "Turning this on enables Computer Use — its MCP server and skills.",
+  "settings.computerUse.native.description":
+    "Let Mikiko work with native apps on this Mac. Tools follow your existing approval settings.",
+  "settings.computerUse.native.permissionApp": "Grant permissions to this Mikiko application:",
+  "settings.computerUse.native.restartHint":
+    "After changing permissions, restart the permission application. An active control session must finish first.",
+  "settings.computerUse.native.unsupported":
+    "Computer Use requires a local macOS 14 or later workspace and a Mikiko build that includes this capability.",
   "settings.computerUse.composerEntry.label": "Show Computer Use button in the composer",
   "settings.computerUse.composerEntry.description": "When off, the composer button is hidden.",
   "settings.computerUse.composerEntry.requiresEnabled":
@@ -8692,9 +8699,9 @@ const enUS: Record<string, string> = {
     "This Mikiko build does not include the Computer Use runtime or Helper. Granting permissions or restarting cannot enable this capability. Use a Mikiko build that includes Computer Use to continue.",
   "settings.computerUse.unsupported.title": "Computer Use is unavailable here",
   "settings.computerUse.unsupported.remoteDescription":
-    "Computer Use is not yet supported for SSH, WSL, Docker, or other remote environments. Switch to a local macOS or Windows workspace.",
+    "Computer Use is not supported for SSH, WSL, Docker, or other remote environments. Switch to a local macOS 14 or later workspace.",
   "settings.computerUse.unsupported.linuxDescription":
-    "Computer Use is not yet supported on Linux desktops. Switch to a local macOS or Windows workspace.",
+    "Computer Use is not supported on Linux desktops. Switch to a local macOS 14 or later workspace.",
   "settings.computerUse.unsupported.badge": "Unavailable here",
   "settings.computerUse.unsupported.group": "Unavailable built-in capabilities",
   "scheduledPreview.keepAwakeEnabled": "Keep awake enabled",

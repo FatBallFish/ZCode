@@ -7,6 +7,9 @@ import type { SharedZCodeCredentialStore } from "../src/auth/shared-credentials.
 const {
   capturedClientInfo,
   capturedClients,
+  capturedClosedClients,
+  capturedStdioTransports,
+  capturedClosedTransports,
   capturedHttpOptions,
   capturedSseOptions,
   capturedStdioOptions,
@@ -14,6 +17,7 @@ const {
   capturedClientOptions,
   clientCloseMock,
   clientCallToolMock,
+  clientNotificationMock,
   clientConnectMock,
   clientListToolsMock,
   clientPingMock,
@@ -21,6 +25,9 @@ const {
   transportFinishAuthMock,
   authMock,
 } = vi.hoisted(() => ({
+  capturedClosedClients: [] as unknown[],
+  capturedStdioTransports: [] as unknown[],
+  capturedClosedTransports: [] as unknown[],
   capturedClientInfo: [] as Array<{ name: string; version: string }>,
   capturedClients: [] as Array<{ onclose?: () => void }>,
   capturedHttpOptions: [] as unknown[],
@@ -29,9 +36,12 @@ const {
   capturedStdioStderrHandlers: [] as Array<(chunk: Buffer) => void>,
   capturedClientOptions: [] as unknown[],
   clientCloseMock: vi.fn(async () => {}),
-  clientCallToolMock: vi.fn(async () => ({
-    content: [{ type: "text", text: "ok" }],
-  })),
+  clientNotificationMock: vi.fn(async (_notification: unknown) => {}),
+  clientCallToolMock: vi.fn(
+    async (_params?: Record<string, unknown>, _options?: { signal?: AbortSignal }) => ({
+      content: [{ type: "text", text: "ok" }],
+    }),
+  ),
   clientConnectMock: vi.fn(async () => {}),
   clientListToolsMock: vi.fn(async () => ({ tools: [] })),
   clientPingMock: vi.fn(async () => ({})),
@@ -46,8 +56,12 @@ vi.mock("@modelcontextprotocol/client", async (importOriginal) => {
     ...actual,
     auth: authMock,
     Client: class {
-      readonly close = clientCloseMock;
+      async close() {
+        capturedClosedClients.push(this);
+        await clientCloseMock();
+      }
       readonly callTool = clientCallToolMock;
+      readonly notification = clientNotificationMock;
       readonly connect = clientConnectMock;
       readonly listTools = clientListToolsMock;
       readonly ping = clientPingMock;
@@ -94,7 +108,10 @@ vi.mock("@modelcontextprotocol/client", async (importOriginal) => {
 
 vi.mock("@modelcontextprotocol/client/stdio", () => ({
   StdioClientTransport: class {
-    readonly close = transportCloseMock;
+    async close() {
+      capturedClosedTransports.push(this);
+      await transportCloseMock();
+    }
     readonly pid = 42_424;
     readonly stderr = {
       on: vi.fn((event: "data", handler: (chunk: Buffer) => void) => {
@@ -104,8 +121,14 @@ vi.mock("@modelcontextprotocol/client/stdio", () => ({
 
     constructor(options: unknown) {
       capturedStdioOptions.push(options);
+      capturedStdioTransports.push(this);
     }
   },
+}));
+
+// SDK/transport 已是合成夹具，不能拿固定假 PID 操作真实进程树；原生回收由独立生命周期测试验证。
+vi.mock("../src/mcp/process-tree.js", () => ({
+  terminateMcpStdioProcessTree: vi.fn(async () => {}),
 }));
 
 import { createMcpAdapter } from "../src/mcp/index.js";
@@ -183,8 +206,13 @@ describe("createMcpAdapter", () => {
     capturedStdioStderrHandlers.length = 0;
     capturedClientOptions.length = 0;
     capturedClients.length = 0;
+    capturedClosedClients.length = 0;
+    capturedStdioTransports.length = 0;
+    capturedClosedTransports.length = 0;
     clientCloseMock.mockClear();
     clientCallToolMock.mockClear();
+    clientNotificationMock.mockReset();
+    clientNotificationMock.mockResolvedValue(undefined);
     clientConnectMock.mockClear();
     clientListToolsMock.mockClear();
     clientPingMock.mockClear();
@@ -1638,5 +1666,270 @@ describe("createMcpAdapter", () => {
       toolCount: 0,
     });
     await adapter.close();
+  });
+  describe("Mikiko Computer Use turn lifecycle", () => {
+    const server = "plugin:computer-use:computer-use";
+    const config = () => ({
+      type: "stdio" as const,
+      command: "fixture-computer-use",
+      isolation: "session" as const,
+      source: { kind: "builtin" as const },
+      env: {
+        MIKIKO_COMPUTER_USE_BACKEND: "open-computer-use",
+        MIKIKO_COMPUTER_USE_MODE: "production",
+      },
+    });
+    const context = () => ({
+      trace: {
+        traceId: "fixture-trace",
+        sessionId: "fixture-session",
+        turnId: "fixture-turn",
+      } as never,
+      turnId: "fixture-turn",
+      runtimeScope: "main" as const,
+      workspacePath: "/fixture",
+      workspaceIdentity: "fixture-identity",
+      workspaceKey: "fixture-identity",
+      clientMode: "desktop-continuous",
+      deliveryKind: "desktop-continuous",
+    });
+    it("notifies only the already connected production plugin with the tools/call metadata", async () => {
+      const adapter = createMcpAdapter();
+      try {
+        await adapter.connectServer(server, config());
+        await adapter.connectServer("third-party", config());
+        await adapter.callTool({
+          ...context(),
+          serverName: server,
+          toolName: "get_app_state",
+          arguments: { _meta: "model-spoof" },
+        });
+        await adapter.turnEnded!(context());
+        expect(clientNotificationMock).toHaveBeenCalledTimes(1);
+        expect(clientNotificationMock).toHaveBeenCalledWith({
+          method: "notifications/mikiko/turn-ended",
+          params: { _meta: clientCallToolMock.mock.calls[0]?.[0]._meta },
+        });
+        expect(clientNotificationMock.mock.calls[0]?.[0]).toMatchObject({
+          params: {
+            _meta: {
+              "com.zcode/request-context": {
+                session_id: "fixture-session",
+                turn_id: "fixture-turn",
+                workspace_identity: "fixture-identity",
+                client_mode: "desktop-continuous",
+              },
+            },
+          },
+        });
+        expect(clientCloseMock).not.toHaveBeenCalled();
+        expect(transportCloseMock).not.toHaveBeenCalled();
+      } finally {
+        await adapter.close();
+      }
+    });
+    it.each(["source", "backend", "mode", "name"])(
+      "does not notify a mismatched %s",
+      async (mismatch) => {
+        const adapter = createMcpAdapter();
+        const target = config();
+        if (mismatch === "source") target.source = { kind: "plugin" } as never;
+        if (mismatch === "backend") target.env.MIKIKO_COMPUTER_USE_BACKEND = "other";
+        if (mismatch === "mode") target.env.MIKIKO_COMPUTER_USE_MODE = "preview";
+        try {
+          await adapter.connectServer(mismatch === "name" ? "other" : server, target);
+          await adapter.turnEnded!(context());
+          expect(clientNotificationMock).not.toHaveBeenCalled();
+        } finally {
+          await adapter.close();
+        }
+      },
+    );
+    it("does not open or wait for a new connection for cleanup", async () => {
+      const adapter = createMcpAdapter();
+      await adapter.turnEnded!(context());
+      expect(clientConnectMock).not.toHaveBeenCalled();
+      const gate = Promise.withResolvers<void>();
+      clientConnectMock.mockImplementationOnce(() => gate.promise);
+      const connecting = adapter.connectServer(server, config());
+      await vi.waitFor(() => expect(clientConnectMock).toHaveBeenCalledOnce());
+      await adapter.turnEnded!(context());
+      expect(clientNotificationMock).not.toHaveBeenCalled();
+      gate.resolve();
+      await connecting;
+      await adapter.close();
+    });
+    it("sends cleanup after issued calls settle and still sends when that call is cancelled", async () => {
+      const adapter = createMcpAdapter();
+      const issued = Promise.withResolvers<void>();
+      const abort = new AbortController();
+      clientCallToolMock.mockImplementationOnce(
+        (_params, options) =>
+          new Promise((_, reject) => {
+            options?.signal?.addEventListener(
+              "abort",
+              () => reject(new Error("fixture cancelled")),
+              { once: true },
+            );
+            issued.resolve();
+          }),
+      );
+      try {
+        await adapter.connectServer(server, config());
+        const calling = adapter.callTool(
+          { ...context(), serverName: server, toolName: "click" },
+          { signal: abort.signal },
+        );
+        await issued.promise;
+        const ended = adapter.turnEnded!(context());
+        await Promise.resolve();
+        expect(clientNotificationMock).not.toHaveBeenCalled();
+        const cancelled = expect(calling).rejects.toThrow("fixture cancelled");
+        abort.abort();
+        await cancelled;
+        await ended;
+        expect(clientNotificationMock).toHaveBeenCalledOnce();
+      } finally {
+        await adapter.close();
+      }
+    });
+    it("does not send an old cleanup to a replacement connection", async () => {
+      const adapter = createMcpAdapter();
+      const gate = Promise.withResolvers<{ content: Array<{ type: string; text: string }> }>();
+      clientCallToolMock.mockImplementationOnce(() => gate.promise);
+      try {
+        await adapter.connectServer(server, config());
+        const calling = adapter.callTool({ ...context(), serverName: server, toolName: "query" });
+        await vi.waitFor(() => expect(clientCallToolMock).toHaveBeenCalledOnce());
+        const ended = adapter.turnEnded!(context());
+        await adapter.disconnectServer(server);
+        await adapter.connectServer(server, config());
+        gate.resolve({ content: [] });
+        await calling;
+        await ended;
+        expect(clientNotificationMock).not.toHaveBeenCalled();
+      } finally {
+        await adapter.close();
+      }
+    });
+    it("disconnects only the failed notification connection and revokes old capabilities", async () => {
+      const changed = vi.fn();
+      const invalidated = vi.fn();
+      const original = new Error("fixture notification failure", {
+        cause: new Error("fixture send failure"),
+      });
+      const adapter = createMcpAdapter({ notifications: { onNotification: changed } });
+      clientListToolsMock.mockResolvedValue({
+        tools: [{ name: "fixture", inputSchema: { type: "object" } }],
+      } as never);
+      try {
+        await adapter.connectServer(server, config());
+        adapter.onAppConnectionInvalidated!(server, invalidated);
+        const revision = adapter.toolListRevision!();
+        const snapshot = adapter.appConnectionSnapshot!(server);
+        expect(snapshot).not.toBeNull();
+        clientNotificationMock.mockRejectedValueOnce(original);
+        await expect(adapter.turnEnded!(context())).rejects.toBe(original);
+        expect(clientCloseMock).toHaveBeenCalledOnce();
+        expect(capturedClosedClients).toHaveLength(1);
+        expect(capturedClosedClients[0]).toBe(capturedClients[0]);
+        expect(transportCloseMock).toHaveBeenCalledOnce();
+        expect(capturedClosedTransports).toHaveLength(1);
+        expect(capturedClosedTransports[0]).toBe(capturedStdioTransports[0]);
+        expect(clientConnectMock).toHaveBeenCalledOnce();
+        expect((await adapter.status())[server]?.status).toBe("disconnected");
+        expect(adapter.appConnectionSnapshot!(server)).toBeNull();
+        expect(invalidated).toHaveBeenCalledOnce();
+        expect(adapter.toolListRevision!()).toBe(revision + 1);
+        expect(changed).toHaveBeenCalledExactlyOnceWith({
+          kind: "toolListChanged",
+          serverName: server,
+        });
+        expect(await adapter.listTools()).toEqual([]);
+        await adapter.callTool({ ...context(), serverName: server, toolName: "get_app_state" });
+        expect(clientConnectMock).toHaveBeenCalledTimes(2);
+        expect(adapter.appConnectionSnapshot!(server)?.generation).toBeGreaterThan(
+          snapshot!.generation,
+        );
+      } finally {
+        await adapter.close();
+      }
+    });
+    it.each(["connecting", "connected"])(
+      "does not close a %s replacement after an old notification rejects",
+      async (phase) => {
+        const adapter = createMcpAdapter();
+        const issued = Promise.withResolvers<void>();
+        const notification = Promise.withResolvers<void>();
+        const closeStarted = Promise.withResolvers<void>();
+        const closeGate = Promise.withResolvers<void>();
+        const original = new Error("fixture late notification failure");
+        try {
+          await adapter.connectServer(server, config());
+          clientNotificationMock.mockImplementationOnce(() => {
+            issued.resolve();
+            return notification.promise;
+          });
+          const rejection = expect(adapter.turnEnded!(context())).rejects.toBe(original);
+          await issued.promise;
+          clientCloseMock.mockImplementationOnce(async () => {
+            closeStarted.resolve();
+            await closeGate.promise;
+          });
+          const replacement = adapter.connectServer(server, config());
+          await closeStarted.promise;
+          if (phase === "connected") {
+            closeGate.resolve();
+            await replacement;
+          }
+          notification.reject(original);
+          await rejection;
+          expect(clientCloseMock).toHaveBeenCalledOnce();
+          expect(capturedClosedClients).toHaveLength(1);
+          expect(capturedClosedClients[0]).toBe(capturedClients[0]);
+          if (phase === "connecting") {
+            closeGate.resolve();
+            await replacement;
+          }
+          expect((await adapter.status())[server]?.status).toBe("connected");
+          expect(adapter.appConnectionSnapshot!(server)).not.toBeNull();
+        } finally {
+          closeGate.resolve();
+          await adapter.close();
+        }
+      },
+    );
+    it("does not overwrite a new connection while failed-notification close is pending", async () => {
+      const adapter = createMcpAdapter();
+      const closeStarted = Promise.withResolvers<void>();
+      const closeGate = Promise.withResolvers<void>();
+      const original = new Error("fixture notification failure");
+      try {
+        await adapter.connectServer(server, config());
+        clientCloseMock.mockImplementationOnce(async () => {
+          closeStarted.resolve();
+          await closeGate.promise;
+        });
+        clientNotificationMock.mockRejectedValueOnce(original);
+        const rejection = expect(adapter.turnEnded!(context())).rejects.toBe(original);
+        await closeStarted.promise;
+        expect((await adapter.status())[server]?.status).toBe("disconnected");
+        await adapter.connectServer(server, config());
+        const snapshot = adapter.appConnectionSnapshot!(server);
+        expect(snapshot).not.toBeNull();
+        closeGate.resolve();
+        await rejection;
+        expect((await adapter.status())[server]?.status).toBe("connected");
+        expect(adapter.appConnectionSnapshot!(server)).toEqual(snapshot);
+        expect(capturedClosedTransports).toHaveLength(1);
+        expect(capturedClosedTransports[0]).toBe(capturedStdioTransports[0]);
+        expect(clientCloseMock).toHaveBeenCalledOnce();
+        expect(capturedClosedClients).toHaveLength(1);
+        expect(capturedClosedClients[0]).toBe(capturedClients[0]);
+      } finally {
+        closeGate.resolve();
+        await adapter.close();
+      }
+    });
   });
 });

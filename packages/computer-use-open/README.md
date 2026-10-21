@@ -30,3 +30,40 @@ mise exec -- node scripts/smoke-mikiko-computer-use.mjs --execute \
 mise exec -- pnpm --filter @mikiko/computer-use-open test
 mise exec -- node --test scripts/test/mikiko-computer-use-build.test.mjs scripts/fixtures/mikiko-computer-use/smoke-runner.test.mjs
 ```
+
+## Bundled production entry
+
+`dist/production-server.js` is the production entry; packaging emits a standalone
+`Resources/computer-use/production-server.mjs`. The existing opt-in Computer Use
+plugin selects this backend only when Desktop supplies its verified native App,
+executable and gateway paths. This entry never emulates the official NodeREPL
+producer. Windows/Linux and macOS below 14 do not expose this backend.
+
+Production discovers `list_apps`, ten narrowed native tools and `stop`. Use the
+exact application bundle ID, observe with `get_app_state` before acting, and use
+fresh observations each turn. `query` alone cannot authorize actions. Global/sky
+input, virtual displays, subagents and remote/mobile delivery remain unavailable.
+All calls retain existing MCP approval and trusted host context requirements.
+
+The runtime sends `notifications/mikiko/turn-ended` from its finally boundary;
+matching completion retires the turn and closes that session's native connection.
+`stop` closes only the current native connection and clears observations, while
+retaining the session/workspace binding. Reuse requires a fresh observation.
+Cancellation and uncertain transport errors permanently invalidate that gateway;
+side effects are never replayed. The native App-agent owns the global lease and
+returns busy for a competing controller.
+
+Real acceptance uses only a disposable synthetic Cocoa fixture:
+
+```sh
+node scripts/smoke-mikiko-computer-use.mjs --production --execute \
+  --native '<absolute App path>/Contents/MacOS/mikiko-computer-use' \
+  --native-app '<absolute App path>' \
+  --gateway '<absolute gateway path>'
+```
+
+This verifies real screenshots and AX state, `set_value` readback from the fixture,
+button clicks, keyboard input and stop invalidation. It records blocked separately
+from passed; the signed Mikiko App itself must hold Accessibility and Screen
+Recording permissions. Unit fixtures and a successful doctor preflight do not
+replace this acceptance.

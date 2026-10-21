@@ -25,6 +25,8 @@
 // cuaProductMcpResolver, helperAppBundle, etc.)
 // plus the ax-types re-export via axReadOnly.
 export * from "@zcode/zcode-cua/broker/server";
+export { createMikikoComputerUsePermissionService } from "./mikikoComputerUsePermission.js";
+export type { MikikoComputerUsePermissionStatus } from "./mikikoComputerUsePermission.js";
 
 /** @deprecated 默认 CUA 装配不再使用，仅为旧注入方保留兼容导出。 */
 export {

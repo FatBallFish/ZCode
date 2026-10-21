@@ -178,6 +178,8 @@ function isZCodeCuaStdioServer(
   config: McpServerConfig,
 ): config is McpStdioServerConfig {
   if (config.type !== "stdio") return false;
+  // Mikiko独立gateway不使用官方NodeRepl/broker；保持其生产MCP与权限owner边界。
+  if (config.env?.MIKIKO_COMPUTER_USE_BACKEND === "open-computer-use" && config.env?.MIKIKO_COMPUTER_USE_MODE === "production") return false;
   if (name === "computer-use") return true;
   // 内置 official zcode-cua plugin 的 MCP server 走 __zcode-plugin-host，command 是 Helper
   // (非 zcode-cua)、args 是 [zcode.cjs, __zcode-plugin-host, server.js]（非 zcode-cua package arg），

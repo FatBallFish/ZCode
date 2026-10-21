@@ -1,4 +1,5 @@
 import { isAbsolute } from "node:path";
+import { isRemoteWorkspaceIdentity } from "@zcode/shared/workspace-identity";
 
 const parameters: Record<string, string[]> = {
   get_app_state: [
@@ -30,7 +31,7 @@ function nonempty(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-export function readContext(meta: unknown) {
+export function readContext(meta: unknown, production = false) {
   const context = record(record(meta)["com.zcode/request-context"]);
   const session = nonempty(context.session_id);
   const turn = nonempty(context.turn_id);
@@ -44,7 +45,7 @@ export function readContext(meta: unknown) {
     !turn ||
     !workspace ||
     !isAbsolute(path) ||
-    (identity && identity !== path) ||
+    (identity && (production ? isRemoteWorkspaceIdentity(identity) : identity !== path)) ||
     context.client_mode !== "desktop-continuous" ||
     context.delivery_kind !== "desktop-continuous" ||
     nonempty(context.remote_session_id)
@@ -59,10 +60,15 @@ export function readContext(meta: unknown) {
 export function validateArguments(
   name: string,
   args: Record<string, unknown>,
-  allowed: Set<string>,
+  allowed: Set<string> | undefined,
 ) {
   if (!Object.hasOwn(parameters, name)) throw new Error("tool-denied: unavailable preview tool");
-  if (typeof args.app !== "string" || !allowed.has(args.app))
+  if (
+    typeof args.app !== "string" ||
+    (allowed
+      ? !allowed.has(args.app)
+      : !/^[A-Za-z0-9][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+)+$/.test(args.app))
+  )
     throw new Error("target-denied: app must be explicitly allowed");
   if (Object.keys(args).some((key) => !parameters[name].includes(key)))
     throw new Error("parameter-denied: unsupported argument");

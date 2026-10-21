@@ -49,6 +49,14 @@ export function resolveBuildPlan(options = {}) {
   const platform = options.platform ?? process.platform;
   const arch = options.arch ?? process.arch;
   const configuration = options.configuration ?? "release";
+  const production = options.production === true;
+  if (
+    options.candidate !== undefined &&
+    (!production || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(options.candidate))
+  )
+    throw new Error("Candidate requires a simple production cache name.");
+  if (production && configuration !== "release")
+    throw new Error("Production requires release configuration.");
   if (platform !== "darwin")
     throw new Error("Mikiko native preview requires macOS 14+ and Swift 6.2.");
   if (!["arm64", "x86_64", "x64"].includes(arch))
@@ -63,9 +71,21 @@ export function resolveBuildPlan(options = {}) {
     cacheDirectory,
     arch: nativeArch,
     configuration,
-    outputDirectory: join(cacheDirectory, nativeArch, configuration),
-    bundleIdentifier: "dev.mikiko.computer-use.development",
-    displayName: "Mikiko Computer Use Dev",
+    production,
+    appVariant: production ? "production" : "dev",
+    socketNamespace: production ? "mikiko-production" : null,
+    outputDirectory: join(
+      cacheDirectory,
+      ...(production
+        ? ["production", ...(options.candidate ? ["candidates", options.candidate] : [])]
+        : []),
+      nativeArch,
+      configuration,
+    ),
+    bundleIdentifier: production
+      ? "dev.mikiko.computer-use"
+      : "dev.mikiko.computer-use.development",
+    displayName: production ? "Mikiko Computer Use" : "Mikiko Computer Use Dev",
     executableName: "mikiko-computer-use",
   };
 }
@@ -178,7 +198,7 @@ async function sourceDigest(directory) {
   return sha256(JSON.stringify(hashes));
 }
 
-async function prepareWorktree(plan, source, inputDigest, patch, logPath) {
+async function prepareWorktree(plan, source, inputDigest, patches, logPath) {
   const work = join(plan.cacheDirectory, "work", inputDigest);
   const stampPath = join(work, ".mikiko-source-stamp.json");
   let existing;
@@ -211,12 +231,39 @@ async function prepareWorktree(plan, source, inputDigest, patch, logPath) {
     await rm(archivePath, { force: true });
   }
   validateDependencyPins(await readFile(join(work, "Package.resolved"), "utf8"));
-  const patchPath = join(work, ".mikiko-preview.patch");
-  await writeFile(patchPath, patch);
-  // 生成目录位于主仓库之内；建立独立 Git 根，避免 git apply 把补丁解释到外层工作区。
+  // 独立 Git 根避免补丁写入外层仓库；生产追加补丁不改已冻结预览源码或签名。
   await run("git", ["init", work], { logPath });
-  await run("git", ["apply", "--check", patchPath], { cwd: work, logPath });
-  await run("git", ["apply", patchPath], { cwd: work, logPath });
+  for (const [index, patch] of patches.entries()) {
+    const patchPath = join(work, `.mikiko-${index}.patch`);
+    await writeFile(patchPath, patch);
+    await run("git", ["apply", "--check", patchPath], { cwd: work, logPath });
+    await run("git", ["apply", patchPath], { cwd: work, logPath });
+  }
+  if (plan.production)
+    await copyFile(
+      join(plan.repoRoot, "scripts/computer-use-native/MikikoControlLease.swift"),
+      join(work, "apps/OpenComputerUse/Sources/OpenComputerUse/MikikoControlLease.swift"),
+    );
+  if (plan.production)
+    await copyFile(
+      join(plan.repoRoot, "scripts/computer-use-native/ScreenshotCaptureAvailabilityTests.swift"),
+      join(
+        work,
+        "packages/OpenComputerUseKit/Tests/OpenComputerUseKitTests/ScreenshotCaptureAvailabilityTests.swift",
+      ),
+    );
+  if (plan.production) {
+    for (const [name, folder] of [
+      ["MikikoAXAction.swift", "Sources/OpenComputerUseKit"],
+      ["MikikoDrag.swift", "Sources/OpenComputerUseKit"],
+      ["MikikoDragTests.swift", "Tests/OpenComputerUseKitTests"],
+      ["MikikoAXActionTests.swift", "Tests/OpenComputerUseKitTests"],
+    ])
+      await copyFile(
+        join(plan.repoRoot, "scripts/computer-use-native", name),
+        join(work, "packages/OpenComputerUseKit", folder, name),
+      );
+  }
   const digest = await sourceDigest(work);
   await writeFile(stampPath, JSON.stringify({ inputDigest, sourceDigest: digest }, null, 2));
   return { directory: work, sourceDigest: digest };
@@ -238,7 +285,7 @@ function infoPlist(plan, buildIdentifier) {
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSPrincipalClass</key><string>NSApplication</string>
-<key>MikikoComputerUseAppVariant</key><string>dev</string>
+<key>MikikoComputerUseAppVariant</key><string>${plan.appVariant}</string>
 <key>MikikoComputerUseBuildIdentifier</key><string>${buildIdentifier}</string>
 </dict></plist>\n`;
 }
@@ -304,6 +351,18 @@ async function probe(executable, directory, logPath) {
 
 export async function buildMikikoComputerUse(options = {}) {
   const plan = resolveBuildPlan(options);
+  const signingIdentity = plan.production
+    ? (options.signingIdentity ??
+      process.env.MIKIKO_COMPUTER_USE_SIGN_IDENTITY ??
+      (process.env.MIKIKO_ENABLE_MAC_SIGN === "1"
+        ? process.env.APPLE_SIGNING_IDENTITY || process.env.CSC_NAME
+        : undefined))
+    : undefined;
+  if (plan.production && process.env.CI === "true" && !signingIdentity)
+    throw new Error(
+      "CI production native builds require an explicit Developer ID signing identity.",
+    );
+  const builderSha256 = sha256(await readFile(scriptPath));
   const jobs = options.jobs ?? 4;
   if (!Number.isInteger(jobs) || jobs < 1 || jobs > 32)
     throw new Error("jobs must be an integer from 1 to 32.");
@@ -321,33 +380,56 @@ export async function buildMikikoComputerUse(options = {}) {
   try {
     await writeFile(join(lock, "owner.json"), JSON.stringify({ pid: process.pid }));
     const resources = join(plan.repoRoot, "scripts", "computer-use-native");
-    const patch = await readFile(join(resources, "mikiko-preview.patch"));
+    const patches = [await readFile(join(resources, "mikiko-preview.patch"))];
+    if (plan.production) patches.push(await readFile(join(resources, "mikiko-production.patch")));
+    const patch = Buffer.concat(patches);
+    const leaseSource = plan.production
+      ? sha256(await readFile(join(resources, "MikikoControlLease.swift")))
+      : null;
     const resourceHashes = Object.fromEntries(
       await Promise.all(
-        ["UPSTREAM-LICENSE.txt", "THIRD-PARTY-NOTICES.md", "NOTICE.md"].map(async (name) => [
-          name,
-          sha256(await readFile(join(resources, name))),
-        ]),
+        [
+          "UPSTREAM-LICENSE.txt",
+          "THIRD-PARTY-NOTICES.md",
+          "NOTICE.md",
+          ...(plan.production
+            ? [
+                "ScreenshotCaptureAvailabilityTests.swift",
+                "MikikoAXAction.swift",
+                "MikikoAXActionTests.swift",
+                "MikikoDrag.swift",
+                "MikikoDragTests.swift",
+              ]
+            : []),
+        ].map(async (name) => [name, sha256(await readFile(join(resources, name)))]),
       ),
     );
     const icon = join(plan.repoRoot, "packages", "desktop", "build", "icon.icns");
     const swift = (await run("swift", ["--version"], { logPath })).trim();
-    if (!/Swift version 6\.(?:[2-9]|[1-9][0-9])\b/.test(swift))
-      throw new Error("Swift 6.2 or later in the Swift 6 toolchain is required.");
+    if (
+      !(
+        plan.production ? /Swift version 6\.2(?:\.|\b)/ : /Swift version 6\.(?:[2-9]|[1-9][0-9])\b/
+      ).test(swift)
+    )
+      throw new Error(
+        "The reviewed Swift 6.2 toolchain is required for production (preview supports Swift 6.2+).",
+      );
     const inputDigest = sha256(
       JSON.stringify({
         commit: UPSTREAM.commit,
         patch: sha256(patch),
+        leaseSource,
+        production: plan.production,
         resourceHashes,
         swift,
         arch: plan.arch,
         configuration: plan.configuration,
-        builder: sha256(await readFile(scriptPath)),
+        builder: builderSha256,
         icon: sha256(await readFile(icon)),
       }),
     );
     const source = await sourceRepository(plan, options.sourceDirectory, logPath);
-    const work = await prepareWorktree(plan, source, inputDigest, patch, logPath);
+    const work = await prepareWorktree(plan, source, inputDigest, patches, logPath);
     const swiftArgs = [
       "build",
       "--product",
@@ -374,6 +456,18 @@ export async function buildMikikoComputerUse(options = {}) {
       `[mikiko-computer-use] Building ${plan.arch}/${plan.configuration}; log ${logPath}`,
     );
     await run("swift", swiftArgs, { cwd: work.directory, logPath });
+    if (plan.production && plan.arch === (process.arch === "x64" ? "x86_64" : process.arch)) {
+      await run(
+        "swift",
+        [
+          "test",
+          ...swiftArgs.slice(3),
+          "--filter",
+          "ScreenshotCaptureAvailabilityTests|MikikoAXActionTests|MikikoDragTests",
+        ],
+        { cwd: work.directory, logPath },
+      );
+    }
     const binaryDirectory = (
       await run("swift", [...swiftArgs, "--show-bin-path"], { cwd: work.directory, logPath })
     ).trim();
@@ -383,6 +477,25 @@ export async function buildMikikoComputerUse(options = {}) {
       UPSTREAM.libwebpRevision
     )
       throw new Error("Built libwebp checkout does not match the reviewed revision.");
+    if (options.compileOnly) {
+      console.log(
+        JSON.stringify({
+          compiledOnly: true,
+          sourceDirectory: work.directory,
+          buildInputSha256: inputDigest,
+          binaryDirectory,
+          logPath,
+        }),
+      );
+      return {
+        ...plan,
+        compiledOnly: true,
+        sourceDirectory: work.directory,
+        binaryDirectory,
+        inputDigest,
+        logPath,
+      };
+    }
     await mkdir(dirname(plan.outputDirectory), { recursive: true });
     staging = `${plan.outputDirectory}.staging-${randomUUID()}`;
     const app = join(staging, `${plan.displayName}.app`);
@@ -407,13 +520,36 @@ export async function buildMikikoComputerUse(options = {}) {
     await run("plutil", ["-lint", join(contents, "Info.plist")], { logPath });
     await run(
       "codesign",
-      ["--force", "--sign", "-", "--timestamp=none", "--identifier", plan.bundleIdentifier, app],
+      [
+        "--force",
+        "--sign",
+        signingIdentity ?? "-",
+        ...(signingIdentity ? ["--timestamp", "--options", "runtime"] : ["--timestamp=none"]),
+        ...(signingIdentity && process.env.CSC_KEYCHAIN
+          ? ["--keychain", process.env.CSC_KEYCHAIN]
+          : []),
+        "--identifier",
+        plan.bundleIdentifier,
+        app,
+      ],
       { logPath },
     );
     await run("codesign", ["--verify", "--strict", "--verbose=2", app], { logPath });
+    const architectures = (await run("lipo", ["-archs", executable], { logPath }))
+      .trim()
+      .split(/\s+/);
+    if (architectures.length !== 1 || architectures[0] !== plan.arch)
+      throw new Error("Native architecture does not match target.");
     const nativeProbe =
       plan.arch === (process.arch === "x64" ? "x86_64" : process.arch)
-        ? await probe(executable, staging, logPath)
+        ? plan.production
+          ? {
+              pending:
+                "Run doctor through the final Developer-ID-signed App-agent during acceptance; builder never activates a production permission owner.",
+              appAgentProxyActivated: false,
+              nativeActionsInvoked: false,
+            }
+          : await probe(executable, staging, logPath)
         : { skipped: "Cross-compiled binary was not executed." };
     const provenance = {
       schemaVersion: 1,
@@ -427,7 +563,7 @@ export async function buildMikikoComputerUse(options = {}) {
         "MikikoComputerUse.icns": sha256(await readFile(icon)),
       },
       buildInputSha256: inputDigest,
-      builderSha256: sha256(await readFile(scriptPath)),
+      builderSha256,
       swift,
       architecture: plan.arch,
       configuration: plan.configuration,
@@ -435,7 +571,16 @@ export async function buildMikikoComputerUse(options = {}) {
       bundleIdentifier: plan.bundleIdentifier,
       executable: `${plan.displayName}.app/Contents/MacOS/${plan.executableName}`,
       executableSha256: sha256(await readFile(executable)),
-      signature: "ad-hoc local preview; no Developer ID or notarization",
+      signature: plan.production
+        ? signingIdentity
+          ? "Developer ID; hardened runtime and secure timestamp, notarization pending"
+          : "ad-hoc staging only; never activated; release packaging requires Developer ID before first launch"
+        : "ad-hoc local preview; no Developer ID or notarization",
+      production: plan.production,
+      appVariant: plan.appVariant,
+      socketNamespace: plan.socketNamespace,
+      controlLeaseSourceSha256: leaseSource,
+      signingDeferredToElectronBuilder: plan.production && !signingIdentity,
       excluded: [
         "upstream cursor artwork and source fallback",
         "global pointer fallback",
@@ -481,7 +626,7 @@ if (process.argv[1] && resolve(process.argv[1]) === scriptPath) {
   try {
     if (process.argv.includes("--help"))
       console.log(
-        "Build the pinned Mikiko macOS Computer Use preview.\nOptions: --configuration debug|release --arch arm64|x86_64 --jobs 1..32 --source-dir <verified upstream checkout>\nOutput: .cache/mikiko-computer-use/<arch>/<configuration>; no user settings, app-agent activation or services are installed.",
+        "Build pinned Mikiko macOS Computer Use.\nOptions: --production (stable distributable App identity) --configuration debug|release --arch arm64|x86_64 --jobs 1..32 --source-dir <verified upstream checkout> --sign-identity <Developer ID identity> --compile-only --candidate <isolated production cache name>\nOutput: .cache/mikiko-computer-use/<arch>/<configuration>; no user settings, app-agent activation or services are installed.",
       );
     else {
       const options = {};
@@ -490,8 +635,15 @@ if (process.argv[1] && resolve(process.argv[1]) === scriptPath) {
         "--arch": "arch",
         "--jobs": "jobs",
         "--source-dir": "sourceDirectory",
+        "--sign-identity": "signingIdentity",
+        "--candidate": "candidate",
       };
       for (let index = 2; index < process.argv.length; index += 2) {
+        if (["--production", "--compile-only"].includes(process.argv[index])) {
+          options[process.argv[index] === "--production" ? "production" : "compileOnly"] = true;
+          index -= 1;
+          continue;
+        }
         const name = names[process.argv[index]];
         const value = process.argv[index + 1];
         if (!name || !value || value.startsWith("--"))

@@ -172,6 +172,19 @@ export async function executeTurnCommand(
       },
     });
   const traceId = turnTraceContext.traceId;
+  const mcpWorkspaceIdentity = this.config.workspaceIdentity?.toString().trim();
+  const mcpTurnContext = {
+    trace: turnTraceContext,
+    turnId: String(turnId),
+    runtimeScope:
+      this.config.taskType === "subagent_child" ? ("subagent" as const) : ("main" as const),
+    workspacePath: this.workingDirectory,
+    workspaceKey: mcpWorkspaceIdentity || this.workingDirectory,
+    ...(mcpWorkspaceIdentity ? { workspaceIdentity: mcpWorkspaceIdentity } : {}),
+    ...(this.config.remoteSessionId ? { remoteSessionId: this.config.remoteSessionId } : {}),
+    clientMode: this.config.clientMode ?? "desktop-continuous",
+    deliveryKind: this.config.deliveryKind ?? "desktop-continuous",
+  };
   const turnStartedAtMs = Date.now();
   const targetRunInputID = options?.inputId ?? String(turnId);
   const events: SessionEvent[] = [];
@@ -1111,6 +1124,16 @@ export async function executeTurnCommand(
           : "succeeded",
     );
     turnAbortScope.dispose();
+    try {
+      await this.mcpPort?.turnEnded?.(mcpTurnContext);
+    } catch (error) {
+      // 成功、失败、取消共用唯一 finally；清理失败不能替换原 turn，也不能沿用已取消的工具 signal。
+      this.logger?.warn("MCP turn cleanup failed", {
+        error: error instanceof Error ? error.message : String(error),
+        event: "mcp.turn_cleanup.failed",
+        turnId: String(turnId),
+      });
+    }
     try {
       await this.browserControlPort?.turnEnded?.({
         sessionId: this.sessionId,

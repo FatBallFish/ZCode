@@ -1,0 +1,8 @@
+# computer-use-settings
+
+电脑控制生产设置surface。插件enabled和composer入口偏好仍由既有store/setting owner持有，组件不复制运行态。
+权限快照经既有useCuaPermissionStatus；重启service和Main系统设置动作集中在专用hook。
+仅显示新后端自报的准确app路径，不从系统设置开关或宿主权限推断granted，不主动做截图功能探针。
+重启单飞、workspace变化与unmount阻止迟到结果污染新surface；native全局lease决定busy，UI不抢占。
+
+权限行只有granted显示已授权、denied/stale显示待授权；unknown或尚无快照显示未知，不能把缺少事实当成拒绝。视图仅接收自己的展示快照类型，不直接导入Service实现或运行时。

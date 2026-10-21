@@ -1,6 +1,6 @@
 import { findPluginManifestPath } from "@zcode/adapters/plugins";
 import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import {
   ZCODE_OFFICIAL_PLUGIN_MARKETPLACE,
   ZCODE_PLUGIN_HOST_COMMAND,
@@ -85,7 +85,7 @@ export function createBundledMcpRuntimeConfig(input: {
 export function bindOfficialPluginMcpRuntime(
   outcome: PluginLoadOutcome,
   options: {
-    env?: RuntimeZCodeEndpointEnv;
+    env?: RuntimeZCodeEndpointEnv & Record<string, string | undefined>;
     imageSearchBackend?: ImageSearchBackendPort;
   } = {},
 ): PluginLoadOutcome {
@@ -100,6 +100,26 @@ export function bindOfficialPluginMcpRuntime(
     for (const serverName of plugin.mcpServerNames) {
       if (!serverName.startsWith(`plugin:${plugin.name}:`)) continue;
       const server = outcome.mcpServers[serverName];
+      if (plugin.name === "computer-use" && serverName === "plugin:computer-use:computer-use" && server?.type === "stdio") {
+        const env = options.env ?? process.env;
+        const resources = Object.fromEntries(["MIKIKO_COMPUTER_USE_BINARY", "MIKIKO_COMPUTER_USE_APP_PATH", "MIKIKO_COMPUTER_USE_SERVER"]
+          .map((key) => [key, env[key]?.trim()]));
+        mcpServers ??= { ...outcome.mcpServers };
+        if (!Object.values(resources).every((path) => typeof path === "string" && isAbsolute(path))) {
+          mcpServers[serverName] = { ...server, enabled: false };
+          continue;
+        }
+        const cleanEnv = Object.fromEntries(Object.entries(server.env ?? {}).filter(([key]) => !key.startsWith("ZCODE_CUA_") && !key.startsWith("MIKIKO_COMPUTER_USE_")));
+        const runtime = createBundledMcpRuntimeConfig({ rootPath: plugin.rootPath,
+          serverArgs: [resources.MIKIKO_COMPUTER_USE_SERVER!],
+          env: { ...cleanEnv, ...resources as Record<string, string>, MIKIKO_COMPUTER_USE_BACKEND: "open-computer-use", MIKIKO_COMPUTER_USE_MODE: "production" },
+          timeoutMs: server.timeoutMs,
+        });
+        if (!runtime) { mcpServers[serverName] = { ...server, enabled: false }; continue; }
+        const { auth: _auth, official: _official, ...config } = server;
+        mcpServers[serverName] = { ...config, ...runtime, isolation: "session", protocolVersion: "2026-07-28" };
+        continue;
+      }
       if (
         plugin.name === "image-search" &&
         serverName === "plugin:image-search:image_search" &&

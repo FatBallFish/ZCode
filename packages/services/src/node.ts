@@ -23,7 +23,11 @@ import { getZCodeDataRootDir as projectDataRoot } from "#src/paths.js";
 import { createTaskGroupService, ITaskGroupService, groupTaskKey } from "#src/task-groups/index.js";
 import { IGenUiService } from "./gen-ui/contract.js";
 import { createGenUiService } from "./gen-ui/node.js";
-import { channelReplyHostRequestSchema, channelReplyResultSchema } from "@zcode/shared";
+import {
+  channelReplyHostRequestSchema,
+  channelReplyResultSchema,
+  ZCODE_CUA_OFFICIAL_PLUGIN_ID,
+} from "@zcode/shared";
 /* eslint-disable max-lines -- host process 服务注册和启动装配需要集中维护，拆散后会更难追踪依赖注入顺序 */
 // Node.js service implementations — NOT safe to import in browser code
 import { randomBytes } from "node:crypto";
@@ -612,6 +616,7 @@ import {
   BROKER_SOCKET_ENV,
   BROKER_UNAVAILABLE_ENV,
   createCuaPipSessionService,
+  createMikikoComputerUsePermissionService,
   createCuaProductMcpServerResolver,
   createProductCuaHelperHost,
   CuaHelperLifecycleManager,
@@ -1837,11 +1842,12 @@ export function createLocalServices(options: {
     // ZCODE_CUA_PRODUCT_HELPER=1）即视为启用，不依赖 config.json 显式 enable——main 的 bootstrap
     // 用 isZCodeCuaInternalFeatureEnabled 门控 bundled plugin，与 feat 的 workspace enablement 不同。
     // 生产路径（dev mode off）回落到官方插件 workspace enablement 判定（与 feat 一致）。
-    isZCodeCuaInternalFeatureEnabled(process.env) ||
-    isOfficialCuaPluginEnabledForWorkspace({
-      env: process.env,
-      workingDirectory: context?.workspacePath,
-    });
+    process.env.MIKIKO_COMPUTER_USE_MODE !== "production" &&
+    (isZCodeCuaInternalFeatureEnabled(process.env) ||
+      isOfficialCuaPluginEnabledForWorkspace({
+        env: process.env,
+        workingDirectory: context?.workspacePath,
+      }));
   const defaultCuaProductHelperLifecycle =
     new CuaHelperLifecycleManager<ManagedDefaultCuaProductHelper>(async (managed) => {
       await managed.helper.host.stop();
@@ -2038,7 +2044,7 @@ export function createLocalServices(options: {
   // 用户授权后从明确入口精确重启一次 Helper。重启**必须走 resolver.restart()**（不是裸 host.restart），
   // 因为 resolver 优先复用既有 socket/token；裸 host.restart() 可能 fresh 新凭据，使已有 Agent
   // 继续持有旧 transport，无法连接新的 broker。
-  const cuaPermissionService: ICuaPermissionService = {
+  const legacyCuaPermissionService: ICuaPermissionService = {
     async getStatus(
       workspacePath: string,
       workspaceIdentity?: string,
@@ -2227,6 +2233,22 @@ export function createLocalServices(options: {
       }
     },
   };
+  // 新后端只复用公开权限RPC；旧SDK resolver不得向其独立MCP注入broker材料。
+  const cuaPermissionService: ICuaPermissionService =
+    process.env.MIKIKO_COMPUTER_USE_MODE === "production"
+      ? createMikikoComputerUsePermissionService({
+          desktopLocal: options?.serviceAuthorityMode === "desktop-local",
+          isEnabled: async ({ workspacePath, workspaceIdentity }) => {
+            const snapshot = await zcodeAgentService.listPlugins({
+              workspacePath,
+              workspaceIdentity,
+            });
+            return snapshot.plugins.some(
+              (plugin) => plugin.id === ZCODE_CUA_OFFICIAL_PLUGIN_ID && plugin.enabled,
+            );
+          },
+        })
+      : legacyCuaPermissionService;
   // 动态工作流的用户选择（docs/dynamic-workflow/launch.md「The user's choice」）：本机设置文件是唯一来源，
   // 每次使用时读取。desktop-attached remote Host 读不到桌面的设置，选择由 desktop 推送
   // （zcodeAgentService.syncDynamicWorkflowUserMode），这里不注入。读取失败按「跟随」处理。

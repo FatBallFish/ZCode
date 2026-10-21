@@ -26,7 +26,7 @@ export interface NativeComputerPort {
 }
 
 export interface ComputerUseOpenContract {
-  /** Discovery has no native actions. Omits app enumeration and narrows preview schemas. */
+  /** Discovery has no native actions. Preview omits enumeration; production exposes narrowed native schemas. */
   listTools(): Promise<NativeTool[]>;
   /** Serialized, no replay. Trusted metadata is separate from model arguments. */
   call(
@@ -35,6 +35,8 @@ export interface ComputerUseOpenContract {
     meta: unknown,
     signal: AbortSignal,
   ): Promise<NativeResult>;
+  /** Trusted host turn-complete notification; late events never interrupt a newer turn. */
+  endTurn?(meta: unknown): Promise<void>;
   /** Cancels this instance and rejects subsequent calls; no persistence or events. */
   close(): Promise<void>;
 }

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { SessionEventType } from "@zcode/contracts";
+import { SessionEventType, createSessionId, type McpPort } from "@zcode/contracts";
+import type { AgentRuntimeInternal } from "../src/runtime/internal.js";
+import { createTestAgentRuntime } from "./test-agent-runtime.js";
+import { createTestModelFactory } from "./test-runtime-model.js";
+import { createTestSessionEventStore } from "./test-event-store.js";
 import { appendEvent } from "../src/runtime/methods/events.js";
 import {
   appendTurnOutcomeEvent,
@@ -7,6 +11,135 @@ import {
   createTurnFailureError,
   projectExecutionErrorPayload,
 } from "../src/runtime/helpers/turn-errors.js";
+
+describe("trusted MCP turn cleanup", () => {
+  it.each(["success", "failure", "cancel"])(
+    "ends the admitted MCP turn after %s",
+    async (outcome) => {
+      const started = Promise.withResolvers<void>();
+      const abort = new AbortController();
+      const turnEnded = vi.fn(async (_context: unknown) => {});
+      const mcpPort = {
+        connectConfiguredServers: async () => ({ statuses: {}, tools: [] }),
+        listTools: async () => [],
+        status: async () => ({}),
+        close: async () => {},
+        turnEnded,
+      } as unknown as McpPort;
+      const runtime = createTestAgentRuntime(
+        createSessionId(),
+        {
+          workingDirectory: process.cwd(),
+          workspaceIdentity: "fixture-workspace" as never,
+          clientMode: "desktop-continuous",
+          deliveryKind: "desktop-continuous",
+          mode: "yolo",
+          compact: { enabled: false },
+          titleGeneration: { enabled: false },
+        },
+        {
+          mcpPort,
+          eventStore: createTestSessionEventStore(),
+          modelFactory: createTestModelFactory({
+            async generateText() {
+              started.resolve();
+              if (outcome === "failure") throw new Error("fixture model failure");
+              if (outcome === "cancel")
+                await new Promise((_, reject) =>
+                  abort.signal.addEventListener(
+                    "abort",
+                    () => reject(new Error("fixture cancellation")),
+                    { once: true },
+                  ),
+                );
+              (runtime as unknown as AgentRuntimeInternal).config.clientMode =
+                "web-remote-replayable";
+              return {
+                finishReason: "stop",
+                text: "fixture done",
+                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              };
+            },
+          }),
+        },
+      );
+      try {
+        const result = runtime.executeTurn("fixture", undefined, { abortSignal: abort.signal });
+        if (outcome === "cancel") {
+          await started.promise;
+          abort.abort();
+        }
+        await result.catch(() => undefined);
+        expect(turnEnded).toHaveBeenCalledOnce();
+        const context = turnEnded.mock.calls[0]?.[0] as {
+          turnId: string;
+          trace: { turnId: string; sessionId: string };
+        };
+        expect(context).toMatchObject({
+          runtimeScope: "main",
+          workspacePath: process.cwd(),
+          workspaceIdentity: "fixture-workspace",
+          workspaceKey: "fixture-workspace",
+          clientMode: "desktop-continuous",
+          deliveryKind: "desktop-continuous",
+          trace: { sessionId: runtime.sessionId },
+        });
+        expect(context.turnId).toBeTruthy();
+        expect(context.trace.turnId).toBe(context.turnId);
+      } finally {
+        runtime.beginShutdown();
+      }
+    },
+  );
+
+  it("does not replace a successful turn when MCP cleanup rejects", async () => {
+    const browserTurnEnded = vi.fn(async () => {});
+    const turnEnded = vi.fn(async () => {
+      throw new Error("fixture cleanup failure");
+    });
+    const runtime = createTestAgentRuntime(
+      createSessionId(),
+      {
+        mode: "yolo",
+        compact: { enabled: false },
+        titleGeneration: { enabled: false },
+      },
+      {
+        browserControlPort: {
+          list: async () => [],
+          execute: async () => ({ ok: true as const, elapsedMs: 0 }),
+          turnEnded: browserTurnEnded,
+        },
+        mcpPort: {
+          connectConfiguredServers: async () => ({ statuses: {}, tools: [] }),
+          listTools: async () => [],
+          status: async () => ({}),
+          close: async () => {},
+          turnEnded,
+        } as unknown as McpPort,
+        eventStore: createTestSessionEventStore(),
+        modelFactory: createTestModelFactory({
+          async generateText() {
+            return {
+              finishReason: "stop",
+              text: "fixture done",
+              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            };
+          },
+        }),
+      },
+    );
+    try {
+      await expect(runtime.executeTurn("fixture")).resolves.toMatchObject({
+        response: "fixture done",
+      });
+      expect(turnEnded).toHaveBeenCalledOnce();
+      expect(browserTurnEnded).toHaveBeenCalledOnce();
+    } finally {
+      runtime.beginShutdown();
+    }
+  });
+});
 
 describe("turn abort outcome", () => {
   it.each([

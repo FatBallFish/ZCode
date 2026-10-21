@@ -22,6 +22,7 @@ import {
   runCommand,
   runCommandAndReadStdout,
 } from "../../../scripts/spawn-command.mjs";
+import { stageMikikoComputerUseResources } from "./mikiko-computer-use-assets.mjs";
 import { resolveIntranetDepsBaseUrl } from "../../../scripts/intranetDefaults.mjs";
 
 const desktopRoot = resolve(import.meta.dirname, "..");
@@ -738,6 +739,24 @@ async function main() {
 
   if (!skipBuild) {
     run(pnpmCommand, ["build"], buildEnv);
+  }
+
+  if (os === "mac") {
+    // 正式后端与官方 producer 独立：任何 macOS 安装包均须先构建并校验本架构 Mikiko App。
+    run(
+      process.execPath,
+      [
+        resolve(workspaceRoot, "scripts/build-mikiko-computer-use.mjs"),
+        "--production",
+        "--arch",
+        arch,
+      ],
+      buildEnv,
+    );
+    run(pnpmCommand, ["--filter", "@mikiko/computer-use-open", "build"], buildEnv);
+    await runTimedAsync("bundle:stage-mikiko-computer-use", () =>
+      stageMikikoComputerUseResources({ repoRoot: workspaceRoot, arch }),
+    );
   }
 
   await runTimedAsync("bundle:electron-builder", () =>

@@ -1,39 +1,9 @@
 import { pathToFileURL } from "node:url";
-import { Server, type Tool, type CallToolResult } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { createComputerUseController } from "./controller.js";
-import type { ComputerUseOpenContract } from "./contract.js";
 import { createNativePort } from "./native.js";
-
-export function createPreviewServer(controller: ComputerUseOpenContract) {
-  const server = new Server(
-    { name: "mikiko-computer-use", version: "0.1.0" },
-    {
-      capabilities: { tools: {} },
-      instructions:
-        "Local Mikiko Computer Use preview. Only configured test apps are allowed. Observe each turn before actions. Not a global desktop lease. No remote or subagent control.",
-    },
-  );
-  server.setRequestHandler("tools/list", async () => ({
-    tools: (await controller.listTools()) as Tool[],
-  }));
-  server.setRequestHandler("tools/call", async (request, extra) => {
-    try {
-      return (await controller.call(
-        request.params.name,
-        request.params.arguments ?? {},
-        extra.mcpReq._meta,
-        extra.mcpReq.signal,
-      )) as unknown as CallToolResult;
-    } catch (error) {
-      return {
-        isError: true,
-        content: [{ type: "text", text: error instanceof Error ? error.message : "native-error" }],
-      };
-    }
-  });
-  return server;
-}
+import { createPreviewServer } from "./mcp-server.js";
+export { createPreviewServer } from "./mcp-server.js";
 
 async function main() {
   process.title = "mikiko-computer-use-mcp";

@@ -18,6 +18,27 @@ describe("official plugin runtime manifest", () => {
   const originalEntrypoint = process.argv[1];
   const originalExecArgv = [...process.execArgv];
 
+  it("binds Computer Use to the production gateway without legacy broker credentials", () => {
+    const key = "plugin:computer-use:computer-use";
+    const original = outcome({ [key]: { type: "stdio", command: "old-node", args: ["old-sdk"],
+      env: { ZCODE_CUA_PERMISSION_BROKER_SOCKET: "/old/socket", MIKIKO_COMPUTER_USE_BACKEND: "untrusted" } } }, [plugin("computer-use", [key])]);
+    const env = { MIKIKO_COMPUTER_USE_BINARY: "/bundle/Mikiko Computer Use.app/Contents/MacOS/mikiko-computer-use",
+      MIKIKO_COMPUTER_USE_APP_PATH: "/bundle/Mikiko Computer Use.app", MIKIKO_COMPUTER_USE_SERVER: "/bundle/production-server.mjs" };
+    const result = bindOfficialPluginMcpRuntime(original, { env });
+    expect(result.mcpServers[key]).toMatchObject({ type: "stdio", isolation: "session", command: process.execPath,
+      env: { ...env, MIKIKO_COMPUTER_USE_BACKEND: "open-computer-use", MIKIKO_COMPUTER_USE_MODE: "production", ELECTRON_RUN_AS_NODE: "1" } });
+    const config = result.mcpServers[key];
+    expect(config?.type === "stdio" && config.args?.at(-1)).toBe(env.MIKIKO_COMPUTER_USE_SERVER);
+    expect(config?.type === "stdio" && config.env?.ZCODE_CUA_PERMISSION_BROKER_SOCKET).toBeUndefined();
+    expect(original.mcpServers[key]).toMatchObject({ command: "old-node", args: ["old-sdk"] });
+  });
+
+  it("does not start a Computer Use MCP when the production resources are missing", () => {
+    const key = "plugin:computer-use:computer-use";
+    const result = bindOfficialPluginMcpRuntime(outcome({ [key]: { type: "stdio", command: "node", args: ["legacy"] } }, [plugin("computer-use", [key])]), { env: {} });
+    expect(result.mcpServers[key]?.enabled).toBe(false);
+  });
+
   afterEach(async () => {
     process.argv[1] = originalEntrypoint;
     process.execArgv.splice(0, process.execArgv.length, ...originalExecArgv);

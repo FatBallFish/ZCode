@@ -5,7 +5,7 @@ modules:
   - id: computer-use-open
     roots: [packages/computer-use-open/src]
     managed: true
-    requires: []
+    requires: [shared]
     publicEntrypoints:
       - packages/computer-use-open/src/index.ts
       - packages/computer-use-open/src/contract.ts
@@ -1207,6 +1207,35 @@ modules:
       - packages/services/src/workspace-file-ignore/contract.ts
     layers: { adapters: . }
     owner: desktop-settings
+  # desktop-computer-use：由 architecture:adopt 登记
+  - id: desktop-computer-use
+    roots:
+      - packages/desktop/src/main/computer-use
+    managed: true
+    requires:
+      - desktop
+    publicEntrypoints:
+      - packages/desktop/src/main/computer-use/index.ts
+      - packages/desktop/src/main/computer-use/contract.ts
+    layers:
+      adapters: .
+    owner: desktop-permissions
+  # computer-use-settings：由 architecture:adopt 登记
+  - id: computer-use-settings
+    roots:
+      - packages/ui/src/settings/computer-use
+      - packages/ui/src/hooks/useMikikoComputerUseActions.ts
+    managed: true
+    requires:
+      - services
+      - shared
+      - ui
+    publicEntrypoints:
+      - packages/ui/src/settings/computer-use/index.ts
+      - packages/ui/src/settings/computer-use/contract.ts
+    layers:
+      ui: .
+    owner: desktop-permissions
 
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。

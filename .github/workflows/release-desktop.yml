@@ -116,6 +116,16 @@ jobs:
           node-version: 24.14.0
           cache: pnpm
 
+      - name: Select reviewed Swift 6.2 toolchain
+        if: runner.os == 'macOS'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.0"
+
+      - name: Verify native compiler
+        if: runner.os == 'macOS'
+        run: swift --version | grep -E 'Swift version 6\.2(\.| |$)'
+
       - name: Install Linux packaging tools
         # rpm/deb/pacman 目标依赖 rpmbuild、zstd 与 bsdtar（libarchive-tools）。
         if: runner.os == 'Linux'
@@ -127,7 +137,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Prepare macOS signing identity
-        # 证书未配置时跳过（保持无证书模式）；配置了则导入临时 keychain 并打开签名开关。
+        # 正式原生后端要求 Developer ID；缺证书即失败，配置后导入临时 keychain 并打开签名开关。
         # MIKIKO_ENABLE_MAC_SIGN / APPLE_SIGNING_IDENTITY 写入 GITHUB_ENV，bundle 步骤直接消费。
         if: runner.os == 'macOS'
         env:
@@ -136,8 +146,8 @@ jobs:
           MAC_SIGNING_IDENTITY: ${{ secrets.MAC_SIGNING_IDENTITY }}
         run: |
           if [ -z "$MAC_SIGNING_P12_BASE64" ]; then
-            echo "::notice::secrets.MAC_SIGNING_P12_BASE64 未配置，Mac 走无证书模式"
-            exit 0
+            echo "::error::正式 Mikiko Computer Use 随包发布要求 Developer ID 签名，缺少证书不能降级"
+            exit 1
           fi
           KEYCHAIN=build-mac-sign.keychain-db
           security create-keychain -p "" "$KEYCHAIN"

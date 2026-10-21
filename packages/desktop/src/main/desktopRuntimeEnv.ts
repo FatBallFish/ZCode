@@ -1,6 +1,7 @@
+import { resolveMikikoComputerUseSupport } from "./cuaOsSupport.js";
 /* eslint-disable max-lines -- desktop runtime/env 解析需要集中维护 main/host/remote assets 的启动边界，拆分会扩大远程连接回归面。 */
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, release as osRelease } from "node:os";
 import { join, resolve, win32 } from "node:path";
 import type { ConnectOptions } from "@zcode/server/remote";
 import { listSSHConfigAliasesFromLocalConfig } from "@zcode/services/node";
@@ -38,6 +39,10 @@ import {
   type ResolveRemoteCdnOptions,
 } from "./remoteCdn.js";
 import { getElectronAppPath, isElectronAppPackaged } from "./desktopElectronApp.js";
+import {
+  resolveMikikoComputerUseResources,
+  mikikoComputerUseResourceEnv,
+} from "./computer-use/contract.js";
 
 declare const __ZCODE_PACKAGED_AGENT_TELEMETRY_ENV__: Readonly<Record<string, string>> | undefined;
 
@@ -568,9 +573,21 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
   // 三层里有两层不写这个键，空对象无法覆盖 inheritedEnv，所以先无条件删掉继承值再按决策 spread 回去。
   // 少了这一行，production 包和 dev 的非法取值都会原样穿透到 Host。
   delete inheritedEnv[ZCODE_DYNAMIC_WORKFLOW_MODE_ENV];
+  // 正式包不接受shell资源路径覆盖；缺包时也不能回落到旧SDK/任意本地server。
+  for (const key of [
+    "MIKIKO_COMPUTER_USE_BINARY",
+    "MIKIKO_COMPUTER_USE_APP_PATH",
+    "MIKIKO_COMPUTER_USE_SERVER",
+  ])
+    delete inheritedEnv[key];
 
   return {
     ...inheritedEnv,
+    ...mikikoComputerUseResourceEnv(
+      resolveMikikoComputerUseSupport(process.platform, osRelease(), true).kind === "supported"
+        ? getMikikoComputerUseResources()
+        : undefined,
+    ),
     // OTLP 凭据只定向传到 host；host 初始化 services 时会立即捕获并从 process.env 清除，
     // 后续只在启动 Agent 时短暂注入，不会进入 Bash/MCP/tool env。
     ...agentTelemetryEnv,
@@ -599,4 +616,14 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
     ...(resolvedGlmBinaryPath ? { MIKIKO_AGENT_BINARY_PATH: resolvedGlmBinaryPath } : {}),
     ...(resolvedLarkCliBinaryPath ? { MIKIKO_LARK_CLI_BINARY: resolvedLarkCliBinaryPath } : {}),
   };
+}
+
+export function getMikikoComputerUseResources() {
+  return resolveMikikoComputerUseResources({
+    platform: process.platform,
+    arch: process.arch,
+    isPackaged: isElectronAppPackaged(),
+    resourcesPath: process.resourcesPath,
+    workspaceRoot: resolve(import.meta.dirname, "../../../.."),
+  });
 }

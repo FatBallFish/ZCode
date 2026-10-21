@@ -4,3 +4,5 @@ export {
   resolveStandaloneStatusLaunchAppPath,
 } from "./cuaStandaloneStatusLaunch.js";
 export type { StandaloneStatusLaunchAppPathOptions } from "./cuaStandaloneStatusLaunch.js";
+export { createMikikoComputerUsePermissionService } from "./mikikoComputerUsePermission.js";
+export type { MikikoComputerUsePermissionStatus } from "./mikikoComputerUsePermission.js";

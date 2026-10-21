@@ -28,7 +28,13 @@ import { checkForUpdateMenuClick } from "./autoUpdater.js";
 import { MIKIKO_CHANGELOG_URL } from "./desktopExternalLinks.js";
 import { exportLogs } from "./exportLogs.js";
 import { openResourceManager } from "./resourceManagerWindow.js";
-import { resolveCuaOsSupport } from "./cuaOsSupport.js";
+import { release } from "node:os";
+import { resolveMikikoComputerUseSupport } from "./cuaOsSupport.js";
+import { getMikikoComputerUseResources } from "./desktopRuntimeEnv.js";
+import {
+  mikikoComputerUsePermissionSettingsUrl,
+  areMikikoComputerUseResourcesAvailable,
+} from "./computer-use/contract.js";
 import { syncWindowControlsOverlayForZoomLevel } from "./desktopWindowButtonPosition.js";
 import {
   DEFAULT_DESKTOP_WINDOW_HEIGHT,
@@ -703,6 +709,32 @@ export async function executeDesktopCommand(options: {
       await clearCodingPlanWebviewStorage({ logger: options.logger });
       return;
     case DesktopCommandIds.GetCuaOsSupport:
-      return resolveCuaOsSupport();
+      return resolveMikikoComputerUseSupport(
+        process.platform,
+        release(),
+        await areMikikoComputerUseResourcesAvailable(getMikikoComputerUseResources()),
+      );
+    case DesktopCommandIds.OpenMikikoComputerUseAccessibilitySettings:
+    case DesktopCommandIds.OpenMikikoComputerUseScreenRecordingSettings: {
+      const resources = getMikikoComputerUseResources();
+      if (
+        !resources ||
+        !(await areMikikoComputerUseResourcesAvailable(resources)) ||
+        resolveMikikoComputerUseSupport(process.platform, release(), true).kind !== "supported"
+      ) {
+        return {
+          success: false,
+          error: "Mikiko Computer Use requires an included macOS 14+ runtime.",
+        };
+      }
+      await shell.openExternal(
+        mikikoComputerUsePermissionSettingsUrl(
+          options.command === DesktopCommandIds.OpenMikikoComputerUseAccessibilitySettings
+            ? "accessibility"
+            : "screen_recording",
+        ),
+      );
+      return { success: true, appPath: resources.appPath };
+    }
   }
 }

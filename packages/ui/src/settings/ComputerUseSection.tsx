@@ -41,6 +41,7 @@ import { createCuaPermissionOnboardingOperationId } from "@/lib/cuaPermissionOnb
 import { waitForAccessibilityNotStale } from "@/settings/cuaPermissionRestartVerify.js";
 import { requiredCuaPermissionsForFreshStatus } from "@/settings/cuaPermissionPreparation.js";
 import { ExternalLink } from "lucide-react";
+import { MikikoComputerUseSection } from "./computer-use/contract.js";
 import {
   isComputerUseRemoteOrLinux,
   resolveComputerUseAvailability,
@@ -709,6 +710,41 @@ export function ComputerUseSection({
         <p className="mt-1 text-ui-sm text-foreground-subtle">
           {intl.formatMessage({ id: "settings.computerUse.buildUnavailable.description" })}
         </p>
+      </div>
+    );
+  }
+
+  if (
+    osSupport?.kind === "supported" &&
+    osSupport.backend === "mikiko-native" &&
+    supportsLocalMacWorkspace
+  ) {
+    return (
+      <MikikoComputerUseSection
+        enabled={cuaEnabled}
+        toggling={cuaToggling}
+        workspacePath={path ?? null}
+        workspaceIdentity={workspaceIdentity}
+        status={status}
+        onToggle={onTogglePlugin}
+        refresh={refresh}
+        composerVisible={composerEntryVisible}
+        composerSaving={composerEntrySaving}
+        onToggleComposer={onToggleComposerEntry}
+      />
+    );
+  }
+
+  if (
+    osSupport?.kind === "not-applicable" ||
+    (macOsBelowCuaFloor && osSupport.minimumMacOs === "14.0")
+  ) {
+    return (
+      <div
+        role="status"
+        className="rounded-lg border border-border bg-surface p-4 text-ui-sm text-foreground-subtle"
+      >
+        {intl.formatMessage({ id: "settings.computerUse.native.unsupported" })}
       </div>
     );
   }

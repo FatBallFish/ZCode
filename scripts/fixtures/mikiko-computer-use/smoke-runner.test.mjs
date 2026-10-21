@@ -59,3 +59,87 @@ test("element selection rejects errors, incomplete queries and ambiguous matches
     /exactly one/,
   );
 });
+
+test("production smoke is explicit and keeps absolute-path execution requirements", () => {
+  assert.deepEqual(parseOptions(["--production"]), { execute: false, production: true });
+  assert.throws(() => parseOptions(["--production", "--execute"]), /--native.*--gateway/);
+});
+
+test("controlled button selection never accepts a field with the same identifier", () => {
+  const result = {
+    structuredContent: {
+      truncated: false,
+      stop_reason: "complete",
+      matches: [
+        { index: 1, role: "AXTextField", identifier: "button" },
+        { index: 2, role: "AXButton", identifier: "button" },
+      ],
+    },
+  };
+  assert.equal(selectFixtureElement(result, "button", "AXButton").index, 2);
+});
+
+test("production execution requires the exact permission App identity", () => {
+  assert.throws(
+    () =>
+      parseOptions([
+        "--production",
+        "--execute",
+        "--native",
+        "/fixture/native",
+        "--gateway",
+        "/fixture/server.mjs",
+      ]),
+    /--native-app/,
+  );
+});
+
+test("fixture readiness rejects staged thumbnails and off-display windows", async () => {
+  const { isFixtureReady } = await import("../../smoke-mikiko-computer-use.mjs");
+  const ready = {
+    windowId: 42,
+    active: true,
+    visible: true,
+    intersectsDisplay: true,
+    cgBounds: { width: 540, height: 213 },
+  };
+  assert.equal(isFixtureReady(ready), true);
+  for (const partial of [
+    { active: false },
+    { visible: false },
+    { intersectsDisplay: false },
+    { cgBounds: { width: 192, height: 99 } },
+    { windowId: 0 },
+  ])
+    assert.equal(isFixtureReady({ ...ready, ...partial }), false);
+  assert.equal(isFixtureReady(undefined), false);
+});
+
+test("native action failure is not mislabeled as missing permission by its tool name", async () => {
+  const { classifyNativeSmokeFailure } = await import("../../smoke-mikiko-computer-use.mjs");
+  assert.equal(
+    classifyNativeSmokeFailure({ accessibilityTrusted: true, screenCaptureGranted: true }),
+    "failed",
+  );
+  assert.equal(
+    classifyNativeSmokeFailure({ accessibilityTrusted: false, screenCaptureGranted: true }),
+    "blocked",
+  );
+  assert.equal(classifyNativeSmokeFailure(undefined), "failed");
+});
+
+test("uncertain-click acceptance requires explicit production execution", () => {
+  assert.throws(() => parseOptions(["--expect-unconfirmed-click"]), /production.*execute/);
+  const options = parseOptions([
+    "--production",
+    "--execute",
+    "--expect-unconfirmed-click",
+    "--native",
+    "/fixture/native",
+    "--native-app",
+    "/fixture/App.app",
+    "--gateway",
+    "/fixture/server.mjs",
+  ]);
+  assert.equal(options.expectUnconfirmedClick, true);
+});

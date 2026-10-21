@@ -333,6 +333,15 @@ export interface McpCallToolRequest {
   turnId?: string;
 }
 
+/** Runtime finally 的可信回合上下文；不包含模型工具名或参数，不继承取消信号。 */
+export interface McpTurnEndedRequest extends Omit<
+  McpCallToolRequest,
+  "serverName" | "toolName" | "arguments"
+> {
+  trace: TraceContext;
+  turnId: string;
+}
+
 /** MCP `notifications/progress`（A8）：progress 单调递增，total 可缺省；adapter 原样转发，不做节流。 */
 export interface McpToolCallProgress {
   progress: number;
@@ -427,6 +436,8 @@ export interface McpElicitationPort {
 }
 
 export interface McpPort {
+  /** 仅清理已连接的正式 Mikiko Computer Use 回合；不连接、不向第三方广播、不重试。 */
+  turnEnded?(request: McpTurnEndedRequest): Promise<void>;
   /** 可信配置派生的稳定来源与现有连接代际。断线时不签发新页面凭证。 */
   onAppConnectionInvalidated?(serverName: string, listener: () => void): () => void;
   appConnectionSnapshot?(serverName: string): { identity: string; generation: number } | null;

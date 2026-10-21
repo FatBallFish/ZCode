@@ -35,3 +35,22 @@ export function resolveCuaOsSupport(
   }
   return { kind: "supported" };
 }
+
+/** 新后端的地板与资源独立于官方producer编译标记，不能借旧12.0合同报告支持。 */
+export function resolveMikikoComputerUseSupport(
+  platform: string,
+  darwinRelease: string,
+  available: boolean,
+): CuaOsSupport {
+  if (platform !== "darwin") return { kind: "not-applicable" };
+  if (!available) return { kind: "build-unavailable" };
+  const major = Number.parseInt(darwinRelease.split(".")[0] ?? "0", 10);
+  if (!Number.isFinite(major)) return { kind: "build-unavailable" };
+  if (major < 23)
+    return {
+      kind: "macos-below-minimum",
+      minimumMacOs: "14.0",
+      currentMacOs: String(darwinMajorToMacosMajor(major)),
+    };
+  return { kind: "supported", backend: "mikiko-native" };
+}

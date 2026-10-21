@@ -1,5 +1,10 @@
 # Computer Use 构建可用性
 
+v1.1.4新增独立Mikiko原生后端后，产品 `GetCuaOsSupport` 以Main解析的三项随包资源为准，
+macOS14+支持时返回 `supported/backend:mikiko-native`。原官方producer编译检测继续表达其自身
+是否占位，不再用其false值否认独立Mikiko后端。新后端缺资源、低OS与非mac均不得发起权限操作。
+下列旧producer检测合同仍保留，不能通过改占位标记来伪造其可用。
+
 - producer 唯一检测 owner 是 `packages/desktop/scripts/computer-use-producer.mjs`；不能仅根据操作系统或 CUA 插件目录存在推断 Helper 可用。
 - Main 构建把该检测结果写入 Mikiko 命名的编译常量；不存在/占位 producer 时 GetCuaOsSupport 返回 `build-unavailable`。真实 producer 的 macOS 版本地板和其他平台既有规则保留。
 - 设置页先读取本地桌面能力；缺 producer 时明确显示“此构建不包含 Computer Use / Helper”，不显示启动中、插件启用、授权、重启或反复刷新入口，不调用权限状态/授权 RPC。

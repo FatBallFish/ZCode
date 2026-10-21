@@ -389,6 +389,17 @@ export function createMcpConnectionPool(options: McpConnectionPoolOptions): McpC
       ): Promise<McpToolCallResult> {
         return await requireEntry(request.serverName).adapter.callTool(request, callOptions);
       },
+      async turnEnded(request) {
+        if (leaseClosed) return;
+        const adapters = new Set(
+          [...leased.values()].flatMap((key) => {
+            const entry = entries.get(key);
+            return entry ? [entry.adapter] : [];
+          }),
+        );
+        // 这里只转发本 lease 已有 owner；目标 adapter 自行严格筛选正式 Computer Use，不触发建连。
+        await Promise.all([...adapters].map((adapter) => adapter.turnEnded?.(request)));
+      },
       async readResource(
         request: McpReadResourceRequest,
         callOptions?: McpCallToolOptions,

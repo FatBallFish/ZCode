@@ -42,6 +42,7 @@ import {
   patchNsisInstallSectionFile,
   restoreNsisInstallSectionFileSync,
 } from "./scripts/patch-nsis-install-section.mjs";
+import { finalizePackagedMikikoComputerUse } from "./scripts/mikiko-computer-use-assets.mjs";
 import { signRuntimeExecutables } from "./scripts/sign-runtime-executables.mjs";
 
 const buildMetadata = getBuildMetadata();
@@ -700,6 +701,12 @@ export default {
         signRuntimeExecutables(context, { identity: rawMacSigningIdentity }),
       );
     }
+    await runTimedAsync("afterPack:finalizeMikikoComputerUse", () =>
+      finalizePackagedMikikoComputerUse(context, {
+        arch: targetPlatform.arch,
+        identity: shouldEnableMacSigning ? rawMacSigningIdentity : null,
+      }),
+    );
     if (actualWindowsTarget && shouldPackageComputerUseHelper) {
       await runTimedAsync("afterPack:finalizePackagedWindowsCuaHelper", () =>
         finalizePackagedWindowsCuaHelper({
@@ -729,6 +736,15 @@ export default {
     : {}),
   extraResources: [
     { from: resolve(workspaceRoot, noticesFileName), to: noticesFileName },
+    ...(targetPlatform.os === "darwin"
+      ? [
+          {
+            from: `bundled-tools/${targetPlatform.key}/mikiko-computer-use`,
+            to: "computer-use",
+            filter: ["**/*"],
+          },
+        ]
+      : []),
     ...(targetPlatform.os === "darwin"
       ? [
           ...(shouldPackageComputerUseHelper
@@ -871,6 +887,8 @@ export default {
     entitlementsInherit: "build/entitlements.mac.inherit.plist",
     // glm/tools 已由 afterPack 签名；独立 CUA Helper 保留现有签名边界。
     signIgnore: [
+      // 原生 App 已在 afterPack 内按稳定身份完成 Developer ID 签名；不以 Electron entitlements 重签。
+      "[/\\\\]Contents[/\\\\]Resources[/\\\\]computer-use([/\\\\]|$)",
       "[/\\\\]Contents[/\\\\]Resources[/\\\\]cua-helper([/\\\\]|$)",
       "[/\\\\]Contents[/\\\\]Resources[/\\\\]glm([/\\\\]|$)",
       "[/\\\\]Contents[/\\\\]Resources[/\\\\]tools([/\\\\]|$)",

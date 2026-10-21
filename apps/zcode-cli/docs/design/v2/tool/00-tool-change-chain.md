@@ -1,5 +1,28 @@
 # Tool Change Chain Spec
 
+## Mikiko Computer Use 生产插件装配（2026-10-21）
+
+沿用 `computer-use@zcode-plugins-official` 启用态且默认关闭。内置manifest/新技能 → 原插件发现 →
+每次消费者的official runtime绑定 → 随包production gateway → 原生App-agent。该插件不再声明
+共享NodeRepl，不注入旧broker凭据/旧14方法SDK。`plugin:computer-use:computer-use` 的stdlib
+MCP仍由既有adapter审批和可信metadata准入，source保持builtin，不声明官方账号auth。
+
+Main权威提供三项绝对路径 `MIKIKO_COMPUTER_USE_BINARY/APP_PATH/SERVER`；消费者将其定向写入
+此MCP，覆盖缓存旧入口。缺任一资源配置则禁用server，不转旧producer；资源路径不进入模型参数。
+`MIKIKO_COMPUTER_USE_BACKEND=open-computer-use` / `MIKIKO_COMPUTER_USE_MODE=production` 为
+绑定后的身份marker，不能从manifest/user env继承。isolation=session，协议2026-07-28；
+实际回合完成通知由上节runtime owner发出。Windows/Linux本次无随包后端，远程与子代理失败，
+主用户数据根、账号和手机远控不变。验证默认关闭、配置源隔离、旧broker材料剔除、当前入口绑定与
+实际stdio工具发现；原生截图/AX/权限由正式后端验收，不用mock成功替代。
+
+## Mikiko Computer Use 回合结束（2026-10-21）
+
+Core turn 唯一 finally → 可选 McpPort.turnEnded → 当前 pool lease → 已连接的正式 Computer Use
+MCP → 串行 turn-end 通知 → gateway/native 释放本回合租约。成功、失败、取消均走同一路径；
+上下文来自接纳时的 runtime session/turn/workspace/交付配置，不接受模型参数。只选择正式
+内置 computer-use 插件及 Host 绑定的双 production marker，不向一般第三方广播私有方法，
+不为清理新建连接、不重试动作。详见 [MCP 生命周期合同](../mcp.md#mikiko-computer-use-turn-lifecycle)。
+
 ## MCP 首次 OAuth 授权目录（2026-10-21）
 
 认证错误 → 现有 Phase 2 owner → 凭据父目录准备 → 原子 authorization lease → listener/授权 →

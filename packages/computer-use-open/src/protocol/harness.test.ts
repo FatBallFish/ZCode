@@ -80,13 +80,17 @@ export async function environment() {
   return { directory, auditPath, env };
 }
 
-export async function start() {
+export async function start(production = false, nativeEnv: Record<string, string> = {}) {
   const fixture = await environment();
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: ["--require", fakeNative, gateway],
+    args: [
+      "--require",
+      fakeNative,
+      production ? join(packageRoot, "dist/production-server.js") : gateway,
+    ],
     cwd: fixture.directory,
-    env: fixture.env,
+    env: { ...fixture.env, ...nativeEnv },
     stderr: "pipe",
   });
   let stderr = "";

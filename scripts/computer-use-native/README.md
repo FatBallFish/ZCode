@@ -52,10 +52,48 @@ For an app-agent explicitly started by a test, send newline-delimited
 `buildIdentifier` against this app and provenance, then send
 `{"kind":"terminate"}` to close that owned process. Closing an MCP client only
 cleans its session; the upstream app-agent listener otherwise remains reusable.
-Do not terminate agents by process name. Production control ownership and
-permission/upgrade lifecycle still require the Host design described in the spec.
+Do not terminate agents by process name. Production control ownership and permission/upgrade lifecycle use the native
+owner contract described below; the preview keeps its isolated socket namespace.
 
 The app includes the upstream MIT license, MIT notices for Cua Driver/yabai, the
 actual pinned libwebp license and Mikiko's modification notice. Preserve these
 when packaging. This builder neither reads signing identities nor changes the
 Keychain, TCC, authorization policy, user MCP configuration or global tools.
+
+## Production packaging
+
+Use `--production --arch arm64|x64` for the stable `dev.mikiko.computer-use`
+identity. The result is under `production/<native-arch>/release/` with the
+`Mikiko Computer Use.app` display name, preserving the development output.
+The reviewed compiler for production is Swift 6.2.x; x64 is compiled as x86_64.
+Use `--sign-identity <Developer ID identity>` or
+`MIKIKO_COMPUTER_USE_SIGN_IDENTITY` to sign with hardened runtime and secure
+Apple timestamp before first activation. The builder never launches a production
+App-agent, so an ad-hoc staging build cannot create an ambiguous TCC entry.
+`--compile-only` checks native compilation without replacing an App;
+`--candidate <slug>` produces an isolated acceptance candidate under
+`production/candidates/<slug>/<arch>/release/`. Neither touches the frozen baseline.
+
+Electron's bundle chain stages the App and a standalone SDK2
+`production-server.mjs` from `packages/computer-use-open` into
+`bundled-tools/darwin-<arch>/mikiko-computer-use` and packages it at
+`Resources/computer-use`. Both architectures fail closed on source/identity/hash,
+architecture, dependency closure and Developer ID signature mismatches. The
+nested App is signed before the parent App is sealed and follows the existing
+parent notarization archive/recovery workflow. macOS release CI selects Xcode
+26.0 / Swift 6.2, and refuses missing Developer ID credentials.
+
+Production ignores socket-namespace and proxy-disable overrides; a fixed per-uid
+socket plus kernel-held listener lock gives one native lease owner across Hosts.
+Observation/actions acquire a connection UUID lease; doctor/list/discovery do not.
+Only that owner can release, and disconnect waits for synchronous native work to
+finish before cleanup and handoff. `restart-agent --json` verifies peer uid and
+running code signature against the same production bundle/team; active control
+returns busy. A trusted idle stale helper may be replaced during app upgrades.
+
+After final signing, run `doctor --json` from the exact App executable; verify
+`appAgent:true`, `grantOwnerBundleId`, `appPath` and `buildIdentifier`. Use
+`test-production-agent.mjs <exact App>` for the read-only/lease protocol suite and
+`test-packaged-gateway.mjs <standalone server> <native binary>` for SDK2 discovery
+from a temporary directory with no node_modules. These do not validate actual
+AX/capture/input; release acceptance must separately run the controlled Cocoa fixture.

@@ -45,6 +45,7 @@ if (!nativeMode) {
     "get_app_state",
     "query",
     "click",
+    "drag",
     "set_value",
     "type_text",
     "press_key",
@@ -63,6 +64,7 @@ if (!nativeMode) {
       visualCursor: process.env.MIKIKO_COMPUTER_USE_VISUAL_CURSOR,
       globalPointer: process.env.MIKIKO_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS,
       namespace: process.env.MIKIKO_COMPUTER_USE_AGENT_SOCKET_NAMESPACE,
+      appAgentProxyDisabled: process.env.MIKIKO_COMPUTER_USE_DISABLE_APP_AGENT_PROXY,
     },
   });
   input.on("line", (line) => {
