@@ -70,7 +70,7 @@ import {
   selectPluginsForScope,
 } from "@/settings/pluginCapabilityProjection.js";
 import {
-  isComputerUseRemoteOrLinux,
+  isComputerUseUnavailableTarget,
   matchesComputerUseSearch,
   resolveComputerUseAvailability,
 } from "@/settings/computerUseAvailability.js";
@@ -298,11 +298,12 @@ function PluginList({
     remoteTarget: target?.remoteTarget,
     workspaceIdentity: target?.workspaceIdentity,
   });
+  // 电脑控制占位行只服务远端（本地 Windows/Linux 已升级为实验支持，不再命中）。
   const showUnavailableComputerUse = Boolean(
     configScope === "user" &&
     target &&
     !loading &&
-    isComputerUseRemoteOrLinux(computerUseAvailability) &&
+    isComputerUseUnavailableTarget(computerUseAvailability) &&
     matchesComputerUseSearch(searchQuery),
   );
   const hasEmptySearchResult = Boolean(
@@ -647,12 +648,8 @@ function PluginList({
             {intl.formatMessage({ id: "settings.computerUse.title" })}
           </div>
           <div className="mt-0.5 text-ui-sm text-foreground-subtle">
-            {intl.formatMessage({
-              id:
-                computerUseAvailability.kind === "local-linux"
-                  ? "settings.computerUse.unsupported.linuxDescription"
-                  : "settings.computerUse.unsupported.remoteDescription",
-            })}
+            {/* 本地 Linux 桌面已升级为实验支持，该行只剩远端语义；linuxDescription 词条保留不删以防回退。 */}
+            {intl.formatMessage({ id: "settings.computerUse.unsupported.remoteDescription" })}
           </div>
         </div>
         <span className="shrink-0 rounded-md bg-background px-2 py-1 text-ui-xs font-medium text-foreground-subtle">

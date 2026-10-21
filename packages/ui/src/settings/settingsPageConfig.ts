@@ -44,6 +44,12 @@ interface SettingsSectionDefinition {
   titleId: string;
   contentTitleId?: string;
   titleBadgeId?: string;
+  /**
+   * 是否在左侧导航项上渲染 titleBadgeId 角标。内容区标题的角标机制对所有分区生效；
+   * 导航角标目前仅电脑控制实验平台（Windows/Linux 本地）启用，automations 等既有分区
+   * 保持只加内容区角标，避免 macOS/Web 的导航视觉变化。
+   */
+  showTitleBadgeInNav?: boolean;
   groupId: SettingsSectionGroupId;
 }
 
@@ -230,12 +236,24 @@ export function createSettingsPageConfig({
   isWindowsDesktop = false,
 }: SettingsPageConfigOptions = {}) {
   const showComputerUse = isDesktop || isMacDesktop || isWindowsDesktop;
+  // 电脑控制的 BETA 角标（导航 + 内容标题）只标记实验平台：Windows/Linux 本地桌面
+  // 基于上游 open-computer-use 实验运行时；macOS 稳定支持不加角标（行为不变）。
+  const isLinuxDesktop = isDesktop && !isMacDesktop && !isWindowsDesktop;
+  const showComputerUseBetaBadge = isWindowsDesktop || isLinuxDesktop;
   const settingsSections = BASE_SETTINGS_SECTIONS.filter((section) => {
     if (section.id === "computerUse" && !showComputerUse) return false;
     // 语音输入依赖 desktop main 的 VoiceService（平台 voice 能力），Web 视图不展示。
     if (section.id === "voiceInput" && !isDesktop) return false;
     return isSettingsSectionEnabled(section.id);
-  });
+  }).map((section) =>
+    section.id === "computerUse" && showComputerUseBetaBadge
+      ? {
+          ...section,
+          titleBadgeId: "settings.computerUse.betaBadge",
+          showTitleBadgeInNav: true,
+        }
+      : section,
+  );
   const settingsSectionGroups = BASE_SETTINGS_SECTION_GROUPS.map((group) => ({
     ...group,
     sections: settingsSections.filter((section) => section.groupId === group.id),

@@ -8694,6 +8694,14 @@ const enUS: Record<string, string> = {
     "After changing permissions, restart the permission application. An active control session must finish first.",
   "settings.computerUse.native.unsupported":
     "Computer Use requires a local macOS 14 or later workspace and a Mikiko build that includes this capability.",
+  "settings.computerUse.betaBadge": "BETA",
+  "settings.computerUse.experimentalNotice.title": "Experimental feature",
+  "settings.computerUse.experimentalNotice.description":
+    "Computer Use on this platform is experimental and may be unstable.",
+  "settings.computerUse.experimentalNotice.windowsNote":
+    "The Windows runtime is built on the UIA/PowerShell bridge.",
+  "settings.computerUse.experimentalNotice.linuxNote":
+    "The Linux runtime is built on AT-SPI, requires a logged-in desktop session, and has limited Wayland support.",
   "settings.computerUse.composerEntry.label": "Show Computer Use button in the composer",
   "settings.computerUse.composerEntry.description": "When off, the composer button is hidden.",
   "settings.computerUse.composerEntry.requiresEnabled":

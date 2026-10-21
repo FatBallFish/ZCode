@@ -163,3 +163,21 @@ it("keeps unknown permission facts distinct from denied", () => {
   expect(screen.getAllByText("cuaPermission.status.unknown")).toHaveLength(2);
   expect(screen.queryByText("cuaPermission.status.missing")).toBeNull();
 });
+
+it("hides the macOS permission surface for experimental platforms while keeping the toggles", () => {
+  // Windows/Linux 实验平台（showMacPermissions=false）：只保留总开关与输入框入口开关，
+  // 权限行、授权目标提示与权限应用重启引导全部隐藏（docs/specs/computer-use-experimental-platforms.md）。
+  render(createElement(MikikoComputerUseSection, { ...props(), showMacPermissions: false }));
+  expect(screen.queryByText("cuaPermission.perm.accessibility")).toBeNull();
+  expect(screen.queryByText("cuaPermission.perm.screenRecording")).toBeNull();
+  expect(screen.queryByText(status.appPath)).toBeNull();
+  expect(screen.queryByText("settings.computerUse.native.permissionApp")).toBeNull();
+  expect(screen.queryByText("settings.computerUse.native.restartHint")).toBeNull();
+  expect(screen.getByRole("switch", { name: "settings.computerUse.toggleLabel" })).toBeTruthy();
+  expect(
+    screen.getByRole("switch", { name: "settings.computerUse.composerEntry.label" }),
+  ).toBeTruthy();
+  expect(screen.queryAllByRole("button")).toHaveLength(0);
+  expect(fixture.command).not.toHaveBeenCalled();
+  expect(fixture.restart).not.toHaveBeenCalled();
+});

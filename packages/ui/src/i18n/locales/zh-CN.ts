@@ -8246,6 +8246,14 @@ const zhCN: Record<string, string> = {
     "更改权限后请重启权限应用；正在进行的电脑控制会话需要先结束。",
   "settings.computerUse.native.unsupported":
     "电脑控制需要本地 macOS 14 或更高版本工作区，以及包含此能力的 Mikiko 构建。",
+  "settings.computerUse.betaBadge": "BETA",
+  "settings.computerUse.experimentalNotice.title": "实验阶段功能",
+  "settings.computerUse.experimentalNotice.description":
+    "该平台的 Computer Use 处于实验阶段，可能不稳定。",
+  "settings.computerUse.experimentalNotice.windowsNote":
+    "Windows 版基于 UIA / PowerShell 桥接实现。",
+  "settings.computerUse.experimentalNotice.linuxNote":
+    "Linux 版基于 AT-SPI 实现，需要已登录的桌面会话，Wayland 支持有限。",
   "settings.computerUse.composerEntry.label": "在输入框显示电脑操作按钮",
   "settings.computerUse.composerEntry.description": "关闭后输入框不再显示电脑操作按钮。",
   "settings.computerUse.composerEntry.requiresEnabled":

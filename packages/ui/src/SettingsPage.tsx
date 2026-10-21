@@ -1716,7 +1716,7 @@ export function SettingsPage({
                         </div>
                         {group.sections
                           .filter(({ id }) => isSettingsSectionAvailable(id, Boolean(isDesktop)))
-                          .map(({ id, icon: Icon, titleId }) => {
+                          .map(({ id, icon: Icon, titleId, titleBadgeId, showTitleBadgeInNav }) => {
                             const isActive = activeSection === id;
                             const label = intl.formatMessage({ id: titleId });
 
@@ -1751,6 +1751,20 @@ export function SettingsPage({
                                   <span className="truncate text-ui-base text-foreground">
                                     {label}
                                   </span>
+                                  {/* 实验平台分区（如 Windows/Linux 电脑控制）的导航 BETA 角标：
+                                      比 automations 内容区标题角标更小的 pill；外层 span 带
+                                      max-lg:sr-only，窄屏 icon rail 模式下随文字一起隐藏。 */}
+                                  {titleBadgeId && showTitleBadgeInNav ? (
+                                    <span
+                                      data-testid={testId(
+                                        TID_SETTINGS_SECTION_NAV,
+                                        `${id}-title-badge`,
+                                      )}
+                                      className="shrink-0 rounded-xs bg-accent px-1.5 text-ui-xs font-semibold uppercase tracking-normal text-foreground"
+                                    >
+                                      {intl.formatMessage({ id: titleBadgeId })}
+                                    </span>
+                                  ) : null}
                                   {id === "remoteDevices" ? (
                                     <RemoteConnectionNavigationDot
                                       presentation={remoteDevicesPresentation}

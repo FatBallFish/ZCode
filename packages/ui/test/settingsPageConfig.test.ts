@@ -177,4 +177,28 @@ describe("settingsPageConfig", () => {
       "general",
     );
   });
+
+  it.each([
+    ["macOS", { isDesktop: true, isMacDesktop: true }, undefined],
+    ["Windows", { isDesktop: true, isWindowsDesktop: true }, "settings.computerUse.betaBadge"],
+    ["Linux 桌面", { isDesktop: true }, "settings.computerUse.betaBadge"],
+  ] as const)(
+    "%s 的电脑控制 BETA 角标只在实验平台出现",
+    async (_name, options, expectedBadgeId) => {
+      const { createSettingsPageConfig } = await loadSettingsPageConfig("test");
+      const { settingsSections } = createSettingsPageConfig(options);
+      const computerUse = settingsSections.find((section) => section.id === "computerUse");
+
+      expect(computerUse?.titleBadgeId).toBe(expectedBadgeId);
+      // 导航角标与内容标题角标同步：实验平台开启导航渲染，macOS 不开。
+      expect(computerUse?.showTitleBadgeInNav).toBe(expectedBadgeId ? true : undefined);
+    },
+  );
+
+  it("静态 Web 配置不带任何导航角标（automations 已隐藏，导航角标仅实验平台电脑控制）", async () => {
+    const { SETTINGS_SECTIONS } = await loadSettingsPageConfig("test");
+
+    expect(SETTINGS_SECTIONS.some((section) => section.showTitleBadgeInNav)).toBe(false);
+    expect(SETTINGS_SECTIONS.some((section) => section.id === "automations")).toBe(false);
+  });
 });

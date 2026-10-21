@@ -17,9 +17,17 @@ export function MikikoComputerUseSection(props: {
   composerVisible: boolean;
   composerSaving: boolean;
   onToggleComposer(visible: boolean): Promise<unknown>;
+  /**
+   * 是否渲染 macOS 权限区（辅助功能/屏幕录制行、授权目标提示与权限应用重启引导）。
+   * 默认 true（macOS 分支）；Windows/Linux 实验平台传 false——那边无 TCC 概念，
+   * 且权限状态未订阅、workspacePath 为 null，重启按钮会永远置灰，整区隐藏只保留
+   * 总开关与输入框入口开关（docs/specs/computer-use-experimental-platforms.md）。
+   */
+  showMacPermissions?: boolean;
 }) {
   const { intl } = useZCodeIntl();
   const { restarting, openSettings, restart } = useMikikoComputerUseActions(props);
+  const showMacPermissions = props.showMacPermissions ?? true;
   const status = props.status && props.status.available !== false ? props.status : null;
   const native = status as typeof status & { backend?: string; appPath?: string };
   const appPath = native?.backend === "mikiko-native" ? native.appPath : undefined;
@@ -56,7 +64,7 @@ export function MikikoComputerUseSection(props: {
           }
         />
       </SettingsGroupCard>
-      {props.enabled ? (
+      {props.enabled && showMacPermissions ? (
         <>
           <SettingsGroupCard>
             {(["accessibility", "screen_recording"] as const).map((kind) => {

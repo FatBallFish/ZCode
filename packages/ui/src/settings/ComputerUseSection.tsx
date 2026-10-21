@@ -2,6 +2,8 @@
 // 设置页「电脑控制 (Computer Use)」分区：
 //  - 顶部一个总开关：开/关 zcode-cua 插件（连带其 MCP server 与 skill 一起启用/禁用）。
 //  - macOS 下再展示 Accessibility / Screen Recording 两个权限行（含授权引导与 stale 恢复链）。
+//  - Windows/Linux 本地桌面为实验平台（supported + experimental）：复用总开关/输入框入口
+//    开关，顶部渲染 BETA 实验警告卡，不展示 macOS 权限区。
 // UI 复用 SettingsGroupCard / SettingsRow / SettingsBadge / Switch，与其它设置分区保持一致。
 //
 // Helper 权限状态走 useCuaPermissionStatus：事件驱动（进入页面 / 窗口重获焦点 / 显式 refresh）
@@ -42,10 +44,7 @@ import { waitForAccessibilityNotStale } from "@/settings/cuaPermissionRestartVer
 import { requiredCuaPermissionsForFreshStatus } from "@/settings/cuaPermissionPreparation.js";
 import { ExternalLink } from "lucide-react";
 import { MikikoComputerUseSection } from "./computer-use/contract.js";
-import {
-  isComputerUseRemoteOrLinux,
-  resolveComputerUseAvailability,
-} from "@/settings/computerUseAvailability.js";
+import { resolveComputerUseAvailability } from "@/settings/computerUseAvailability.js";
 
 interface ComputerUseSectionProps {
   isDesktop?: boolean;
@@ -85,7 +84,14 @@ export function ComputerUseSection({
     (isMacDesktop ?? supportsLocalMacCuaPermissionOnboarding(platform)) &&
     isLocalWorkspace;
   const supportsLocalWindowsWorkspace = isWindowsDesktop && isLocalWorkspace;
-  const supportsComputerUseSettings = supportsLocalMacWorkspace || supportsLocalWindowsWorkspace;
+  // Linux 本地桌面 = isDesktop && 非 mac && 非 win（docs/specs/computer-use-experimental-platforms.md）：
+  // 与 Windows 同属实验平台，只复用总开关/输入框入口开关，无 macOS 权限区。
+  const supportsLocalLinuxWorkspace =
+    isDesktop && !isMacDesktop && !isWindowsDesktop && isLocalWorkspace;
+  // Windows/Linux 实验平台共用的本地工作区判定（用于 BETA 分支与平台补充文案选择）。
+  const isExperimentalLocalWorkspace = supportsLocalWindowsWorkspace || supportsLocalLinuxWorkspace;
+  const supportsComputerUseSettings =
+    supportsLocalMacWorkspace || supportsLocalWindowsWorkspace || supportsLocalLinuxWorkspace;
   const availability = resolveComputerUseAvailability({
     isDesktop: isDesktop || isWindowsDesktop || supportsLocalMacWorkspace,
     isMacDesktop: isMacDesktop || supportsLocalMacWorkspace,
@@ -735,6 +741,61 @@ export function ComputerUseSection({
     );
   }
 
+  // Windows/Linux 本地实验平台分支（desktop main 返回 supported + mikiko-native + experimental）：
+  // 复用 Mikiko 设置区（总开关/输入框入口开关），隐藏 macOS 权限区，并在顶部渲染实验警告卡。
+  // 资源缺失时 main 返回 build-unavailable，已在上方 buildUnavailable 卡处理，不会走到这里。
+  if (
+    osSupport?.kind === "supported" &&
+    osSupport.backend === "mikiko-native" &&
+    isExperimentalLocalWorkspace &&
+    (availability.kind === "local-windows" || availability.kind === "local-linux")
+  ) {
+    const experimentalNoteId =
+      availability.kind === "local-windows"
+        ? "settings.computerUse.experimentalNotice.windowsNote"
+        : "settings.computerUse.experimentalNotice.linuxNote";
+    return (
+      <div className="space-y-4">
+        <div
+          role="note"
+          data-testid="computer-use-experimental-notice"
+          className="rounded-lg border border-warning/40 bg-warning/10 p-4"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="shrink-0 rounded-xs bg-accent px-1.5 text-ui-xs font-semibold uppercase tracking-normal text-foreground">
+              {intl.formatMessage({ id: "settings.computerUse.betaBadge" })}
+            </span>
+            <p className="font-medium text-warning">
+              {intl.formatMessage({ id: "settings.computerUse.experimentalNotice.title" })}
+            </p>
+          </div>
+          <p className="mt-1 text-ui-sm text-foreground-subtle">
+            {intl.formatMessage({ id: "settings.computerUse.experimentalNotice.description" })}
+          </p>
+          <p className="mt-1 text-ui-sm text-foreground-subtle">
+            {intl.formatMessage({ id: experimentalNoteId })}
+          </p>
+        </div>
+        <MikikoComputerUseSection
+          enabled={cuaEnabled}
+          toggling={cuaToggling}
+          // 实验分支是本地工作区（isExperimentalLocalWorkspace 已保证非远端），workspacePath
+          // 即本机路径；不能沿用 mac 分支的 `path ?? null`（path 仅 macOS 订阅权限时非空），
+          // 否则总开关会因 workspacePath 为 null 永远置灰。
+          workspacePath={workspacePath ?? null}
+          workspaceIdentity={workspaceIdentity}
+          status={status}
+          onToggle={onTogglePlugin}
+          refresh={refresh}
+          composerVisible={composerEntryVisible}
+          composerSaving={composerEntrySaving}
+          onToggleComposer={onToggleComposerEntry}
+          showMacPermissions={false}
+        />
+      </div>
+    );
+  }
+
   if (
     osSupport?.kind === "not-applicable" ||
     (macOsBelowCuaFloor && osSupport.minimumMacOs === "14.0")
@@ -750,21 +811,16 @@ export function ComputerUseSection({
   }
 
   if (!supportsComputerUseSettings) {
-    // 远端 / Linux 环境若直接 return null，设置页只剩标题，会让用户误以为页面加载失败。
+    // 远端 / Web 环境若直接 return null，设置页只剩标题，会让用户误以为页面加载失败。
     // 保留入口并明确能力边界，且不渲染任何会触发本地 CUA 写操作的控件。
+    // 本地 Windows/Linux 桌面已升级为实验支持（走上方实验分支），这里只剩远端/Web 语义。
     return (
       <div className="rounded-lg border border-warning/40 bg-warning/10 p-4 text-ui-base text-warning">
         <p className="font-medium">
           {intl.formatMessage({ id: "settings.computerUse.unsupported.title" })}
         </p>
         <p className="mt-1 text-ui-sm text-foreground-subtle">
-          {intl.formatMessage({
-            id: isComputerUseRemoteOrLinux(availability)
-              ? availability.kind === "local-linux"
-                ? "settings.computerUse.unsupported.linuxDescription"
-                : "settings.computerUse.unsupported.remoteDescription"
-              : "settings.computerUse.unsupported.remoteDescription",
-          })}
+          {intl.formatMessage({ id: "settings.computerUse.unsupported.remoteDescription" })}
         </p>
       </div>
     );
