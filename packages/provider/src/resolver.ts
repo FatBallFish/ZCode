@@ -115,6 +115,9 @@ export function serializeRegistryModelConfig(
       supportsJsonSchemaOutput: config.properties.supportsJsonSchemaOutput,
       supportsNativeWebSearch: config.properties.supportsNativeWebSearch,
       supportsMidConversationSystem: config.properties.supportsMidConversationSystem,
+      ...(config.properties.promptCacheKeyMode === undefined
+        ? {}
+        : { promptCacheKeyMode: config.properties.promptCacheKeyMode }),
     },
     optionSpecs: {
       reasoningLevel: config.optionSpecs.reasoningLevel,
@@ -144,8 +147,7 @@ function applyProviderTokenOverrides(
   }
   return modelConfig.overlay(
     new ModelConfig({
-      properties:
-        contextWindow == null ? undefined : new ModelPropertiesConfig({ contextWindow }),
+      properties: contextWindow == null ? undefined : new ModelPropertiesConfig({ contextWindow }),
       optionSpecs:
         maxOutputTokens == null
           ? undefined

@@ -56,7 +56,13 @@ export function createGenerateTextOptions(input: {
     providerOptions,
   });
   const requestProviderOptions = withNativeGenerateOutputFormat({
-    providerOptions: providerOptionsWithMetadata,
+    providerOptions: withOpenAiPromptCacheKey({
+      modelId: String(input.resolved.modelId),
+      providerKind: input.resolved.providerKind,
+      providerOptions: providerOptionsWithMetadata,
+      promptCacheKeyMode: input.resolved.properties?.promptCacheKeyMode,
+      sessionId: input.statusContext.sessionId,
+    }),
     responseJsonSchema: input.request.responseJsonSchema,
     resolved: input.resolved,
   });
@@ -118,10 +124,16 @@ export function createStreamTextOptions(input: {
     input.resolved.providerOptions,
     input.request.providerOptions,
   );
-  const requestProviderOptions = mergeAnthropicRequestMetadata({
-    metadataUserId: input.anthropicMetadataUserId,
+  const requestProviderOptions = withOpenAiPromptCacheKey({
+    modelId: String(input.resolved.modelId),
     providerKind: input.resolved.providerKind,
-    providerOptions,
+    providerOptions: mergeAnthropicRequestMetadata({
+      metadataUserId: input.anthropicMetadataUserId,
+      providerKind: input.resolved.providerKind,
+      providerOptions,
+    }),
+    promptCacheKeyMode: input.resolved.properties?.promptCacheKeyMode,
+    sessionId: input.statusContext.sessionId,
   });
   return removeUndefined({
     model: input.resolved.model,
@@ -234,6 +246,43 @@ function mergeAnthropicRequestMetadata(input: {
         ...metadata,
         userId: input.metadataUserId,
       },
+    },
+  };
+}
+
+/**
+ * openai-responses wire 的会话缓存亲和（wire 字段 prompt_cache_key = sessionId）：
+ * 中转（sub2api 等）与 OpenAI 官方都依赖它做会话粘性/缓存路由，缺失会导致逐请求换节点
+ * 而整段缓存失效（实测见 docs/analysis/2026-10-21-gpt-dual-link-bench.md）。
+ * 默认 auto：仅 openai wire 且模型 gpt 前缀时发送；promptCacheKeyMode 可按模型强制 on/off；
+ * 请求显式提供 providerOptions.openai.promptCacheKey 时尊重请求值不覆盖。
+ */
+function withOpenAiPromptCacheKey(input: {
+  modelId: string;
+  providerKind: ResolvedAiSdkModel["providerKind"];
+  providerOptions: Record<string, unknown> | undefined;
+  promptCacheKeyMode: "auto" | "on" | "off" | undefined;
+  sessionId: string | undefined;
+}): Record<string, unknown> | undefined {
+  if (input.providerKind !== "openai" || input.sessionId === undefined) {
+    return input.providerOptions;
+  }
+  const mode = input.promptCacheKeyMode ?? "auto";
+  if (mode === "off") {
+    return input.providerOptions;
+  }
+  if (mode === "auto" && !input.modelId.toLowerCase().startsWith("gpt")) {
+    return input.providerOptions;
+  }
+  const openaiOptions = asPlainRecord(input.providerOptions?.openai) ?? {};
+  if (openaiOptions.promptCacheKey !== undefined) {
+    return input.providerOptions;
+  }
+  return {
+    ...input.providerOptions,
+    openai: {
+      ...openaiOptions,
+      promptCacheKey: input.sessionId,
     },
   };
 }

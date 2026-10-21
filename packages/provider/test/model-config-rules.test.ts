@@ -281,4 +281,14 @@ describe("ModelConfigRules", () => {
       }),
     ).toThrow();
   });
+
+  it("promptCacheKeyMode 经 overlay 传递：next 优先，双方缺省保持 undefined", () => {
+    const base = new ModelPropertiesConfig({ promptCacheKeyMode: "off" });
+    const withOn = new ModelPropertiesConfig({ promptCacheKeyMode: "on" });
+    expect(base.overlay(withOn).toJSON().promptCacheKeyMode).toBe("on");
+    expect(base.overlay(new ModelPropertiesConfig()).toJSON().promptCacheKeyMode).toBe("off");
+    expect(
+      new ModelPropertiesConfig().overlay(new ModelPropertiesConfig()).toJSON().promptCacheKeyMode,
+    ).toBeUndefined();
+  });
 });

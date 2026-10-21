@@ -380,7 +380,11 @@ describe("createStreamTextOptions", () => {
         input: { file_path: "README.md" },
       },
     ]);
-    expect(options.providerOptions).toEqual({ apiFormat: "openai-responses" });
+    // openai wire + gpt 前缀模型：会话缓存亲和注入 promptCacheKey（auto 默认）。
+    expect(options.providerOptions).toEqual({
+      apiFormat: "openai-responses",
+      openai: { promptCacheKey: "sess_responses" },
+    });
   });
 
   it("preserves explicit provider option namespaces without inferring model options", () => {
@@ -408,7 +412,7 @@ describe("createStreamTextOptions", () => {
       });
 
       expect(options.providerOptions).toEqual({
-        openai: { reasoningEffort: "high", store: false },
+        openai: { promptCacheKey: "sess_openai_reasoning", reasoningEffort: "high", store: false },
         reasoningEffort: "none",
       });
     }
