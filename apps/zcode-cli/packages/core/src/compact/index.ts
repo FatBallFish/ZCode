@@ -44,6 +44,23 @@ export type {
 } from "./manual.js";
 export type { AutoCompactDecision, AutoCompactPolicyConfig } from "./policy.js";
 export type { AutoCompactTokenOverride, AutoCompactTokenSource } from "./policy.js";
+export {
+  AGENT_CONTEXT_PRESETS,
+  DEFAULT_AGENT_CONTEXT_PRESET,
+  isAgentContextPreset,
+  resolveContextPreset,
+} from "./policy.js";
+export type {
+  AgentContextPreset,
+  CompactReadStateLimits,
+  CompactRetentionStrategy,
+  CompactSummaryPreamble,
+  CompactSummaryPosition,
+  CompactSummaryTemplate,
+  CompactToolResultPrunerConfig,
+  ContextPresetConfig,
+  ProviderCacheLayout,
+} from "./policy.js";
 export type {
   LocalMicrocompactBoundaryPayload,
   LocalMicrocompactDecision,

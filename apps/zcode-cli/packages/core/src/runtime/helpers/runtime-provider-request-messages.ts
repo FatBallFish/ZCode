@@ -4,13 +4,14 @@ import type { RuntimeMessageEntry } from "../../agent/message-history.js";
 import type { ToolRegistry } from "../../tool/registry.js";
 import type { Model } from "../deps.js";
 import type { AgentRuntimeConfig } from "../types.js";
+import { resolveContextPreset } from "../../compact/policy.js";
 import {
   buildProviderRequestMessages,
   type ProviderRequestMessageProjectionResult,
 } from "./provider-request-messages.js";
 
 type RequestRuntime = {
-  readonly config: Pick<AgentRuntimeConfig, "midConversationSystem" | "toolSearch">;
+  readonly config: Pick<AgentRuntimeConfig, "midConversationSystem" | "toolSearch" | "contextPreset">;
 };
 
 interface MessageProjectionInput {
@@ -71,8 +72,10 @@ export function buildRuntimeProviderRequestMessages(
   const useMidConversationSystem =
     runtime.config.midConversationSystem?.mode === "force" ||
     input.model.properties.supportsMidConversationSystem;
+  const cacheLayout = resolveContextPreset(runtime.config.contextPreset).cacheLayout;
   return buildProviderRequestMessages({
     ...input,
     useMidConversationSystem,
+    cacheLayout,
   });
 }

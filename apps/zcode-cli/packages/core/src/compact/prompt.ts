@@ -11,6 +11,64 @@ const NO_TOOLS_TRAILER =
   "\n\nREMINDER: Do NOT call any tools. Respond with plain text only — " +
   "an <analysis> block followed by a <summary> block. Tool calls will be rejected and you will fail the task.";
 
+// fused 预设在 detailed 模板之上追加的可执行事实段落与多次压缩合并规则。
+const DETAILED_PLUS_EXTRA_SECTIONS = `
+In addition to the sections above, your summary MUST also include:
+
+10. Files Read and Examined: List every file you read, grepped, or examined, as \`path (lines a-b) — one-line purpose\`. Include files from earlier in the conversation, not just recent ones. Keep code at signature level unless a snippet is essential.
+11. Environment and Workspace Facts: Restate durable environment facts still in effect (git state snapshot, key paths, confirmed tooling/version facts). Do not restate transient command output.
+12. Current Todo and Plan: Reproduce the current todo list verbatim if one exists, plus any approved plan file path.
+
+Additional rules:
+- If the conversation already contains a prior compaction summary, do NOT copy it forward verbatim: preserve still-true facts, drop stale ones, and merge everything into one consolidated summary with the same section structure.`;
+
+// deepseek-style：对齐 DeepSeek Harness compaction-basic 的 8 段 checkpoint 模板。
+const CHECKPOINT_8_PROMPT = `You are now acting as a compaction engine for this AI coding assistant. Condense the conversation ABOVE into a structured checkpoint that lets another model resume the work with no loss of essential context.
+
+Output EXACTLY the Markdown structure below: keep every section, in order. Use terse bullets, not prose paragraphs. Write "(none)" for an empty section — never drop a section.
+
+## Primary Request and Intent
+- [the user's original and evolving goals; quote verbatim where the exact wording matters]
+
+## Key Technical Concepts
+- [technologies, frameworks, patterns, and conventions in play]
+
+## Files and Code
+- [exact path: why it matters, key changes or snippets]
+
+## Errors and Fixes
+- [error: how it was resolved, plus any related user feedback]
+
+## Pending Jobs
+- [explicitly requested work not yet completed]
+
+## Current Work
+- [precisely what was in progress at this checkpoint]
+
+## Next Step
+- [the single next action, directly in line with the most recent request, or "(none)"]
+
+## Critical Context
+- [decisions and their rationale, constraints, user preferences, open questions, data needed to continue]
+
+Rules:
+- Write concise English engineering prose. Preserve exact file paths, commands, error strings, identifiers, numeric values, function signatures, and syntax fragments.
+- Capture user feedback and explicit instructions faithfully, especially corrections.
+- Do NOT mention this summarization request or that the context was compacted.
+- Output only the checkpoint text: do not call any tool or take any other action.
+- If the conversation already contains a <compacted-summary> block, it is a PRIOR checkpoint. Do not copy it forward verbatim: preserve still-true facts, drop stale ones, and merge newer information into a single consolidated summary under the same structure.`;
+
+// codex-style：对齐 Codex 的 handoff 模板。
+const HANDOFF_PROMPT = `You are performing a CONTEXT CHECKPOINT COMPACTION. Create a handoff summary for another LLM that will resume the task.
+
+Include:
+- Current progress and key decisions made
+- Important context, constraints, or user preferences
+- What remains to be done (clear next steps)
+- Any critical data, examples, or references needed to continue
+
+Be concise, structured, and focused on helping the next LLM seamlessly continue the work.`;
+
 const BASE_COMPACT_PROMPT = `Your task is to create a detailed summary of the conversation so far, paying close attention to the user's explicit requests and your previous actions.
 This summary should be thorough in capturing technical details, code patterns, and architectural decisions that would be essential for continuing development work without losing context.
 
@@ -108,12 +166,24 @@ When summarizing the conversation focus on typescript code changes and also reme
 When you are using compact - please focus on test output and code changes. Include file reads verbatim.
 </example>`;
 
-export function buildCompactPrompt(customInstructions: string | undefined): string {
+export function buildCompactPrompt(
+  customInstructions: string | undefined,
+  template: "detailed" | "detailed-plus" | "checkpoint-8" | "handoff" = "detailed",
+): string {
   const customInstructionBlock = customInstructions?.trim()
     ? `\n\nAdditional Instructions:\n${customInstructions}`
     : "";
 
-  return `${NO_TOOLS_PREAMBLE}${BASE_COMPACT_PROMPT}${customInstructionBlock}${NO_TOOLS_TRAILER}`;
+  // checkpoint-8 / handoff 自带完整结构，不叠加 detailed 的 analysis/summary 包装说明。
+  if (template === "checkpoint-8") {
+    return `${NO_TOOLS_PREAMBLE}${CHECKPOINT_8_PROMPT}${customInstructionBlock}${NO_TOOLS_TRAILER}`;
+  }
+  if (template === "handoff") {
+    return `${NO_TOOLS_PREAMBLE}${HANDOFF_PROMPT}${customInstructionBlock}${NO_TOOLS_TRAILER}`;
+  }
+
+  const extraSections = template === "detailed-plus" ? DETAILED_PLUS_EXTRA_SECTIONS : "";
+  return `${NO_TOOLS_PREAMBLE}${BASE_COMPACT_PROMPT}${extraSections}${customInstructionBlock}${NO_TOOLS_TRAILER}`;
 }
 
 export function formatCompactSummary(text: string | undefined): string {
@@ -133,13 +203,19 @@ export function formatCompactSummary(text: string | undefined): string {
 export function buildCompactSummaryMessage(
   summary: string,
   options: {
+    preamble?: "continue" | "handoff";
     recentMessagesPreserved?: boolean;
     replStateCleared?: boolean;
     suppressFollowup?: boolean;
     transcriptPath?: string;
   } = {},
 ): string {
-  let message = `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+  // codex-style 用 handoff 导语对齐 Codex 的 SUMMARY_PREFIX；默认保持现有延续语义。
+  const lead =
+    options.preamble === "handoff"
+      ? `Another language model started to solve this problem and produced a summary of its thinking process. You also have access to the state of the tools that were used by that language model. Use this to build on the work that has already been done and avoid duplicating work. Here is the summary produced by the other language model, use the information in this summary to assist with your own analysis:`
+      : `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.`;
+  let message = `${lead}
 
 ${formatCompactSummary(summary)}`;
 

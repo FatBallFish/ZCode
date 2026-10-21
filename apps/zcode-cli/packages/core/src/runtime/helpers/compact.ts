@@ -17,12 +17,13 @@ import {
 import { buildProviderRequestMessages } from "./provider-request-messages.js";
 
 export { buildPostCompactReadStateReminderEntries } from "./compact-post-reminders.js";
-export type { CompactEntrySelection } from "./compact-selection.js";
+export type { CompactEntrySelection, CompactRetentionInput } from "./compact-selection.js";
 export { countCompactPreservedRuntimeMessages } from "./compact-preservation.js";
 export {
   estimateRuntimeEntryTokens,
   getRuntimeEntriesToSummarize,
   hasEnoughRuntimeEntriesToCompact,
+  pruneCompactSummaryToolResults,
   selectCompactEntries,
   selectCompactEntriesAfterPromptTooLong,
   selectCompactEntriesForInitialPromptTooLong,
@@ -75,14 +76,26 @@ export function buildPostCompactRuntimeEntries(
   options: {
     postCompactReminderEntries?: readonly RuntimeMessageEntry[];
     preservedEntries?: readonly RuntimeMessageEntry[];
+    /** codex-style 把摘要放在保留原文之后（接近尾部，注意力更近）。 */
+    summaryPosition?: "after-prefix" | "tail";
   } = {},
 ): RuntimeMessageEntry[] {
   // compact 后只保留 metadata 标记的 prefix，避免用户 literal <system-reminder> 被文本规则误留。
   const prefixCount = countContextPrefixMessages(activeEntries);
+  const preserved = (options.preservedEntries ?? []).map(cloneCompactPreservedRuntimeEntry);
+  const summary = cloneRuntimeEntry(summaryEntry);
+  if (options.summaryPosition === "tail") {
+    return [
+      ...activeEntries.slice(0, prefixCount).map(cloneRuntimeEntry),
+      ...preserved,
+      summary,
+      ...(options.postCompactReminderEntries ?? []).map(cloneRuntimeEntry),
+    ];
+  }
   return [
     ...activeEntries.slice(0, prefixCount).map(cloneRuntimeEntry),
-    cloneRuntimeEntry(summaryEntry),
-    ...(options.preservedEntries ?? []).map(cloneCompactPreservedRuntimeEntry),
+    summary,
+    ...preserved,
     ...(options.postCompactReminderEntries ?? []).map(cloneRuntimeEntry),
   ];
 }

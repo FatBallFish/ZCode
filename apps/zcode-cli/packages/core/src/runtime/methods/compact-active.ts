@@ -20,6 +20,7 @@ import {
   buildManualCompactBoundary,
   createCompactBoundaryId,
   getUsageTotalTokens,
+  resolveContextPreset,
 } from "../deps.js";
 import type { SessionEvent, TraceContext } from "../deps.js";
 import {
@@ -32,6 +33,7 @@ import {
   estimateRuntimeEntryTokens,
   getRuntimeEntriesToSummarize,
   hasEnoughRuntimeEntriesToCompact,
+  pruneCompactSummaryToolResults,
   selectCompactEntries,
   selectCompactEntriesAfterPromptTooLong,
   selectCompactEntriesForInitialPromptTooLong,
@@ -47,14 +49,17 @@ import {
   logCompactMediaRetryProjection,
   readApprovedPlanFileReferenceEntry,
 } from "../helpers/index.js";
+import type { CompactRetentionInput } from "../helpers/index.js";
 import type { CompactTimelineContext, RuntimeModelTextResult } from "../types.js";
 import type { Model } from "../deps.js";
 import type { AgentRuntimeInternal } from "../internal.js";
 import type { CompactAttemptOutcome } from "./turn-loop-state.js";
 import {
   legacySyntheticRuntimeMetadata,
+  systemReminderAttachmentEntry,
   type RuntimeMessageEntry,
 } from "../../agent/message-history.js";
+import { buildPostCompactTodoReminderBody } from "../helpers/runtime-reminders.js";
 import { selectPersistedCompactTail } from "../helpers/compact-preservation.js";
 import {
   buildCompactSummaryRequestMessages,
@@ -195,9 +200,27 @@ async function compactActiveConversationImpl(
   const useMidConversationSystem =
     this.config.midConversationSystem?.mode === "force" ||
     compactModel.properties.supportsMidConversationSystem;
+  // 预设是压缩行为的唯一参数来源；所有预设差异（保留/模板/断点/恢复）都从这里分发。
+  const presetConfig = resolveContextPreset(this.config.contextPreset);
+  const retentionEffectiveContextWindow =
+    this.config.compact?.contextWindow ?? compactModel.properties.contextWindow;
+  const retentionInput =
+    presetConfig.retention.kind === "legacy-groups"
+      ? undefined
+      : {
+          strategy: presetConfig.retention,
+          effectiveContextWindow: retentionEffectiveContextWindow,
+          // 防连环压缩：保留预算必须给摘要与前缀留出空间，压缩后总量不得再次越过阈值。
+          ...(presetConfig.capRetentionToThreshold && options.autoCompactThreshold !== undefined
+            ? { totalCapTokens: options.autoCompactThreshold }
+            : {}),
+          summaryMaxTokens: MAX_OUTPUT_TOKENS_FOR_SUMMARY,
+          useMidConversationSystem,
+        };
   const initialSelection = selectInitialCompactEntriesForActiveConversation({
     activeEntries,
     initialPromptTooLongCause: options.initialPromptTooLongCause,
+    retention: retentionInput,
     trigger,
     useMidConversationSystem,
   });
@@ -294,7 +317,7 @@ async function compactActiveConversationImpl(
           querySource: "compact",
         },
       });
-      const compactPrompt = buildCompactPrompt(customInstructions);
+      const compactPrompt = buildCompactPrompt(customInstructions, presetConfig.summaryTemplate);
       let result: RuntimeModelTextResult;
       let compactPromptTooLongAttempts = 0;
       let stripMediaForSummary = false;
@@ -339,7 +362,10 @@ async function compactActiveConversationImpl(
           model: compactModel,
           tools: compactCandidates,
           registry,
-          entries: entriesForSummary,
+          entries:
+            presetConfig.toolResultPruner === undefined
+              ? entriesForSummary
+              : pruneCompactSummaryToolResults(entriesForSummary, presetConfig.toolResultPruner),
           prompt: compactPrompt,
           applyCacheControl: true,
           skipCacheWrite: true,
@@ -557,9 +583,20 @@ async function compactActiveConversationImpl(
         ...buildPostCompactReadStateReminderEntries({
           preservedEntries,
           readFileState: this.readFileState,
+          maxFiles: presetConfig.readStateLimits.maxFiles,
+          maxFileApproxTokens: presetConfig.readStateLimits.maxFileApproxTokens,
+          maxTotalApproxTokens: presetConfig.readStateLimits.maxTotalApproxTokens,
         }),
         ...(toolAnnouncement ? [toolAnnouncement] : []),
       ];
+      if (presetConfig.injectTodoAfterCompact) {
+        // fused/deepseek 预设：压缩后立即恢复 todo 事实，弥补摘要模板不保证逐字保留清单的缺口。
+        const currentTodos = await this.readSessionTodosForContext(turnTraceContext);
+        const todoBody = buildPostCompactTodoReminderBody(currentTodos);
+        if (todoBody) {
+          postCompactReminderEntries.push(systemReminderAttachmentEntry("todo_reminder", todoBody));
+        }
+      }
 
       const modelCompleteEvent = this.createEvent(
         SessionEventType.ModelComplete,
@@ -576,8 +613,14 @@ async function compactActiveConversationImpl(
       events.push(modelCompleteEvent);
 
       const summaryMessageId = createMessageId();
+      // fused 预设接通 transcript 回读：模型拿到压缩前全文路径，缺 Detail 时可自助回查。
+      const transcriptPath = presetConfig.transcriptReference
+        ? (await this.sessionStore?.getSession(this.sessionId))?.path
+        : undefined;
       const summaryMessageContent = buildCompactSummaryMessage(persistedSummary, {
         suppressFollowup: true,
+        preamble: presetConfig.summaryPreamble,
+        ...(transcriptPath ? { transcriptPath } : {}),
       });
       // Continue 没有对应 Session message；无 store 的统计也不能把它计入保留记录。
       const recordablePreservedEntries = filterOutputTokenContinuationEntries(preservedEntries);
@@ -596,6 +639,7 @@ async function compactActiveConversationImpl(
       const postCompactEntries = buildPostCompactRuntimeEntries(activeEntries, summaryEntry, {
         postCompactReminderEntries,
         preservedEntries,
+        summaryPosition: presetConfig.summaryPosition,
       });
       const truePostCompactTokenCount = estimateRuntimeEntryTokens(postCompactEntries, {
         useMidConversationSystem,
@@ -750,11 +794,13 @@ function canUseCompactSummaryTruncationFallback(trigger: CompactTrigger): boolea
 function selectInitialCompactEntriesForActiveConversation(input: {
   activeEntries: readonly RuntimeMessageEntry[];
   initialPromptTooLongCause?: unknown;
+  retention?: CompactRetentionInput;
   trigger: CompactTrigger;
   useMidConversationSystem?: boolean;
 }) {
   const baseSelection = selectCompactEntries({
     entries: input.activeEntries,
+    retention: input.retention,
     trigger: input.trigger,
   });
   if (input.initialPromptTooLongCause === undefined) {

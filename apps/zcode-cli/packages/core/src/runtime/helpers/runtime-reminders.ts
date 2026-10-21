@@ -183,6 +183,17 @@ export function buildTodoReminderBody(todos: readonly TodoItem[]): string {
   return lines.join("\n");
 }
 
+/** fused/deepseek 预设：压缩后立即恢复 todo 事实，避免摘要丢失当前任务清单。 */
+export function buildPostCompactTodoReminderBody(todos: readonly TodoItem[]): string {
+  if (todos.length === 0) return "";
+  const currentTodos = `[${formatTodoListForReminder(todos).join("\n")}]`;
+  return [
+    "The conversation context was just compacted. The current todo list is preserved below; keep it accurate with the TodoWrite tool.",
+    "",
+    currentTodos,
+  ].join("\n");
+}
+
 export function buildRuntimeModeReminderBody(
   entries: readonly RuntimeMessageEntry[],
   mode: CollaborationMode,

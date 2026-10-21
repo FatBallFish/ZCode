@@ -106,6 +106,7 @@ import type {
   ProjectContext,
   UserInstructionsOptions,
   AutoCompactPolicyConfig,
+  AgentContextPreset,
   ModelAnomalyGuardConfig,
   OutputStylePromptConfig,
 } from "./deps.js";
@@ -138,6 +139,11 @@ export interface AgentRuntimeConfig {
   maxTurns?: number;
   permissionTimeoutMs?: number;
   compact?: AutoCompactPolicyConfig;
+  /**
+   * 上下文预设：决定 cache_control 断点布局与压缩算法（阈值/保留/摘要模板）。
+   * 冷会话读取，会话中保持不变；缺省 default 保持既有行为。
+   */
+  contextPreset?: AgentContextPreset;
   targetCompletionVerification?: { enabled?: boolean };
   midConversationSystem?: {
     mode?: "auto" | "force";

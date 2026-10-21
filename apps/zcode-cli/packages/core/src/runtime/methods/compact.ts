@@ -193,6 +193,8 @@ export async function autoCompactIfNeeded(
   const config: AutoCompactPolicyConfig = {
     contextWindow: context.model.properties.contextWindow,
     ...this.config.compact,
+    // 预设属于运行时级配置（同时驱动保留策略与断点布局），不允许被 compact 覆盖。
+    contextPreset: this.config.contextPreset,
     maxOutputTokens: resolveNormalRequestMaxOutputTokens({
       modelMaxOutputTokens: context.model.optionSpecs.maxOutputTokens.max,
     }),

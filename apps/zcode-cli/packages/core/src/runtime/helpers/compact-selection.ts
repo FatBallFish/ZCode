@@ -8,6 +8,7 @@ import {
   traceContextToLogContext,
 } from "../deps.js";
 import type { TraceContext } from "../deps.js";
+import type { CompactRetentionStrategy } from "../../compact/policy.js";
 import {
   cloneRuntimeMessageEntry,
   isRuntimeAttachmentEntry,
@@ -15,6 +16,10 @@ import {
 } from "../../agent/message-history.js";
 import { groupByAssistantStartedRounds } from "../../compact/rounds.js";
 import { buildProviderRequestMessages } from "./provider-request-messages.js";
+import { isToolResultUserMessage } from "./provider-mid-conversation-system.js";
+
+/** fused 防连环压缩时在「阈值 − 前缀 − 摘要上限」之外留出的安全余量。 */
+const RETENTION_CAP_MARGIN_TOKENS = 2_000;
 
 interface CompactRetryLogger {
   warn(message: string, context?: Record<string, unknown>): void;
@@ -27,12 +32,27 @@ export interface CompactEntrySelection {
   totalGroups: number;
 }
 
+export interface CompactRetentionInput {
+  strategy: CompactRetentionStrategy;
+  /** token 预算比例的分母；缺省用默认压缩窗口。 */
+  effectiveContextWindow?: number;
+  /** 压缩后总量上限（auto compact 阈值）；用于收缩保留预算防止下一轮连环压缩。 */
+  totalCapTokens?: number;
+  /** 摘要输出的最大 token 预留。 */
+  summaryMaxTokens?: number;
+  useMidConversationSystem?: boolean;
+}
+
 export function selectCompactEntries(input: {
   entries: readonly RuntimeMessageEntry[];
   minimumGroupsToPreserve?: number;
+  retention?: CompactRetentionInput;
   trigger: CompactTrigger;
 }): CompactEntrySelection {
   const split = splitRuntimeEntriesForCompactSelection(input.entries, input.trigger);
+  if (input.retention && input.retention.strategy.kind !== "legacy-groups") {
+    return selectCompactEntriesWithRetention(split, input.retention);
+  }
   const baseGroupsToPreserve = split.shouldPreserveRecent && split.groups.length > 1 ? 1 : 0;
   const requestedGroupsToPreserve = Math.max(
     baseGroupsToPreserve,
@@ -225,6 +245,187 @@ function splitRuntimeEntriesForCompactSelection(
     shouldPreserveRecent: trigger === CompactTrigger.Auto || trigger === CompactTrigger.Reactive,
   };
 }
+
+/**
+ * 预设驱动的保留选择。token-budget 按「尾部累计 ≥ 预算」保留完整轮组；
+ * user-messages 只保留真实用户消息原文（对齐 Codex），其余全部进入摘要输入。
+ */
+function selectCompactEntriesWithRetention(
+  split: ReturnType<typeof splitRuntimeEntriesForCompactSelection>,
+  retention: CompactRetentionInput,
+): CompactEntrySelection {
+  const strategy = retention.strategy;
+  if (split.groups.length <= 2) {
+    // 摘要输入至少需要 2 个轮组；退化时保留策略不生效，交给调用方 skip。
+    return {
+      entriesForSummary: [...split.prefixEntries, ...split.groups.flat()].map(cloneRuntimeEntry),
+      groupsPreserved: 0,
+      preservedEntries: [],
+      totalGroups: split.groups.length,
+    };
+  }
+
+  if (strategy.kind === "token-budget") {
+    let budgetTokens = Math.floor(
+      strategy.ratio * (retention.effectiveContextWindow ?? DEFAULT_RETENTION_WINDOW_TOKENS),
+    );
+    if (retention.totalCapTokens !== undefined) {
+      const prefixTokens = estimateRuntimeEntryTokens(split.prefixEntries, {
+        useMidConversationSystem: retention.useMidConversationSystem,
+      });
+      const capBudget =
+        retention.totalCapTokens -
+        prefixTokens -
+        (retention.summaryMaxTokens ?? DEFAULT_RETENTION_SUMMARY_TOKENS) -
+        RETENTION_CAP_MARGIN_TOKENS;
+      budgetTokens = Math.min(budgetTokens, Math.max(0, capBudget));
+    }
+
+    const maxGroups = split.groups.length - 2;
+    let preservedGroupCount = 0;
+    let accumulated = 0;
+    for (let index = split.groups.length - 1; index >= 0 && preservedGroupCount < maxGroups; index -= 1) {
+      if (accumulated >= budgetTokens) break;
+      accumulated += estimateRuntimeEntryTokens(split.groups[index]!, {
+        useMidConversationSystem: retention.useMidConversationSystem,
+      });
+      preservedGroupCount += 1;
+    }
+
+    // 预算为 0 时保留 0 组；slice(-0) 会误取全部轮组，必须显式判空。
+    const preservedEntries =
+      preservedGroupCount > 0
+        ? split.groups.slice(-preservedGroupCount).flat().map(cloneRuntimeEntry)
+        : [];
+    const summaryGroups =
+      preservedGroupCount > 0 ? split.groups.slice(0, split.groups.length - preservedGroupCount) : split.groups;
+    return {
+      entriesForSummary: [...split.prefixEntries, ...summaryGroups.flat()].map(cloneRuntimeEntry),
+      groupsPreserved: preservedGroupCount,
+      preservedEntries,
+      totalGroups: split.groups.length,
+    };
+  }
+
+  // user-messages：从尾部收集真实用户消息，直到 token 预算。
+  if (strategy.kind !== "user-messages") {
+    return {
+      entriesForSummary: [...split.prefixEntries, ...split.groups.flat()].map(cloneRuntimeEntry),
+      groupsPreserved: 0,
+      preservedEntries: [],
+      totalGroups: split.groups.length,
+    };
+  }
+  const bodyEntries = split.groups.flat();
+  const preservedEntries: RuntimeMessageEntry[] = [];
+  let accumulated = 0;
+  let oldestPreservedIndex = bodyEntries.length;
+  for (let index = bodyEntries.length - 1; index >= 0; index -= 1) {
+    if (accumulated >= strategy.maxTokens) break;
+    const entry = bodyEntries[index]!;
+    if (!isRealUserMessageEntry(entry)) continue;
+    const entryTokens = estimateRuntimeEntryTokens([entry], {
+      useMidConversationSystem: retention.useMidConversationSystem,
+    });
+    const remainingBudget = strategy.maxTokens - accumulated;
+    if (entryTokens > remainingBudget) {
+      // 单条超预算（如粘贴大文档）：对齐 Codex 的截断保留语义——保头不保整，
+      // 否则一条大消息就能吃掉整个预算、压缩率转负。
+      preservedEntries.unshift(truncateRealUserEntryForRetention(entry, remainingBudget));
+      accumulated = strategy.maxTokens;
+      oldestPreservedIndex = index;
+      break;
+    }
+    accumulated += entryTokens;
+    preservedEntries.unshift(entry);
+    oldestPreservedIndex = index;
+  }
+  if (preservedEntries.length === 0) {
+    return {
+      entriesForSummary: [...split.prefixEntries, ...bodyEntries].map(cloneRuntimeEntry),
+      groupsPreserved: 0,
+      preservedEntries: [],
+      totalGroups: split.groups.length,
+    };
+  }
+
+  const summaryEntries = bodyEntries
+    .filter((_, index) => index < oldestPreservedIndex || !preservedEntries.includes(bodyEntries[index]!))
+    .map(cloneRuntimeEntry);
+  // 持久化 tail 记录按「保留集合跨越的轮数」近似，保持 selectPersistedCompactTail 语义。
+  let groupsSpanned = 0;
+  let seenPreserved = false;
+  for (const group of split.groups) {
+    if (group.some((entry) => preservedEntries.includes(entry))) {
+      groupsSpanned += 1;
+      seenPreserved = true;
+    } else if (seenPreserved) {
+      // 保留区间内的非用户消息轮也属于跨越范围。
+      groupsSpanned += 1;
+    }
+  }
+  return {
+    entriesForSummary: [...split.prefixEntries, ...summaryEntries].map(cloneRuntimeEntry),
+    groupsPreserved: groupsSpanned,
+    preservedEntries: preservedEntries.map(cloneRuntimeEntry),
+    totalGroups: split.groups.length,
+  };
+}
+
+/** codex-style 保留预算内的单条截断：保头部 + 截断标记，其余部分进入摘要输入。 */
+function truncateRealUserEntryForRetention(
+  entry: RuntimeMessageEntry,
+  budgetTokens: number,
+): RuntimeMessageEntry {
+  if (budgetTokens <= 0 || !("message" in entry)) return cloneRuntimeEntry(entry);
+  const text = modelMessageContentToText(entry.message.content);
+  const keepChars = Math.max(0, budgetTokens * 4 - 120);
+  if (text.length <= keepChars) return cloneRuntimeEntry(entry);
+  const truncated = `${text.slice(0, keepChars)}\n\n[... message truncated to fit the compaction retention budget; see the summary for the rest ...]`;
+  const cloned = cloneRuntimeEntry(entry);
+  if (!("message" in cloned)) return cloned;
+  return { ...cloned, message: { ...cloned.message, content: truncated } };
+}
+
+function isRealUserMessageEntry(entry: RuntimeMessageEntry): boolean {
+  if (isRuntimeAttachmentEntry(entry)) return false;
+  if (entry.message.role !== "user") return false;
+  if (isToolResultUserMessage(entry.message)) return false;
+  const source = entry.metadata?.source;
+  return !source || source === "real_user";
+}
+
+/**
+ * deepseek-style 预设：进入摘要输入前对超长工具结果做免模型裁剪（头+尾保留）。
+ * 只影响摘要请求的输入副本，保留区原文与持久化历史不变。
+ */
+export function pruneCompactSummaryToolResults(
+  entries: readonly RuntimeMessageEntry[],
+  config: { maxChars: number; headChars: number; tailChars: number },
+): RuntimeMessageEntry[] {
+  return entries.map((entry) => {
+    if (isRuntimeAttachmentEntry(entry)) return entry;
+    const message = entry.message;
+    if (message.role !== "user" || !isToolResultUserMessage(message)) return entry;
+    const text = modelMessageContentToText(message.content);
+    if (text.length <= config.maxChars) return entry;
+    const omitted = text.length - config.headChars - config.tailChars;
+    const prunedText = [
+      text.slice(0, config.headChars),
+      "",
+      `[Tool output pruned for compaction; ${omitted} middle characters omitted]`,
+      "",
+      text.slice(-config.tailChars),
+    ].join("\n");
+    return {
+      ...entry,
+      message: { ...message, content: prunedText },
+    } satisfies RuntimeMessageEntry;
+  });
+}
+
+const DEFAULT_RETENTION_WINDOW_TOKENS = 200_000;
+const DEFAULT_RETENTION_SUMMARY_TOKENS = 20_000;
 
 function countRecentGroupsToPreserveAfterPromptTooLong(
   groupsForSummary: readonly RuntimeMessageEntry[][],

@@ -89,3 +89,4 @@ packages/mikiko-cloud/seed-builtin.json
 packages/mikiko-cloud/.admin-credentials.local
 .zcode/
 packages/mikiko-cloud/public/admin/
+apps/zcode-cli/.bench-results/

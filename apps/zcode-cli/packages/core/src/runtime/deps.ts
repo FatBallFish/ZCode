@@ -307,6 +307,12 @@ export {
 export type { AutoCompactPolicyConfig } from "../compact/index.js";
 export type { AutoCompactTokenOverride } from "../compact/index.js";
 export type { LocalMicrocompactPolicyConfig } from "../compact/index.js";
+export type {
+  AgentContextPreset,
+  ContextPresetConfig,
+  CompactRetentionStrategy,
+} from "../compact/index.js";
+export { resolveContextPreset } from "../compact/index.js";
 export {
   EXPLORE_AGENT_ALLOWED_TOOLS,
   EXPLORE_AGENT_TYPE,

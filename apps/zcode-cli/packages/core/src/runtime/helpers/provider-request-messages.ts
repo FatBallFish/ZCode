@@ -53,6 +53,8 @@ export function buildProviderRequestMessages(input: {
   skipCacheWrite?: boolean;
   useMidConversationSystem?: boolean;
   loadedToolCallIds?: ReadonlySet<string>;
+  /** anchored 布局：最后一条 system + 会话稳定附件 + 压缩摘要锚 + 最新消息，上限 4 个断点。 */
+  cacheLayout?: "legacy" | "anchored";
 }): ProviderRequestMessageProjectionResult {
   const useMidConversationSystem = input.useMidConversationSystem !== false;
   const origins = new ProviderEntryOrigins();
@@ -77,15 +79,21 @@ export function buildProviderRequestMessages(input: {
   for (const [projectedIndex, mergedIndex] of mergeResult.indexMap.entries()) {
     if (sourceEntries[mergedIndex] !== undefined) continue;
     const entry = projectedEntries[projectedIndex];
-    if (entry) sourceEntries[mergedIndex] = origins.representative(entry);
+    // representative 对纯附件条目返回 undefined；回填附件自身，
+    // 让 anchored 断点布局能从 sourceEntries 识别 context_prefix/skills_listing。
+    if (entry) sourceEntries[mergedIndex] = origins.representative(entry) ?? entry;
   }
   const finalLatestRealUserMessageIndex =
     latestRealUserMessageIndex >= 0 ? (mergeResult.indexMap[latestRealUserMessageIndex] ?? -1) : -1;
   const cacheControlIndex =
     input.applyCacheControl === true
-      ? finalizeLatestNonSystemMessageCacheControl(messages, {
-          skipCacheWrite: input.skipCacheWrite === true,
-        })
+      ? input.cacheLayout === "anchored"
+        ? finalizeAnchoredCacheControl(messages, sourceEntries, {
+            skipCacheWrite: input.skipCacheWrite === true,
+          })
+        : finalizeLatestNonSystemMessageCacheControl(messages, {
+            skipCacheWrite: input.skipCacheWrite === true,
+          })
       : undefined;
 
   return {
@@ -355,6 +363,78 @@ function findPreviousNonSystemMessageIndex(
     if (messages[index]?.role !== "system") return index;
   }
   return undefined;
+}
+
+/**
+ * anchored 断点布局（fused/deepseek/codex 预设）：
+ * 1) 最后一条 system（覆盖 tools+全部 system，替代 legacy 的双 system 断点）；
+ * 2) 最后一条会话稳定附件（context_prefix / skills_listing）——压缩后仍可整段命中；
+ * 3) 最近一条压缩摘要消息——窗口内稳定锚；
+ * 4) 最新非 system 消息（skipCacheWrite 时前移一位）。
+ * 同一消息只保留一个断点，总断点数不超过 4（Anthropic cache_control 上限）。
+ */
+function finalizeAnchoredCacheControl(
+  messages: ModelInputMessage[],
+  sourceEntries: ReadonlyArray<RuntimeMessageEntry | undefined>,
+  options: { skipCacheWrite?: boolean } = {},
+): number | undefined {
+  clearAllMessageCacheControl(messages);
+
+  const anchorIndexes: number[] = [];
+  const pushAnchor = (index: number | undefined) => {
+    if (index === undefined || index < 0 || index >= messages.length) return;
+    if (!anchorIndexes.includes(index) && anchorIndexes.length < 4) anchorIndexes.push(index);
+  };
+
+  let lastSystemIndex: number | undefined;
+  let lastContextAttachmentIndex: number | undefined;
+  let lastCompactSummaryIndex: number | undefined;
+  for (let index = 0; index < messages.length; index++) {
+    if (messages[index]?.role === "system") {
+      lastSystemIndex = index;
+      continue;
+    }
+    const entry = sourceEntries[index];
+    if (!entry) continue;
+    if (
+      isRuntimeAttachmentEntry(entry) &&
+      (entry.metadata.source === "context_prefix" || entry.metadata.source === "skills_listing")
+    ) {
+      lastContextAttachmentIndex = index;
+    }
+    if (
+      !isRuntimeAttachmentEntry(entry) &&
+      entry.metadata &&
+      "compactBoundary" in entry.metadata &&
+      entry.metadata.compactBoundary !== undefined
+    ) {
+      lastCompactSummaryIndex = index;
+    }
+  }
+
+  pushAnchor(lastSystemIndex);
+  pushAnchor(lastContextAttachmentIndex);
+  pushAnchor(lastCompactSummaryIndex);
+  const latestIndex = findPreviousNonSystemMessageIndex(messages, messages.length - 1);
+  if (options.skipCacheWrite === true && latestIndex !== undefined) {
+    pushAnchor(findPreviousNonSystemMessageIndex(messages, latestIndex - 1));
+  } else {
+    pushAnchor(latestIndex);
+  }
+
+  for (const index of anchorIndexes) {
+    messages[index] = { ...messages[index]!, cacheControl: { type: "ephemeral" } };
+  }
+  return latestIndex;
+}
+
+function clearAllMessageCacheControl(messages: ModelInputMessage[]): void {
+  for (let index = 0; index < messages.length; index++) {
+    const message = messages[index]!;
+    if (!message.cacheControl) continue;
+    const { cacheControl: _cacheControl, ...messageWithoutCacheControl } = message;
+    messages[index] = messageWithoutCacheControl;
+  }
 }
 
 function clearNonSystemMessageCacheControl(messages: ModelInputMessage[]): void {
