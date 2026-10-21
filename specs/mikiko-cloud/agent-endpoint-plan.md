@@ -48,6 +48,7 @@
 | `/api/oauth/authorize`、`/api/oauth/userinfo`                                           | chat.z.ai        | Zai OAuth                                                                                           |
 | `/api/v1/oauth/token`、`/oauth/cli/init`、`/oauth/cli/poll/{id}`                        | zcode.z.ai       | token 兑换、CLI 设备流登录                                                                          |
 | `/api/v1/zcode-plan`(+`/anthropic`)、`/billing/current`、`/billing/balance`             | zcode.z.ai       | CodingPlan 网关与计费                                                                               |
+| `/api/v1/ultra/anthropic/v1/messages`、`/api/v1/ultra-zai/anthropic/v1/messages`        | zcode.z.ai       | 国内/海外官方模型静态转发；CLI装配复用官方账号resolver，禁止随产品域改写（2026-10-21修复）          |
 | `/api/v1/mcp/usage`、`/api/v1/coding-plan/reset/*`                                      | zcode.z.ai       | 用量与额度重置                                                                                      |
 | `/api/v1/mcp/server/image_search`                                                       | zcode.z.ai       | 2026-10-21 用户追加授权的官方 CodingPlan 搜图后端；仅当前智谱登录有效，预留无官方鉴权的 custom 后端 |
 | `/api/auth/z/login`、`/api/anthropic/v1/messages`、`/api/monitor/usage/*`、`/api/biz/*` | api.z.ai         | 业务登录、海外网关、用量、购买                                                                      |

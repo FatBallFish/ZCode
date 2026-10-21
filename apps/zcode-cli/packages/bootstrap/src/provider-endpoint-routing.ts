@@ -6,7 +6,7 @@ import {
 import { createNodeHttpClientAdapter } from "@zcode/adapters/http";
 import { createProviderEndpointRoutingPort } from "@zcode/adapters/model";
 import { createNodeLoggerFactory } from "@zcode/adapters/logging";
-import { resolveRuntimeZCodeEndpointOrigin } from "@zcode/shared";
+import { resolveCodingPlanEndpointOrigin } from "@zcode/shared";
 import type { Logger, LoggerFactory, ProviderEndpointRoutingPort } from "@zcode/contracts";
 import type { ModelProviderSourceTitle } from "./model-config.js";
 import { createProviderEndpointRoutingSourceHeaders } from "./provider-endpoint-routing-source-headers.js";
@@ -38,7 +38,8 @@ export function resolveProcessProviderEndpointRoutingPort(
   options: ResolveProcessProviderEndpointRoutingPortOptions,
 ): ProviderEndpointRoutingPort {
   const env = options.env ?? process.env;
-  const endpointOrigin = resolveRuntimeZCodeEndpointOrigin(env);
+  // 官方模型凭据不能随产品域改写：自建域没有ultra网关，会返回404；复用账号来源边界。
+  const endpointOrigin = resolveCodingPlanEndpointOrigin(env);
   const key = routingRegistryKey(endpointOrigin, options.network);
   const existing = processRoutingPorts.get(key);
   if (existing) {

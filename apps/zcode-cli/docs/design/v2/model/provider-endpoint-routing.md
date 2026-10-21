@@ -16,7 +16,7 @@ bootstrap 通过 `createProviderEndpointRoutingPort` 创建实现；CLI、TUI、
 workflow 与 subagent 保留相同的依赖注入，不根据发行版本删除接线。
 
 ```text
-bootstrap process registry（endpoint origin + network policy）
+bootstrap process registry（CodingPlan account origin + network policy）
   -> createProviderEndpointRoutingPort
        -> 动态实现：按需读取远端配置，拥有原有快照和 single-flight
        -> 静态实现：仅匹配内置端点，不发起配置请求或读取来源标识
@@ -31,14 +31,44 @@ bootstrap process registry（endpoint origin + network policy）
 
 静态实现保持既有开源网关行为：
 
-| 精确匹配的 HTTPS 端点                        | 当前 runtime ZCode origin 下的目标路径    |
+| 精确匹配的 HTTPS 端点                        | CodingPlan account origin 下的目标路径    |
 | -------------------------------------------- | ----------------------------------------- |
 | `open.bigmodel.cn/api/anthropic/v1/messages` | `/api/v1/ultra/anthropic/v1/messages`     |
 | `api.z.ai/api/anthropic/v1/messages`         | `/api/v1/ultra-zai/anthropic/v1/messages` |
 
 默认端口、主机大小写、末尾 `/` 与 query 的处理遵循下文匹配规则；其它协议、端口、路径、子域和
-第三方 Provider 不改写。origin 复用 `resolveRuntimeZCodeEndpointOrigin`，不增加用户配置或环境变量。
+第三方 Provider 不改写。origin 复用 `resolveCodingPlanEndpointOrigin`，不增加用户配置或环境变量。
 静态实现无路由快照或刷新 timer。进程 registry 的复用与网络隔离仍由 bootstrap 负责。
+
+### Mikiko 官方账号路由修复（2026-10-21）
+
+1.1.4 将产品来源 `agent.mikiko.ai` 注入静态模型网关，导致官方模型请求被改写到自建服务不存在的
+`/api/v1/ultra/anthropic/v1/messages` 并返回404。模型目录与OAuth成功不代表推理网关来源正确。
+
+- bootstrap 是路由装配与进程复用的唯一所有者，使用共享官方账号 resolver 选择网关来源。
+- 生产环境固定官方 CodingPlan origin；自建默认域和其它产品部署域均不能收到模型凭据。
+- 显式测试环境继续允许现有测试 origin 注入，供隔离HTTP夹具使用；不新增环境变量。
+- registry 按解析后的账号 origin 和网络策略复用；不同生产产品域共享官方路由，测试来源和网络策略变化隔离。
+- adapter 的精确匹配、国内/海外路径、query/body/auth/signal及流式响应透传保持不变；不写持久化配置，不增加重试或双发。
+- 桌面 continuous 和手机 replayable 仍共用原有CLI transport；无UI/协议/运行时状态变更。
+
+```mermaid
+sequenceDiagram
+  participant B as bootstrap路由owner
+  participant S as shared账号resolver
+  participant F as 公共fetch wrapper
+  participant O as 官方CodingPlan网关
+  B->>S: env（产品来源与环境）
+  S-->>B: 独立账号origin
+  B->>B: 按账号origin+网络策略复用port
+  F->>B: SDK官方模型URL
+  B-->>F: 国内/海外网关URL
+  F->>O: 原body/auth/signal（清理旧Host）
+  O-->>F: 原状态/流式响应
+```
+
+验收覆盖国内/海外官方账号、任意自建生产域隔离、测试环境注入、registry复用/隔离，及真实本地
+HTTP传输的鉴权/body/query透传。不得将未鉴权线上401探测写成真实账号推理通过。
 
 本次不改变公共请求处理的顺序：SDK/最终 body 转换、官方版本的请求安全校验、路由、网络代理。
 请求期 apiKeyId 仍只来自账号 owner，普通请求不因版本装配产生额外等待。
