@@ -544,6 +544,19 @@
       "screenCaptureGranted": true
     }
   },
-  "complete": true,
-  "acceptedAt": "2026-10-21T06:30:33.472292+00:00"
+  "complete": false,
+  "acceptedAt": "2026-10-21T06:30:33.472292+00:00",
+  "postReleaseIncident": {
+    "status": "confirmed-release-install-issue",
+    "sourceVersion": "1.1.2",
+    "targetVersion": "1.1.4",
+    "causes": [
+      "old-client-quit-install-reentry",
+      "new-Helper-LICENSE.libwebp.txt-readonly0444-causes-ShipIt-EACCES"
+    ],
+    "sourceFix": "Owner-write normalization before initial signature; reject readonly stage/afterPack inputs; policy digest included in native cache key",
+    "fixBuiltOrPublished": false,
+    "validationReport": "docs/testing/macos-upgrade-permission-fix-2026-10-21.md",
+    "actualShipItReplacementRetest": "pending future authorized packaging"
+  }
 }

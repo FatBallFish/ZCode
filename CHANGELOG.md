@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### 🛠 修复
+
+- 修复 macOS 更新安装时，Computer Use 随包文件只读导致安装器失败的问题，并在签名前检查资源权限。
+
 ## [1.1.4](https://github.com/FatBallFish/ZCode/compare/v1.1.3...v1.1.4) (2026-10-21)
 
 ### ✨ 新增

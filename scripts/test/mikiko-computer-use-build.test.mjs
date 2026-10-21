@@ -198,7 +198,7 @@ test("production candidate output cannot overwrite the authorization baseline or
 test("packaging signs the complete native App before writing final byte provenance and fails on signing errors", async () => {
   const { finalizePackagedMikikoComputerUse } =
     await import("../../packages/desktop/scripts/mikiko-computer-use-assets.mjs");
-  const { mkdtemp, mkdir, writeFile, readFile, rm } = await import("node:fs/promises");
+  const { mkdtemp, mkdir, writeFile, readFile, rm, chmod } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   const { createHash } = await import("node:crypto");
@@ -248,6 +248,26 @@ test("packaging signs the complete native App before writing final byte provenan
       appOutDir: directory,
       packager: { appInfo: { productFilename: "Mikiko" } },
     };
+    if (process.platform !== "win32") {
+      const license = join(app, "Contents/Resources/LICENSE.libwebp.txt");
+      await mkdir(join(app, "Contents/Resources"));
+      await writeFile(license, "Synthetic readonly dependency license");
+      await chmod(license, 0o444);
+      await assert.rejects(
+        finalizePackagedMikikoComputerUse(context, {
+          arch: "arm64",
+          identity: "fixture-identity",
+          execFileImpl,
+        }),
+        /owner-writable.*LICENSE.libwebp.txt/,
+      );
+      assert.equal(
+        calls.filter(([, args]) => args.includes("--sign")).length,
+        0,
+        "Readonly resources must be rejected before any signature is written",
+      );
+      await chmod(license, 0o644);
+    }
     await finalizePackagedMikikoComputerUse(context, {
       arch: "arm64",
       identity: "fixture-identity",

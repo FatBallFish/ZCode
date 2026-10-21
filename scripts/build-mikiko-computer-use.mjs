@@ -13,6 +13,7 @@ import {
 } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeMacBundleOwnerWrite } from "./macos-bundle-permissions.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepoRoot = resolve(dirname(scriptPath), "..");
@@ -363,6 +364,9 @@ export async function buildMikikoComputerUse(options = {}) {
       "CI production native builds require an explicit Developer ID signing identity.",
     );
   const builderSha256 = sha256(await readFile(scriptPath));
+  const bundlePermissionsSha256 = sha256(
+    await readFile(new URL("./macos-bundle-permissions.mjs", import.meta.url)),
+  );
   const jobs = options.jobs ?? 4;
   if (!Number.isInteger(jobs) || jobs < 1 || jobs > 32)
     throw new Error("jobs must be an integer from 1 to 32.");
@@ -425,6 +429,7 @@ export async function buildMikikoComputerUse(options = {}) {
         arch: plan.arch,
         configuration: plan.configuration,
         builder: builderSha256,
+        bundlePermissions: bundlePermissionsSha256,
         icon: sha256(await readFile(icon)),
       }),
     );
@@ -518,6 +523,7 @@ export async function buildMikikoComputerUse(options = {}) {
     await copyFile(join(dependency, "LICENSE"), join(bundleResources, "LICENSE.libwebp.txt"));
     await writeFile(join(contents, "Info.plist"), infoPlist(plan, inputDigest));
     await run("plutil", ["-lint", join(contents, "Info.plist")], { logPath });
+    await normalizeMacBundleOwnerWrite(app);
     await run(
       "codesign",
       [
@@ -564,6 +570,7 @@ export async function buildMikikoComputerUse(options = {}) {
       },
       buildInputSha256: inputDigest,
       builderSha256,
+      bundlePermissionsSha256,
       swift,
       architecture: plan.arch,
       configuration: plan.configuration,

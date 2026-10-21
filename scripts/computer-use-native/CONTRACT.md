@@ -81,3 +81,13 @@ window is raised, never an arbitrary first app window. Endpoints stay inside tha
 window. An independent stdio EOF monitor shuts down only its owned native socket even during a synchronous request. Existing action scope checks owning connection EOF before each step. A
 preallocated mouse-up is posted exactly once in cleanup at the last delivered point,
 even after cancellation; lease release still follows synchronous cleanup.
+
+## Owner-write before signing
+
+SwiftPM checkouts may contain read-only license files. The builder normalizes only
+its newly assembled App's regular files/directories to add owner-write, preserving
+content, executable bits and other permissions, before the first codesign. It never
+follows symlinks or changes the dependency checkout. Desktop staging and afterPack
+reject non-owner-writable Helper entries without repairing signed inputs. The
+policy source digest participates in the native build input and provenance.
+See `specs/desktop/macos-auto-update-bundle-permissions.md` for the ShipIt regression.

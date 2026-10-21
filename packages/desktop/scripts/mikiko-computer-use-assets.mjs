@@ -5,6 +5,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join, resolve } from "node:path";
 import { createRequire } from "node:module";
+import { assertMacBundleOwnerWrite } from "../../../scripts/macos-bundle-permissions.mjs";
 
 const execute = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -40,6 +41,7 @@ export async function stageMikikoComputerUseResources({ repoRoot, arch }) {
   const binary = join(source, nativeAppName, "Contents/MacOS/mikiko-computer-use");
   const proof = JSON.parse(await readFile(join(source, "provenance.json"), "utf8"));
   validateProductionNativeProvenance(proof, arch, hash(await readFile(binary)));
+  await assertMacBundleOwnerWrite(join(source, nativeAppName));
   await execute("/usr/bin/codesign", ["--verify", "--strict", join(source, nativeAppName)]);
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
@@ -111,6 +113,8 @@ export async function finalizePackagedMikikoComputerUse(context, options = {}) {
   const gateway = JSON.parse(await readFile(join(root, "gateway-provenance.json"), "utf8"));
   if (hash(await readFile(join(root, "production-server.mjs"))) !== gateway.sha256)
     throw new Error("Packaged Computer Use gateway hash mismatch.");
+  // 旧签名缓存或复制阶段引入只读文件时，必须在签名前拒绝，不能留给ShipIt安装时失败。
+  await assertMacBundleOwnerWrite(app);
   if (options.identity) {
     for (const target of [binary, app])
       await run(
