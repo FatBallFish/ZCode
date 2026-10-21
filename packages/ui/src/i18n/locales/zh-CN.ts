@@ -3290,6 +3290,13 @@ const zhCN: Record<string, string> = {
   "settings.toolSearch.auto": "自动",
   "settings.toolSearch.local": "本地",
   "settings.toolSearch.off": "关闭",
+  "settings.agentContextPreset": "上下文策略预设",
+  "settings.agentContextPresetDescription":
+    "联合调整系统提示词的缓存断点布局与会话压缩算法，影响缓存命中率和长会话压缩行为。新建会话或应用重启后恢复会话时生效，当前会话保持原策略。",
+  "settings.agentContextPreset.default": "默认",
+  "settings.agentContextPreset.fused": "融合优化",
+  "settings.agentContextPreset.deepseek-style": "DeepSeek 风格",
+  "settings.agentContextPreset.codex-style": "Codex 风格",
   "settings.nativeSearchEnhancements": "增强 Find 和 Grep",
   "settings.nativeSearchEnhancementsDescription":
     "在新建会话或应用重启后恢复的会话中使用增强 Find 和 Grep。当前会话保持现有设置；Windows 的 Find 保持不变。",

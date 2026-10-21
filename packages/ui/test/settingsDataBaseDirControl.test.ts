@@ -198,6 +198,7 @@ async function renderGeneralSection(
       onTerminalFontFamilyChange: vi.fn(async () => {}),
       onNativeSearchEnhancementsEnabledChange: vi.fn(async () => {}),
       onToolSearchModeChange: vi.fn(async () => {}),
+      onAgentContextPresetChange: vi.fn(async () => {}),
       onDesktopChromiumHardwareAccelerationChange: vi.fn(async () => {}),
       onCloseToTrayOnWindowsChange: vi.fn(async () => {}),
       onKeepAwakeWhileRunningChange: vi.fn(async () => {}),

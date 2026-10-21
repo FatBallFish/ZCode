@@ -47,6 +47,24 @@ describe("app settings", () => {
     }
   });
 
+  it("keeps agent context preset optional and accepts only the four presets", () => {
+    // 缺省不落库：undefined 走 core default 预设，不能像 toolSearchMode 一样写默认值。
+    expect(appSettingsSchema.parse({}).agentContextPreset).toBeUndefined();
+    expect(appSettingsPatchSchema.parse({})).not.toHaveProperty("agentContextPreset");
+    for (const preset of ["default", "fused", "deepseek-style", "codex-style"]) {
+      expect(appSettingsSchema.parse({ agentContextPreset: preset }).agentContextPreset).toBe(
+        preset,
+      );
+      expect(appSettingsPatchSchema.parse({ agentContextPreset: preset }).agentContextPreset).toBe(
+        preset,
+      );
+    }
+    for (const preset of ["legacy", "invalid", true, null]) {
+      expect(appSettingsPatchSchema.safeParse({ agentContextPreset: preset }).success).toBe(false);
+      expect(appSettingsSchema.safeParse({ agentContextPreset: preset }).success).toBe(false);
+    }
+  });
+
   it("preserves an explicit startup reconnect preference while keeping old settings optional", () => {
     // 合同 §8.2：旧设置缺字段不触发迁移，Host/UI 继续按 true 解释；显式 false 必须通过完整 schema。
     const parsed = appSettingsSchema.parse({});

@@ -2715,6 +2715,28 @@ describe("ZCode Protocol", () => {
     ).toBe(false);
   });
 
+  it("keeps agent context preset optional for old Host compatibility", () => {
+    // 兼容旧 Host：缺字段时 CLI 按 default 预设运行，不落默认值。
+    expect(
+      zcodeSessionRuntimePreferencesResultSchema.parse({ nativeSearchEnhancementsEnabled: true })
+        .agentContextPreset,
+    ).toBeUndefined();
+    for (const preset of ["default", "fused", "deepseek-style", "codex-style"]) {
+      expect(
+        zcodeSessionRuntimePreferencesResultSchema.parse({
+          nativeSearchEnhancementsEnabled: true,
+          agentContextPreset: preset,
+        }).agentContextPreset,
+      ).toBe(preset);
+    }
+    expect(
+      zcodeSessionRuntimePreferencesResultSchema.safeParse({
+        nativeSearchEnhancementsEnabled: true,
+        agentContextPreset: "legacy",
+      }).success,
+    ).toBe(false);
+  });
+
   it("keeps runtime preference compatibility by defaulting missing fields", () => {
     expect(DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY).toBe("preflight-v1");
     expect(

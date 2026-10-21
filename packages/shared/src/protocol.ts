@@ -7,7 +7,7 @@ import type { WorkspacePurpose } from "./workspacePurpose.js";
 import type { DynamicWorkflowMode } from "./dynamic-workflow-feature.js";
 import type { EmbeddedBrowserViewportPreference } from "./browser-use/command-metadata.js";
 import type { WorktreeConfig } from "./worktree.js";
-import type { AppToolSearchMode } from "./app-runtime-preferences.js";
+import type { AppAgentContextPreset, AppToolSearchMode } from "./app-runtime-preferences.js";
 
 // ── Domain types ──
 
@@ -369,6 +369,11 @@ export interface AppSettings {
   nativeSearchEnhancementsEnabled?: boolean;
   /** 新建或冷恢复时读取；已有 Runtime 保持原策略。 */
   toolSearchMode?: AppToolSearchMode;
+  /**
+   * Agent 上下文策略预设（系统提示词缓存断点布局 + 会话压缩算法的联合预设）。
+   * 新建或冷恢复 Session 读取；已有 Runtime 保持原策略。缺省 default 保持既有行为。
+   */
+  agentContextPreset?: AppAgentContextPreset;
   /** 新建或冷恢复 Session 是否启用 Memory；默认关闭。 */
   memoryEnabled?: boolean;
   onboardingOccupation?:

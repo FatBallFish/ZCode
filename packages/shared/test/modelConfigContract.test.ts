@@ -5,6 +5,25 @@ import {
   completeEnumOptionSpecDataSchema,
 } from "@zcode/shared/model-config";
 
+function completeProperties() {
+  return {
+    requiresMfjsToolSchema: false,
+    contextWindow: 128000,
+    inputFormat: {
+      supportsText: true,
+      supportsImage: false,
+      supportsVideo: false,
+      supportsAudio: false,
+      supportsPdf: false,
+    },
+    outputFormat: { supportsText: true },
+    supportsToolCall: true,
+    supportsJsonSchemaOutput: false,
+    supportsNativeWebSearch: false,
+    supportsMidConversationSystem: false,
+  };
+}
+
 describe("共享 Model 数据合同", () => {
   it("拒绝未发布的旧格式名字，不双读、不静默丢字段", () => {
     for (const key of ["input_format", "output_format"]) {
@@ -40,5 +59,21 @@ describe("共享 Model 数据合同", () => {
     expect(completeEnumOptionSpecDataSchema.safeParse({ values: ["high"], map: "{" }).success).toBe(
       false,
     );
+  });
+
+  it("promptCacheKeyMode 是可选枚举：接受 auto/on/off 与缺省，拒绝非法值", () => {
+    for (const mode of ["auto", "on", "off"]) {
+      expect(modelPropertiesDataSchema.safeParse({ promptCacheKeyMode: mode }).success).toBe(true);
+      expect(
+        completeModelPropertiesDataSchema.safeParse({
+          ...completeProperties(),
+          promptCacheKeyMode: mode,
+        }).success,
+      ).toBe(true);
+    }
+    expect(modelPropertiesDataSchema.safeParse({ promptCacheKeyMode: "always" }).success).toBe(
+      false,
+    );
+    expect(completeModelPropertiesDataSchema.safeParse(completeProperties()).success).toBe(true);
   });
 });

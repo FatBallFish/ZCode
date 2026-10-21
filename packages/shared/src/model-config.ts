@@ -75,6 +75,9 @@ export const completeModelPropertiesDataSchema = z
     supportsJsonSchemaOutput: z.boolean(),
     supportsNativeWebSearch: z.boolean(),
     supportsMidConversationSystem: z.boolean(),
+    // openai-responses wire 的 prompt_cache_key 发送策略：auto=仅 gpt 前缀模型发送（默认），
+    // on=强制发送，off=禁用。可选能力字段：缺省视为 auto，避免破坏既有完整配置。
+    promptCacheKeyMode: z.enum(["auto", "on", "off"]).optional(),
   })
   .strict();
 export const modelPropertiesDataSchema = z

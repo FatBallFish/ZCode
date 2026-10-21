@@ -3865,6 +3865,99 @@ describe("ZCodeProtocolAgentServer", () => {
     }
   });
 
+  it("passes the Host-resolved agent context preset into the runtime config", async () => {
+    const createdAppOptions: ZCodeAppOptions[] = [];
+    const server = new ZCodeProtocolAgentServer({
+      createZCodeApp: (options) => {
+        createdAppOptions.push(options);
+        return createFakeApp(options);
+      },
+      cwd: workspace.workspacePath,
+      version: "test-version",
+    });
+    // 旧 Host 缺字段时保持 undefined（core 落到 default 预设），新 Host 下发即透传。
+    let agentContextPreset: "fused" | undefined;
+    attachSessionRuntimePreferencesResponder(server, () => ({
+      nativeSearchEnhancementsEnabled: true,
+      memoryEnabled: false,
+      agentContextPreset,
+    }));
+
+    await requestResult(server, {
+      id: 1,
+      method: zcodeProtocolMethods.sessionCreate,
+      params: { workspace },
+    });
+    expect(createdAppOptions[0]?.runtimeConfig?.contextPreset).toBeUndefined();
+
+    agentContextPreset = "fused";
+    await requestResult(server, {
+      id: 2,
+      method: zcodeProtocolMethods.sessionCreate,
+      params: { workspace },
+    });
+    expect(createdAppOptions[1]?.runtimeConfig?.contextPreset).toBe("fused");
+  });
+
+  it.each([
+    ["codex-style", "codex-style"],
+    ["  deepseek-style  ", "deepseek-style"],
+  ])(
+    "falls back to ZCODE_AGENT_CONTEXT_PRESET for headless session creation (%s)",
+    async (envValue, expectedPreset) => {
+      const createdAppOptions: ZCodeAppOptions[] = [];
+      const server = new ZCodeProtocolAgentServer({
+        createZCodeApp: (options) => {
+          createdAppOptions.push(options);
+          return createFakeApp(options);
+        },
+        cwd: workspace.workspacePath,
+        // 不设置 notification sink：无 Host client（-32020）时走 headless 兼容 fallback。
+        env: { ZCODE_AGENT_CONTEXT_PRESET: envValue },
+        version: "test-version",
+      });
+
+      await requestResult(server, {
+        id: 1,
+        method: zcodeProtocolMethods.sessionCreate,
+        params: { workspace },
+      });
+
+      expect(createdAppOptions[0]?.runtimeConfig?.contextPreset).toBe(expectedPreset);
+    },
+  );
+
+  it("ignores an invalid ZCODE_AGENT_CONTEXT_PRESET value with a warn log", async () => {
+    const createdAppOptions: ZCodeAppOptions[] = [];
+    const logs: RecordedLog[] = [];
+    const server = new ZCodeProtocolAgentServer({
+      createZCodeApp: (options) => {
+        createdAppOptions.push(options);
+        return createFakeApp(options);
+      },
+      cwd: workspace.workspacePath,
+      env: { ZCODE_AGENT_CONTEXT_PRESET: "claude-style" },
+      loggerFactory: createProtocolTestLoggerFactory(logs),
+      version: "test-version",
+    });
+
+    await requestResult(server, {
+      id: 1,
+      method: zcodeProtocolMethods.sessionCreate,
+      params: { workspace },
+    });
+
+    // 非法值忽略并回到 default 既有行为，不阻塞 runtime 创建。
+    expect(createdAppOptions[0]?.runtimeConfig?.contextPreset).toBeUndefined();
+    expect(logs).toContainEqual(
+      expect.objectContaining({
+        level: "warn",
+        message: "Invalid ZCODE_AGENT_CONTEXT_PRESET value ignored",
+        context: expect.objectContaining({ value: "claude-style" }),
+      }),
+    );
+  });
+
   it.each([undefined, "remote:ssh:example.test:22:dev:/workspace/app"])(
     "injects pull access only into advertised local sessions (%s)",
     async (workspaceIdentity) => {
@@ -7925,6 +8018,7 @@ function attachSessionRuntimePreferencesResponder(
   resolvePreferences: (scope: "runtime-materialization" | "user-execution") => {
     nativeSearchEnhancementsEnabled: boolean;
     toolSearchMode?: "auto" | "local" | "off";
+    agentContextPreset?: "default" | "fused" | "deepseek-style" | "codex-style";
     memoryEnabled?: boolean;
     subagentRuntimeConfigEnabled?: boolean;
     modelContextBudgetStrategy?: "legacy" | "preflight-v1";

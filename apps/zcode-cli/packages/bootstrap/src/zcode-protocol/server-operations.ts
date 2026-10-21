@@ -13,7 +13,12 @@ import { resolveEffectiveBashShellSelection } from "@zcode/adapters/exec";
 import { inputIntentMetadata } from "../zcode-protocol-v4/commands/input-intent.js";
 import { createModelExecutionContext } from "./model-execution.js";
 import type { SendInputOptions } from "../app/types.js";
-import { repairPersistedRemoteSessionPaths, type TurnAttachment } from "@zcode/core";
+import {
+  isAgentContextPreset,
+  repairPersistedRemoteSessionPaths,
+  type AgentContextPreset,
+  type TurnAttachment,
+} from "@zcode/core";
 import {
   CoreErrorType,
   SESSION_ENTRY_TARGET_COMPLETION_VERIFICATION,
@@ -168,6 +173,8 @@ interface SessionStartupPreferences {
   modelContextBudgetStrategy: ZCodeModelContextBudgetStrategy;
   nativeSearchEnhancementsEnabled: boolean;
   toolSearchMode: AppToolSearchMode;
+  /** 冷会话固定的上下文策略预设；undefined = core default 预设（保持既有行为）。 */
+  agentContextPreset?: AgentContextPreset;
   resolveInitialBashShellSelection: () => Promise<ExecutionShellSelection | undefined>;
 }
 
@@ -3289,6 +3296,25 @@ function resolveProtocolBashShellSelection(
   }).selection;
 }
 
+// Headless（无 Host client）或旧 Host 无法提供 runtime preferences 时的上下文预设
+// fallback；Host 在场时设置面板经协议下发是唯一来源，不读该变量，避免出现第二条写入路径。
+const AGENT_CONTEXT_PRESET_ENV = "ZCODE_AGENT_CONTEXT_PRESET";
+
+function resolveHeadlessAgentContextPreset(
+  context: ZCodeProtocolAgentServerContext,
+): AgentContextPreset | undefined {
+  const raw = (context.deps.env ?? process.env)[AGENT_CONTEXT_PRESET_ENV]?.trim();
+  if (!raw) return undefined;
+  if (isAgentContextPreset(raw)) return raw;
+  // 非法值忽略并回到 default 既有行为，不能让一个 env 拼写错误阻塞 runtime 创建。
+  context.logger?.warn("Invalid ZCODE_AGENT_CONTEXT_PRESET value ignored", {
+    event: "zcode_protocol.runtime_preferences.invalid_context_preset_env",
+    module: "bootstrap.zcode_protocol",
+    value: raw,
+  });
+  return undefined;
+}
+
 async function requestSessionRuntimePreferences(
   context: ZCodeProtocolAgentServerContext,
   sessionId: SessionId,
@@ -3353,12 +3379,14 @@ async function requestSessionRuntimePreferences(
     if (error instanceof ProtocolRequestError && (error.code === -32601 || error.code === -32020)) {
       // 兼容旧 Host 或无 Host 的纯 CLI 创建路径；Memory 服从产品默认关闭，
       // 增强搜索维持原有默认开启，其他协议/传输错误仍阻止 runtime 创建。
+      // 上下文预设无本地设置文件来源，headless 经 ZCODE_AGENT_CONTEXT_PRESET 环境变量选择。
       return {
         askUserQuestionAutoResolutionEnabled: true,
         memoryEnabled: false,
         modelContextBudgetStrategy: DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
         nativeSearchEnhancementsEnabled: true,
         toolSearchMode: "off",
+        agentContextPreset: resolveHeadlessAgentContextPreset(context),
       };
     }
     throw error;
@@ -3379,6 +3407,7 @@ async function resolveSessionStartupPreferences(
       modelContextBudgetStrategy: DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
       nativeSearchEnhancementsEnabled: source.parent.nativeSearchEnhancementsEnabled,
       toolSearchMode: source.parent.toolSearchMode,
+      agentContextPreset: source.parent.agentContextPreset,
       resolveInitialBashShellSelection: async () => inheritedShellSelection,
     };
   }
@@ -3400,6 +3429,7 @@ async function resolveSessionStartupPreferences(
     modelContextBudgetStrategy: DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
     nativeSearchEnhancementsEnabled: runtimePreferences.nativeSearchEnhancementsEnabled,
     toolSearchMode: runtimePreferences.toolSearchMode,
+    agentContextPreset: runtimePreferences.agentContextPreset,
     resolveInitialBashShellSelection: async () => {
       const executionPreferences = await requestSessionRuntimePreferences(
         context,
@@ -3495,6 +3525,9 @@ async function createRecord(
       toolDisallowlist: resolveSessionToolDenylist(params, workspace),
       nativeSearchEnhancementsEnabled: startupPreferences.nativeSearchEnhancementsEnabled,
       toolSearch: { mode: startupPreferences.toolSearchMode },
+      // 上下文预设与 toolSearchMode 同语义：只在 session 创建/恢复边界写入，会话中不变。
+      // undefined 时 core 落到 default 预设，保持既有行为。
+      contextPreset: startupPreferences.agentContextPreset,
       modelContextBudgetStrategy: startupPreferences.modelContextBudgetStrategy,
       // Memory Settings 是现有 CLI features.memory/use 之外的总开关。只在关闭时
       // 写入 override，避免开启值反向覆盖用户已有的 CLI 禁用配置。
@@ -3580,6 +3613,7 @@ async function createRecord(
     modelContextBudgetStrategy: startupPreferences.modelContextBudgetStrategy,
     nativeSearchEnhancementsEnabled: startupPreferences.nativeSearchEnhancementsEnabled,
     toolSearchMode: startupPreferences.toolSearchMode,
+    agentContextPreset: startupPreferences.agentContextPreset,
     ...(parentSessionId ? { parentSessionId } : {}),
     persistence: "persistence" in params ? (params.persistence ?? "immediate") : "immediate",
     protocolEventSequences: new Map(),

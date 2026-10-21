@@ -82,7 +82,10 @@ import {
 } from "../browser-use/backend.js";
 import { browserClientModeSchema, browserCommandSchema } from "../browser-use/commands.js";
 import { browserCommandResultSchema } from "../browser-use/result.js";
-import { appToolSearchModeSchema } from "../app-runtime-preferences.js";
+import {
+  appAgentContextPresetSchema,
+  appToolSearchModeSchema,
+} from "../app-runtime-preferences.js";
 import { integratedTerminalShellSelectionSchema } from "../validationAppSettings.js";
 import { zcodeTaskModeSchema } from "../zcode-task-mode-schema.js";
 import { OFFICIAL_MCP_AUTH_PORT_FAILURE_REASONS } from "../official-mcp-auth.js";
@@ -2116,6 +2119,9 @@ export const zcodeSessionRuntimePreferencesResultSchema = z
     additionalDirectories: z.array(nonEmptyString).max(256).optional(),
     nativeSearchEnhancementsEnabled: z.boolean(),
     toolSearchMode: appToolSearchModeSchema.default("off"),
+    // 上下文策略预设（缓存断点布局 + 压缩算法联合预设）：新建或冷恢复 Session 读取；
+    // 已有 Runtime 保持原策略。缺省 default 保持既有行为；兼容旧 Host 缺字段按 default 运行。
+    agentContextPreset: appAgentContextPresetSchema.optional(),
     subagentRuntimeConfigEnabled: z.boolean().optional(),
     memoryEnabled: z.boolean().default(false),
     askUserQuestionAutoResolutionEnabled: z.boolean().default(true),

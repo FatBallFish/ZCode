@@ -114,7 +114,7 @@ import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { cn } from "@/components/lib/utils.js";
 import { useSelectDirectory } from "@/hooks/usePlatform.js";
 import { ServiceProvider, useServices } from "@/hooks/useServices.js";
-import type { AppToolSearchMode } from "@zcode/shared";
+import type { AppAgentContextPreset, AppToolSearchMode } from "@zcode/shared";
 import { useSettings } from "@/hooks/useSettingService.js";
 import type { CreateTaskRequest, RemoteConnectionOpenPreference } from "@/app-shell/types.js";
 import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
@@ -800,6 +800,7 @@ export function SettingsPage({
   }, [sharedSettings?.recentProjects, workspaceTabs]);
   const memoryEnabled = sharedSettings?.memoryEnabled === true;
   const toolSearchMode = sharedSettings?.toolSearchMode ?? "off";
+  const agentContextPreset = sharedSettings?.agentContextPreset ?? "default";
   const nativeSearchEnhancementsEnabled = sharedSettings?.nativeSearchEnhancementsEnabled !== false;
   const askUserQuestionAutoResolutionEnabled =
     sharedSettings?.askUserQuestionAutoResolutionEnabled !== false;
@@ -1052,6 +1053,18 @@ export function SettingsPage({
         trigger: "select",
         operation: () => updateSharedSettings({ toolSearchMode: mode }),
         completed: { resultSource: "shared_settings", valueAfter: mode },
+      });
+    },
+    [updateSharedSettings],
+  );
+  const handleAgentContextPresetChange = useCallback(
+    async (preset: AppAgentContextPreset) => {
+      await runSettingsActionAsync({
+        featureId: "settings.search",
+        action: "change_agent_context_preset",
+        trigger: "select",
+        operation: () => updateSharedSettings({ agentContextPreset: preset }),
+        completed: { resultSource: "shared_settings", valueAfter: preset },
       });
     },
     [updateSharedSettings],
@@ -1933,6 +1946,8 @@ export function SettingsPage({
                               integratedTerminalShellOptions={integratedTerminalShellOptions}
                               toolSearchMode={toolSearchMode}
                               onToolSearchModeChange={handleToolSearchModeChange}
+                              agentContextPreset={agentContextPreset}
+                              onAgentContextPresetChange={handleAgentContextPresetChange}
                               nativeSearchEnhancementsEnabled={nativeSearchEnhancementsEnabled}
                               httpProxy={httpProxy}
                               httpProxyNoProxy={httpProxyNoProxy}

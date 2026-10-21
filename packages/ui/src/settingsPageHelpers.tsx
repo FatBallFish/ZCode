@@ -1,14 +1,17 @@
 /* oxlint-disable eslint(max-lines) -- settings helper 聚合多个设置分组；终端、网络与自动归档多侧能力暂时超过行数限制。 */
 import type {
+  AppAgentContextPreset,
   AppToolSearchMode,
   IntegratedTerminalShellOption,
   IntegratedTerminalShellSelection,
   LocalePreference,
   ZCodeInteractionBehavior,
 } from "@zcode/shared";
-import { appToolSearchModeSchema } from "@zcode/shared";
+import { appAgentContextPresetSchema, appToolSearchModeSchema } from "@zcode/shared";
 import {
   TID_SETTINGS_ASK_USER_QUESTION_AUTO_RESOLUTION_SWITCH,
+  TID_SETTINGS_AGENT_CONTEXT_PRESET_OPTION,
+  TID_SETTINGS_AGENT_CONTEXT_PRESET_SELECT,
   TID_SETTINGS_NATIVE_SEARCH_SWITCH,
   TID_SETTINGS_TOOL_SEARCH_SELECT,
   TID_SETTINGS_TOOL_SEARCH_OPTION,
@@ -146,6 +149,8 @@ export function GeneralSectionContent({
   integratedTerminalShellOptions = [],
   toolSearchMode = "off",
   onToolSearchModeChange,
+  agentContextPreset = "default",
+  onAgentContextPresetChange,
   nativeSearchEnhancementsEnabled,
   httpProxy = "",
   httpProxyNoProxy = "",
@@ -210,6 +215,8 @@ export function GeneralSectionContent({
   integratedTerminalShellOptions?: IntegratedTerminalShellOption[];
   toolSearchMode?: AppToolSearchMode;
   onToolSearchModeChange: (mode: AppToolSearchMode) => Promise<void>;
+  agentContextPreset?: AppAgentContextPreset;
+  onAgentContextPresetChange: (preset: AppAgentContextPreset) => Promise<void>;
   nativeSearchEnhancementsEnabled: boolean;
   httpProxy?: string;
   httpProxyNoProxy?: string;
@@ -565,6 +572,39 @@ export function GeneralSectionContent({
                     data-testid={testId(TID_SETTINGS_TOOL_SEARCH_OPTION, mode)}
                   >
                     {intl.formatMessage({ id: `settings.toolSearch.${mode}` })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
+        <SettingsRow
+          label={intl.formatMessage({ id: "settings.agentContextPreset" })}
+          description={intl.formatMessage({
+            id: "settings.agentContextPresetDescription",
+          })}
+          control={
+            <Select
+              value={agentContextPreset}
+              onValueChange={(value) => {
+                void onAgentContextPresetChange(appAgentContextPresetSchema.parse(value));
+              }}
+            >
+              <SelectTrigger
+                size="lg"
+                className="w-[260px] min-w-0 justify-between"
+                data-testid={TID_SETTINGS_AGENT_CONTEXT_PRESET_SELECT}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {appAgentContextPresetSchema.options.map((preset) => (
+                  <SelectItem
+                    key={preset}
+                    value={preset}
+                    data-testid={testId(TID_SETTINGS_AGENT_CONTEXT_PRESET_OPTION, preset)}
+                  >
+                    {intl.formatMessage({ id: `settings.agentContextPreset.${preset}` })}
                   </SelectItem>
                 ))}
               </SelectContent>

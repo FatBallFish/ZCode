@@ -3515,6 +3515,13 @@ const enUS: Record<string, string> = {
   "settings.toolSearch.auto": "Auto",
   "settings.toolSearch.local": "Local",
   "settings.toolSearch.off": "Off",
+  "settings.agentContextPreset": "Context preset",
+  "settings.agentContextPresetDescription":
+    "Jointly adjusts the system prompt cache breakpoint layout and the session compaction algorithm, affecting cache hit rate and long-session compaction behavior. Applies to new sessions and sessions restored after an app restart; active sessions keep their current preset.",
+  "settings.agentContextPreset.default": "Default",
+  "settings.agentContextPreset.fused": "Fused",
+  "settings.agentContextPreset.deepseek-style": "DeepSeek style",
+  "settings.agentContextPreset.codex-style": "Codex style",
   "settings.nativeSearchEnhancements": "Enhanced Find and Grep",
   "settings.nativeSearchEnhancementsDescription":
     "Use enhanced Find and Grep in new sessions and sessions restored after an app restart. Active sessions keep their current setting; Find remains unchanged on Windows.",
