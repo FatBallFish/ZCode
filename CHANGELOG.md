@@ -2,11 +2,23 @@
 
 ## [Unreleased]
 
+## [1.1.5](https://github.com/FatBallFish/ZCode/compare/v1.1.4...v1.1.5) (2026-10-22)
+
+### ✨ 新增
+
+- 系统设置新增「上下文策略预设」（默认/融合优化/DeepSeek 风格/Codex 风格），统一控制缓存断点布局与会话压缩算法；默认预设保持既有行为。
+- Windows/Linux 桌面实验性 Computer Use：交叉构建链 + experimental provenance + 设置页 BETA 标识与实验警告；macOS 行为不变。
+
 ### 🛠 修复
 
 - 修复Computer Use已开启但会话没有原生工具的问题，并修复网关在插件宿主下启动后断开的问题。
 - 修复智谱官方账号调用模型时误走自建服务导致404的问题，恢复官方CodingPlan模型网关。
 - 修复 macOS 更新安装时，Computer Use 随包文件只读导致安装器失败的问题，并在签名前检查资源权限。
+
+### ⚡ 优化
+
+- openai-responses 链路按会话携带 prompt_cache_key（gpt 前缀模型自动启用，可按模型配置 auto/on/off），中转与官方链路缓存命中率显著提升。
+
 
 ## [1.1.4](https://github.com/FatBallFish/ZCode/compare/v1.1.3...v1.1.4) (2026-10-21)
 
