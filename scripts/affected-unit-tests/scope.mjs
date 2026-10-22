@@ -29,9 +29,35 @@ async function resolvePushBase(root, head, remote) {
 }
 
 async function firstPushBase(root, head) {
-  // 首次推送没有 remote SHA；只使用已确认的集成分支，缺失时严格报错，不猜测其他分支。
-  const staging = await commit(root, "origin/staging");
-  return (await git(root, ["merge-base", staging, head])).toString().trim();
+  // 首次推送（新分支/新 tag）没有 remote SHA。优先上游集成分支 origin/staging；
+  // fork/独立仓库没有 staging 时回退当前分支的远端跟踪与远端默认分支——
+  // 2026-10-22 事故：v1.1.5 tag 推送因 staging 缺失被 pre-push 整体阻塞。
+  // 全部候选缺失时仍严格报错，不猜测任意分支。
+  const upstream = await run(
+    "git",
+    ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
+    { cwd: root, allowFailure: true },
+  );
+  const candidates = ["origin/staging"];
+  if (upstream.code === 0) {
+    const tracking = upstream.stdout.toString().trim();
+    const originRef = tracking.startsWith("origin/")
+      ? tracking
+      : `origin/${tracking.replace(/^[^/]+\//u, "")}`;
+    candidates.push(originRef);
+  }
+  candidates.push("origin/main", "origin/master", "main", "master");
+  for (const candidate of candidates) {
+    const check = await run("git", ["rev-parse", "--verify", "--quiet", `${candidate}^{commit}`], {
+      cwd: root,
+      allowFailure: true,
+    });
+    if (check.code === 0) {
+      const base = check.stdout.toString().trim();
+      return (await git(root, ["merge-base", base, head])).toString().trim();
+    }
+  }
+  throw new Error("无法确定首次推送基线：origin/staging、上游远端跟踪与远端默认分支均不存在");
 }
 
 /** 只解析比较基线；改动文件与关联测试全部由 Vitest 官方选择。 */
@@ -60,7 +86,12 @@ export async function resolveScope(root, options = {}, env = process.env) {
       if (entry.length !== 4 || !/^[\da-f]+$/iu.test(entry[1]) || !/^[\da-f]+$/iu.test(entry[3]))
         throw new Error("推送 ref 输入无效");
       if (/^0+$/u.test(entry[1])) continue;
-      if ((await commit(root, entry[1])) !== head) throw new Error("推送目标不是当前 HEAD");
+      // HEAD 一致性只约束分支推送；补推/重推历史 tag 是合法操作，不引入新代码，
+      // 直接跳过（范围内无变更），否则会在 tag 指向非 HEAD 提交时误伤发布流程。
+      if ((await commit(root, entry[1])) !== head) {
+        if (entry[0].startsWith("refs/tags/")) continue;
+        throw new Error("推送目标不是当前 HEAD");
+      }
       // hook 曾直接使用 remote SHA，导致显式基线变量失效；校验目标后优先使用调用方指定基线。
       bases.push(
         explicit

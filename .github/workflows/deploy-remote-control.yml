@@ -44,7 +44,14 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # pnpm 偶发安装竞态（_tmp_ 目录 rename ENOENT，v1.1.5 部署实测）重试兜底。
+        run: |
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then exit 0; fi
+            echo "::warning::pnpm install 失败（第 ${attempt}/3 次），退避后重试"
+            sleep $((attempt * 15))
+          done
+          exit 1
 
       - name: Build relay bundle
         run: pnpm --filter @zcode/relay-server run build:bundle
@@ -97,7 +104,14 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # pnpm 偶发安装竞态（_tmp_ 目录 rename ENOENT，v1.1.5 部署实测）重试兜底。
+        run: |
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then exit 0; fi
+            echo "::warning::pnpm install 失败（第 ${attempt}/3 次），退避后重试"
+            sleep $((attempt * 15))
+          done
+          exit 1
 
       - name: Build phone UI (domain-agnostic)
         run: pnpm --filter @zcode/web run build:remote-pages
@@ -133,7 +147,14 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
+        # pnpm 偶发安装竞态（_tmp_ 目录 rename ENOENT，v1.1.5 部署实测）重试兜底。
+        run: |
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile --ignore-scripts; then exit 0; fi
+            echo "::warning::pnpm install 失败（第 ${attempt}/3 次），退避后重试"
+            sleep $((attempt * 15))
+          done
+          exit 1
 
       - name: Test update downloads against local R2
         run: node scripts/run-isolated-tests.mjs pnpm --filter @zcode/update-service test
